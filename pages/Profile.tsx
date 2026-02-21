@@ -10,6 +10,7 @@ import {
 import { applyTheme, getSavedTheme, ThemeColor, THEMES } from '../src/utils/theme';
 import { useLanguage } from '../src/context/LanguageContext';
 import { languages, dialects } from '../src/utils/translations';
+import Logo from '../components/Logo';
 
 interface ProfileProps {
   user: UserState;
@@ -957,9 +958,12 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
             </button>
 
             {/* App Info */}
-            <div className="text-center pt-6 pb-2">
-              <p className="text-xs text-gray-400">Estilovivo v1.0.0</p>
-              <p className="text-xs text-gray-300 mt-1">Hecho con amor en España</p>
+            <div className="text-center pt-6 pb-2 flex flex-col items-center gap-4">
+              <Logo variant="icon" className="w-16 h-16" />
+              <div>
+                <p className="text-xs text-gray-400">Estilovivo v1.0.0</p>
+                <p className="text-xs text-gray-300 mt-1">Hecho con amor en España</p>
+              </div>
             </div>
           </div>
         </div>

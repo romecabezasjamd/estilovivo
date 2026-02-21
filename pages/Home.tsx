@@ -6,6 +6,7 @@ import {
   Palette, Smartphone, Sync, Moon, Music, BarChart3, Info, ChevronRight, RefreshCcw, Shirt, AlertTriangle
 } from 'lucide-react';
 import { useLanguage } from '../src/context/LanguageContext';
+import Logo from '../components/Logo';
 
 interface HomeProps {
   user: UserState;
@@ -96,7 +97,8 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
   return (
     <div className="p-6 space-y-8 animate-fade-in pb-28">
       {/* Header & Welcome */}
-      <header className="space-y-2 mt-4">
+      <header className="space-y-6 mt-4">
+        <Logo variant="horizontal" />
         <h1 className="text-3xl font-bold text-gray-800 tracking-tight">
           Hola, <span className="text-primary">{user.name}</span>
         </h1>
