@@ -868,6 +868,17 @@ const Wardrobe: React.FC<WardrobeProps> = ({
         <ProductDetailModal
           product={detailItem}
           onClose={() => setDetailItem(null)}
+          onSell={() => {
+            if (selectedGarmentForDetail) {
+              setSelectedForSale(selectedGarmentForDetail);
+              setIsSelling(true);
+            }
+          }}
+          onDelete={() => {
+            if (selectedGarmentForDetail) {
+              onRemoveGarment(selectedGarmentForDetail.id);
+            }
+          }}
         />
       )}
     </div>
