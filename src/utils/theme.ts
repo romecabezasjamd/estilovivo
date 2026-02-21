@@ -1,5 +1,5 @@
 
-export type ThemeColor = 'pink' | 'blue' | 'green' | 'lavender' | 'amber';
+export type ThemeColor = 'pink' | 'blue' | 'green' | 'lavender' | 'amber' | 'rose' | 'indigo' | 'teal' | 'forest' | 'midnight' | 'petrol' | 'coral';
 
 export interface ThemeColors {
     primary: string;
@@ -44,6 +44,55 @@ export const THEMES: Record<ThemeColor, ThemeColors> = {
         dark: '#d97706',
         accent: '#10b981',
         secondary: '#fb923c'
+    },
+    rose: {
+        primary: '#fb7185',
+        light: '#fda4af',
+        dark: '#e11d48',
+        accent: '#2dd4bf',
+        secondary: '#f43f5e'
+    },
+    indigo: {
+        primary: '#6366f1',
+        light: '#818cf8',
+        dark: '#4f46e5',
+        accent: '#fbbf24',
+        secondary: '#4338ca'
+    },
+    teal: {
+        primary: '#14b8a6',
+        light: '#2dd4bf',
+        dark: '#0d9488',
+        accent: '#f59e0b',
+        secondary: '#0f766e'
+    },
+    forest: {
+        primary: '#166534',
+        light: '#22c55e',
+        dark: '#14532d',
+        accent: '#facc15',
+        secondary: '#15803d'
+    },
+    midnight: {
+        primary: '#1e293b',
+        light: '#334155',
+        dark: '#0f172a',
+        accent: '#38bdf8',
+        secondary: '#1e1b4b'
+    },
+    petrol: {
+        primary: '#083344',
+        light: '#0e7490',
+        dark: '#164e63',
+        accent: '#facc15',
+        secondary: '#082f49'
+    },
+    coral: {
+        primary: '#f43f5e',
+        light: '#fb7185',
+        dark: '#e11d48',
+        accent: '#a78bfa',
+        secondary: '#be123c'
     }
 };
 

@@ -778,7 +778,14 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                         {themeKey === 'pink' ? 'Rosa' :
                           themeKey === 'blue' ? 'Azul' :
                             themeKey === 'green' ? 'Verde' :
-                              themeKey === 'lavender' ? 'Lavanda' : 'Ámbar'}
+                              themeKey === 'lavender' ? 'Lavanda' :
+                                themeKey === 'amber' ? 'Ámbar' :
+                                  themeKey === 'rose' ? 'Coral' :
+                                    themeKey === 'indigo' ? 'Índigo' :
+                                      themeKey === 'teal' ? 'Teal' :
+                                        themeKey === 'forest' ? 'Bosque' :
+                                          themeKey === 'midnight' ? 'Noche' :
+                                            themeKey === 'petrol' ? 'Petrol' : 'Vivo'}
                       </span>
                     </button>
                   ))}
