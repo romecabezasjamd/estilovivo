@@ -7,7 +7,7 @@ import {
   Eye, Bookmark, Bell, Shield, Moon, Music, BarChart3, Download,
   HelpCircle, Lock, Palette
 } from 'lucide-react';
-import { applyTheme, getSavedTheme, ThemeColor, THEMES } from '../utils/theme';
+import { applyTheme, getSavedTheme, ThemeColor, THEMES } from '../src/utils/theme';
 
 interface ProfileProps {
   user: UserState;
@@ -337,8 +337,8 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
               key={tab.id}
               onClick={() => setActiveSection(tab.id)}
               className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${activeSection === tab.id
-                  ? 'bg-gradient-to-r from-primary to-primary-dark text-white shadow-lg scale-105'
-                  : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                ? 'bg-gradient-to-r from-primary to-primary-dark text-white shadow-lg scale-105'
+                : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
                 }`}
             >
               <span className={`transition-transform ${activeSection === tab.id ? 'scale-110' : ''}`}>
@@ -688,8 +688,8 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                           }
                         }}
                         className={`py-2.5 px-3 rounded-lg text-xs font-bold transition transform hover:scale-105 ${user.gender === option.id
-                            ? 'bg-gradient-to-br from-primary to-primary-dark text-white shadow-md'
-                            : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                          ? 'bg-gradient-to-br from-primary to-primary-dark text-white shadow-md'
+                          : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
                           }`}
                       >
                         <span className="text-lg block mb-0.5">{option.emoji}</span>
