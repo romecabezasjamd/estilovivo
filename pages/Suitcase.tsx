@@ -1,7 +1,9 @@
+
 import React, { useEffect, useState } from 'react';
 import { Calendar, CloudSun, CheckSquare, Plus, ArrowRight, Trash2, MapPin, ArrowLeft, X, Shirt } from 'lucide-react';
 import { Garment, Trip, TripItem } from '../types';
 import DateRangePicker from '../components/DateRangePicker';
+import { useLanguage } from '../src/context/LanguageContext';
 
 interface SuitcaseProps {
     trips: Trip[];
@@ -13,11 +15,12 @@ interface SuitcaseProps {
 }
 
 const Suitcase: React.FC<SuitcaseProps> = ({ trips, garments, onAddTrip, onDeleteTrip, onUpdateTrip, isEmbedded = false }) => {
+    const { t } = useLanguage();
     // Navigation State
     const [activeTripId, setActiveTripId] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
 
-    // Form State for New Trip — dates are ISO strings like "2026-02-16"
+    // Form State for New Trip
     const [newTripForm, setNewTripForm] = useState({
         destination: '',
         dateStart: '' as string,
@@ -25,7 +28,7 @@ const Suitcase: React.FC<SuitcaseProps> = ({ trips, garments, onAddTrip, onDelet
         garmentIds: [] as string[]
     });
 
-    // Input State for New Item in a Trip
+    // Input States
     const [newItemText, setNewItemText] = useState('');
     const [isAddingItem, setIsAddingItem] = useState(false);
     const [isEditingGarments, setIsEditingGarments] = useState(false);
@@ -44,7 +47,6 @@ const Suitcase: React.FC<SuitcaseProps> = ({ trips, garments, onAddTrip, onDelet
     }, [activeTripId, activeTrip]);
 
     // --- HANDLERS ---
-
     const handleCreateTrip = () => {
         if (!newTripForm.destination || !newTripForm.dateStart) return;
 
@@ -131,7 +133,6 @@ const Suitcase: React.FC<SuitcaseProps> = ({ trips, garments, onAddTrip, onDelet
         setIsEditingGarments(false);
     };
 
-    // Calculate progress for active trip
     const progress = activeTrip
         ? Math.round((activeTrip.items.filter(i => i.checked).length / activeTrip.items.length) * 100) || 0
         : 0;
@@ -142,8 +143,8 @@ const Suitcase: React.FC<SuitcaseProps> = ({ trips, garments, onAddTrip, onDelet
             <div className={`h-full flex flex-col ${isEmbedded ? 'px-6 bg-transparent' : 'p-6 pb-24 bg-blue-50/50'}`}>
                 <header className={`flex justify-between items-end mb-6 ${isEmbedded ? 'mt-2' : 'mt-4'}`}>
                     <div>
-                        <h1 className={`${isEmbedded ? 'text-xl' : 'text-2xl'} font-bold text-gray-800`}>Mis Viajes</h1>
-                        <p className="text-gray-500 text-sm">{trips.length} aventuras planeadas</p>
+                        <h1 className={`${isEmbedded ? 'text-xl' : 'text-2xl'} font-bold text-gray-800`}>{t('myTrips')}</h1>
+                        <p className="text-gray-500 text-sm">{trips.length} {t('plannedAdventures')}</p>
                     </div>
                     <button
                         onClick={() => setIsCreating(true)}
@@ -205,7 +206,6 @@ const Suitcase: React.FC<SuitcaseProps> = ({ trips, garments, onAddTrip, onDelet
         );
     }
 
-    // --- RENDER VIEW: CREATE TRIP ---
     if (isCreating) {
         return (
             <div className={`h-full flex flex-col ${isEmbedded ? 'px-6' : 'bg-white'}`}>
@@ -272,7 +272,6 @@ const Suitcase: React.FC<SuitcaseProps> = ({ trips, garments, onAddTrip, onDelet
                     </div>
                 </div>
 
-                {/* Fixed bottom button — sits right above the nav bar */}
                 <div className="flex-shrink-0 px-6 pb-24 pt-3 bg-white border-t border-gray-100">
                     <button
                         disabled={!newTripForm.destination || !newTripForm.dateStart}
@@ -281,15 +280,11 @@ const Suitcase: React.FC<SuitcaseProps> = ({ trips, garments, onAddTrip, onDelet
                     >
                         Crear Maleta
                     </button>
-                    {newTripForm.garmentIds.length > 0 && (
-                        <p className="text-center text-xs text-gray-400 mt-2">{newTripForm.garmentIds.length} prendas seleccionadas</p>
-                    )}
                 </div>
             </div>
         );
     }
 
-    // --- RENDER VIEW: TRIP DETAILS ---
     return (
         <div className={`h-full flex flex-col ${isEmbedded ? 'px-6 bg-transparent' : 'p-6 bg-blue-50/50'}`}>
             <header className={`flex justify-between items-end mb-6 flex-shrink-0 ${isEmbedded ? 'mt-2' : 'mt-4'}`}>
@@ -298,7 +293,7 @@ const Suitcase: React.FC<SuitcaseProps> = ({ trips, garments, onAddTrip, onDelet
                         <ArrowLeft size={20} />
                     </button>
                     <div>
-                        <h1 className="text-xl font-bold text-gray-800">Maleta</h1>
+                        <h1 className="text-xl font-bold text-gray-800">{t('suitcase')}</h1>
                         <p className="text-gray-500 text-xs">Preparando viaje</p>
                     </div>
                 </div>
@@ -311,7 +306,7 @@ const Suitcase: React.FC<SuitcaseProps> = ({ trips, garments, onAddTrip, onDelet
                         <div className="relative z-10">
                             <div className="flex justify-between items-start mb-6">
                                 <div>
-                                    <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded-md mb-2 inline-block">PRÓXIMO</span>
+                                    <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded-md mb-2 inline-block uppercase">{t('nextTrip')}</span>
                                     <h2 className="text-3xl font-bold text-primary">{activeTrip.destination}</h2>
                                     <div className="flex items-center text-gray-400 text-sm mt-1">
                                         <Calendar size={14} className="mr-1" />
@@ -319,7 +314,7 @@ const Suitcase: React.FC<SuitcaseProps> = ({ trips, garments, onAddTrip, onDelet
                                     </div>
                                 </div>
                                 <div className="flex flex-col items-center bg-gray-50 p-2 rounded-xl border border-gray-100">
-                                    <CloudSun size={24} className="text-gold mb-1" />
+                                    <CloudSun size={24} className="text-yellow-500 mb-1" />
                                     <span className="text-xs font-bold text-gray-600">--°C</span>
                                 </div>
                             </div>
@@ -339,7 +334,7 @@ const Suitcase: React.FC<SuitcaseProps> = ({ trips, garments, onAddTrip, onDelet
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="font-bold text-gray-800 flex items-center">
                                 <CheckSquare size={18} className="mr-2 text-primary" />
-                                Esenciales
+                                {t('essentials')}
                             </h3>
                             <button
                                 onClick={() => setIsAddingItem(!isAddingItem)}
@@ -379,103 +374,6 @@ const Suitcase: React.FC<SuitcaseProps> = ({ trips, garments, onAddTrip, onDelet
                             </ul>
                         </div>
                     </div>
-
-                    <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 mt-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="font-bold text-gray-800 flex items-center">
-                                <Shirt size={18} className="mr-2 text-primary" />
-                                Prendas seleccionadas
-                            </h3>
-                            <button
-                                onClick={() => setIsEditingGarments(true)}
-                                className="text-xs font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-full"
-                            >
-                                Editar
-                            </button>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                            {(activeTrip.garments || []).length === 0 && (
-                                <div className="col-span-2 text-center py-6">
-                                    <Shirt size={32} className="mx-auto text-gray-200 mb-2" />
-                                    <p className="text-sm text-gray-400">No hay prendas seleccionadas</p>
-                                    <button onClick={() => setIsEditingGarments(true)} className="text-xs text-primary font-bold mt-2">Añadir prendas</button>
-                                </div>
-                            )}
-                            {(activeTrip.garments || []).map(garment => (
-                                <div key={garment.id} className="rounded-2xl border border-gray-200 p-2">
-                                    <div className="aspect-[4/3] rounded-xl overflow-hidden bg-gray-100 mb-2">
-                                        <img src={garment.imageUrl} alt={garment.name} className="w-full h-full object-cover" />
-                                    </div>
-                                    <div className="text-sm font-semibold text-gray-800 truncate">{garment.name}</div>
-                                    <div className="text-xs text-gray-400 truncate">{garment.type}</div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* EDIT GARMENTS MODAL — proper fullscreen overlay */}
-                    {isEditingGarments && (
-                        <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center">
-                            <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl animate-fade-in-up flex flex-col" style={{ maxHeight: '85vh' }}>
-                                {/* Header */}
-                                <div className="flex justify-between items-center p-6 border-b border-gray-100 flex-shrink-0">
-                                    <div>
-                                        <h3 className="text-lg font-bold text-gray-800">Editar Prendas</h3>
-                                        <p className="text-xs text-gray-400 mt-0.5">{editedGarmentIds.length} seleccionadas</p>
-                                    </div>
-                                    <button onClick={() => { setIsEditingGarments(false); setEditedGarmentIds(activeTrip.garments?.map(g => g.id) || []); }}>
-                                        <X size={24} className="text-gray-400" />
-                                    </button>
-                                </div>
-
-                                {/* Scrollable garment grid */}
-                                <div className="flex-1 overflow-y-auto p-6" style={{ scrollbarWidth: 'thin' }}>
-                                    {garments.length === 0 ? (
-                                        <div className="text-center py-10">
-                                            <Shirt size={40} className="mx-auto text-gray-200 mb-3" />
-                                            <p className="text-gray-400 text-sm">No tienes prendas en tu armario</p>
-                                        </div>
-                                    ) : (
-                                        <div className="grid grid-cols-2 gap-3">
-                                            {garments.map(garment => {
-                                                const isSelected = editedGarmentIds.includes(garment.id);
-                                                return (
-                                                    <button
-                                                        key={garment.id}
-                                                        type="button"
-                                                        onClick={() => toggleEditGarment(garment.id)}
-                                                        className={`text-left rounded-2xl border p-2 transition-all ${isSelected ? 'border-primary bg-primary/5 ring-2 ring-primary/20' : 'border-gray-200 bg-white'}`}
-                                                    >
-                                                        <div className="aspect-[4/3] rounded-xl overflow-hidden bg-gray-100 mb-2 relative">
-                                                            <img src={garment.imageUrl} alt={garment.name} className="w-full h-full object-cover" />
-                                                            {isSelected && (
-                                                                <div className="absolute top-1.5 right-1.5 bg-primary text-white rounded-full p-0.5">
-                                                                    <CheckSquare size={14} />
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        <div className="text-sm font-semibold text-gray-800 truncate">{garment.name}</div>
-                                                        <div className="text-xs text-gray-400 truncate">{garment.type}</div>
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Footer with save button */}
-                                <div className="flex-shrink-0 p-6 pt-4 border-t border-gray-100">
-                                    <button
-                                        onClick={handleSaveGarments}
-                                        className="w-full bg-primary text-white font-bold py-4 rounded-2xl shadow-lg shadow-primary/30 transition-colors"
-                                    >
-                                        Guardar prendas ({editedGarmentIds.length})
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
             )}
         </div>

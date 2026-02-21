@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Share2, Heart, CreditCard, MessageCircle, Truck, Store, Copy, Send, Eye } from 'lucide-react';
+import { useLanguage } from '../src/context/LanguageContext';
 
 export interface ProductDisplayItem {
   id: string | number;
@@ -27,6 +28,7 @@ interface ProductDetailModalProps {
 }
 
 const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClose, onEdit, onDelete, onAddToTrip, onMessage, onShareFeed, onSell }) => {
+  const { t } = useLanguage();
   const [showBuyOptions, setShowBuyOptions] = useState(false);
   const [showShareOptions, setShowShareOptions] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
@@ -114,7 +116,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
               <X size={24} className="text-gray-600" />
             </button>
 
-            <h3 className="text-sm font-bold text-gray-800">Detalles</h3>
+            <h3 className="text-sm font-bold text-gray-800">{t('details')}</h3>
 
             <div className="flex gap-2">
               <button
@@ -148,7 +150,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
               {/* Condition Badge */}
               {product.condition && (
                 <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-sm rounded-lg px-3 py-1.5">
-                  <p className="text-xs font-bold text-gray-700 capitalize">Estado: {product.condition}</p>
+                  <p className="text-xs font-bold text-gray-700 capitalize">{t('state')}: {product.condition}</p>
                 </div>
               )}
             </div>
@@ -160,7 +162,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 capitalize mb-1">{product.title}</h2>
                 <p className="text-gray-600 font-medium">
-                  {product.brand || 'Marca desconocida'} {product.size ? `• Talla ${product.size}` : ''}
+                  {product.brand || t('unknownBrand')} {product.size ? `• ${t('sizeLabel')} ${product.size}` : ''}
                 </p>
               </div>
 
@@ -176,7 +178,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                     <div className="min-w-0">
                       <p className="font-bold text-gray-800 truncate">{product.user}</p>
                       <div className="flex text-yellow-400 text-xs">
-                        {'★'.repeat(5)} <span className="text-gray-400 ml-1">(24 reseñas)</span>
+                        {'★'.repeat(5)} <span className="text-gray-400 ml-1">(24 {t('reviews')})</span>
                       </div>
                     </div>
                   </div>
@@ -187,14 +189,14 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                     <MessageCircle size={18} className="text-primary" />
                   </button>
                 </div>
-                <p className="text-xs text-gray-600">Vendedor verificado • Entrega rápida</p>
+                <p className="text-xs text-gray-600">{t('verifiedSeller')} • {t('fastDelivery')}</p>
               </div>
 
               {/* Description */}
               <div className="space-y-2">
-                <h3 className="font-bold text-gray-900">Descripción</h3>
+                <h3 className="font-bold text-gray-900">{t('description')}</h3>
                 <p className="text-gray-700 text-sm leading-relaxed">
-                  {product.description || "Esta prenda está en excelentes condiciones. Usada muy pocas veces y cuidada con mucho amor. Perfecta para combinar en cualquier ocasión. Se entrega lavada y planchada."}
+                  {product.description || t('defaultDescription')}
                 </p>
               </div>
 
@@ -202,24 +204,24 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
               <div className="grid grid-cols-2 gap-3">
                 {product.brand && (
                   <div className="bg-gray-50 rounded-xl p-3">
-                    <p className="text-xs text-gray-600 font-semibold mb-1">Marca</p>
+                    <p className="text-xs text-gray-600 font-semibold mb-1">{t('brandLabel')}</p>
                     <p className="text-sm font-bold text-gray-800">{product.brand}</p>
                   </div>
                 )}
                 {product.size && (
                   <div className="bg-gray-50 rounded-xl p-3">
-                    <p className="text-xs text-gray-600 font-semibold mb-1">Talla</p>
+                    <p className="text-xs text-gray-600 font-semibold mb-1">{t('sizeLabel')}</p>
                     <p className="text-sm font-bold text-gray-800">{product.size}</p>
                   </div>
                 )}
                 {product.condition && (
                   <div className="bg-gray-50 rounded-xl p-3">
-                    <p className="text-xs text-gray-600 font-semibold mb-1">Estado</p>
+                    <p className="text-xs text-gray-600 font-semibold mb-1">{t('state')}</p>
                     <p className="text-sm font-bold text-gray-800 capitalize">{product.condition}</p>
                   </div>
                 )}
                 <div className="bg-gray-50 rounded-xl p-3">
-                  <p className="text-xs text-gray-600 font-semibold mb-1">Envío</p>
+                  <p className="text-xs text-gray-600 font-semibold mb-1">{t('shipping')}</p>
                   <p className="text-sm font-bold text-gray-800">3,95€</p>
                 </div>
               </div>
@@ -238,7 +240,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                   }}
                   className="w-full bg-gradient-to-r from-primary to-primary-dark text-white font-bold py-3 rounded-2xl shadow-lg shadow-primary/30 hover:shadow-xl transition-all active:scale-[0.98]"
                 >
-                  ✈️ Añadir a Maleta
+                  ✈️ {t('addToSuitcase')}
                 </button>
                 {onSell && (
                   <button
@@ -248,7 +250,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                     }}
                     className="w-full bg-emerald-50 text-emerald-600 font-bold py-3 rounded-2xl border border-emerald-100 shadow-sm hover:bg-emerald-100 transition-all active:scale-[0.98]"
                   >
-                    💰 Poner a la venta
+                    💰 {t('putOnSale')}
                   </button>
                 )}
                 <div className="grid grid-cols-2 gap-3">
@@ -259,7 +261,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                     }}
                     className="bg-blue-50 text-blue-600 font-bold py-2.5 rounded-xl hover:bg-blue-100 transition-colors active:scale-[0.98]"
                   >
-                    Editar
+                    {t('edit')}
                   </button>
                   <button
                     onClick={() => {
@@ -268,7 +270,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                     }}
                     className="bg-red-50 text-red-600 font-bold py-2.5 rounded-xl hover:bg-red-100 transition-colors active:scale-[0.98]"
                   >
-                    Eliminar
+                    {t('deleteAction')}
                   </button>
                 </div>
               </>
@@ -280,13 +282,13 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                   className="w-full bg-gradient-to-r from-primary to-primary-dark text-white font-bold py-3 rounded-2xl shadow-lg shadow-primary/30 hover:shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2"
                 >
                   <CreditCard size={20} />
-                  <span>Comprar Ahora</span>
+                  <span>{t('buyNow')}</span>
                 </button>
                 <button
                   onClick={() => onAddToTrip?.()}
                   className="w-full bg-blue-50 text-blue-600 font-bold py-2.5 rounded-xl hover:bg-blue-100 transition-colors active:scale-[0.98]"
                 >
-                  ✈️ Añadir a Maleta
+                  ✈️ {t('addToSuitcase')}
                 </button>
               </>
             )}
@@ -304,7 +306,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
               className="bg-white w-full sm:max-w-md rounded-3xl p-6 animate-pop-in shadow-2xl space-y-4"
             >
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xl font-bold text-gray-900">Compartir artículo</h3>
+                <h3 className="text-xl font-bold text-gray-900">{t('shareItem')}</h3>
                 <button
                   onClick={() => setShowShareOptions(false)}
                   className="p-2 -mr-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -312,7 +314,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                   <X size={24} className="text-gray-600" />
                 </button>
               </div>
-              <p className="text-sm text-gray-600">Elige cómo quieres compartir este artículo</p>
+              <p className="text-sm text-gray-600">{t('shareItemDesc')}</p>
 
               {/* Share Options */}
               <button
@@ -327,8 +329,8 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                   <Eye size={28} className="text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold text-gray-900 text-base">Publicar en Social</p>
-                  <p className="text-sm text-gray-600 mt-0.5">Comparte con tu comunidad</p>
+                  <p className="font-bold text-gray-900 text-base">{t('postOnSocial')}</p>
+                  <p className="text-sm text-gray-600 mt-0.5">{t('shareWithCommunity')}</p>
                 </div>
                 <span className="text-2xl group-hover:scale-110 transition-transform">📱</span>
               </button>
@@ -341,8 +343,8 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                   <Copy size={28} className="text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold text-gray-900 text-base">{copied ? '✓ Enlace copiado' : 'Copiar enlace'}</p>
-                  <p className="text-sm text-gray-600 mt-0.5">Compartir por mensajería</p>
+                  <p className="font-bold text-gray-900 text-base">{copied ? `✓ ${t('linkCopied')}` : t('copyLink')}</p>
+                  <p className="text-sm text-gray-600 mt-0.5">{t('shareViaMessaging')}</p>
                 </div>
                 <span className="text-2xl">📋</span>
               </button>
@@ -363,8 +365,8 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                     <Send size={28} className="text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-bold text-gray-900 text-base">Compartir nativa</p>
-                    <p className="text-sm text-gray-600 mt-0.5">WhatsApp, Telegram, etc.</p>
+                    <p className="font-bold text-gray-900 text-base">{t('nativeShare')}</p>
+                    <p className="text-sm text-gray-600 mt-0.5">{t('nativeShareDesc')}</p>
                   </div>
                   <span className="text-2xl">📤</span>
                 </button>
@@ -374,7 +376,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                 onClick={() => setShowShareOptions(false)}
                 className="w-full mt-2 py-3 text-gray-600 font-bold rounded-xl hover:bg-gray-100 transition-colors"
               >
-                Cerrar
+                {t('close')}
               </button>
             </div>
           </div>
@@ -391,7 +393,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
               className="bg-white w-full sm:max-w-md rounded-3xl p-6 animate-pop-in shadow-2xl"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-900">Elige cómo comprar</h3>
+                <h3 className="text-xl font-bold text-gray-900">{t('chooseHowToBuy')}</h3>
                 <button
                   onClick={() => setShowBuyOptions(false)}
                   className="p-2 -mr-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -406,10 +408,10 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                     <Store size={20} className="text-white" />
                   </div>
                   <div className="text-left flex-1">
-                    <p className="font-bold text-gray-800">En persona</p>
-                    <p className="text-xs text-gray-600">Queda con {product.user.split(' ')[0]}</p>
+                    <p className="font-bold text-gray-800">{t('inPerson')}</p>
+                    <p className="text-xs text-gray-600">{t('meetWith')} {product.user.split(' ')[0]}</p>
                   </div>
-                  <span className="text-sm font-bold text-emerald-600">Gratis</span>
+                  <span className="text-sm font-bold text-emerald-600">{t('free')}</span>
                 </button>
 
                 <button className="w-full flex items-center p-4 border border-gray-200 rounded-2xl hover:border-primary hover:bg-primary/5 transition-all group">
@@ -417,15 +419,15 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                     <Truck size={20} className="text-white" />
                   </div>
                   <div className="text-left flex-1">
-                    <p className="font-bold text-gray-800">Envío a domicilio</p>
-                    <p className="text-xs text-gray-600">Recíbelo en 24-48h</p>
+                    <p className="font-bold text-gray-800">{t('homeDelivery')}</p>
+                    <p className="text-xs text-gray-600">{t('receiveIn')}</p>
                   </div>
                   <span className="text-sm font-bold text-gray-800">3,95€</span>
                 </button>
               </div>
 
               <button className="w-full bg-gradient-to-r from-primary to-primary-dark text-white font-bold py-3 rounded-2xl shadow-lg hover:shadow-xl transition-all active:scale-[0.98]">
-                Continuar
+                {t('continueAction')}
               </button>
             </div>
           </div>

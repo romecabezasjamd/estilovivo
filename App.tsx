@@ -13,11 +13,13 @@ import { api } from './services/api';
 import { useLocalStorage, loadFromLocalStorage } from './hooks/useLocalStorage';
 import { useNotification } from './src/context/NotificationContext';
 import { applyTheme, getSavedTheme } from './src/utils/theme';
+import { useLanguage, LanguageProvider } from './src/context/LanguageContext';
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState('home');
   const [isLoading, setIsLoading] = useState(true);
   const { notify } = useNotification();
+  const { t } = useLanguage();
 
   // GLOBAL STATE
   const [user, setUser] = useState<UserState | null>(null);
@@ -156,7 +158,7 @@ const App: React.FC = () => {
         return updated;
       });
 
-      notify('✓ Prenda añadida correctamente', 'success');
+      notify(`✓ ${t('garmentAdded')}`, 'success');
     } catch (error) {
       // Rollback on error
       setGarments(prev => {
@@ -165,7 +167,7 @@ const App: React.FC = () => {
         return filtered;
       });
 
-      notify('✗ Error al añadir prenda', 'error');
+      notify(`✗ ${t('garmentAddError')}`, 'error');
       console.error("Error adding garment:", error);
     }
   };
@@ -180,12 +182,12 @@ const App: React.FC = () => {
 
     try {
       await api.deleteGarment(id);
-      notify('✓ Prenda eliminada', 'success');
+      notify(`✓ ${t('garmentDeleted')}`, 'success');
     } catch (error) {
       // Rollback
       setGarments(previousGarments);
       localStorage.setItem('beyour_garments', JSON.stringify(previousGarments));
-      notify('✗ Error al eliminar prenda', 'error');
+      notify(`✗ ${t('garmentDeleteError')}`, 'error');
       console.error("Error deleting garment:", error);
     }
   };
@@ -200,12 +202,12 @@ const App: React.FC = () => {
 
     try {
       await api.updateGarment(g.id, g);
-      notify('✓ Prenda actualizada', 'success');
+      notify(`✓ ${t('garmentUpdated')}`, 'success');
     } catch (error) {
       // Rollback
       setGarments(previousGarments);
       localStorage.setItem('beyour_garments', JSON.stringify(previousGarments));
-      notify('✗ Error al actualizar prenda', 'error');
+      notify(`✗ ${t('garmentUpdateError')}`, 'error');
       console.error("Error updating garment:", error);
     }
   };
@@ -228,7 +230,7 @@ const App: React.FC = () => {
         return updated;
       });
 
-      notify('✓ Look guardado correctamente', 'success');
+      notify(`✓ ${t('lookSaved')}`, 'success');
       setActiveTab('wardrobe');
     } catch (error) {
       // Rollback
@@ -238,7 +240,7 @@ const App: React.FC = () => {
         return filtered;
       });
 
-      notify('✗ Error al guardar look', 'error');
+      notify(`✗ ${t('lookSaveError')}`, 'error');
       console.error("Error saving look:", error);
       setActiveTab('wardrobe');
     }
@@ -254,12 +256,12 @@ const App: React.FC = () => {
 
     try {
       await api.deleteLook(id);
-      notify('✓ Look eliminado', 'success');
+      notify(`✓ ${t('lookDeleted')}`, 'success');
     } catch (error) {
       // Rollback
       setLooks(previousLooks);
       localStorage.setItem('beyour_looks', JSON.stringify(previousLooks));
-      notify('✗ Error al eliminar look', 'error');
+      notify(`✗ ${t('lookDeleteError')}`, 'error');
       console.error("Error deleting look:", error);
     }
   };
@@ -401,6 +403,14 @@ const App: React.FC = () => {
     <Layout activeTab={activeTab} onTabChange={setActiveTab}>
       {renderActivePage()}
     </Layout>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <LanguageProvider>
+      <AppContent />
+    </LanguageProvider>
   );
 };
 

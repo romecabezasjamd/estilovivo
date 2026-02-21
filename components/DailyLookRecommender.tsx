@@ -1,6 +1,7 @@
 import React from 'react';
 import { Look } from '../types';
 import { ChevronRight, Sparkles } from 'lucide-react';
+import { useLanguage } from '../src/context/LanguageContext';
 
 interface DailyLookRecommenderProps {
   occasion: string;
@@ -19,6 +20,7 @@ const DailyLookRecommender: React.FC<DailyLookRecommenderProps> = ({
   onSelectLook,
   onNavigate,
 }) => {
+  const { t } = useLanguage();
   if (looks.length === 0) return null;
 
   const featuredLook = looks[0];
@@ -51,7 +53,7 @@ const DailyLookRecommender: React.FC<DailyLookRecommenderProps> = ({
             <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end">
               <div className="p-4 text-white w-full">
                 <p className="font-bold">{featuredLook.name}</p>
-                <p className="text-xs text-gray-200">{looks.length} opciones disponibles</p>
+                <p className="text-xs text-gray-200">{looks.length} {t('optionsAvailable')}</p>
               </div>
             </div>
           </div>
@@ -64,7 +66,7 @@ const DailyLookRecommender: React.FC<DailyLookRecommenderProps> = ({
           onClick={() => onNavigate?.('create')}
           className="w-full py-2.5 px-4 bg-primary/10 text-primary font-semibold rounded-2xl hover:bg-primary/20 transition-colors flex items-center justify-center gap-2 text-sm"
         >
-          Ver {looks.length} looks
+          {t('viewLooks')} ({looks.length})
           <ChevronRight size={16} />
         </button>
       )}

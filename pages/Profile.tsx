@@ -5,9 +5,11 @@ import {
   User, Settings, LogOut, Heart, Camera, Edit3, Save, X,
   ShoppingBag, Shirt, Calendar, Star, TrendingUp, ChevronRight,
   Eye, Bookmark, Bell, Shield, Moon, Music, BarChart3, Download,
-  HelpCircle, Lock, Palette
+  HelpCircle, Lock, Palette, Languages, Globe
 } from 'lucide-react';
 import { applyTheme, getSavedTheme, ThemeColor, THEMES } from '../src/utils/theme';
+import { useLanguage } from '../src/context/LanguageContext';
+import { languages, dialects } from '../src/utils/translations';
 
 interface ProfileProps {
   user: UserState;
@@ -32,6 +34,8 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
   const [loggingOut, setLoggingOut] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [currentTheme, setCurrentTheme] = useState<ThemeColor>(getSavedTheme());
+  const { t, language, setLanguage, dialect, setDialect } = useLanguage();
+  const [showLanguageSettings, setShowLanguageSettings] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Settings state
@@ -304,22 +308,22 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
           )}
 
           {/* Follow Stats */}
-          <div className="grid grid-cols-4 gap-4 mt-6 pt-6 border-t border-gray-100">
-            <div className="text-center">
-              <p className="text-2xl font-bold text-gray-800 mb-1">{user.followersCount || 0}</p>
-              <p className="text-[10px] text-gray-400 uppercase tracking-wide">Seguidores</p>
+          <div className="grid grid-cols-2 gap-3 mb-6">
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col items-center text-center group hover:border-primary/30 transition-colors">
+              <p className="text-2xl font-bold text-gray-800">{totalGarments}</p>
+              <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mt-1">{t('totalItems')}</p>
             </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-gray-800 mb-1">{user.followingCount || 0}</p>
-              <p className="text-[10px] text-gray-400 uppercase tracking-wide">Siguiendo</p>
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col items-center text-center group hover:border-primary/30 transition-colors">
+              <p className="text-2xl font-bold text-gray-800">{totalLooks}</p>
+              <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mt-1">{t('totalOutfits')}</p>
             </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-gray-800 mb-1">{totalLooks}</p>
-              <p className="text-[10px] text-gray-400 uppercase tracking-wide">Looks</p>
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col items-center text-center group hover:border-primary/30 transition-colors">
+              <p className="text-2xl font-bold text-gray-800">{plannedDays}</p>
+              <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mt-1">{t('outfittedDays')}</p>
             </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-gray-800 mb-1">{totalGarments}</p>
-              <p className="text-[10px] text-gray-400 uppercase tracking-wide">Prendas</p>
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col items-center text-center group hover:border-primary/30 transition-colors">
+              <p className="text-2xl font-bold text-gray-800">{avgUsage}</p>
+              <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mt-1">{t('avgUsageCount')}</p>
             </div>
           </div>
         </div>
@@ -389,10 +393,10 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
           {mostWornGarment && (
             <div className="bg-gradient-to-br from-amber-50 to-yellow-50 rounded-2xl p-5 border border-amber-100 shadow-sm hover:shadow-md transition-shadow">
               <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-lg flex items-center justify-center">
-                  <Star size={16} className="text-white" />
+                <div className="bg-gradient-to-br from-amber-400 to-orange-500 w-8 h-8 rounded-lg flex items-center justify-center shadow-sm">
+                  <Star size={18} className="text-white" />
                 </div>
-                <h3 className="text-sm font-bold text-gray-700">Prenda Favorita</h3>
+                <h3 className="text-sm font-bold text-gray-700">{t('mostUsedGarment')}</h3>
               </div>
               <div className="flex items-center gap-4">
                 <div className="w-20 h-20 rounded-xl overflow-hidden bg-white shadow-md flex-shrink-0 border border-amber-100">
@@ -408,7 +412,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                   <p className="font-bold text-gray-800 mb-1">{mostWornGarment.name || mostWornGarment.type}</p>
                   <p className="text-sm text-gray-500 capitalize">{mostWornGarment.color}</p>
                   <div className="mt-2 inline-flex items-center gap-1 px-2 py-1 bg-amber-100 rounded-full">
-                    <span className="text-xs font-semibold text-amber-700">Usado {mostWornGarment.usageCount || 0} veces</span>
+                    <span className="text-xs font-semibold text-amber-700">{mostWornGarment.usageCount || 0} {t('usedXTimes')}</span>
                   </div>
                 </div>
               </div>
@@ -418,7 +422,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
           {/* Category Breakdown */}
           {categoryBreakdown.length > 0 && (
             <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-              <h3 className="text-sm font-bold text-gray-700 mb-4">Distribución por categoría</h3>
+              <h3 className="text-sm font-bold text-gray-700 mb-4">{t('categoryDistribution')}</h3>
               <div className="space-y-3">
                 {categoryBreakdown.map(([cat, count]) => {
                   const pct = Math.round((count / totalGarments) * 100);
@@ -444,7 +448,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
           {/* Season Breakdown */}
           {Object.keys(seasonBreakdown).length > 0 && (
             <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-              <h3 className="text-sm font-bold text-gray-700 mb-4">Prendas por temporada</h3>
+              <h3 className="text-sm font-bold text-gray-700 mb-4">{t('itemsBySeason')}</h3>
               <div className="grid grid-cols-2 gap-2">
                 {Object.entries(seasonBreakdown).map(([season, count]) => (
                   <div key={season} className="px-4 py-3 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-200 text-center">
@@ -463,32 +467,32 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                 <div className="w-8 h-8 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-lg flex items-center justify-center">
                   <BarChart3 size={16} className="text-white" />
                 </div>
-                <h3 className="text-sm font-bold text-gray-700">Insights avanzados</h3>
+                <h3 className="text-sm font-bold text-gray-700">{t('advancedInsights')}</h3>
               </div>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 {stats.mostWorn && (
                   <div className="bg-white/50 rounded-xl p-3 backdrop-blur-sm">
-                    <p className="text-xs text-gray-500 mb-1">Más usada</p>
+                    <p className="text-xs text-gray-500 mb-1">{t('mostUsed')}</p>
                     <p className="font-bold text-gray-800 truncate">{stats.mostWorn.name || stats.mostWorn.category}</p>
                     <p className="text-xs text-indigo-600 font-semibold mt-1">{stats.mostWorn.usageCount}x</p>
                   </div>
                 )}
                 {stats.leastWorn && (
                   <div className="bg-white/50 rounded-xl p-3 backdrop-blur-sm">
-                    <p className="text-xs text-gray-500 mb-1">Menos usada</p>
+                    <p className="text-xs text-gray-500 mb-1">{t('leastUsed')}</p>
                     <p className="font-bold text-gray-800 truncate">{stats.leastWorn.name || stats.leastWorn.category}</p>
                     <p className="text-xs text-purple-600 font-semibold mt-1">{stats.leastWorn.usageCount}x</p>
                   </div>
                 )}
                 {stats.favoriteColor && (
                   <div className="bg-white/50 rounded-xl p-3 backdrop-blur-sm">
-                    <p className="text-xs text-gray-500 mb-1">Color favorito</p>
+                    <p className="text-xs text-gray-500 mb-1">{t('favColor')}</p>
                     <p className="font-bold text-gray-800 capitalize">{stats.favoriteColor}</p>
                   </div>
                 )}
                 {stats.favoriteCategory && (
                   <div className="bg-white/50 rounded-xl p-3 backdrop-blur-sm">
-                    <p className="text-xs text-gray-500 mb-1">Categoría top</p>
+                    <p className="text-xs text-gray-500 mb-1">{t('topCategory')}</p>
                     <p className="font-bold text-gray-800 capitalize">{stats.favoriteCategory}</p>
                   </div>
                 )}
@@ -506,8 +510,8 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                 <Shirt size={22} className="text-white" />
               </div>
               <div className="flex-1 text-left">
-                <p className="font-bold text-gray-800">Mi Armario</p>
-                <p className="text-xs text-gray-400">Gestiona tus prendas</p>
+                <p className="font-bold text-gray-800">{t('myWardrobe')}</p>
+                <p className="text-xs text-gray-400">{t('manageGarments')}</p>
               </div>
               <ChevronRight size={20} className="text-gray-300 group-hover:text-primary transition-colors" />
             </button>
@@ -519,8 +523,8 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                 <ShoppingBag size={22} className="text-white" />
               </div>
               <div className="flex-1 text-left">
-                <p className="font-bold text-gray-800">Mis Maletas</p>
-                <p className="text-xs text-gray-400">Organiza tus viajes</p>
+                <p className="font-bold text-gray-800">{t('mySuitcases')}</p>
+                <p className="text-xs text-gray-400">{t('organizeTrips')}</p>
               </div>
               <ChevronRight size={20} className="text-gray-300 group-hover:text-primary transition-colors" />
             </button>
@@ -532,8 +536,8 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                 <Calendar size={22} className="text-white" />
               </div>
               <div className="flex-1 text-left">
-                <p className="font-bold text-gray-800">Mi Planificador</p>
-                <p className="text-xs text-gray-400">Planea tus outfits</p>
+                <p className="font-bold text-gray-800">{t('myPlanner')}</p>
+                <p className="text-xs text-gray-400">{t('planOutfits')}</p>
               </div>
               <ChevronRight size={20} className="text-gray-300 group-hover:text-primary transition-colors" />
             </button>
@@ -551,13 +555,13 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
           ) : favorites.length === 0 ? (
             <div className="text-center py-16 bg-gradient-to-br from-pink-50 to-rose-50 rounded-3xl border-2 border-dashed border-pink-200 px-6">
               <Bookmark size={56} className="mx-auto text-pink-200 mb-4" />
-              <p className="text-gray-500 font-semibold mb-2">No tienes favoritos aún</p>
-              <p className="text-sm text-gray-400 mb-6">Explora la sección social y guarda los looks que más te inspiren</p>
+              <p className="text-gray-500 font-semibold mb-2">{t('noFavorites')}</p>
+              <p className="text-sm text-gray-400 mb-6">{t('exploreSocialDesc')}</p>
               <button
                 onClick={() => onNavigate('social')}
                 className="px-6 py-2.5 bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl font-semibold text-sm shadow-lg hover:shadow-xl transition-all hover:scale-105"
               >
-                Explorar Social
+                {t('exploreSocial')}
               </button>
             </div>
           ) : (
@@ -565,7 +569,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
               {/* Looks */}
               {favorites.some(f => f.look) && (
                 <div>
-                  <h3 className="text-sm font-bold text-gray-700 mb-3">Looks guardados</h3>
+                  <h3 className="text-sm font-bold text-gray-700 mb-3">{t('savedLooks')}</h3>
                   <div className="grid grid-cols-3 gap-2">
                     {favorites.filter(f => f.look).map((fav: any) => (
                       <div key={fav.id} className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-all group">
@@ -596,8 +600,8 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
 
               {/* Products */}
               {favorites.some(f => f.product) && (
-                <div>
-                  <h3 className="text-sm font-bold text-gray-700 mb-3">Productos guardados</h3>
+                <div className="mt-6">
+                  <h3 className="text-sm font-bold text-gray-700 mb-3">{t('savedProducts')}</h3>
                   <div className="grid grid-cols-2 gap-3">
                     {favorites.filter(f => f.product).map((fav: any) => (
                       <div key={fav.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all group">
@@ -778,6 +782,78 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                     </button>
                   ))}
                 </div>
+              </div>
+            </div>
+
+            {/* Language & Dialect Settings */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="p-4 border-b border-gray-50 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Languages size={18} className="text-primary" />
+                  <h3 className="text-sm font-bold text-gray-700">{t('language')} & {t('dialect')}</h3>
+                </div>
+                <button
+                  onClick={() => setShowLanguageSettings(!showLanguageSettings)}
+                  className="text-primary text-xs font-bold"
+                >
+                  {showLanguageSettings ? t('back') : t('edit')}
+                </button>
+              </div>
+
+              <div className="p-5">
+                {!showLanguageSettings ? (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-gray-800">
+                        {languages.find(l => l.id === language)?.label}
+                      </p>
+                      {language === 'es' && dialect !== 'none' && (
+                        <p className="text-xs text-gray-500">
+                          {dialects.find(d => d.id === dialect)?.label}
+                        </p>
+                      )}
+                    </div>
+                    <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                      <Globe size={20} className="text-primary" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4 animate-fade-in">
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 block">{t('language')}</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {languages.map(l => (
+                          <button
+                            key={l.id}
+                            onClick={() => setLanguage(l.id)}
+                            className={`py-2 px-4 rounded-xl text-xs font-bold transition-all ${language === l.id ? 'bg-primary text-white shadow-md' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                              }`}
+                          >
+                            {l.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {language === 'es' && (
+                      <div className="pt-2 border-t border-gray-50">
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 block">{t('dialect')}</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {dialects.map(d => (
+                            <button
+                              key={d.id}
+                              onClick={() => setDialect(d.id)}
+                              className={`py-2 px-4 rounded-xl text-xs font-bold transition-all ${dialect === d.id ? 'bg-primary text-white shadow-md' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                                }`}
+                            >
+                              {d.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

@@ -1,24 +1,17 @@
 import React, { useState, useMemo } from 'react';
 import { Garment, Look } from '../types';
 import { X, Save, Wand2, Shuffle, Plus, Globe, Lock, Tag, Sparkles } from 'lucide-react';
+import { useLanguage } from '../src/context/LanguageContext';
 
 interface CreateLookProps {
   garments: Garment[];
   onSaveLook: (look: Look) => void;
 }
 
-const MOOD_OPTIONS = [
-  { id: 'happy', emoji: '😊', label: 'Feliz' },
-  { id: 'bold', emoji: '🔥', label: 'Audaz' },
-  { id: 'chill', emoji: '🌿', label: 'Relax' },
-  { id: 'romantic', emoji: '🌸', label: 'Romance' },
-  { id: 'elegant', emoji: '✨', label: 'Elegante' },
-  { id: 'casual', emoji: '☕', label: 'Casual' },
-];
-
 const CATEGORY_ORDER = ['top', 'outerwear', 'bottom', 'dress', 'shoes', 'accessories'];
 
 const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook }) => {
+  const { t } = useLanguage();
   const [selectedItems, setSelectedItems] = useState<Garment[]>([]);
   const [isPickerOpen, setIsPickerOpen] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -28,6 +21,16 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook }) => {
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
   const [pickerFilter, setPickerFilter] = useState('all');
+
+  const MOOD_OPTIONS = [
+    { id: 'happy', emoji: '😊', label: t('happy') },
+    { id: 'bold', emoji: '🔥', label: t('bold') },
+    { id: 'chill', emoji: '🌿', label: t('chill') },
+    { id: 'romantic', emoji: '🌸', label: t('romantic') },
+    { id: 'elegant', emoji: '✨', label: t('elegant') },
+    { id: 'casual', emoji: '☕', label: t('casual') },
+    { id: 'sport', emoji: '👟', label: t('sport') },
+  ];
 
   // Filter garments in the picker
   const filteredGarments = useMemo(() => {
@@ -95,9 +98,9 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook }) => {
   };
 
   const addTag = () => {
-    const t = tagInput.trim().toLowerCase();
-    if (t && !tags.includes(t) && tags.length < 5) {
-      setTags([...tags, t]);
+    const tInput = tagInput.trim().toLowerCase();
+    if (tInput && !tags.includes(tInput) && tags.length < 5) {
+      setTags([...tags, tInput]);
       setTagInput('');
     }
   };
@@ -109,7 +112,7 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook }) => {
   const handleSave = () => {
     const newLook: Look = {
       id: `l-${Date.now()}`,
-      name: lookName || 'Sin título',
+      name: lookName || t('untitled') || 'Sin título',
       garmentIds: selectedItems.map(g => g.id),
       garments: selectedItems,
       tags: tags.length > 0 ? tags : ['custom'],
@@ -137,13 +140,13 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook }) => {
   }, [selectedItems]);
 
   const categoryLabels: Record<string, string> = {
-    all: 'Todo',
-    top: 'Tops',
-    bottom: 'Bottoms',
-    shoes: 'Zapatos',
-    outerwear: 'Abrigos',
-    accessories: 'Accesorios',
-    dress: 'Vestidos',
+    all: t('all'),
+    top: t('tops'),
+    bottom: t('bottoms'),
+    shoes: t('shoes'),
+    outerwear: t('outerwear'),
+    accessories: t('accessories'),
+    dress: t('dresses'),
   };
 
   return (
@@ -153,7 +156,7 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook }) => {
         <button
           onClick={() => setSelectedItems([])}
           className="text-gray-400 hover:text-red-500 transition"
-          title="Limpiar todo"
+          title={t('clear')}
         >
           <X size={24} />
         </button>
@@ -161,21 +164,20 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook }) => {
           <button
             onClick={handleShuffle}
             className="flex items-center gap-1 text-gray-500 hover:text-pink-500 transition bg-gray-50 px-3 py-1.5 rounded-full"
-            title="Mezcla aleatoria"
+            title={t('mix')}
           >
             <Shuffle size={16} />
-            <span className="text-xs font-medium">Mix</span>
+            <span className="text-xs font-medium">{t('mix')}</span>
           </button>
           <button
             onClick={() => setIsSaving(true)}
-            className={`text-sm font-semibold px-4 py-1.5 rounded-full transition-colors flex items-center gap-1 ${
-              selectedItems.length > 0
+            className={`text-sm font-semibold px-4 py-1.5 rounded-full transition-colors flex items-center gap-1 ${selectedItems.length > 0
                 ? 'bg-primary text-white shadow-md shadow-primary/20'
                 : 'bg-gray-100 text-gray-400'
-            }`}
+              }`}
             disabled={selectedItems.length === 0}
           >
-            <Save size={16} /> Guardar
+            <Save size={16} /> {t('save')}
           </button>
         </div>
       </div>
@@ -187,8 +189,8 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook }) => {
             <div className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-2xl mx-auto mb-4 flex items-center justify-center">
               <Sparkles size={32} className="text-gray-300" />
             </div>
-            <p className="font-medium text-lg text-gray-500">Tu lienzo está vacío</p>
-            <p className="text-sm text-gray-400 mt-1">Selecciona prendas abajo o usa ✨ Mix</p>
+            <p className="font-medium text-lg text-gray-500">{t('canvasEmpty')}</p>
+            <p className="text-sm text-gray-400 mt-1">{t('canvasEmptyDesc')}</p>
           </div>
         ) : (
           <div className="relative w-full h-full max-w-sm mx-auto">
@@ -225,7 +227,7 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook }) => {
 
             {/* Item count badge */}
             <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg shadow-sm">
-              <p className="text-xs font-bold text-gray-600">{selectedItems.length} prendas</p>
+              <p className="text-xs font-bold text-gray-600">{selectedItems.length} {t('garmentCount')}</p>
             </div>
           </div>
         )}
@@ -241,8 +243,8 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook }) => {
         </button>
 
         <div className="px-5 pb-2 flex justify-between items-center">
-          <h3 className="font-bold text-gray-800">Tu Armario</h3>
-          <span className="text-xs text-gray-400">{garments.length} prendas</span>
+          <h3 className="font-bold text-gray-800">{t('yourWardrobe')}</h3>
+          <span className="text-xs text-gray-400">{garments.length} {t('garmentCount')}</span>
         </div>
 
         {/* Picker category filter */}
@@ -252,11 +254,10 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook }) => {
               <button
                 key={cat}
                 onClick={() => setPickerFilter(cat)}
-                className={`px-3 py-1 rounded-full text-[10px] font-bold whitespace-nowrap transition ${
-                  pickerFilter === cat
+                className={`px-3 py-1 rounded-full text-[10px] font-bold whitespace-nowrap transition ${pickerFilter === cat
                     ? 'bg-pink-500 text-white'
                     : 'bg-gray-100 text-gray-400'
-                }`}
+                  }`}
               >
                 {categoryLabels[cat] || cat}
               </button>
@@ -268,7 +269,7 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook }) => {
           <div className="flex space-x-3">
             {filteredGarments.length === 0 ? (
               <div className="flex items-center justify-center w-full py-6">
-                <p className="text-sm text-gray-300">Sin prendas en esta categoría</p>
+                <p className="text-sm text-gray-300">{t('noGarmentsInCategory')}</p>
               </div>
             ) : (
               filteredGarments.map((item) => {
@@ -277,11 +278,10 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook }) => {
                   <button
                     key={item.id}
                     onClick={() => toggleItem(item)}
-                    className={`flex-shrink-0 w-24 h-32 rounded-xl overflow-hidden relative group border-2 transition-all ${
-                      isSelected
+                    className={`flex-shrink-0 w-24 h-32 rounded-xl overflow-hidden relative group border-2 transition-all ${isSelected
                         ? 'border-primary ring-2 ring-primary/30 opacity-60'
                         : 'border-transparent hover:border-gray-200'
-                    }`}
+                      }`}
                   >
                     <img src={item.imageUrl} className="w-full h-full object-cover" alt={item.name || item.type} />
                     {isSelected ? (
@@ -311,7 +311,7 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook }) => {
         <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-5">
-              <h2 className="text-xl font-bold">Guardar Look</h2>
+              <h2 className="text-xl font-bold">{t('saveLook')}</h2>
               <button onClick={() => setIsSaving(false)}>
                 <X size={24} className="text-gray-400" />
               </button>
@@ -319,10 +319,10 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook }) => {
 
             {/* Look name */}
             <div className="mb-4">
-              <label className="block text-xs font-semibold text-gray-500 mb-1.5">Nombre del look</label>
+              <label className="block text-xs font-semibold text-gray-500 mb-1.5">{t('lookName')}</label>
               <input
                 type="text"
-                placeholder="Ej: Noche de chicas"
+                placeholder={t('lookNamePlaceholder')}
                 className="w-full bg-gray-50 rounded-xl p-3.5 text-sm outline-none focus:ring-2 focus:ring-pink-300"
                 value={lookName}
                 onChange={(e) => setLookName(e.target.value)}
@@ -331,17 +331,16 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook }) => {
 
             {/* Mood */}
             <div className="mb-4">
-              <label className="block text-xs font-semibold text-gray-500 mb-1.5">Mood</label>
+              <label className="block text-xs font-semibold text-gray-500 mb-1.5">{t('lookMood')}</label>
               <div className="flex gap-2 flex-wrap">
                 {MOOD_OPTIONS.map(m => (
                   <button
                     key={m.id}
                     onClick={() => setMood(mood === m.id ? '' : m.id)}
-                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium transition ${
-                      mood === m.id
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium transition ${mood === m.id
                         ? 'bg-pink-500 text-white'
                         : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                    }`}
+                      }`}
                   >
                     <span>{m.emoji}</span> {m.label}
                   </button>
@@ -351,12 +350,12 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook }) => {
 
             {/* Tags */}
             <div className="mb-4">
-              <label className="block text-xs font-semibold text-gray-500 mb-1.5">Etiquetas</label>
+              <label className="block text-xs font-semibold text-gray-500 mb-1.5">{t('lookTags')}</label>
               <div className="flex gap-2 flex-wrap mb-2">
-                {tags.map(t => (
-                  <span key={t} className="flex items-center gap-1 bg-pink-50 text-pink-600 px-2.5 py-1 rounded-full text-xs font-medium">
-                    #{t}
-                    <button onClick={() => removeTag(t)}>
+                {tags.map(tTag => (
+                  <span key={tTag} className="flex items-center gap-1 bg-pink-50 text-pink-600 px-2.5 py-1 rounded-full text-xs font-medium">
+                    #{tTag}
+                    <button onClick={() => removeTag(tTag)}>
                       <X size={12} />
                     </button>
                   </span>
@@ -368,7 +367,7 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook }) => {
                     value={tagInput}
                     onChange={e => setTagInput(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTag(); } }}
-                    placeholder="Añadir etiqueta..."
+                    placeholder={t('addTagPlaceholder')}
                     className="flex-1 bg-gray-50 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-pink-300"
                   />
                   <button
@@ -391,9 +390,9 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook }) => {
                     <Lock size={20} className="text-gray-400" />
                   )}
                   <div>
-                    <p className="text-sm font-medium">{isPublic ? 'Público' : 'Privado'}</p>
+                    <p className="text-sm font-medium">{isPublic ? t('isPublicLabel') : t('isPrivateLabel')}</p>
                     <p className="text-xs text-gray-400">
-                      {isPublic ? 'Visible en el feed de la comunidad' : 'Solo visible para ti'}
+                      {isPublic ? t('publicDesc') : t('privateDesc')}
                     </p>
                   </div>
                 </div>
@@ -408,7 +407,7 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook }) => {
 
             {/* Preview */}
             <div className="mb-5">
-              <label className="block text-xs font-semibold text-gray-500 mb-2">Vista previa ({selectedItems.length} prendas)</label>
+              <label className="block text-xs font-semibold text-gray-500 mb-2">{t('preview')} ({selectedItems.length} {t('garmentCount')})</label>
               <div className="flex gap-2 overflow-x-auto no-scrollbar">
                 {selectedItems.map(item => (
                   <div key={item.id} className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
@@ -424,13 +423,13 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook }) => {
                 onClick={() => setIsSaving(false)}
                 className="flex-1 py-3.5 text-gray-500 font-medium rounded-xl bg-gray-100 hover:bg-gray-200 transition"
               >
-                Cancelar
+                {t('cancel')}
               </button>
               <button
                 onClick={handleSave}
                 className="flex-1 bg-primary text-white py-3.5 rounded-xl font-bold shadow-lg shadow-primary/20 hover:bg-primary/90 transition flex items-center justify-center gap-2"
               >
-                <Save size={18} /> Guardar
+                <Save size={18} /> {t('save')}
               </button>
             </div>
           </div>

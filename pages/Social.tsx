@@ -3,6 +3,7 @@ import { Heart, MessageCircle, Bookmark, MoreHorizontal, ShoppingBag, Search, Ta
 import ProductDetailModal, { ProductDisplayItem } from '../components/ProductDetailModal';
 import { api } from '../services/api';
 import { Look, UserState, ShopItem, Comment, Garment, ChatConversation, ChatMessage } from '../types';
+import { useLanguage } from '../src/context/LanguageContext';
 
 interface SocialProps {
   user: UserState;
@@ -13,7 +14,7 @@ interface SocialProps {
 const Social: React.FC<SocialProps> = ({ user, garments, onNavigate }) => {
   // Main tabs: 'feed', 'shop', 'favorites', 'chat'
   const [activeTab, setActiveTab] = useState<'feed' | 'shop' | 'favorites' | 'chat'>('feed');
-  
+
   // Community Feed & Shop
   const [selectedItem, setSelectedItem] = useState<ProductDisplayItem | null>(null);
   const [feedLooks, setFeedLooks] = useState<Look[]>([]);
@@ -50,6 +51,8 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate }) => {
     }
   }, []);
 
+  const { t } = useLanguage();
+
   // === DATA LOADING ===
   const loadFeed = useCallback(async () => {
     setIsLoading(true);
@@ -80,7 +83,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate }) => {
     try {
       const data = await api.getFavorites();
       setFavorites(data);
-      
+
       // Also load favorited product IDs for shop tab
       const ids = new Set<string>();
       data.forEach((f: any) => {
@@ -179,15 +182,15 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate }) => {
         tags: ['compartido'],
         createdAt: new Date().toISOString(),
       };
-      
+
       const savedLook = await api.saveLook(newLook);
-      
+
       // Add to feed immediately
       setFeedLooks(prev => [savedLook, ...prev]);
-      
+
       // Close the modal
       setSelectedItem(null);
-      
+
       // Show success message
       console.log('✓ Producto compartido en el feed');
     } catch (error) {
@@ -260,7 +263,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate }) => {
       setActiveTab('chat');
       return;
     }
-    
+
     try {
       const res = await api.createConversation({
         targetUserId: targetItem.userId || targetItem.user?.id,
@@ -422,7 +425,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate }) => {
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-2xl font-bold text-gray-800">Social</h1>
         </div>
-        
+
         <div className="flex bg-gray-100 rounded-full p-1 overflow-x-auto">
           <button
             onClick={() => setActiveTab('feed')}
@@ -601,7 +604,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate }) => {
                       className={`absolute top-2 left-2 z-10 p-1.5 rounded-full shadow-sm ${favoritedProductIds.has(item.id)
                         ? 'bg-amber-500 text-white'
                         : 'bg-white text-gray-500'
-                      }`}
+                        }`}
                     >
                       <Bookmark size={14} fill={favoritedProductIds.has(item.id) ? 'currentColor' : 'none'} />
                     </button>

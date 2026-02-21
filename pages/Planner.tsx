@@ -1,6 +1,8 @@
+
 import React, { useState, useMemo } from 'react';
 import { Look, PlannerEntry } from '../types';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, MoreVertical, Plus, X, Shirt, Trash2 } from 'lucide-react';
+import { useLanguage } from '../src/context/LanguageContext';
 
 interface PlannerProps {
     looks: Look[];
@@ -9,6 +11,7 @@ interface PlannerProps {
 }
 
 const Planner: React.FC<PlannerProps> = ({ looks, plannerEntries, onUpdateEntry }) => {
+    const { t } = useLanguage();
     const [weekOffset, setWeekOffset] = useState(0);
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
     const [eventNoteInput, setEventNoteInput] = useState('');
@@ -86,7 +89,7 @@ const Planner: React.FC<PlannerProps> = ({ looks, plannerEntries, onUpdateEntry 
     return (
         <div className="p-6 pb-24 relative h-full">
             <header className="flex justify-between items-center mb-8 mt-4">
-                <h1 className="text-2xl font-bold text-gray-800">Planificador</h1>
+                <h1 className="text-2xl font-bold text-gray-800">{t('planner')}</h1>
                 <div className="flex items-center space-x-2">
                     <button onClick={() => setWeekOffset(w => w - 1)} className="p-1 text-gray-400 hover:text-primary">
                         <ChevronLeft size={20} />
@@ -100,7 +103,7 @@ const Planner: React.FC<PlannerProps> = ({ looks, plannerEntries, onUpdateEntry 
                     </button>
                     {weekOffset !== 0 && (
                         <button onClick={() => setWeekOffset(0)} className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-1 rounded-full">
-                            Hoy
+                            {t('today')}
                         </button>
                     )}
                 </div>
@@ -193,7 +196,7 @@ const Planner: React.FC<PlannerProps> = ({ looks, plannerEntries, onUpdateEntry 
                                             onClick={() => setSelectedDate(date)}
                                             className="ml-auto text-xs font-bold text-primary border border-primary/30 px-3 py-1.5 rounded-full hover:bg-primary/5 flex-shrink-0"
                                         >
-                                            Asignar
+                                            {t('assign')}
                                         </button>
                                     </div>
                                 )}
@@ -209,7 +212,7 @@ const Planner: React.FC<PlannerProps> = ({ looks, plannerEntries, onUpdateEntry 
                     <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl animate-fade-in-up h-[70vh] flex flex-col">
                         <div className="flex justify-between items-center mb-6">
                             <div>
-                                <h3 className="text-lg font-bold text-gray-800">Seleccionar Look</h3>
+                                <h3 className="text-lg font-bold text-gray-800">{t('edit')} Look</h3>
                                 <p className="text-xs text-gray-500">Para el {new Date(selectedDate + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
                             </div>
                             <button onClick={() => setSelectedDate(null)}><X size={24} className="text-gray-400" /></button>
@@ -237,7 +240,7 @@ const Planner: React.FC<PlannerProps> = ({ looks, plannerEntries, onUpdateEntry 
                                             <div>
                                                 <p className="font-bold text-gray-800">{look.name}</p>
                                                 <p className="text-xs text-gray-500">
-                                                    {look.garments ? `${look.garments.length} prendas` : look.tags.join(', ') || 'Look personalizado'}
+                                                    {look.garments ? `${look.garments.length} prendas` : look.tags?.join(', ') || 'Look personalizado'}
                                                 </p>
                                             </div>
                                         </button>

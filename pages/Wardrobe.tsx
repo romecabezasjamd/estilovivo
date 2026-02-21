@@ -1,9 +1,11 @@
+
 import React, { useState, useMemo, useRef } from 'react';
 import { Garment, Look, PlannerEntry } from '../types';
 import {
   Filter, Plus, Search, Trash2, X, Camera, Tag, DollarSign,
-  ShoppingBag, ChevronRight, Shirt, SlidersHorizontal, ArrowLeft, Sparkles
+  Info, ExternalLink, RefreshCcw, Check, ShoppingBag as SellIcon, ShoppingBag, ChevronRight, Shirt, SlidersHorizontal, ArrowLeft, Sparkles
 } from 'lucide-react';
+import { useLanguage } from '../src/context/LanguageContext';
 import ProductDetailModal, { ProductDisplayItem } from '../components/ProductDetailModal';
 
 interface WardrobeProps {
@@ -46,6 +48,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
   onUpdatePlanner,
   onNavigate,
 }) => {
+  const { t } = useLanguage();
   const [activeView, setActiveView] = useState<ViewType>('closet');
   const [filter, setFilter] = useState('all');
 
@@ -257,7 +260,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
             </div>
           ) : (
             <>
-              <h1 className="text-2xl font-bold text-gray-800">Mi Espacio</h1>
+              <h1 className="text-2xl font-bold text-gray-800">{t('wardrobe')}</h1>
               {activeView === 'closet' && (
                 <div className="flex space-x-2">
                   <button
@@ -269,8 +272,8 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                   <button
                     onClick={() => setFilterPanelOpen(!filterPanelOpen)}
                     className={`p-2 rounded-full border transition ${filterPanelOpen || seasonFilter !== 'all' || sortBy !== 'recent'
-                      ? 'bg-primary/10 border-primary/20 text-primary'
-                      : 'bg-gray-50 border-gray-100 text-gray-600 hover:bg-gray-100'
+                        ? 'bg-primary/10 border-primary/20 text-primary'
+                        : 'bg-gray-50 border-gray-100 text-gray-600 hover:bg-gray-100'
                       }`}
                   >
                     <SlidersHorizontal size={20} />
@@ -288,9 +291,9 @@ const Wardrobe: React.FC<WardrobeProps> = ({
               <button
                 key={view}
                 onClick={() => setActiveView(view)}
-                className={`flex-1 py-2 rounded-xl transition-all duration-300 text-xs font-bold uppercase tracking-wide flex items-center justify-center gap-1 ${activeView === view
-                  ? 'bg-white text-primary shadow-sm'
-                  : 'text-gray-400 hover:text-gray-600'
+                className={`flex-1 py-2 rounded-xl transition-all duration-300 flex items-center justify-center gap-1 ${activeView === view
+                    ? 'bg-white text-primary shadow-sm'
+                    : 'text-gray-400 hover:text-gray-600'
                   }`}
               >
                 {view === 'closet' && <><Shirt size={14} /> Armario</>}
@@ -298,12 +301,6 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                 {view === 'sales' && <><ShoppingBag size={14} /> Ventas</>}
               </button>
             ))}
-            <button
-              onClick={() => onNavigate('suitcase')}
-              className="flex-1 py-2 rounded-xl transition-all duration-300 text-xs font-bold uppercase tracking-wide flex items-center justify-center gap-1 text-gray-400 hover:text-gray-600"
-            >
-              <ShoppingBag size={14} /> Maleta
-            </button>
           </div>
         </div>
       </div>
@@ -327,9 +324,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                 <button
                   key={s.id}
                   onClick={() => setSeasonFilter(s.id)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${seasonFilter === s.id
-                    ? 'bg-primary text-white'
-                    : 'bg-gray-100 text-gray-500'
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${seasonFilter === s.id ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500'
                     }`}
                 >
                   {s.label}
@@ -348,9 +343,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                 <button
                   key={s.id}
                   onClick={() => setSortBy(s.id)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${sortBy === s.id
-                    ? 'bg-primary text-white'
-                    : 'bg-gray-100 text-gray-500'
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${sortBy === s.id ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500'
                     }`}
                 >
                   {s.label}
@@ -365,9 +358,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                 <button
                   key={c}
                   onClick={() => setColorFilter(c)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${colorFilter === c
-                    ? 'bg-primary text-white'
-                    : 'bg-gray-100 text-gray-500'
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${colorFilter === c ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500'
                     }`}
                 >
                   {c === 'all' ? 'Todos' : c}
@@ -388,8 +379,8 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                 key={cat.id}
                 onClick={() => setFilter(cat.id)}
                 className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-colors border ${filter === cat.id
-                  ? 'bg-primary text-white border-primary shadow-md shadow-primary/20'
-                  : 'bg-white text-gray-500 border-gray-200'
+                    ? 'bg-primary text-white border-primary shadow-md shadow-primary/20'
+                    : 'bg-white text-gray-500 border-gray-200'
                   }`}
               >
                 {cat.label}
@@ -482,8 +473,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                   <img
                     src={garment.imageUrl}
                     alt={garment.name || garment.type}
-                    className={`w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500 ${garment.forSale ? 'opacity-70 grayscale-[0.5]' : ''
-                      }`}
+                    className={`w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500 ${garment.forSale ? 'opacity-70 grayscale-[0.5]' : ''}`}
                   />
                   {!garment.forSale && (
                     <div className="absolute top-2 w-full px-2 flex justify-between">
@@ -729,9 +719,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                     <button
                       key={cat.id}
                       onClick={() => setNewCategory(cat.id)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${newCategory === cat.id
-                        ? 'bg-primary text-white'
-                        : 'bg-gray-100 text-gray-500'
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${newCategory === cat.id ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500'
                         }`}
                     >
                       {cat.label}
@@ -770,9 +758,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                     <button
                       key={s.id}
                       onClick={() => setNewSeason(s.id as any)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${newSeason === s.id
-                        ? 'bg-primary text-white'
-                        : 'bg-gray-100 text-gray-500'
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${newSeason === s.id ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500'
                         }`}
                     >
                       {s.label}
@@ -798,170 +784,90 @@ const Wardrobe: React.FC<WardrobeProps> = ({
       {/* SELL MODAL */}
       {isSelling && (
         <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white w-full max-w-md max-h-[90vh] rounded-3xl shadow-2xl animate-pop-in flex flex-col">
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-800">
-                {selectedForSale ? 'Detalles de venta' : '¿Qué quieres vender?'}
-              </h2>
-              <button onClick={() => { setIsSelling(false); setSelectedForSale(null); }}>
-                <X size={24} className="text-gray-400" />
-              </button>
+          <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl animate-pop-in overflow-hidden">
+            <div className="p-6 border-b border-gray-50 text-center">
+              <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                <SellIcon size={32} />
+              </div>
+              <h2 className="text-xl font-bold text-gray-800">Poner en venta</h2>
+              <p className="text-xs text-gray-400 mt-1">Convierte tu armario en ingresos</p>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 no-scrollbar">
-              {!selectedForSale ? (
-                <div className="grid grid-cols-2 gap-4">
-                  {garments.filter(g => !g.forSale).length === 0 ? (
-                    <div className="col-span-2 text-center py-10">
-                      <p className="text-gray-400 text-sm">No tienes prendas disponibles para vender</p>
-                    </div>
-                  ) : (
-                    garments.filter(g => !g.forSale).map(garment => (
-                      <button
-                        key={garment.id}
-                        onClick={() => setSelectedForSale(garment)}
-                        className="relative bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:border-primary transition-all text-left"
-                      >
-                        <div className="aspect-square bg-gray-50">
-                          <img src={garment.imageUrl} className="w-full h-full object-cover" />
-                        </div>
-                        <div className="p-3">
-                          <p className="text-sm font-semibold text-gray-800 truncate">{garment.name || garment.type}</p>
-                          <div className="mt-2 flex justify-end">
-                            <span className="text-xs font-bold text-primary flex items-center bg-primary/5 px-2 py-1 rounded-lg">
-                              Vender <ChevronRight size={12} />
-                            </span>
-                          </div>
-                        </div>
-                      </button>
-                    ))
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-5">
-                  <div className="flex items-center gap-4">
-                    <div className="w-24 h-24 rounded-2xl overflow-hidden shadow-md border-2 border-white flex-shrink-0">
-                      <img src={selectedForSale.imageUrl} className="w-full h-full object-cover" />
-                    </div>
-                    <div>
-                      <p className="font-semibold">{selectedForSale.name || selectedForSale.type}</p>
-                      <p className="text-sm text-gray-400 capitalize">{selectedForSale.color}</p>
-                    </div>
-                  </div>
-
-                  {/* Price */}
+            <div className="p-6 space-y-4">
+              {selectedForSale && (
+                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl">
+                  <img src={selectedForSale.imageUrl} className="w-12 h-12 rounded-xl object-cover" alt="" />
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">Precio (€) *</label>
-                    <div className="relative">
-                      <DollarSign className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                      <input
-                        type="number"
-                        value={salePrice}
-                        onChange={e => setSalePrice(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3 bg-gray-50 rounded-xl text-lg font-bold outline-none focus:ring-2 focus:ring-primary/30"
-                        placeholder="0.00"
-                      />
-                    </div>
+                    <p className="text-sm font-bold text-gray-700">{selectedForSale.name || selectedForSale.type}</p>
+                    <p className="text-[10px] text-gray-400 capitalize">{selectedForSale.color} · {selectedForSale.brand || 'Marca no especif.'}</p>
                   </div>
-
-                  {/* Size */}
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">Talla</label>
-                    <input
-                      value={saleSize}
-                      onChange={e => setSaleSize(e.target.value)}
-                      className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-                      placeholder="Ej: M, 38, 40..."
-                    />
-                  </div>
-
-                  {/* Condition */}
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">Estado</label>
-                    <div className="flex gap-2 flex-wrap">
-                      {['nuevo', 'como nuevo', 'bueno', 'usado'].map(c => (
-                        <button
-                          key={c}
-                          onClick={() => setSaleCondition(c)}
-                          className={`px-3 py-1.5 rounded-full text-xs font-medium capitalize transition ${saleCondition === c
-                            ? 'bg-emerald-500 text-white'
-                            : 'bg-gray-100 text-gray-500'
-                            }`}
-                        >
-                          {c}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Description */}
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">Descripción</label>
-                    <textarea
-                      value={saleDescription}
-                      onChange={e => setSaleDescription(e.target.value)}
-                      className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/30 resize-none"
-                      rows={3}
-                      placeholder="Describe la prenda..."
-                    />
-                  </div>
-
-                  <button
-                    onClick={() => setSelectedForSale(null)}
-                    className="text-sm text-gray-500 underline"
-                  >
-                    Elegir otra prenda
-                  </button>
-
-                  <button
-                    disabled={!salePrice}
-                    onClick={confirmSale}
-                    className="w-full bg-emerald-600 disabled:bg-gray-300 text-white font-bold py-4 rounded-2xl shadow-lg transition-colors"
-                  >
-                    Publicar Venta
-                  </button>
                 </div>
               )}
+
+              <div>
+                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Precio de venta</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">€</span>
+                  <input
+                    type="number"
+                    value={salePrice}
+                    onChange={e => setSalePrice(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full bg-gray-50 rounded-xl py-3 pl-8 pr-4 text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Estado</label>
+                  <select
+                    value={saleCondition}
+                    onChange={e => setSaleCondition(e.target.value)}
+                    className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm font-medium outline-none appearance-none"
+                  >
+                    <option value="nuevo">Nuevo</option>
+                    <option value="como nuevo">Como nuevo</option>
+                    <option value="bueno">Buen estado</option>
+                    <option value="usado">Usado</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Talla</label>
+                  <input
+                    value={saleSize}
+                    onChange={e => setSaleSize(e.target.value)}
+                    placeholder="M, 42, etc"
+                    className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm font-medium outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 bg-gray-50 flex gap-3">
+              <button
+                onClick={() => setIsSelling(false)}
+                className="flex-1 py-3 text-sm font-bold text-gray-400"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmSale}
+                className="flex-[2] bg-emerald-500 text-white py-3 rounded-xl text-sm font-bold shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-colors"
+                disabled={!salePrice}
+              >
+                Publicar ahora
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Product Detail Modal */}
-      {detailItem && (
-        <ProductDetailModal
-          product={detailItem}
-          onClose={() => {
-            setDetailItem(null);
-            setSelectedGarmentForDetail(null);
-          }}
-          onEdit={() => {
-            if (selectedGarmentForDetail) {
-              setIsAdding(true);
-              // Populate form with garment data
-              setNewName(selectedGarmentForDetail.name || '');
-              setNewCategory(selectedGarmentForDetail.type as any);
-              setNewColor(selectedGarmentForDetail.color);
-              setNewBrand(selectedGarmentForDetail.brand || '');
-              setNewSeason((selectedGarmentForDetail.season || 'all') as any);
-              setNewImage(selectedGarmentForDetail.imageUrl);
-            }
-          }}
-          onDelete={() => {
-            if (selectedGarmentForDetail) {
-              onRemoveGarment(selectedGarmentForDetail.id);
-            }
-          }}
-          onAddToTrip={() => onNavigate('suitcase')}
-          onSell={(item) => {
-            const garment = garments.find(g => g.id === item.id);
-            if (garment) {
-              setSelectedForSale(garment);
-              setIsSelling(true);
-            }
-          }}
-        />
-      )}
+      {/* DETAIL MODAL */}
+      <ProductDetailModal
+        item={detailItem}
+        onClose={() => setDetailItem(null)}
+      />
     </div>
   );
 };

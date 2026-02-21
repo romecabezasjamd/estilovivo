@@ -1,6 +1,11 @@
+
 import React, { useMemo, useState } from 'react';
 import { UserState, MoodOption, Look, PlannerEntry, Garment } from '../types';
-import { Sun, Sparkles, Briefcase, ChevronRight, RefreshCcw, Shirt, TrendingUp, AlertTriangle, Heart } from 'lucide-react';
+import {
+  Sun, Search, Bell, TrendingUp, Calendar, Heart, ArrowRight, Sparkles, User, LogOut,
+  Palette, Smartphone, Sync, Moon, Music, BarChart3, Info, ChevronRight, RefreshCcw, Shirt, AlertTriangle
+} from 'lucide-react';
+import { useLanguage } from '../src/context/LanguageContext';
 
 interface HomeProps {
   user: UserState;
@@ -11,12 +16,13 @@ interface HomeProps {
   garments: Garment[];
 }
 
-const getMoods = (gender?: string): MoodOption[] => {
+const getMoods = (gender?: string, t?: (key: any) => string): MoodOption[] => {
   const isMale = gender === 'male';
+  const translate = (key: any) => t ? t(key) : key;
 
   return [
     { id: 'confident', label: isMale ? 'Seguro' : 'Segura', emoji: '🦁', colorClass: 'bg-orange-100 text-orange-700 border-orange-200' },
-    { id: 'sport', label: 'Sport', emoji: '👟', colorClass: 'bg-orange-100 text-orange-700 border-orange-200' },
+    { id: 'Sport', label: translate('sport'), emoji: '🏃', colorClass: 'bg-orange-100 text-orange-700 border-orange-200' },
     { id: 'creative', label: isMale ? 'Creativo' : 'Creativa', emoji: '🎨', colorClass: 'bg-purple-100 text-purple-700 border-purple-200' },
     { id: 'relaxed', label: isMale ? 'Relajado' : 'Relajada', emoji: '🧘‍♀️', colorClass: 'bg-teal-100 text-teal-700 border-teal-200' },
     { id: 'powerful', label: isMale ? 'Poderoso' : 'Poderosa', emoji: '⚡', colorClass: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
@@ -26,7 +32,9 @@ const getMoods = (gender?: string): MoodOption[] => {
 };
 
 const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntries, looks, garments }) => {
-  const moods = getMoods(user?.gender);
+  const { t } = useLanguage();
+  const moods = getMoods(user?.gender, t);
+
   // Real stats
   const mostUsedGarment = useMemo(
     () => [...garments].sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0))[0],
@@ -92,7 +100,7 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
         <h1 className="text-3xl font-bold text-gray-800 tracking-tight">
           Hola, <span className="text-primary">{user.name}</span>
         </h1>
-        <p className="text-gray-500 text-lg font-light">¿Cómo te sientes hoy?</p>
+        <p className="text-gray-500 text-lg font-light">{t('howAreYouFeeling')}</p>
       </header>
 
       {/* Mood Selector */}
@@ -102,8 +110,8 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
             key={m.id}
             onClick={() => onMoodChange(m.id)}
             className={`flex-shrink-0 px-4 py-3 rounded-2xl border flex items-center space-x-2 transition-all transform active:scale-95 ${user.mood === m.id
-              ? 'bg-primary text-white border-primary shadow-lg ring-2 ring-offset-2 ring-primary/30'
-              : 'bg-white border-gray-100 text-gray-600 shadow-sm hover:border-gray-200'
+                ? 'bg-primary text-white border-primary shadow-lg ring-2 ring-offset-2 ring-primary/30'
+                : 'bg-white border-gray-100 text-gray-600 shadow-sm hover:border-gray-200'
               }`}
           >
             <span className="text-xl">{m.emoji}</span>
@@ -333,5 +341,12 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
     </div>
   );
 };
+
+const Briefcase = ({ size, className }: { size: number, className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+    <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+  </svg>
+);
 
 export default Home;

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Heart, Tag, Sparkles, ShoppingBag, MessageCircle, CheckCircle2 } from 'lucide-react';
 import { api } from '../services/api';
 import { Garment } from '../types';
+import { useLanguage } from '../src/context/LanguageContext';
 
 interface WishlistProps {
   garments: Garment[];
@@ -9,6 +10,7 @@ interface WishlistProps {
 }
 
 const Wishlist: React.FC<WishlistProps> = ({ garments, onNavigate }) => {
+  const { t } = useLanguage();
   const [favorites, setFavorites] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
@@ -45,10 +47,10 @@ const Wishlist: React.FC<WishlistProps> = ({ garments, onNavigate }) => {
     const typeKey = product?.category;
     const colorKey = (product?.color || '').toLowerCase();
     const score = (typeKey ? garmentCounts[typeKey] || 0 : 0) + (colorKey ? garmentCounts[colorKey] || 0 : 0);
-    if (score >= 6) return 'Combina con 6+ prendas';
-    if (score >= 3) return 'Combina con 3+ prendas';
-    if (score >= 1) return 'Combina con tu armario';
-    return 'Sin combinaciones claras';
+    if (score >= 6) return t('combinations6');
+    if (score >= 3) return t('combinations3');
+    if (score >= 1) return t('combinations1');
+    return t('noCombinations');
   };
 
   const handleRemove = async (fav: any) => {
@@ -124,14 +126,14 @@ const Wishlist: React.FC<WishlistProps> = ({ garments, onNavigate }) => {
     <div className="p-6 pb-24 bg-gray-50 min-h-full">
       <header className="flex justify-between items-center mb-6 mt-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Wishlist</h1>
-          <p className="text-sm text-gray-500">{favorites.length} guardados</p>
+          <h1 className="text-2xl font-bold text-gray-800">{t('wishlist')}</h1>
+          <p className="text-sm text-gray-500">{favorites.length} {t('savedItems')}</p>
         </div>
         <button
           onClick={() => onNavigate('community')}
           className="text-xs font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-full"
         >
-          Explorar
+          {t('explore')}
         </button>
       </header>
 
@@ -142,13 +144,13 @@ const Wishlist: React.FC<WishlistProps> = ({ garments, onNavigate }) => {
       ) : favorites.length === 0 ? (
         <div className="text-center py-16">
           <Heart size={48} className="mx-auto text-gray-200 mb-3" />
-          <p className="text-gray-400 text-sm">Aun no tienes wishlist</p>
-          <p className="text-xs text-gray-300 mt-1">Guarda prendas o looks que te inspiren</p>
+          <p className="text-gray-400 text-sm">{t('noWishlist')}</p>
+          <p className="text-xs text-gray-300 mt-1">{t('noWishlistDesc')}</p>
           <button
             onClick={() => onNavigate('community')}
             className="mt-4 text-primary text-sm font-medium"
           >
-            Ir a Comunidad
+            {t('goToCommunity')}
           </button>
         </div>
       ) : (
@@ -180,7 +182,7 @@ const Wishlist: React.FC<WishlistProps> = ({ garments, onNavigate }) => {
                       onClick={() => handleRemove(fav)}
                       className="mt-2 text-[10px] text-rose-500 font-semibold"
                     >
-                      Quitar
+                      {t('removeFromWishlist')}
                     </button>
                   </div>
                 </>
@@ -213,21 +215,21 @@ const Wishlist: React.FC<WishlistProps> = ({ garments, onNavigate }) => {
                         disabled={actionLoadingId === fav.id}
                         className="text-[10px] font-semibold text-white bg-primary px-2.5 py-1 rounded-full disabled:opacity-60"
                       >
-                        {actionLoadingId === fav.id ? 'Guardando...' : 'Mover a armario'}
+                        {actionLoadingId === fav.id ? t('movingToWardrobe') : t('moveToWardrobe')}
                       </button>
                       <button
                         onClick={() => handleMarkPurchased(fav)}
                         disabled={actionLoadingId === fav.id}
                         className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full disabled:opacity-60"
                       >
-                        <CheckCircle2 size={12} className="inline-block mr-1" /> Comprada
+                        <CheckCircle2 size={12} className="inline-block mr-1" /> {t('purchased')}
                       </button>
                     </div>
                     <button
                       onClick={() => handleStartChat(fav.product)}
                       className="mt-2 text-[10px] text-primary font-semibold inline-flex items-center gap-1"
                     >
-                      <MessageCircle size={12} /> Preguntar
+                      <MessageCircle size={12} /> {t('askSeller')}
                     </button>
                   </div>
                 </>

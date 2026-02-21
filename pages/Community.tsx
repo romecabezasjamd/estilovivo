@@ -3,6 +3,7 @@ import { Heart, MessageCircle, Bookmark, MoreHorizontal, ShoppingBag, Search, Fi
 import ProductDetailModal, { ProductDisplayItem } from '../components/ProductDetailModal';
 import { api } from '../services/api';
 import { Look, UserState, ShopItem, Comment } from '../types';
+import { useLanguage } from '../src/context/LanguageContext';
 
 interface CommunityProps {
     user: UserState;
@@ -196,12 +197,14 @@ const Community: React.FC<CommunityProps> = ({ user, onNavigate }) => {
         loadShop();
     };
 
+    const { t } = useLanguage();
+
     return (
         <div className="pb-24 bg-gray-50 min-h-full">
             {/* Header with Tabs */}
             <div className="bg-white p-5 rounded-b-3xl shadow-sm mb-6 sticky top-0 z-10">
                 <div className="flex justify-between items-center mb-4">
-                    <h1 className="text-2xl font-bold text-gray-800">Comunidad</h1>
+                    <h1 className="text-2xl font-bold text-gray-800">{t('social')}</h1>
                     <div className="flex bg-gray-100 rounded-full p-1">
                         <button
                             onClick={() => setActiveTab('feed')}
@@ -213,7 +216,7 @@ const Community: React.FC<CommunityProps> = ({ user, onNavigate }) => {
                             onClick={() => setActiveTab('shop')}
                             className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${activeTab === 'shop' ? 'bg-white text-primary shadow-sm' : 'text-gray-500'}`}
                         >
-                            Tienda
+                            {t('forSale')}
                         </button>
                     </div>
                 </div>
@@ -367,7 +370,7 @@ const Community: React.FC<CommunityProps> = ({ user, onNavigate }) => {
                                             className={`absolute top-2 left-2 z-10 p-1.5 rounded-full shadow-sm ${favoritedProductIds.has(item.id)
                                                 ? 'bg-amber-500 text-white'
                                                 : 'bg-white text-gray-500'
-                                            }`}
+                                                }`}
                                         >
                                             <Bookmark size={14} fill={favoritedProductIds.has(item.id) ? 'currentColor' : 'none'} />
                                         </button>

@@ -2,12 +2,14 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { MessageCircle, ArrowRight, Send } from 'lucide-react';
 import { api } from '../services/api';
 import { ChatConversation, ChatMessage } from '../types';
+import { useLanguage } from '../src/context/LanguageContext';
 
 interface ChatProps {
   onNavigate: (tab: string) => void;
 }
 
 const Chat: React.FC<ChatProps> = ({ onNavigate }) => {
+  const { t } = useLanguage();
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [messagesById, setMessagesById] = useState<Record<string, ChatMessage[]>>({});
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
@@ -63,7 +65,7 @@ const Chat: React.FC<ChatProps> = ({ onNavigate }) => {
   }, []);
 
   const activeThread = useMemo(
-    () => conversations.find(t => t.id === selectedThreadId) || null,
+    () => conversations.find(tThread => tThread.id === selectedThreadId) || null,
     [conversations, selectedThreadId]
   );
 
@@ -118,8 +120,8 @@ const Chat: React.FC<ChatProps> = ({ onNavigate }) => {
     <div className="p-6 pb-24 bg-gray-50 min-h-full">
       <header className="flex justify-between items-center mb-6 mt-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Mensajes</h1>
-          <p className="text-sm text-gray-500">Conversa sobre looks y prendas</p>
+          <h1 className="text-2xl font-bold text-gray-800">{t('messages')}</h1>
+          <p className="text-sm text-gray-500">{t('messagesDesc')}</p>
         </div>
       </header>
 
@@ -130,13 +132,13 @@ const Chat: React.FC<ChatProps> = ({ onNavigate }) => {
       ) : conversations.length === 0 ? (
         <div className="bg-white rounded-3xl border border-gray-100 p-8 text-center shadow-sm animate-fade-in">
           <MessageCircle size={48} className="mx-auto text-gray-200 mb-3" />
-          <p className="text-gray-400 text-sm">Aun no tienes conversaciones</p>
-          <p className="text-xs text-gray-300 mt-1">Explora la comunidad para iniciar un chat</p>
+          <p className="text-gray-400 text-sm">{t('noConversations')}</p>
+          <p className="text-xs text-gray-300 mt-1">{t('noConversationsDesc')}</p>
           <button
             onClick={() => onNavigate('community')}
             className="mt-4 inline-flex items-center gap-2 text-primary text-sm font-semibold"
           >
-            Ir a Comunidad
+            {t('goToCommunity')}
             <ArrowRight size={14} />
           </button>
         </div>
@@ -144,22 +146,22 @@ const Chat: React.FC<ChatProps> = ({ onNavigate }) => {
         <div className="grid grid-cols-1 gap-4">
           <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm">
             <div className="divide-y divide-gray-100">
-              {conversations.map(t => (
+              {conversations.map(tThread => (
                 <button
-                  key={t.id}
-                  onClick={() => setSelectedThreadId(t.id)}
-                  className={`w-full flex items-center gap-3 p-4 text-left transition ${selectedThreadId === t.id ? 'bg-primary/5' : 'hover:bg-gray-50'}`}
+                  key={tThread.id}
+                  onClick={() => setSelectedThreadId(tThread.id)}
+                  className={`w-full flex items-center gap-3 p-4 text-left transition ${selectedThreadId === tThread.id ? 'bg-primary/5' : 'hover:bg-gray-50'}`}
                 >
                   <img
-                    src={t.otherUser?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(t.otherUser?.name || 'U')}&background=0F4C5C&color=fff`}
+                    src={tThread.otherUser?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(tThread.otherUser?.name || 'U')}&background=0F4C5C&color=fff`}
                     className="w-10 h-10 rounded-full object-cover"
-                    alt={t.otherUser?.name}
+                    alt={tThread.otherUser?.name}
                   />
                   <div className="flex-1">
-                    <p className="text-sm font-semibold text-gray-800 truncate">{t.otherUser?.name || 'Usuario'}</p>
-                    <p className="text-[11px] text-gray-400 truncate">{t.itemTitle || 'Conversacion'}</p>
+                    <p className="text-sm font-semibold text-gray-800 truncate">{tThread.otherUser?.name || 'Usuario'}</p>
+                    <p className="text-[11px] text-gray-400 truncate">{tThread.itemTitle || 'Conversacion'}</p>
                   </div>
-                  <span className="text-[10px] text-gray-400 truncate max-w-[120px]">{t.lastMessage?.content || ''}</span>
+                  <span className="text-[10px] text-gray-400 truncate max-w-[120px]">{tThread.lastMessage?.content || ''}</span>
                 </button>
               ))}
             </div>
@@ -200,7 +202,7 @@ const Chat: React.FC<ChatProps> = ({ onNavigate }) => {
                   value={messageInput}
                   onChange={e => setMessageInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSend()}
-                  placeholder="Escribe un mensaje..."
+                  placeholder={t('typeMessage')}
                   className="flex-1 bg-transparent text-sm outline-none"
                 />
                 <button

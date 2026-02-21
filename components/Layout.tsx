@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { Home, Shirt, PlusSquare, Users, User } from 'lucide-react';
+import { useLanguage } from '../src/context/LanguageContext';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -8,12 +9,13 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => {
+  const { t } = useLanguage();
   const navItems = [
-    { id: 'home', icon: Home, label: 'Inicio' },
-    { id: 'wardrobe', icon: Shirt, label: 'Armario' },
-    { id: 'create', icon: PlusSquare, label: 'Crear' },
-    { id: 'social', icon: Users, label: 'Social' },
-    { id: 'profile', icon: User, label: 'Perfil' },
+    { id: 'home', icon: Home, label: t('home') },
+    { id: 'wardrobe', icon: Shirt, label: t('wardrobe') },
+    { id: 'create', icon: PlusSquare, label: t('create') },
+    { id: 'social', icon: Users, label: t('social') },
+    { id: 'profile', icon: User, label: t('profile') },
   ];
 
   // Calculate index for the sliding animation
@@ -36,7 +38,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
       <div className="fixed bottom-6 left-4 right-4 z-50 flex justify-center pointer-events-none">
         <nav className="relative w-full max-w-lg h-16 bg-white/80 backdrop-blur-md border border-white/40 shadow-xl rounded-full flex items-center p-1 pointer-events-auto">
 
-          {/* Sliding Pill Indicator */}
           {/* Sliding Pill Indicator */}
           {activeIndex !== -1 && (
             <div
