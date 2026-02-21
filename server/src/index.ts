@@ -414,9 +414,9 @@ app.get('/api/products/shop', authenticateToken, async (req: any, res: Response)
     const where: any = { forSale: true, userId: { not: req.user.userId } };
     if (search) {
       where.OR = [
-        { name: { contains: search as string, mode: 'insensitive' } },
-        { brand: { contains: search as string, mode: 'insensitive' } },
-        { category: { contains: search as string, mode: 'insensitive' } },
+        { name: { contains: search as string } },
+        { brand: { contains: search as string } },
+        { category: { contains: search as string } },
       ];
     }
     if (category && category !== 'all') where.category = category as string;
