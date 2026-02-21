@@ -14,11 +14,11 @@ import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
 import logger from './logger.js';
 import { processImage } from './imageProcessor.js';
-import { 
-  validate, 
-  registerSchema, 
-  loginSchema, 
-  productSchema, 
+import {
+  validate,
+  registerSchema,
+  loginSchema,
+  productSchema,
   lookSchema,
   commentSchema,
   favoriteSchema,
@@ -71,13 +71,13 @@ if (!isEmailConfigured) {
 // Only create transporter if SMTP is configured
 const transporter = isEmailConfigured
   ? nodemailer.createTransport({
-      host: process.env.SMTP_HOST!,
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      auth: {
-        user: process.env.SMTP_USER!,
-        pass: process.env.SMTP_PASS!,
-      },
-    })
+    host: process.env.SMTP_HOST!,
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    auth: {
+      user: process.env.SMTP_USER!,
+      pass: process.env.SMTP_PASS!,
+    },
+  })
   : null;
 
 // Crear directorio de uploads si no existe
@@ -108,7 +108,7 @@ app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (like mobile apps or curl)
     if (!origin) return callback(null, true);
-    
+
     // Check if origin is in allowed list
     if (allowedOrigins.some(allowed => origin.startsWith(allowed || ''))) {
       callback(null, true);
@@ -148,14 +148,14 @@ app.use('/api/', generalLimiter);
 const authenticateToken = (req: any, res: Response, next: NextFunction) => {
   // Check for token in cookie first, then fall back to Authorization header
   let token = req.cookies?.auth_token;
-  
+
   if (!token) {
     const authHeader = req.headers['authorization'];
     token = authHeader && authHeader.split(' ')[1];
   }
-  
+
   if (!token) return res.status(401).json({ error: 'Token required' });
-  
+
   jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
     if (err) {
       logger.warn('Invalid token attempt', { error: err.message });
@@ -229,16 +229,16 @@ app.post('/api/auth/register', authLimiter, validate(registerSchema), async (req
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
-      data: { 
-        email, 
-        password: hashedPassword, 
+      data: {
+        email,
+        password: hashedPassword,
         name,
         gender: gender || 'female',
         birthDate: birthDate ? new Date(birthDate) : null
       }
     });
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
-    
+
     // Set httpOnly cookie
     res.cookie('auth_token', token, {
       httpOnly: true,
@@ -246,7 +246,7 @@ app.post('/api/auth/register', authLimiter, validate(registerSchema), async (req
       sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
-    
+
     const { password: _, ...safe } = user;
     logger.info('User registered successfully', { userId: user.id, email: user.email });
     res.status(201).json({ user: safe, token });
@@ -269,7 +269,7 @@ app.post('/api/auth/login', authLimiter, validate(loginSchema), async (req: Requ
     if (!isMatch) return res.status(401).json({ error: 'Invalid credentials' });
 
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
-    
+
     // Set httpOnly cookie
     res.cookie('auth_token', token, {
       httpOnly: true,
@@ -277,7 +277,7 @@ app.post('/api/auth/login', authLimiter, validate(loginSchema), async (req: Requ
       sameSite: 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
-    
+
     const { password: _, _count, ...safe } = user;
     logger.info('User logged in', { userId: user.id });
     res.json({
@@ -304,8 +304,8 @@ app.post('/api/auth/forgot-password', authLimiter, async (req: Request, res: Res
   try {
     // Check if email is configured
     if (!transporter) {
-      return res.status(503).json({ 
-        error: 'Email service not configured. Please contact support.' 
+      return res.status(503).json({
+        error: 'Email service not configured. Please contact support.'
       });
     }
 
@@ -388,7 +388,7 @@ app.get('/api/products', authenticateToken, async (req: any, res: Response) => {
   try {
     const { cursor, limit = '20' } = req.query;
     const take = parseInt(limit as string) + 1;
-    
+
     const products = await prisma.product.findMany({
       where: { userId: req.user.userId },
       include: { images: true, user: { select: { id: true, name: true, avatar: true } } },
@@ -396,11 +396,11 @@ app.get('/api/products', authenticateToken, async (req: any, res: Response) => {
       take,
       ...(cursor ? { cursor: { id: cursor as string }, skip: 1 } : {}),
     });
-    
+
     const hasMore = products.length > parseInt(limit as string);
     const items = hasMore ? products.slice(0, -1) : products;
     const nextCursor = hasMore ? items[items.length - 1]?.id : null;
-    
+
     res.json({ items, nextCursor, hasMore });
   } catch (error) {
     logger.error('Error occurred', { error });
@@ -414,9 +414,9 @@ app.get('/api/products/shop', authenticateToken, async (req: any, res: Response)
     const where: any = { forSale: true, userId: { not: req.user.userId } };
     if (search) {
       where.OR = [
-        { name: { contains: search as string } },
-        { brand: { contains: search as string } },
-        { category: { contains: search as string } },
+        { name: { contains: search as string, mode: 'insensitive' } },
+        { brand: { contains: search as string, mode: 'insensitive' } },
+        { category: { contains: search as string, mode: 'insensitive' } },
       ];
     }
     if (category && category !== 'all') where.category = category as string;
@@ -477,15 +477,15 @@ app.post('/api/products', authenticateToken, validate(productSchema), upload.arr
         forSale: forSale === 'true' || forSale === true,
         userId: req.user.userId,
         images: {
-          create: processedImages.map(img => ({ 
-            filename: img.filename, 
-            url: img.url 
+          create: processedImages.map(img => ({
+            filename: img.filename,
+            url: img.url
           })),
         },
       },
       include: { images: true, user: { select: { id: true, name: true, avatar: true } } },
     });
-    
+
     logger.info('Product created', { productId: product.id, userId: req.user.userId });
     res.status(201).json(product);
   } catch (error) {
@@ -572,7 +572,7 @@ app.get('/api/looks', authenticateToken, async (req: any, res: Response) => {
   try {
     const { cursor, limit = '20' } = req.query;
     const take = parseInt(limit as string) + 1;
-    
+
     const looks = await prisma.look.findMany({
       where: { userId: req.user.userId },
       include: {
@@ -597,7 +597,7 @@ app.get('/api/looks', authenticateToken, async (req: any, res: Response) => {
     const looksWithMeta = items.map(l => ({
       ...l, likesCount: l._count.likes, commentsCount: l._count.comments, isLiked: likedIds.has(l.id)
     }));
-    
+
     const nextCursor = hasMore ? items[items.length - 1]?.id : null;
 
     res.json({ items: looksWithMeta, nextCursor, hasMore });
@@ -611,7 +611,7 @@ app.get('/api/looks/feed', authenticateToken, async (req: any, res: Response) =>
   try {
     const { cursor, limit = '20' } = req.query;
     const take = parseInt(limit as string) + 1;
-    
+
     const looks = await prisma.look.findMany({
       where: { isPublic: true },
       include: {
@@ -643,7 +643,7 @@ app.get('/api/looks/feed', authenticateToken, async (req: any, res: Response) =>
       ...l, likesCount: l._count.likes, commentsCount: l._count.comments,
       isLiked: likedIds.has(l.id), isFavorited: favIds.has(l.id)
     }));
-    
+
     const nextCursor = hasMore ? items[items.length - 1]?.id : null;
 
     res.json({ items: looksWithMeta, nextCursor, hasMore });
@@ -689,11 +689,11 @@ app.post('/api/looks', authenticateToken, validate(lookSchema), upload.array('im
         isPublic: isPublic === 'true' || isPublic === true,
         mood: mood || null,
         products: { connect: parsedIds.map((id: string) => ({ id })) },
-        images: { 
-          create: processedImages.map(img => ({ 
-            filename: img.filename, 
-            url: img.url 
-          })) 
+        images: {
+          create: processedImages.map(img => ({
+            filename: img.filename,
+            url: img.url
+          }))
         },
       },
       include: {
@@ -702,7 +702,7 @@ app.post('/api/looks', authenticateToken, validate(lookSchema), upload.array('im
         _count: { select: { likes: true, comments: true } }
       },
     });
-    
+
     logger.info('Look created', { lookId: look.id, userId: req.user.userId });
     res.status(201).json({ ...look, likesCount: 0, commentsCount: 0, isLiked: false });
   } catch (error) {
