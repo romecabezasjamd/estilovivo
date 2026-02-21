@@ -405,9 +405,13 @@ app.get('/api/products', authenticateToken, async (req: any, res: Response) => {
     const nextCursor = hasMore ? items[items.length - 1]?.id : null;
 
     res.json({ items, nextCursor, hasMore });
-  } catch (error) {
-    logger.error('Error occurred', { error });
-    res.status(500).json({ error: 'Error fetching products' });
+  } catch (error: any) {
+    logger.error('Error fetching products', {
+      error: error.message,
+      stack: error.stack,
+      userId: req.user.userId
+    });
+    res.status(500).json({ error: 'Error fetching products', detail: error.message });
   }
 });
 
@@ -436,7 +440,7 @@ app.get('/api/products/shop', authenticateToken, async (req: any, res: Response)
   }
 });
 
-app.post('/api/products', authenticateToken, validate(productSchema), upload.array('images', 5), async (req: any, res: Response) => {
+app.post('/api/products', authenticateToken, upload.array('images', 5), validate(productSchema), async (req: any, res: Response) => {
   try {
     const { name, category, color, season, brand, size, condition, description, price, forSale } = req.body;
     const files = req.files as Express.Multer.File[] | undefined;
@@ -497,7 +501,7 @@ app.post('/api/products', authenticateToken, validate(productSchema), upload.arr
   }
 });
 
-app.put('/api/products/:id', authenticateToken, validate(productSchema), upload.array('images', 5), async (req: any, res: Response) => {
+app.put('/api/products/:id', authenticateToken, upload.array('images', 5), validate(productSchema), async (req: any, res: Response) => {
   try {
     const { id } = req.params;
     const { name, category, color, season, brand, size, condition, description, price, forSale, usageCount } = req.body;

@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import './src/index.css';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import { NotificationProvider } from './src/context/NotificationContext';
 
