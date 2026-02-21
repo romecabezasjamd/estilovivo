@@ -824,16 +824,28 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate }) => {
                             </span>
                           ))}
                         </div>
-                        {trend.link && (
-                          <a
-                            href={trend.link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[10px] font-bold text-primary flex items-center gap-1 hover:underline"
+                        <div className="flex gap-3">
+                          {trend.link && (
+                            <a
+                              href={trend.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] font-bold text-gray-400 flex items-center gap-1 hover:text-gray-600 transition-colors"
+                            >
+                              Leer más <ExternalLink size={12} />
+                            </a>
+                          )}
+                          <button
+                            onClick={() => {
+                              setSearchQuery(trend.title.split(' ').slice(0, 3).join(' '));
+                              setActiveTab('shop');
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                            className="bg-primary/10 text-primary text-[10px] font-bold px-3 py-1.5 rounded-full hover:bg-primary hover:text-white transition-all flex items-center gap-1"
                           >
-                            Ver más <ExternalLink size={12} />
-                          </a>
-                        )}
+                            Comprar Estilo <ShoppingBag size={12} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
