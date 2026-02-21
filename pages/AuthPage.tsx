@@ -110,8 +110,8 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
 
             <div className="w-full max-w-md z-10">
                 <div className="text-center mb-10">
-                    <div className="flex justify-center mb-8">
-                        <Logo variant="horizontal" size={50} />
+                    <div className="flex justify-center mb-6">
+                        <Logo variant="icon" size={80} />
                     </div>
                     <h1 className="text-4xl font-black text-gray-900 tracking-tight mb-2">{t('welcome')}</h1>
                     <p className="text-gray-500 font-medium">{t('subtitle')}</p>
