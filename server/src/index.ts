@@ -35,6 +35,9 @@ const __dirname = path.dirname(__filename);
 const app: Express = express();
 const prisma = new PrismaClient();
 
+// Trust first proxy (Docker / reverse proxy / Coolify)
+app.set('trust proxy', 1);
+
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const UPLOADS_DIR = process.env.UPLOADS_DIR || '/app/uploads';
 const NODE_ENV = process.env.NODE_ENV || 'development';
