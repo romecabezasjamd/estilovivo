@@ -14,67 +14,79 @@ const Logo: React.FC<LogoProps> = ({
     size
 }) => {
     const isDark = mode === 'dark';
-    const textColor = isDark ? '#FFFFFF' : '#2E2E2E';
-    const mintGreen = '#7FC8A9';
-    const coralSoft = '#F27A6A';
+    const textColor = isDark ? '#F8FAFC' : '#0F172A';
+
+    // Nueva Paleta de Colores
+    const petrolBlue = '#083344';
+    const lavender = '#A78BFA';
+    const vibrantCoral = '#F43F5E';
+    const goldSoft = '#FACC15';
 
     const symbol = (
         <svg
             viewBox="0 0 100 100"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
-            style={{ width: size || (variant === 'icon' ? '120px' : '48px'), height: 'auto' }}
+            style={{ width: size || (variant === 'icon' ? '80px' : '40px'), height: 'auto' }}
         >
-            {/* Percha minimalista - Trazo fino y curvo */}
-            <path
-                d="M20 45 C20 35, 80 35, 80 45"
-                stroke={isDark ? "#E5E7EB" : "#4B5563"}
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                fill="none"
-            />
-            <path
-                d="M50 35 V28 C50 22, 60 22, 60 28"
-                stroke={isDark ? "#E5E7EB" : "#4B5563"}
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                fill="none"
+            {/* Estructura del armario - Azul Petróleo (se adapta en modo oscuro) */}
+            <rect
+                x="20" y="15" width="60" height="70" rx="3"
+                stroke={isDark ? lavender : petrolBlue}
+                strokeWidth="3"
             />
 
-            {/* Ola orgánica tipo ola - Color Coral */}
-            <path
-                d="M15 65 Q 50 85, 85 65"
-                stroke={coralSoft}
-                strokeWidth="5"
-                strokeLinecap="round"
-                fill="none"
+            {/* Divisor central - Trazado fino */}
+            <line
+                x1="50" y1="15" x2="50" y2="85"
+                stroke={isDark ? lavender : petrolBlue}
+                strokeWidth="1.5"
+                strokeOpacity="0.4"
             />
 
-            {/* Hoja superpuesta - Verde Menta, inclinada a la derecha */}
+            {/* Barra y Perchas Abstractas - Lavanda/Coral */}
             <path
-                d="M50 62 C 60 52, 80 67, 60 77 C 50 82, 40 72, 50 62"
-                fill={mintGreen}
-                transform="rotate(15, 60, 70)"
+                d="M28 32 H72"
+                stroke={isDark ? vibrantCoral : lavender}
+                strokeWidth="2.5"
+                strokeLinecap="round"
+            />
+
+            <circle cx="38" cy="32" r="4" stroke={isDark ? vibrantCoral : lavender} strokeWidth="1.5" fill="none" />
+            <circle cx="62" cy="32" r="4" stroke={isDark ? vibrantCoral : lavender} strokeWidth="1.5" fill="none" />
+
+            {/* Tiradores - Detalle Minimalista */}
+            <circle cx="44" cy="50" r="2" fill={isDark ? goldSoft : vibrantCoral} />
+            <circle cx="56" cy="50" r="2" fill={isDark ? goldSoft : vibrantCoral} />
+
+            {/* Base Estrecha */}
+            <path
+                d="M30 85 H70"
+                stroke={isDark ? lavender : petrolBlue}
+                strokeWidth="2"
+                strokeLinecap="round"
             />
         </svg>
     );
 
     if (variant === 'icon') {
         return (
-            <div className={`flex items-center justify-center p-6 rounded-[2rem] shadow-sm ${isDark ? 'bg-[#1A1A1A]' : 'bg-white'} ${className}`}>
+            <div className={`flex items-center justify-center p-4 rounded-3xl shadow-lg transition-all ${isDark ? 'bg-slate-900 border border-slate-800' : 'bg-white'} ${className}`}>
                 {symbol}
             </div>
         );
     }
 
     return (
-        <div className={`flex items-center gap-4 ${className}`}>
-            {symbol}
+        <div className={`flex items-center gap-3 transition-opacity hover:opacity-90 ${className}`}>
+            <div className="flex-shrink-0">
+                {symbol}
+            </div>
             <span
-                className="font-serif font-bold text-3xl tracking-tight"
+                className="font-sans font-black text-2xl tracking-tighter uppercase italic"
                 style={{ color: textColor }}
             >
-                Estilo Vivo
+                Estilo <span style={{ color: isDark ? lavender : vibrantCoral }}>Vivo</span>
             </span>
         </div>
     );
