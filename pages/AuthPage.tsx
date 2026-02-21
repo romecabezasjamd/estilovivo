@@ -3,6 +3,7 @@ import { Mail, Lock, User, ArrowRight, Sparkles, AlertCircle, Calendar, Language
 import { api } from '../services/api';
 import { useLanguage } from '../src/context/LanguageContext';
 import { languages, dialects } from '../src/utils/translations';
+import Logo from '../components/Logo';
 
 interface AuthPageProps {
     onAuthSuccess: (user: any) => void;
@@ -109,8 +110,8 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
 
             <div className="w-full max-w-md z-10">
                 <div className="text-center mb-10">
-                    <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-tr from-primary to-teal-400 rounded-3xl shadow-xl shadow-primary/20 mb-6 transform rotate-12">
-                        <Sparkles className="text-white" size={40} />
+                    <div className="flex justify-center mb-8">
+                        <Logo variant="horizontal" size={50} />
                     </div>
                     <h1 className="text-4xl font-black text-gray-900 tracking-tight mb-2">{t('welcome')}</h1>
                     <p className="text-gray-500 font-medium">{t('subtitle')}</p>
