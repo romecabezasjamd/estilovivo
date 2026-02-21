@@ -484,5 +484,10 @@ export const api = {
         });
         return handleResponse(res);
     },
+
+    getTrends: async () => {
+        const res = await fetch(`${API_BASE}/trends`, { headers: getHeaders(), credentials: 'include' });
+        return handleResponse(res);
+    },
 };
 

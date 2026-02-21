@@ -26,6 +26,7 @@ import {
   plannerSchema,
   tripSchema
 } from './validators.js';
+import { fashionTrendsService } from './fashionTrends.js';
 
 dotenv.config();
 
@@ -864,6 +865,17 @@ app.post('/api/social/follow', authenticateToken, validate(followSchema), async 
   } catch (error) {
     logger.error('Error occurred', { error });
     res.status(500).json({ error: 'Error toggling follow' });
+  }
+});
+
+// ============= TRENDS =============
+app.get('/api/trends', async (req: Request, res: Response) => {
+  try {
+    const trends = await fashionTrendsService.getTrends();
+    res.json(trends);
+  } catch (error) {
+    logger.error('Error in trends route:', error);
+    res.status(500).json({ error: 'Error fetching trends' });
   }
 });
 

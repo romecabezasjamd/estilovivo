@@ -41,46 +41,6 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate }) => {
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
 
-  // Fashion Trends Data (Feb 2026)
-  const fashionTrends = useMemo(() => [
-    {
-      id: 't1',
-      title: 'Animal Print Elevated',
-      category: 'Print',
-      description: 'El leopardo y el cebra evolucionan hacia texturas de lujo. Abrigos con pelo sintético y acabados satinados dominan el street style de Nueva York.',
-      image: 'https://images.unsplash.com/photo-1578681994506-b8f463449011?auto=format&fit=crop&q=80&w=800',
-      tags: ['Leopard', 'StreetStyle', 'NYFW'],
-      source: 'Vogue Business Feb 2026'
-    },
-    {
-      id: 't2',
-      title: 'Cherry Red Presence',
-      category: 'Color',
-      description: 'El rojo cereza profundo se consolida como el tono absoluto. Visto en total looks de Proenza Schouler y accesorios esculpidos.',
-      image: 'https://images.unsplash.com/photo-1506152983158-b4a74a01c721?auto=format&fit=crop&q=80&w=800',
-      tags: ['RedHot', 'ColorTrend', 'AW26'],
-      source: 'Pantone Fashion Report 2026'
-    },
-    {
-      id: 't3',
-      title: 'Poet Chic Silhouettes',
-      category: 'Aesthetic',
-      description: 'Blusas con volantes exagerados y lazos. Un retorno al romanticismo oscuro con tejidos fluidos y transparencias elegantes.',
-      image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&q=80&w=800',
-      tags: ['Romanticism', 'SoftTailoring', 'PoetChic'],
-      source: 'London Fashion Week Insights'
-    },
-    {
-      id: 't4',
-      title: 'Elevated Maximalism',
-      category: 'Texture',
-      description: 'Mezcla audaz de texturas: bouclé, ante y cuero en un mismo outfit. La clave es el " sensorialismo" táctil sobre el espectáculo visual.',
-      image: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&q=80&w=800',
-      tags: ['Textured', 'Maximalism', 'Tactile'],
-      source: 'WGSN Trend Forecast'
-    }
-  ], []);
-
   const currentUserId = useMemo(() => {
     const raw = localStorage.getItem('beyour_user');
     if (!raw) return null;
@@ -118,6 +78,10 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate }) => {
     }
   }, [searchQuery]);
 
+  // Fashion Trends
+  const [fashionTrends, setFashionTrends] = useState<any[]>([]);
+  const [loadingTrends, setLoadingTrends] = useState(false);
+
   const loadFavorites = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -135,6 +99,18 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate }) => {
       console.warn('Could not load favorites:', e);
     } finally {
       setIsLoading(false);
+    }
+  }, []);
+
+  const loadTrends = useCallback(async () => {
+    setLoadingTrends(true);
+    try {
+      const data = await api.getTrends();
+      setFashionTrends(data);
+    } catch (e) {
+      console.warn('Could not load trends:', e);
+    } finally {
+      setLoadingTrends(false);
     }
   }, []);
 
@@ -179,7 +155,8 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate }) => {
     }
     else if (activeTab === 'favorites') loadFavorites();
     else if (activeTab === 'chat') loadConversations();
-  }, [activeTab, loadFeed, loadShop, loadFavorites, loadConversations]);
+    else if (activeTab === 'trends') loadTrends();
+  }, [activeTab, loadFeed, loadShop, loadFavorites, loadConversations, loadTrends]);
 
   // === FEED HANDLERS ===
   const handleToggleLike = async (lookId: string) => {
@@ -530,7 +507,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate }) => {
       </div>
 
       {/* Content Area */}
-      {isLoading || (activeTab === 'chat' && loadingConversations) ? (
+      {isLoading || (activeTab === 'chat' && loadingConversations) || (activeTab === 'trends' && loadingTrends) ? (
         <div className="flex justify-center py-20">
           <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
         </div>
