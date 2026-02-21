@@ -28,6 +28,12 @@ const AppContent: React.FC = () => {
   const [planner, setPlanner] = useState<PlannerEntry[]>([]);
   const [trips, setTrips] = useState<Trip[]>([]);
 
+  // SANITIZE DATA HELPER
+  const sanitize = <T,>(data: any[]): T[] => {
+    if (!Array.isArray(data)) return [];
+    return data.filter(item => item && (item.id || item.date)) as T[];
+  };
+
   // Fetch initial data & check auth
   useEffect(() => {
     // Apply saved theme immediately
@@ -63,35 +69,39 @@ const AppContent: React.FC = () => {
 
           // Use API results if available, fallback to localStorage
           if (fetchedGarments.status === 'fulfilled') {
-            setGarments(fetchedGarments.value);
-            localStorage.setItem('beyour_garments', JSON.stringify(fetchedGarments.value));
+            const sanitized = sanitize<Garment>(fetchedGarments.value);
+            setGarments(sanitized);
+            localStorage.setItem('beyour_garments', JSON.stringify(sanitized));
           } else {
             const saved = loadFromLocalStorage('beyour_garments', []);
-            setGarments(saved);
+            setGarments(sanitize<Garment>(saved));
           }
 
           if (fetchedLooks.status === 'fulfilled') {
-            setLooks(fetchedLooks.value);
-            localStorage.setItem('beyour_looks', JSON.stringify(fetchedLooks.value));
+            const sanitized = sanitize<Look>(fetchedLooks.value);
+            setLooks(sanitized);
+            localStorage.setItem('beyour_looks', JSON.stringify(sanitized));
           } else {
             const saved = loadFromLocalStorage('beyour_looks', []);
-            setLooks(saved);
+            setLooks(sanitize<Look>(saved));
           }
 
           if (fetchedPlanner.status === 'fulfilled') {
-            setPlanner(fetchedPlanner.value);
-            localStorage.setItem('beyour_planner', JSON.stringify(fetchedPlanner.value));
+            const sanitized = sanitize<PlannerEntry>(fetchedPlanner.value);
+            setPlanner(sanitized);
+            localStorage.setItem('beyour_planner', JSON.stringify(sanitized));
           } else {
             const saved = loadFromLocalStorage('beyour_planner', []);
-            setPlanner(saved);
+            setPlanner(sanitize<PlannerEntry>(saved));
           }
 
           if (fetchedTrips.status === 'fulfilled') {
-            setTrips(fetchedTrips.value);
-            localStorage.setItem('beyour_trips', JSON.stringify(fetchedTrips.value));
+            const sanitized = sanitize<Trip>(fetchedTrips.value);
+            setTrips(sanitized);
+            localStorage.setItem('beyour_trips', JSON.stringify(sanitized));
           } else {
             const saved = loadFromLocalStorage('beyour_trips', []);
-            setTrips(saved);
+            setTrips(sanitize<Trip>(saved));
           }
         } catch (error) {
           console.error("Critical error during initialization:", error);
@@ -139,8 +149,9 @@ const AppContent: React.FC = () => {
     const optimisticGarment = { ...garment, id: tempId };
 
     // Optimistic update
-    setGarments(prev => [optimisticGarment, ...prev]);
-    localStorage.setItem('beyour_garments', JSON.stringify([optimisticGarment, ...garments]));
+    const updated = sanitize<Garment>([optimisticGarment, ...garments]);
+    setGarments(updated);
+    localStorage.setItem('beyour_garments', JSON.stringify(updated));
 
     try {
       const saved = await api.addGarment({
@@ -153,7 +164,7 @@ const AppContent: React.FC = () => {
 
       // Replace temp with real
       setGarments(prev => {
-        const updated = prev.map(g => g.id === tempId ? saved : g);
+        const updated = sanitize<Garment>(prev.map(g => g.id === tempId ? saved : g));
         localStorage.setItem('beyour_garments', JSON.stringify(updated));
         return updated;
       });
@@ -177,7 +188,7 @@ const AppContent: React.FC = () => {
     const filtered = garments.filter(g => g.id !== id);
 
     // Optimistic update
-    setGarments(filtered);
+    setGarments(sanitize<Garment>(filtered));
     localStorage.setItem('beyour_garments', JSON.stringify(filtered));
 
     try {
@@ -197,8 +208,9 @@ const AppContent: React.FC = () => {
     const updated = garments.map(item => item.id === g.id ? g : item);
 
     // Optimistic update
-    setGarments(updated);
-    localStorage.setItem('beyour_garments', JSON.stringify(updated));
+    const sanitized = sanitize<Garment>(updated);
+    setGarments(sanitized);
+    localStorage.setItem('beyour_garments', JSON.stringify(sanitized));
 
     try {
       await api.updateGarment(g.id, g);
@@ -217,8 +229,9 @@ const AppContent: React.FC = () => {
     const optimisticLook = { ...look, id: tempId };
 
     // Optimistic update
-    setLooks(prev => [optimisticLook, ...prev]);
-    localStorage.setItem('beyour_looks', JSON.stringify([optimisticLook, ...looks]));
+    const updated = sanitize<Look>([optimisticLook, ...looks]);
+    setLooks(updated);
+    localStorage.setItem('beyour_looks', JSON.stringify(updated));
 
     try {
       const savedLook = await api.saveLook(look);

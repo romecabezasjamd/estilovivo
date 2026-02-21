@@ -40,13 +40,12 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
     const loadFavoriteStatus = async () => {
       try {
         const token = localStorage.getItem('token');
-        if (!token || !product.id) return;
-
         const res = await fetch('/api/social/favorites', {
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include'
         });
         const favorites = await res.json();
-        const isFavorited = favorites.some((fav: any) => fav.productId === product.id);
+        const isFavorited = Array.isArray(favorites) && favorites.some((fav: any) => fav && (fav.productId === product.id || fav.product?.id === product.id));
         setIsLiked(isFavorited);
       } catch (e) {
         console.warn('Failed to load favorite status:', e);
@@ -70,17 +69,16 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
   const handleLike = async () => {
     setIsLoading(true);
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch('/api/social/favorite', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify({ productId: product.id })
       });
       const data = await res.json();
-      setIsLiked(data.favorited);
+      setIsLiked(data.favorited || false);
     } catch (error) {
       console.error('Error toggling favorite:', error);
     } finally {

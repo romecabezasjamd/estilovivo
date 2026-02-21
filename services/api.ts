@@ -51,9 +51,9 @@ const mapLook = (l: any): Look | null => {
     if (!l) return null;
     return {
         id: l.id,
-        name: l.title,
-        garmentIds: l.products?.filter((p: any) => !!p).map((p: any) => p.id) || [],
-        garments: l.products?.map(mapProductToGarment).filter((g: any) => !!g) || [],
+        name: l.title || l.name,
+        garmentIds: (l.products || l.garments)?.filter((p: any) => !!p).map((p: any) => p.id) || [],
+        garments: (l.products || l.garments)?.map(mapProductToGarment).filter((g: any) => !!g) || [],
         tags: l.mood ? [l.mood] : [],
         mood: l.mood,
         createdAt: l.createdAt,

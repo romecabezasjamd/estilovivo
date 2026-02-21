@@ -574,9 +574,9 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                     {favorites.filter(f => f.look).map((fav: any) => (
                       <div key={fav.id} className="bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-all group">
                         <div className="aspect-square bg-gray-100 relative">
-                          {fav.look.imageUrl || (fav.look.garments && fav.look.garments[0]?.imageUrl) ? (
+                          {fav.look.imageUrl || (fav.look.garments && fav.look.garments.filter(g => !!g).length > 0) ? (
                             <img
-                              src={fav.look.imageUrl || fav.look.garments[0].imageUrl}
+                              src={fav.look.imageUrl || fav.look.garments.filter(g => !!g)[0].imageUrl}
                               alt={fav.look.name}
                               className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                             />

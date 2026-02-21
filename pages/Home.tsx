@@ -37,19 +37,19 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
 
   // Real stats
   const mostUsedGarment = useMemo(
-    () => [...garments].sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0))[0],
+    () => [...garments].filter(g => !!g).sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0))[0],
     [garments]
   );
   const topUsedGarments = useMemo(
-    () => [...garments].sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0)).slice(0, 3),
+    () => [...garments].filter(g => !!g).sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0)).slice(0, 3),
     [garments]
   );
   const lowUsageGarments = useMemo(
-    () => garments.filter(g => (g.usageCount || 0) < 2).slice(0, 3),
+    () => garments.filter(g => g && (g.usageCount || 0) < 2).slice(0, 3),
     [garments]
   );
   const lowUsageCount = useMemo(
-    () => garments.filter(g => (g.usageCount || 0) < 2).length,
+    () => garments.filter(g => g && (g.usageCount || 0) < 2).length,
     [garments]
   );
   const totalGarments = garments.length;
@@ -110,8 +110,8 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
             key={m.id}
             onClick={() => onMoodChange(m.id)}
             className={`flex-shrink-0 px-4 py-3 rounded-2xl border flex items-center space-x-2 transition-all transform active:scale-95 ${user.mood === m.id
-                ? 'bg-primary text-white border-primary shadow-lg ring-2 ring-offset-2 ring-primary/30'
-                : 'bg-white border-gray-100 text-gray-600 shadow-sm hover:border-gray-200'
+              ? 'bg-primary text-white border-primary shadow-lg ring-2 ring-offset-2 ring-primary/30'
+              : 'bg-white border-gray-100 text-gray-600 shadow-sm hover:border-gray-200'
               }`}
           >
             <span className="text-xl">{m.emoji}</span>
@@ -141,7 +141,7 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
                 <span className="text-[10px] uppercase tracking-widest text-teal-200 font-bold">Look de hoy</span>
                 <h3 className="font-bold text-xl">{todayLook.name}</h3>
                 {todayLook.garments && (
-                  <p className="text-sm text-teal-100">{todayLook.garments.length} prendas</p>
+                  <p className="text-sm text-teal-100">{todayLook.garments.filter(g => !!g).length} prendas</p>
                 )}
               </div>
               <button onClick={() => onNavigate('planner')} className="bg-white/10 p-2 rounded-full hover:bg-white/20">

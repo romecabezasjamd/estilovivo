@@ -530,7 +530,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate }) => {
                           <p className="text-sm text-gray-500">{post.name}</p>
                           {post.garments && post.garments.length > 0 && (
                             <div className="flex justify-center mt-3 space-x-2">
-                              {post.garments.slice(0, 4).map(g => (
+                              {post.garments.filter(g => !!g).slice(0, 4).map(g => (
                                 <img key={g.id} src={g.imageUrl} className="w-16 h-16 rounded-lg object-cover" alt={g.type} />
                               ))}
                             </div>
@@ -675,9 +675,9 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate }) => {
                       {fav.look && (
                         <>
                           <div className="aspect-[3/4] bg-gray-100 relative">
-                            {fav.look.imageUrl || (fav.look.garments && fav.look.garments[0]?.imageUrl) ? (
+                            {fav.look.imageUrl || (fav.look.garments && fav.look.garments.filter(g => !!g).length > 0) ? (
                               <img
-                                src={fav.look.imageUrl || fav.look.garments[0].imageUrl}
+                                src={fav.look.imageUrl || fav.look.garments.filter(g => !!g)[0].imageUrl}
                                 alt={fav.look.name}
                                 className="w-full h-full object-cover"
                               />
