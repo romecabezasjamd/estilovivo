@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Heart, MessageCircle, Bookmark, MoreHorizontal, ShoppingBag, Search, Tag, Send, X, Shirt, Sparkles, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Heart, MessageCircle, Bookmark, MoreHorizontal, ShoppingBag, Search, Tag, Send, X, Shirt, Sparkles, CheckCircle2, ArrowRight, ExternalLink } from 'lucide-react';
 import ProductDetailModal, { ProductDisplayItem } from '../components/ProductDetailModal';
 import { api } from '../services/api';
 import { Look, UserState, ShopItem, Comment, Garment, ChatConversation, ChatMessage } from '../types';
@@ -816,12 +816,24 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate }) => {
                       <p className="text-sm text-gray-600 leading-relaxed mb-4">
                         {trend.description}
                       </p>
-                      <div className="flex flex-wrap gap-2">
-                        {trend.tags.map(tag => (
-                          <span key={tag} className="text-[10px] font-semibold text-gray-400">
-                            #{tag.toLowerCase()}
-                          </span>
-                        ))}
+                      <div className="flex justify-between items-center">
+                        <div className="flex flex-wrap gap-2">
+                          {trend.tags.map((tag: string) => (
+                            <span key={tag} className="text-[10px] font-semibold text-gray-400">
+                              #{tag.toLowerCase().replace(/\s+/g, '')}
+                            </span>
+                          ))}
+                        </div>
+                        {trend.link && (
+                          <a
+                            href={trend.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] font-bold text-primary flex items-center gap-1 hover:underline"
+                          >
+                            Ver más <ExternalLink size={12} />
+                          </a>
+                        )}
                       </div>
                     </div>
                   </div>

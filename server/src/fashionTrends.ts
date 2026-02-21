@@ -36,35 +36,38 @@ class FashionTrendService {
     }
 
     private async refreshTrends() {
-        logger.info('Refreshing fashion trends from source...');
+        logger.info('Refreshing fashion trends from Vogue España...');
 
         try {
-            // Usamos el feed de Vogue como fuente fiable y verificable
-            const response = await fetch('https://www.vogue.com/feed/rss');
+            const response = await fetch('https://www.vogue.es/feed/rss');
             const xml = await response.text();
 
-            // Parseo básico de RSS para evitar dependencias pesadas
-            const items = xml.split('<item>').slice(1);
+            const items = xml.split('<item>').slice(1, 6); // Tomar 5 para asegurar variedad
 
-            const newTrends: FashionTrend[] = items.slice(0, 4).map((item, index) => {
+            const newTrends: FashionTrend[] = items.map((item, index) => {
                 const title = this.extractTag(item, 'title');
                 const link = this.extractTag(item, 'link');
-                const description = this.extractTag(item, 'description').replace(/<[^>]*>?/gm, '').substring(0, 150) + '...';
+                const description = this.extractTag(item, 'description').replace(/<[^>]*>?/gm, '');
+                const category = this.extractTag(item, 'category') || 'Moda';
 
-                // Intentar extraer imagen del media:content o enclosure
-                let image = this.extractAttribute(item, 'media:content', 'url') ||
-                    this.extractAttribute(item, 'media:thumbnail', 'url') ||
+                // Intentar extraer imagen de media:thumbnail (común en Vogue ES) o otros
+                let image = this.extractAttribute(item, 'media:thumbnail', 'url') ||
+                    this.extractAttribute(item, 'media:content', 'url') ||
                     this.extractAttribute(item, 'enclosure', 'url') ||
                     'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&q=80&w=800';
+
+                // Extraer tags si existen en media:keywords
+                const keywords = this.extractTag(item, 'media:keywords');
+                const tags = keywords ? keywords.split(',').map(s => s.trim()) : ['Moda', 'Tendencias'];
 
                 return {
                     id: `trend-${Date.now()}-${index}`,
                     title: title || 'Tendencia de Moda',
-                    category: 'Editorial',
+                    category: category,
                     description: description || 'Descubre lo último en las pasarelas y el street style internacional.',
                     image: image,
-                    tags: ['Actualidad', 'Vogue', 'Tendencias'],
-                    source: 'Vogue Fashion',
+                    tags: tags.slice(0, 3),
+                    source: 'Vogue España',
                     link: link
                 };
             });
