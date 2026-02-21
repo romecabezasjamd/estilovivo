@@ -39,7 +39,7 @@ const Suitcase: React.FC<SuitcaseProps> = ({ trips, garments, onAddTrip, onDelet
 
     useEffect(() => {
         if (activeTrip) {
-            setEditedGarmentIds(activeTrip.garments?.map(g => g.id) || []);
+            setEditedGarmentIds(activeTrip.garments?.filter(g => !!g).map(g => g.id) || []);
         } else {
             setEditedGarmentIds([]);
         }

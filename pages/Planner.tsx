@@ -143,8 +143,8 @@ const Planner: React.FC<PlannerProps> = ({ looks, plannerEntries, onUpdateEntry 
                                             )}
                                             <div>
                                                 <h4 className="font-bold text-gray-800 text-sm">{look.name}</h4>
-                                                {look.garments && look.garments.length > 0 && (
-                                                    <p className="text-[10px] text-gray-400">{look.garments.length} prendas</p>
+                                                {look.garments && look.garments.filter(g => !!g).length > 0 && (
+                                                    <p className="text-[10px] text-gray-400">{look.garments.filter(g => !!g).length} prendas</p>
                                                 )}
                                                 {entry?.eventNote && (
                                                     <span className="text-xs text-accent font-medium bg-orange-50 px-2 py-0.5 rounded-md mt-1 inline-block">

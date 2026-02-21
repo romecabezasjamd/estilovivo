@@ -272,8 +272,8 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                   <button
                     onClick={() => setFilterPanelOpen(!filterPanelOpen)}
                     className={`p-2 rounded-full border transition ${filterPanelOpen || seasonFilter !== 'all' || sortBy !== 'recent'
-                        ? 'bg-primary/10 border-primary/20 text-primary'
-                        : 'bg-gray-50 border-gray-100 text-gray-600 hover:bg-gray-100'
+                      ? 'bg-primary/10 border-primary/20 text-primary'
+                      : 'bg-gray-50 border-gray-100 text-gray-600 hover:bg-gray-100'
                       }`}
                   >
                     <SlidersHorizontal size={20} />
@@ -292,8 +292,8 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                 key={view}
                 onClick={() => setActiveView(view)}
                 className={`flex-1 py-2 rounded-xl transition-all duration-300 flex items-center justify-center gap-1 ${activeView === view
-                    ? 'bg-white text-primary shadow-sm'
-                    : 'text-gray-400 hover:text-gray-600'
+                  ? 'bg-white text-primary shadow-sm'
+                  : 'text-gray-400 hover:text-gray-600'
                   }`}
               >
                 {view === 'closet' && <><Shirt size={14} /> Armario</>}
@@ -379,8 +379,8 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                 key={cat.id}
                 onClick={() => setFilter(cat.id)}
                 className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-colors border ${filter === cat.id
-                    ? 'bg-primary text-white border-primary shadow-md shadow-primary/20'
-                    : 'bg-white text-gray-500 border-gray-200'
+                  ? 'bg-primary text-white border-primary shadow-md shadow-primary/20'
+                  : 'bg-white text-gray-500 border-gray-200'
                   }`}
               >
                 {cat.label}
@@ -408,7 +408,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                 <div className="space-y-2">
                   {topUsedItems.slice(0, 3).map(item => (
                     <div key={item.id} className="flex items-center gap-2">
-                      <img src={item.imageUrl} alt={item.name || item.type} className="w-8 h-8 rounded-lg object-cover" />
+                      {item.imageUrl && <img src={item.imageUrl} alt={item.name || item.type} className="w-8 h-8 rounded-lg object-cover" />}
                       <div className="flex-1">
                         <p className="text-xs font-semibold text-gray-700 truncate">{item.name || item.type}</p>
                         <p className="text-[10px] text-gray-400">{item.usageCount || 0} usos</p>
@@ -426,7 +426,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                 <div className="space-y-2">
                   {lowUsageItems.slice(0, 3).map(item => (
                     <div key={item.id} className="flex items-center gap-2">
-                      <img src={item.imageUrl} alt={item.name || item.type} className="w-8 h-8 rounded-lg object-cover" />
+                      {item.imageUrl && <img src={item.imageUrl} alt={item.name || item.type} className="w-8 h-8 rounded-lg object-cover" />}
                       <div className="flex-1">
                         <p className="text-xs font-semibold text-gray-700 truncate">{item.name || item.type}</p>
                         <p className="text-[10px] text-gray-400">{item.usageCount || 0} usos</p>
@@ -584,7 +584,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                     <div className="p-3">
                       <p className="text-sm font-semibold text-gray-800 truncate">{look.name}</p>
                       <div className="flex items-center justify-between text-xs text-gray-400 mt-0.5">
-                        <span>{look.garments?.length || 0} prendas</span>
+                        <span>{look.garments?.filter(g => !!g).length || 0} prendas</span>
                         <span className="capitalize">{look.mood || 'personal'}</span>
                       </div>
                     </div>

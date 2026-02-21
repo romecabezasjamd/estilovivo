@@ -23,50 +23,57 @@ const handleResponse = async (res: Response) => {
 };
 
 // Helper: map backend product to frontend Garment
-const mapProductToGarment = (p: any): Garment => ({
-    id: p.id,
-    imageUrl: p.images?.[0]?.url || '/api/uploads/placeholder.png',
-    name: p.name || p.category,
-    type: p.category || 'top',
-    color: p.color || 'varios',
-    season: p.season || 'all',
-    usageCount: p.usageCount || 0,
-    lastWorn: p.lastWorn || undefined,
-    forSale: p.forSale || false,
-    price: p.price || 0,
-    brand: p.brand || undefined,
-    size: p.size || undefined,
-    condition: p.condition || 'new',
-    description: p.description || undefined,
-    userId: p.userId || p.user?.id,
-    userName: p.user?.name,
-    userAvatar: p.user?.avatar,
-});
+const mapProductToGarment = (p: any): Garment | null => {
+    if (!p) return null;
+    return {
+        id: p.id,
+        imageUrl: p.images?.[0]?.url || '/api/uploads/placeholder.png',
+        name: p.name || p.category,
+        type: p.category || 'top',
+        color: p.color || 'varios',
+        season: p.season || 'all',
+        usageCount: p.usageCount || 0,
+        lastWorn: p.lastWorn || undefined,
+        forSale: p.forSale || false,
+        price: p.price || 0,
+        brand: p.brand || undefined,
+        size: p.size || undefined,
+        condition: p.condition || 'new',
+        description: p.description || undefined,
+        userId: p.userId || p.user?.id,
+        userName: p.user?.name,
+        userAvatar: p.user?.avatar,
+    };
+};
 
 // Helper: map backend look to frontend Look
-const mapLook = (l: any): Look => ({
-    id: l.id,
-    name: l.title,
-    garmentIds: l.products?.map((p: any) => p.id) || [],
-    garments: l.products?.map(mapProductToGarment) || [],
-    tags: l.mood ? [l.mood] : [],
-    mood: l.mood,
-    createdAt: l.createdAt,
-    isPublic: l.isPublic,
-    imageUrl: l.images?.[0]?.url || l.products?.[0]?.images?.[0]?.url || undefined,
-    userId: l.userId || l.user?.id,
-    userName: l.user?.name,
-    userAvatar: l.user?.avatar,
-    likesCount: l.likesCount ?? l._count?.likes ?? 0,
-    commentsCount: l.commentsCount ?? l._count?.comments ?? 0,
-    isLiked: l.isLiked || false,
-    isFavorited: l.isFavorited || false,
-});
+const mapLook = (l: any): Look | null => {
+    if (!l) return null;
+    return {
+        id: l.id,
+        name: l.title,
+        garmentIds: l.products?.filter((p: any) => !!p).map((p: any) => p.id) || [],
+        garments: l.products?.map(mapProductToGarment).filter((g: any) => !!g) || [],
+        tags: l.mood ? [l.mood] : [],
+        mood: l.mood,
+        createdAt: l.createdAt,
+        isPublic: l.isPublic,
+        imageUrl: l.images?.[0]?.url || l.products?.[0]?.images?.[0]?.url || undefined,
+        userId: l.userId || l.user?.id,
+        userName: l.user?.name,
+        userAvatar: l.user?.avatar,
+        likesCount: l.likesCount ?? l._count?.likes ?? 0,
+        commentsCount: l.commentsCount ?? l._count?.comments ?? 0,
+        isLiked: l.isLiked || false,
+        isFavorited: l.isFavorited || false,
+    };
+};
 
 export const api = {
     // ============= AUTH =============
     login: async (credentials: { email: string; password: string }) => {
-        const res = await fetch(`${API_BASE}/auth/login`, { credentials: 'include', method: 'POST',
+        const res = await fetch(`${API_BASE}/auth/login`, {
+            credentials: 'include', method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(credentials)
         });
@@ -76,7 +83,8 @@ export const api = {
     },
 
     register: async (userData: { email: string; password: string; name: string; gender?: 'male' | 'female' | 'other'; birthDate?: string }) => {
-        const res = await fetch(`${API_BASE}/auth/register`, { credentials: 'include', method: 'POST',
+        const res = await fetch(`${API_BASE}/auth/register`, {
+            credentials: 'include', method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(userData)
         });
@@ -86,9 +94,9 @@ export const api = {
     },
 
     logout: async () => {
-        await fetch(`${API_BASE}/auth/logout`, { 
-            credentials: 'include', 
-            method: 'POST' 
+        await fetch(`${API_BASE}/auth/logout`, {
+            credentials: 'include',
+            method: 'POST'
         });
         localStorage.removeItem('beyour_user');
     },
@@ -99,7 +107,8 @@ export const api = {
     },
 
     updateProfile: async (data: Partial<UserState>): Promise<UserState> => {
-        const res = await fetch(`${API_BASE}/auth/profile`, { credentials: 'include', method: 'PUT',
+        const res = await fetch(`${API_BASE}/auth/profile`, {
+            credentials: 'include', method: 'PUT',
             headers: getHeaders(),
             body: JSON.stringify(data)
         });
@@ -107,7 +116,8 @@ export const api = {
     },
 
     updateProfileWithAvatar: async (data: FormData): Promise<UserState> => {
-        const res = await fetch(`${API_BASE}/auth/profile`, { credentials: 'include', method: 'PUT',
+        const res = await fetch(`${API_BASE}/auth/profile`, {
+            credentials: 'include', method: 'PUT',
             headers: getAuthHeader() as any,
             body: data
         });
@@ -115,7 +125,8 @@ export const api = {
     },
 
     forgotPassword: async (email: string) => {
-        const res = await fetch(`${API_BASE}/auth/forgot-password`, { credentials: 'include', method: 'POST',
+        const res = await fetch(`${API_BASE}/auth/forgot-password`, {
+            credentials: 'include', method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email })
         });
@@ -128,7 +139,7 @@ export const api = {
         const data = await handleResponse(res);
         // Backend now returns { items, nextCursor, hasMore } for pagination
         const items = data.items || data; // Fallback for backwards compatibility
-        return items.map(mapProductToGarment);
+        return items.map(mapProductToGarment).filter((g: any) => !!g);
     },
 
     addGarment: async (garment: { file?: File; name?: string; category: string; color?: string; season?: string; brand?: string; size?: string }): Promise<Garment> => {
@@ -141,16 +152,18 @@ export const api = {
         if (garment.size) formData.append('size', garment.size);
         if (garment.file) formData.append('images', garment.file);
 
-        const res = await fetch(`${API_BASE}/products`, { credentials: 'include', method: 'POST',
+        const res = await fetch(`${API_BASE}/products`, {
+            credentials: 'include', method: 'POST',
             headers: getAuthHeader() as any,
             body: formData
         });
         const p = await handleResponse(res);
-        return mapProductToGarment(p);
+        return mapProductToGarment(p)!;
     },
 
     updateGarment: async (id: string, data: Partial<Garment>): Promise<Garment> => {
-        const res = await fetch(`${API_BASE}/products/${id}`, { credentials: 'include', method: 'PUT',
+        const res = await fetch(`${API_BASE}/products/${id}`, {
+            credentials: 'include', method: 'PUT',
             headers: getHeaders(),
             body: JSON.stringify({
                 name: data.name || data.type,
@@ -167,22 +180,24 @@ export const api = {
             })
         });
         const p = await handleResponse(res);
-        return mapProductToGarment(p);
+        return mapProductToGarment(p)!;
     },
 
     deleteGarment: async (id: string): Promise<void> => {
-        const res = await fetch(`${API_BASE}/products/${id}`, { credentials: 'include', method: 'DELETE',
+        const res = await fetch(`${API_BASE}/products/${id}`, {
+            credentials: 'include', method: 'DELETE',
             headers: getHeaders()
         });
         await handleResponse(res);
     },
 
     markAsWorn: async (id: string): Promise<Garment> => {
-        const res = await fetch(`${API_BASE}/products/${id}/wear`, { credentials: 'include', method: 'POST',
+        const res = await fetch(`${API_BASE}/products/${id}/wear`, {
+            credentials: 'include', method: 'POST',
             headers: getHeaders()
         });
         const p = await handleResponse(res);
-        return mapProductToGarment(p);
+        return mapProductToGarment(p)!;
     },
 
     getShopProducts: async (search?: string, category?: string): Promise<ShopItem[]> => {
@@ -212,7 +227,7 @@ export const api = {
         const data = await handleResponse(res);
         // Backend now returns { items, nextCursor, hasMore } for pagination
         const items = data.items || data; // Fallback for backwards compatibility
-        return items.map(mapLook);
+        return items.map(mapLook).filter((l: any) => !!l);
     },
 
     getCommunityFeed: async (): Promise<Look[]> => {
@@ -220,11 +235,12 @@ export const api = {
         const data = await handleResponse(res);
         // Backend now returns { items, nextCursor, hasMore } for pagination
         const items = data.items || data; // Fallback for backwards compatibility
-        return items.map(mapLook);
+        return items.map(mapLook).filter((l: any) => !!l);
     },
 
     saveLook: async (look: Look): Promise<Look> => {
-        const res = await fetch(`${API_BASE}/looks`, { credentials: 'include', method: 'POST',
+        const res = await fetch(`${API_BASE}/looks`, {
+            credentials: 'include', method: 'POST',
             headers: getHeaders(),
             body: JSON.stringify({
                 title: look.name,
@@ -234,11 +250,12 @@ export const api = {
             })
         });
         const l = await handleResponse(res);
-        return mapLook(l);
+        return mapLook(l)!;
     },
 
     updateLook: async (id: string, data: Partial<Look>): Promise<Look> => {
-        const res = await fetch(`${API_BASE}/looks/${id}`, { credentials: 'include', method: 'PUT',
+        const res = await fetch(`${API_BASE}/looks/${id}`, {
+            credentials: 'include', method: 'PUT',
             headers: getHeaders(),
             body: JSON.stringify({
                 title: data.name,
@@ -248,11 +265,12 @@ export const api = {
             })
         });
         const l = await handleResponse(res);
-        return mapLook(l);
+        return mapLook(l)!;
     },
 
     deleteLook: async (id: string): Promise<void> => {
-        const res = await fetch(`${API_BASE}/looks/${id}`, { credentials: 'include', method: 'DELETE',
+        const res = await fetch(`${API_BASE}/looks/${id}`, {
+            credentials: 'include', method: 'DELETE',
             headers: getHeaders()
         });
         await handleResponse(res);
@@ -271,7 +289,8 @@ export const api = {
     },
 
     updatePlanner: async (entry: PlannerEntry): Promise<PlannerEntry> => {
-        const res = await fetch(`${API_BASE}/planner`, { credentials: 'include', method: 'POST',
+        const res = await fetch(`${API_BASE}/planner`, {
+            credentials: 'include', method: 'POST',
             headers: getHeaders(),
             body: JSON.stringify({ ...entry, userId: 'me' })
         });
@@ -285,7 +304,8 @@ export const api = {
     },
 
     deletePlannerEntry: async (date: string): Promise<void> => {
-        const res = await fetch(`${API_BASE}/planner/${date}`, { credentials: 'include', method: 'DELETE',
+        const res = await fetch(`${API_BASE}/planner/${date}`, {
+            credentials: 'include', method: 'DELETE',
             headers: getHeaders()
         });
         await handleResponse(res);
@@ -303,7 +323,8 @@ export const api = {
             ...rest,
             garmentIds: garments ? garments.map(g => g.id) : []
         };
-        const res = await fetch(`${API_BASE}/trips`, { credentials: 'include', method: 'POST',
+        const res = await fetch(`${API_BASE}/trips`, {
+            credentials: 'include', method: 'POST',
             headers: getHeaders(),
             body: JSON.stringify(payload)
         });
@@ -316,7 +337,8 @@ export const api = {
             ...rest,
             garmentIds: garments ? garments.map(g => g.id) : []
         };
-        const res = await fetch(`${API_BASE}/trips/${trip.id}`, { credentials: 'include', method: 'PUT',
+        const res = await fetch(`${API_BASE}/trips/${trip.id}`, {
+            credentials: 'include', method: 'PUT',
             headers: getHeaders(),
             body: JSON.stringify(payload)
         });
@@ -324,14 +346,16 @@ export const api = {
     },
 
     deleteTrip: async (id: string): Promise<void> => {
-        const res = await fetch(`${API_BASE}/trips/${id}`, { credentials: 'include', method: 'DELETE',
+        const res = await fetch(`${API_BASE}/trips/${id}`, {
+            credentials: 'include', method: 'DELETE',
             headers: getHeaders()
         });
         await handleResponse(res);
     },
 
     addTripItem: async (tripId: string, label: string, isEssential: boolean = false) => {
-        const res = await fetch(`${API_BASE}/trips/${tripId}/items`, { credentials: 'include', method: 'POST',
+        const res = await fetch(`${API_BASE}/trips/${tripId}/items`, {
+            credentials: 'include', method: 'POST',
             headers: getHeaders(),
             body: JSON.stringify({ label, isEssential })
         });
@@ -339,7 +363,8 @@ export const api = {
     },
 
     updateTripItem: async (tripId: string, itemId: string, data: { checked?: boolean; label?: string }) => {
-        const res = await fetch(`${API_BASE}/trips/${tripId}/items/${itemId}`, { credentials: 'include', method: 'PUT',
+        const res = await fetch(`${API_BASE}/trips/${tripId}/items/${itemId}`, {
+            credentials: 'include', method: 'PUT',
             headers: getHeaders(),
             body: JSON.stringify(data)
         });
@@ -347,7 +372,8 @@ export const api = {
     },
 
     deleteTripItem: async (tripId: string, itemId: string) => {
-        const res = await fetch(`${API_BASE}/trips/${tripId}/items/${itemId}`, { credentials: 'include', method: 'DELETE',
+        const res = await fetch(`${API_BASE}/trips/${tripId}/items/${itemId}`, {
+            credentials: 'include', method: 'DELETE',
             headers: getHeaders()
         });
         return handleResponse(res);
@@ -355,7 +381,8 @@ export const api = {
 
     // ============= SOCIAL =============
     toggleLike: async (lookId: string): Promise<{ liked: boolean; likesCount: number }> => {
-        const res = await fetch(`${API_BASE}/social/like`, { credentials: 'include', method: 'POST',
+        const res = await fetch(`${API_BASE}/social/like`, {
+            credentials: 'include', method: 'POST',
             headers: getHeaders(),
             body: JSON.stringify({ lookId })
         });
@@ -363,7 +390,8 @@ export const api = {
     },
 
     addComment: async (lookId: string, content: string): Promise<Comment> => {
-        const res = await fetch(`${API_BASE}/social/comment`, { credentials: 'include', method: 'POST',
+        const res = await fetch(`${API_BASE}/social/comment`, {
+            credentials: 'include', method: 'POST',
             headers: getHeaders(),
             body: JSON.stringify({ lookId, content })
         });
@@ -392,14 +420,16 @@ export const api = {
     },
 
     deleteComment: async (id: string): Promise<void> => {
-        const res = await fetch(`${API_BASE}/social/comment/${id}`, { credentials: 'include', method: 'DELETE',
+        const res = await fetch(`${API_BASE}/social/comment/${id}`, {
+            credentials: 'include', method: 'DELETE',
             headers: getHeaders()
         });
         await handleResponse(res);
     },
 
     toggleFavorite: async (lookId?: string, productId?: string): Promise<{ favorited: boolean }> => {
-        const res = await fetch(`${API_BASE}/social/favorite`, { credentials: 'include', method: 'POST',
+        const res = await fetch(`${API_BASE}/social/favorite`, {
+            credentials: 'include', method: 'POST',
             headers: getHeaders(),
             body: JSON.stringify({ lookId, productId })
         });
@@ -412,7 +442,8 @@ export const api = {
     },
 
     toggleFollow: async (targetUserId: string): Promise<{ following: boolean }> => {
-        const res = await fetch(`${API_BASE}/social/follow`, { credentials: 'include', method: 'POST',
+        const res = await fetch(`${API_BASE}/social/follow`, {
+            credentials: 'include', method: 'POST',
             headers: getHeaders(),
             body: JSON.stringify({ targetUserId })
         });
@@ -432,7 +463,8 @@ export const api = {
     },
 
     createConversation: async (payload: { targetUserId: string; itemId?: string; itemTitle?: string; itemImage?: string; initialMessage?: string; }) => {
-        const res = await fetch(`${API_BASE}/chat/conversations`, { credentials: 'include', method: 'POST',
+        const res = await fetch(`${API_BASE}/chat/conversations`, {
+            credentials: 'include', method: 'POST',
             headers: getHeaders(),
             body: JSON.stringify(payload)
         });
@@ -445,7 +477,8 @@ export const api = {
     },
 
     sendConversationMessage: async (conversationId: string, content: string): Promise<ChatMessage> => {
-        const res = await fetch(`${API_BASE}/chat/conversations/${conversationId}/messages`, { credentials: 'include', method: 'POST',
+        const res = await fetch(`${API_BASE}/chat/conversations/${conversationId}/messages`, {
+            credentials: 'include', method: 'POST',
             headers: getHeaders(),
             body: JSON.stringify({ content })
         });
