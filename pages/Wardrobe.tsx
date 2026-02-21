@@ -269,8 +269,8 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                   <button
                     onClick={() => setFilterPanelOpen(!filterPanelOpen)}
                     className={`p-2 rounded-full border transition ${filterPanelOpen || seasonFilter !== 'all' || sortBy !== 'recent'
-                        ? 'bg-primary/10 border-primary/20 text-primary'
-                        : 'bg-gray-50 border-gray-100 text-gray-600 hover:bg-gray-100'
+                      ? 'bg-primary/10 border-primary/20 text-primary'
+                      : 'bg-gray-50 border-gray-100 text-gray-600 hover:bg-gray-100'
                       }`}
                   >
                     <SlidersHorizontal size={20} />
@@ -289,8 +289,8 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                 key={view}
                 onClick={() => setActiveView(view)}
                 className={`flex-1 py-2 rounded-xl transition-all duration-300 text-xs font-bold uppercase tracking-wide flex items-center justify-center gap-1 ${activeView === view
-                    ? 'bg-white text-primary shadow-sm'
-                    : 'text-gray-400 hover:text-gray-600'
+                  ? 'bg-white text-primary shadow-sm'
+                  : 'text-gray-400 hover:text-gray-600'
                   }`}
               >
                 {view === 'closet' && <><Shirt size={14} /> Armario</>}
@@ -328,8 +328,8 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                   key={s.id}
                   onClick={() => setSeasonFilter(s.id)}
                   className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${seasonFilter === s.id
-                      ? 'bg-primary text-white'
-                      : 'bg-gray-100 text-gray-500'
+                    ? 'bg-primary text-white'
+                    : 'bg-gray-100 text-gray-500'
                     }`}
                 >
                   {s.label}
@@ -349,8 +349,8 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                   key={s.id}
                   onClick={() => setSortBy(s.id)}
                   className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${sortBy === s.id
-                      ? 'bg-primary text-white'
-                      : 'bg-gray-100 text-gray-500'
+                    ? 'bg-primary text-white'
+                    : 'bg-gray-100 text-gray-500'
                     }`}
                 >
                   {s.label}
@@ -366,8 +366,8 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                   key={c}
                   onClick={() => setColorFilter(c)}
                   className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${colorFilter === c
-                      ? 'bg-primary text-white'
-                      : 'bg-gray-100 text-gray-500'
+                    ? 'bg-primary text-white'
+                    : 'bg-gray-100 text-gray-500'
                     }`}
                 >
                   {c === 'all' ? 'Todos' : c}
@@ -388,8 +388,8 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                 key={cat.id}
                 onClick={() => setFilter(cat.id)}
                 className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-colors border ${filter === cat.id
-                    ? 'bg-primary text-white border-primary shadow-md shadow-primary/20'
-                    : 'bg-white text-gray-500 border-gray-200'
+                  ? 'bg-primary text-white border-primary shadow-md shadow-primary/20'
+                  : 'bg-white text-gray-500 border-gray-200'
                   }`}
               >
                 {cat.label}
@@ -716,8 +716,8 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                       key={cat.id}
                       onClick={() => setNewCategory(cat.id)}
                       className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${newCategory === cat.id
-                          ? 'bg-primary text-white'
-                          : 'bg-gray-100 text-gray-500'
+                        ? 'bg-primary text-white'
+                        : 'bg-gray-100 text-gray-500'
                         }`}
                     >
                       {cat.label}
@@ -757,8 +757,8 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                       key={s.id}
                       onClick={() => setNewSeason(s.id as any)}
                       className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${newSeason === s.id
-                          ? 'bg-primary text-white'
-                          : 'bg-gray-100 text-gray-500'
+                        ? 'bg-primary text-white'
+                        : 'bg-gray-100 text-gray-500'
                         }`}
                     >
                       {s.label}
@@ -870,8 +870,8 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                           key={c}
                           onClick={() => setSaleCondition(c)}
                           className={`px-3 py-1.5 rounded-full text-xs font-medium capitalize transition ${saleCondition === c
-                              ? 'bg-emerald-500 text-white'
-                              : 'bg-gray-100 text-gray-500'
+                            ? 'bg-emerald-500 text-white'
+                            : 'bg-gray-100 text-gray-500'
                             }`}
                         >
                           {c}
@@ -939,6 +939,13 @@ const Wardrobe: React.FC<WardrobeProps> = ({
             }
           }}
           onAddToTrip={() => onNavigate('suitcase')}
+          onSell={(item) => {
+            const garment = garments.find(g => g.id === item.id);
+            if (garment) {
+              setSelectedForSale(garment);
+              setIsSelling(true);
+            }
+          }}
         />
       )}
     </div>

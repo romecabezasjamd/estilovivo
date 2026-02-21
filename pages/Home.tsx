@@ -13,7 +13,7 @@ interface HomeProps {
 
 const getMoods = (gender?: string): MoodOption[] => {
   const isMale = gender === 'male';
-  
+
   return [
     { id: 'confident', label: isMale ? 'Seguro' : 'Segura', emoji: '🦁', colorClass: 'bg-orange-100 text-orange-700 border-orange-200' },
     { id: 'creative', label: isMale ? 'Creativo' : 'Creativa', emoji: '🎨', colorClass: 'bg-purple-100 text-purple-700 border-purple-200' },
@@ -21,6 +21,7 @@ const getMoods = (gender?: string): MoodOption[] => {
     { id: 'powerful', label: isMale ? 'Poderoso' : 'Poderosa', emoji: '⚡', colorClass: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
     { id: 'elegant', label: 'Elegante', emoji: '✨', colorClass: 'bg-pink-100 text-pink-700 border-pink-200' },
     { id: 'casual', label: 'Casual', emoji: '🌿', colorClass: 'bg-green-100 text-green-700 border-green-200' },
+    { id: 'sport', label: 'Sport', emoji: '👟', colorClass: 'bg-orange-100 text-orange-700 border-orange-200' },
   ];
 };
 
