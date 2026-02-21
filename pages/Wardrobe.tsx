@@ -864,10 +864,12 @@ const Wardrobe: React.FC<WardrobeProps> = ({
       )}
 
       {/* DETAIL MODAL */}
-      <ProductDetailModal
-        item={detailItem}
-        onClose={() => setDetailItem(null)}
-      />
+      {detailItem && (
+        <ProductDetailModal
+          product={detailItem}
+          onClose={() => setDetailItem(null)}
+        />
+      )}
     </div>
   );
 };

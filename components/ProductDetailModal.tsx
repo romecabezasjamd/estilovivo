@@ -28,6 +28,7 @@ interface ProductDetailModalProps {
 }
 
 const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClose, onEdit, onDelete, onAddToTrip, onMessage, onShareFeed, onSell }) => {
+  if (!product) return null;
   const { t } = useLanguage();
   const [showBuyOptions, setShowBuyOptions] = useState(false);
   const [showShareOptions, setShowShareOptions] = useState(false);
