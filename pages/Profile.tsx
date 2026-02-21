@@ -5,8 +5,9 @@ import {
   User, Settings, LogOut, Heart, Camera, Edit3, Save, X,
   ShoppingBag, Shirt, Calendar, Star, TrendingUp, ChevronRight,
   Eye, Bookmark, Bell, Shield, Moon, Music, BarChart3, Download,
-  HelpCircle, Lock
+  HelpCircle, Lock, Palette
 } from 'lucide-react';
+import { applyTheme, getSavedTheme, ThemeColor, THEMES } from '../utils/theme';
 
 interface ProfileProps {
   user: UserState;
@@ -30,6 +31,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
   const [loadingFavs, setLoadingFavs] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [currentTheme, setCurrentTheme] = useState<ThemeColor>(getSavedTheme());
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Settings state
@@ -162,7 +164,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
 
   const handleMoveToWardrobe = async (fav: any) => {
     if (!fav.product) return;
-    
+
     setActionLoadingId(fav.id);
     try {
       // Create a new garment from the product
@@ -171,12 +173,12 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
         category: fav.product.category || 'otro',
         color: fav.product.color || 'neutral',
       };
-      
+
       await api.addGarment(garmentData);
-      
+
       // Toggle favorite to remove it
       await api.toggleFavorite(undefined, fav.product.id);
-      
+
       // Update favorites list
       setFavorites(favorites.filter(f => f.id !== fav.id));
     } catch (e) {
@@ -210,7 +212,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
         {/* Decorative circles */}
         <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -mr-20 -mt-20" />
         <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full -ml-16 -mb-16" />
-        
+
         <div className="flex justify-between items-start relative z-10">
           <div>
             <h1 className="text-white text-2xl font-bold mb-1">Mi Perfil</h1>
@@ -271,7 +273,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                 onChange={handleAvatarChange}
               />
             </div>
-            
+
             <div className="text-center mt-4 w-full">
               {editing ? (
                 <input
@@ -334,11 +336,10 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
             <button
               key={tab.id}
               onClick={() => setActiveSection(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
-                activeSection === tab.id
+              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${activeSection === tab.id
                   ? 'bg-gradient-to-r from-primary to-primary-dark text-white shadow-lg scale-105'
                   : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
-              }`}
+                }`}
             >
               <span className={`transition-transform ${activeSection === tab.id ? 'scale-110' : ''}`}>
                 {tab.icon}
@@ -686,11 +687,10 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                             onUpdateUser({ ...user, gender: option.id as any });
                           }
                         }}
-                        className={`py-2.5 px-3 rounded-lg text-xs font-bold transition transform hover:scale-105 ${
-                          user.gender === option.id
+                        className={`py-2.5 px-3 rounded-lg text-xs font-bold transition transform hover:scale-105 ${user.gender === option.id
                             ? 'bg-gradient-to-br from-primary to-primary-dark text-white shadow-md'
                             : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
-                        }`}
+                          }`}
                       >
                         <span className="text-lg block mb-0.5">{option.emoji}</span>
                         <p>{option.label}</p>
@@ -732,6 +732,51 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                   >
                     <div className={`w-5 h-5 rounded-full bg-white shadow transform transition-transform ${musicSync ? 'translate-x-5' : 'translate-x-0.5'}`} />
                   </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Theme Settings */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="p-4 border-b border-gray-50 flex items-center gap-2">
+                <Palette size={18} className="text-primary" />
+                <h3 className="text-sm font-bold text-gray-700">Tema Visual</h3>
+              </div>
+              <div className="p-5">
+                <p className="text-xs text-gray-500 mb-4">Personaliza el color principal de toda la aplicación</p>
+                <div className="flex flex-wrap gap-4">
+                  {(Object.keys(THEMES) as ThemeColor[]).map(themeKey => (
+                    <button
+                      key={themeKey}
+                      onClick={() => {
+                        applyTheme(themeKey);
+                        setCurrentTheme(themeKey);
+                      }}
+                      className={`group relative flex flex-col items-center gap-2 transition-all ${currentTheme === themeKey ? 'scale-110' : 'hover:scale-105'
+                        }`}
+                    >
+                      <div
+                        className={`w-12 h-12 rounded-full border-4 transition-all shadow-md ${currentTheme === themeKey ? 'border-primary' : 'border-transparent'
+                          }`}
+                        style={{ backgroundColor: THEMES[themeKey].primary }}
+                      >
+                        {currentTheme === themeKey && (
+                          <div className="absolute inset-x-0 -bottom-1 flex justify-center">
+                            <div className="bg-primary text-white p-0.5 rounded-full shadow-sm">
+                              <Save size={10} />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <span className={`text-[10px] font-bold capitalize ${currentTheme === themeKey ? 'text-primary' : 'text-gray-400'
+                        }`}>
+                        {themeKey === 'pink' ? 'Rosa' :
+                          themeKey === 'blue' ? 'Azul' :
+                            themeKey === 'green' ? 'Verde' :
+                              themeKey === 'lavender' ? 'Lavanda' : 'Ámbar'}
+                      </span>
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>

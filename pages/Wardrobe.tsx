@@ -486,12 +486,26 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                       }`}
                   />
                   {!garment.forSale && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onRemoveGarment(garment.id); }}
-                      className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm p-1.5 rounded-full text-red-500 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shadow-sm"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    <div className="absolute top-2 w-full px-2 flex justify-between">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onRemoveGarment(garment.id); }}
+                        className="bg-white/90 backdrop-blur-sm p-1.5 rounded-full text-red-500 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shadow-sm"
+                        title="Eliminar"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedForSale(garment);
+                          setIsSelling(true);
+                        }}
+                        className="bg-white/90 backdrop-blur-sm p-1.5 rounded-full text-emerald-600 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shadow-sm"
+                        title="Vender prenda"
+                      >
+                        <ShoppingBag size={14} />
+                      </button>
+                    </div>
                   )}
                   {garment.forSale && (
                     <div className="absolute inset-0 flex items-center justify-center">

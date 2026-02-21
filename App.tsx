@@ -12,6 +12,7 @@ import { UserState, Garment, Look, PlannerEntry, Trip } from './types';
 import { api } from './services/api';
 import { useLocalStorage, loadFromLocalStorage } from './hooks/useLocalStorage';
 import { useNotification } from './src/context/NotificationContext';
+import { applyTheme, getSavedTheme } from './src/utils/theme';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('home');
@@ -27,6 +28,9 @@ const App: React.FC = () => {
 
   // Fetch initial data & check auth
   useEffect(() => {
+    // Apply saved theme immediately
+    applyTheme(getSavedTheme());
+
     const init = async () => {
       const hasSession = localStorage.getItem('beyour_user');
       if (hasSession) {
