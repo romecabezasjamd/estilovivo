@@ -28,8 +28,8 @@ const App: React.FC = () => {
   // Fetch initial data & check auth
   useEffect(() => {
     const init = async () => {
-      const token = localStorage.getItem('beyour_token');
-      if (token) {
+      const hasSession = localStorage.getItem('beyour_user');
+      if (hasSession) {
         try {
           // Fetch user from API for fresh data
           let userData: UserState;
@@ -131,11 +131,11 @@ const App: React.FC = () => {
   const addGarment = async (garment: Garment, file?: File) => {
     const tempId = `temp-${Date.now()}`;
     const optimisticGarment = { ...garment, id: tempId };
-    
+
     // Optimistic update
     setGarments(prev => [optimisticGarment, ...prev]);
     localStorage.setItem('beyour_garments', JSON.stringify([optimisticGarment, ...garments]));
-    
+
     try {
       const saved = await api.addGarment({
         file,
@@ -144,14 +144,14 @@ const App: React.FC = () => {
         color: garment.color,
         season: garment.season,
       });
-      
+
       // Replace temp with real
       setGarments(prev => {
         const updated = prev.map(g => g.id === tempId ? saved : g);
         localStorage.setItem('beyour_garments', JSON.stringify(updated));
         return updated;
       });
-      
+
       notify('✓ Prenda añadida correctamente', 'success');
     } catch (error) {
       // Rollback on error
@@ -160,7 +160,7 @@ const App: React.FC = () => {
         localStorage.setItem('beyour_garments', JSON.stringify(filtered));
         return filtered;
       });
-      
+
       notify('✗ Error al añadir prenda', 'error');
       console.error("Error adding garment:", error);
     }
@@ -169,11 +169,11 @@ const App: React.FC = () => {
   const removeGarment = async (id: string) => {
     const previousGarments = [...garments];
     const filtered = garments.filter(g => g.id !== id);
-    
+
     // Optimistic update
     setGarments(filtered);
     localStorage.setItem('beyour_garments', JSON.stringify(filtered));
-    
+
     try {
       await api.deleteGarment(id);
       notify('✓ Prenda eliminada', 'success');
@@ -189,11 +189,11 @@ const App: React.FC = () => {
   const updateGarment = async (g: Garment) => {
     const previousGarments = [...garments];
     const updated = garments.map(item => item.id === g.id ? g : item);
-    
+
     // Optimistic update
     setGarments(updated);
     localStorage.setItem('beyour_garments', JSON.stringify(updated));
-    
+
     try {
       await api.updateGarment(g.id, g);
       notify('✓ Prenda actualizada', 'success');
@@ -209,21 +209,21 @@ const App: React.FC = () => {
   const saveLook = async (look: Look) => {
     const tempId = `temp-${Date.now()}`;
     const optimisticLook = { ...look, id: tempId };
-    
+
     // Optimistic update
     setLooks(prev => [optimisticLook, ...prev]);
     localStorage.setItem('beyour_looks', JSON.stringify([optimisticLook, ...looks]));
-    
+
     try {
       const savedLook = await api.saveLook(look);
-      
+
       // Replace temp with real
       setLooks(prev => {
         const updated = prev.map(l => l.id === tempId ? savedLook : l);
         localStorage.setItem('beyour_looks', JSON.stringify(updated));
         return updated;
       });
-      
+
       notify('✓ Look guardado correctamente', 'success');
       setActiveTab('wardrobe');
     } catch (error) {
@@ -233,7 +233,7 @@ const App: React.FC = () => {
         localStorage.setItem('beyour_looks', JSON.stringify(filtered));
         return filtered;
       });
-      
+
       notify('✗ Error al guardar look', 'error');
       console.error("Error saving look:", error);
       setActiveTab('wardrobe');
@@ -243,11 +243,11 @@ const App: React.FC = () => {
   const deleteLook = async (id: string) => {
     const previousLooks = [...looks];
     const filtered = looks.filter(l => l.id !== id);
-    
+
     // Optimistic update
     setLooks(filtered);
     localStorage.setItem('beyour_looks', JSON.stringify(filtered));
-    
+
     try {
       await api.deleteLook(id);
       notify('✓ Look eliminado', 'success');
