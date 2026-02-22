@@ -28,11 +28,11 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
 
         try {
             if (isLogin) {
-                const data = await api.login({ email, password });
+                const data = await api.login({ email: email.trim(), password });
                 onAuthSuccess(data.user);
             } else {
                 const data = await api.register({
-                    email,
+                    email: email.trim(),
                     password,
                     name,
                     gender,
@@ -200,6 +200,9 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                                     onChange={(e) => setEmail(e.target.value)}
                                     className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-800"
                                     placeholder="ejemplo@email.com"
+                                    autoCapitalize="none"
+                                    autoCorrect="off"
+                                    autoComplete="email"
                                 />
                             </div>
                         </div>

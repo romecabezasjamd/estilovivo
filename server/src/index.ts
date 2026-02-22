@@ -227,14 +227,15 @@ app.get('/api/health/detailed', authenticateToken, async (req: any, res: Respons
 
 app.post('/api/auth/register', authLimiter, validate(registerSchema), async (req: Request, res: Response) => {
   try {
-    const { email, password, name, gender, birthDate } = req.body;
-    const existingUser = await prisma.user.findUnique({ where: { email } });
+    const normalizedEmail = req.body.email.toLowerCase().trim();
+    const { password, name, gender, birthDate } = req.body;
+    const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (existingUser) return res.status(400).json({ error: 'Email already registered' });
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
       data: {
-        email,
+        email: normalizedEmail,
         password: hashedPassword,
         name,
         gender: gender || 'female',
@@ -262,9 +263,10 @@ app.post('/api/auth/register', authLimiter, validate(registerSchema), async (req
 
 app.post('/api/auth/login', authLimiter, validate(loginSchema), async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
+    const normalizedEmail = req.body.email.toLowerCase().trim();
+    const { password } = req.body;
     const user = await prisma.user.findUnique({
-      where: { email },
+      where: { email: normalizedEmail },
       include: { _count: { select: { followers: true, following: true } } }
     });
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
@@ -313,8 +315,8 @@ app.post('/api/auth/forgot-password', authLimiter, async (req: Request, res: Res
       });
     }
 
-    const { email } = req.body;
-    const user = await prisma.user.findUnique({ where: { email } });
+    const normalizedEmail = req.body.email.toLowerCase().trim();
+    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     const token = crypto.randomBytes(32).toString('hex');
