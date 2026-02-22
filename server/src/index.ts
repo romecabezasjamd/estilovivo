@@ -240,30 +240,54 @@ app.post('/api/auth/register', authLimiter, validate(registerSchema), async (req
     if (existingUser) return res.status(400).json({ error: 'Email already registered' });
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+
     const user = await prisma.user.create({
       data: {
         email: normalizedEmail,
         password: hashedPassword,
         name,
         gender: gender || 'female',
-        birthDate: birthDate ? new Date(birthDate) : null
+        birthDate: birthDate ? new Date(birthDate) : null,
+        verificationToken
       }
     });
-    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
 
-    // Set httpOnly cookie
-    res.cookie('auth_token', token, {
-      httpOnly: true,
-      secure: NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
+    // Send verification email
+    if (transporter) {
+      const verifyUrl = `${process.env.FRONTEND_URL}/auth?verifyToken=${verificationToken}`;
+      await transporter.sendMail({
+        to: user.email,
+        subject: 'Verifica tu cuenta - Estilo Vivo',
+        html: `
+          <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px; max-width: 500px; margin: auto;">
+            <h2 style="color: #ff4d94; text-align: center;">¡Bienvenida a Estilo Vivo!</h2>
+            <p>Hola <strong>${user.name}</strong>,</p>
+            <p>Gracias por unirte a nuestra comunidad. Para empezar a usar tu cuenta, por favor confirma tu correo electrónico haciendo clic en el botón de abajo:</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${verifyUrl}" style="background: #ff4d94; color: white; padding: 12px 25px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">Verificar mi cuenta</a>
+            </div>
+            <p style="font-size: 12px; color: #666;">Si el botón no funciona, puedes copiar y pegar este enlace en tu navegador:</p>
+            <p style="font-size: 12px; color: #666; word-break: break-all;">${verifyUrl}</p>
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+            <p style="font-size: 10px; color: #999; text-align: center;">Estilo Vivo - Tu armario inteligente</p>
+          </div>
+        `
+      });
+      logger.info('Verification email sent', { userId: user.id });
+    } else {
+      logger.warn('SMTP not configured. Verification token:', verificationToken);
+    }
 
     const { password: _, ...safe } = user;
-    logger.info('User registered successfully', { userId: user.id, email: user.email });
-    res.status(201).json({ user: safe, token });
-  } catch (error) {
-    logger.error('Registration error', { error });
+    logger.info('User registered (pending verification)', { userId: user.id, email: user.email });
+    res.status(201).json({
+      user: safe,
+      message: 'verificationEmailSent',
+      requiresVerification: true
+    });
+  } catch (error: any) {
+    logger.error('Registration error', { error: error.message });
     res.status(500).json({ error: 'Error during registration' });
   }
 });
@@ -298,6 +322,11 @@ app.post('/api/auth/login', authLimiter, validate(loginSchema), async (req: Requ
     if (!user) {
       logger.warn('Login failed: Password mismatch for all candidates', { email: normalizedEmail, count: candidates.length });
       return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    if (!user.isVerified) {
+      logger.warn('Login blocked: Email not verified', { userId: user.id });
+      return res.status(403).json({ error: 'emailNotVerified' });
     }
 
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
@@ -428,6 +457,31 @@ app.post('/api/auth/reset-password', authLimiter, async (req: Request, res: Resp
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: 'Error resetting password' });
+  }
+});
+
+app.post('/api/auth/verify-email', authLimiter, async (req: Request, res: Response) => {
+  try {
+    const { token } = req.body;
+    const user = await prisma.user.findFirst({
+      where: { verificationToken: token }
+    });
+
+    if (!user) return res.status(400).json({ error: 'Invalid or expired verification token' });
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        isVerified: true,
+        verificationToken: null
+      }
+    });
+
+    logger.info('Email verified successfully', { userId: user.id });
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Email verification error', { error });
+    res.status(500).json({ error: 'Error verifying email' });
   }
 });
 

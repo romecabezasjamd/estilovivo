@@ -22,6 +22,11 @@ export interface TranslationSchema {
     recoveryEmailSent: string;
     resetPassword: string;
     emailNotFound: string;
+    verificationEmailSent: string;
+    checkEmailToVerify: string;
+    emailVerifiedSuccess: string;
+    emailNotVerifiedError: string;
+    resendVerification: string;
     female: string;
     male: string;
     other: string;
@@ -364,9 +369,14 @@ export const TRANSLATIONS: Record<Language, TranslationSchema> = {
         passwordsDoNotMatch: 'Las contraseñas no coinciden',
         invalidCurrentPassword: 'La contraseña actual es incorrecta',
         forgotPassword: '¿Olvidaste tu contraseña?',
-        recoveryEmailSent: 'Si el email está registrado, recibirás un enlace de recuperación',
+        recoveryEmailSent: 'Correo de recuperación enviado. Revisa tu bandeja de entrada.',
         resetPassword: 'Restablecer contraseña',
-        emailNotFound: 'Email no encontrado'
+        emailNotFound: 'Usuario no encontrado.',
+        verificationEmailSent: '¡Casi listo! Revisa tu correo.',
+        checkEmailToVerify: 'Te hemos enviado un enlace para confirmar tu cuenta.',
+        emailVerifiedSuccess: 'Correo verificado correctamente. ¡Ya puedes entrar!',
+        emailNotVerifiedError: 'Debes verificar tu correo antes de poder entrar.',
+        resendVerification: 'Reenviar enlace de confirmación',
     },
     en: {
         login: 'Login',
@@ -534,9 +544,14 @@ export const TRANSLATIONS: Record<Language, TranslationSchema> = {
         passwordsDoNotMatch: 'Passwords do not match',
         invalidCurrentPassword: 'Current password is incorrect',
         forgotPassword: 'Forgot your password?',
-        recoveryEmailSent: 'If the email is registered, you will receive a recovery link',
+        recoveryEmailSent: 'Recovery email sent. Please check your inbox.',
         resetPassword: 'Reset Password',
-        emailNotFound: 'Email not found'
+        emailNotFound: 'User not found.',
+        verificationEmailSent: 'Almost ready! Check your email.',
+        checkEmailToVerify: 'We have sent you a link to confirm your account.',
+        emailVerifiedSuccess: 'Email verified successfully. You can now log in!',
+        emailNotVerifiedError: 'You must verify your email before logging in.',
+        resendVerification: 'Resend verification link',
     },
     ja: {
         login: 'ログイン',

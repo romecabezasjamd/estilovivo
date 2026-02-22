@@ -139,6 +139,16 @@ export const api = {
         return handleResponse(res);
     },
 
+    verifyEmail: async (token: string) => {
+        const res = await fetch(`${API_BASE}/auth/verify-email`, {
+            credentials: 'include',
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token })
+        });
+        return handleResponse(res);
+    },
+
     getMe: async (): Promise<UserState> => {
         const res = await fetch(`${API_BASE}/auth/me`, { headers: getHeaders(), credentials: 'include' });
         return handleResponse(res);
@@ -162,14 +172,6 @@ export const api = {
         return handleResponse(res);
     },
 
-    forgotPassword: async (email: string) => {
-        const res = await fetch(`${API_BASE}/auth/forgot-password`, {
-            credentials: 'include', method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
-        });
-        return handleResponse(res);
-    },
 
     // ============= GARMENTS / PRODUCTS =============
     getGarments: async (): Promise<Garment[]> => {
