@@ -27,12 +27,13 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
         setError(null);
 
         try {
+            const normalizedEmail = email.trim().toLowerCase();
             if (isLogin) {
-                const data = await api.login({ email: email.trim(), password });
+                const data = await api.login({ email: normalizedEmail, password });
                 onAuthSuccess(data.user);
             } else {
                 const data = await api.register({
-                    email: email.trim(),
+                    email: normalizedEmail,
                     password,
                     name,
                     gender,

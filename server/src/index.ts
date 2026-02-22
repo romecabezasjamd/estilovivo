@@ -105,8 +105,10 @@ const allowedOrigins = [
   process.env.SERVICE_URL_APP,
   process.env.FRONTEND_URL,
   'http://localhost:5173',
-  'http://localhost:3000'
-].filter(Boolean); // Remove undefined values
+  'http://localhost:3000',
+  'capacitor://localhost', // Potential Capacitor/Mobile origin
+  'http://localhost',
+].filter(Boolean) as string[]; // Remove undefined values
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -248,7 +250,7 @@ app.post('/api/auth/register', authLimiter, validate(registerSchema), async (req
     res.cookie('auth_token', token, {
       httpOnly: true,
       secure: NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
@@ -280,7 +282,7 @@ app.post('/api/auth/login', authLimiter, validate(loginSchema), async (req: Requ
     res.cookie('auth_token', token, {
       httpOnly: true,
       secure: NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
@@ -300,7 +302,7 @@ app.post('/api/auth/logout', (req: Request, res: Response) => {
   res.clearCookie('auth_token', {
     httpOnly: true,
     secure: NODE_ENV === 'production',
-    sameSite: 'strict',
+    sameSite: 'lax',
   });
   logger.info('User logged out');
   res.json({ message: 'Logged out successfully' });
