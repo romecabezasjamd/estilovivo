@@ -142,12 +142,15 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                                     <div className="relative group">
                                         <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                                         <input
+                                            id="name"
+                                            name="name"
                                             type="text"
                                             required
                                             value={name}
                                             onChange={(e) => setName(e.target.value)}
                                             className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-800"
                                             placeholder={t('name')}
+                                            autoComplete="name"
                                         />
                                     </div>
                                 </div>
@@ -195,6 +198,8 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                             <div className="relative group">
                                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                                 <input
+                                    id="email"
+                                    name="email"
                                     type="email"
                                     required
                                     value={email}
@@ -215,12 +220,15 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                             <div className="relative group">
                                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                                 <input
+                                    id="password"
+                                    name="password"
                                     type="password"
                                     required
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-800"
                                     placeholder="••••••••"
+                                    autoComplete={isLogin ? "current-password" : "new-password"}
                                 />
                             </div>
                         </div>

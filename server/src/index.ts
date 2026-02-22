@@ -267,14 +267,23 @@ app.post('/api/auth/login', authLimiter, validate(loginSchema), async (req: Requ
   try {
     const normalizedEmail = req.body.email.toLowerCase().trim();
     const { password } = req.body;
-    const user = await prisma.user.findUnique({
-      where: { email: normalizedEmail },
+
+    // Use findFirst with insensitive mode for robustness
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
       include: { _count: { select: { followers: true, following: true } } }
     });
-    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+
+    if (!user) {
+      logger.warn('Login failed: User not found', { email: normalizedEmail });
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!isMatch) {
+      logger.warn('Login failed: Password mismatch', { userId: user.id });
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
 
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
 

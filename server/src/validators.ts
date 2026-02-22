@@ -4,7 +4,7 @@ import { Request, Response, NextFunction } from 'express';
 // ============= SCHEMAS =============
 
 export const registerSchema = z.object({
-  email: z.string().email('Email inválido'),
+  email: z.string().trim().toLowerCase().email('Email inválido'),
   password: z.string().min(8, 'Contraseña debe tener al menos 8 caracteres'),
   name: z.string().min(2, 'Nombre debe tener al menos 2 caracteres'),
   gender: z.enum(['male', 'female', 'other']).optional(),
@@ -12,7 +12,7 @@ export const registerSchema = z.object({
 });
 
 export const loginSchema = z.object({
-  email: z.string().email('Email inválido'),
+  email: z.string().trim().toLowerCase().email('Email inválido'),
   password: z.string().min(1, 'Contraseña requerida'),
 });
 
