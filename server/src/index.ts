@@ -231,7 +231,12 @@ app.post('/api/auth/register', authLimiter, validate(registerSchema), async (req
   try {
     const normalizedEmail = req.body.email.toLowerCase().trim();
     const { password, name, gender, birthDate } = req.body;
-    const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+
+    // Case-insensitive check to prevent duplicate emails with different casing
+    const existingUser = await prisma.user.findFirst({
+      where: { email: { equals: normalizedEmail, mode: 'insensitive' } }
+    });
+
     if (existingUser) return res.status(400).json({ error: 'Email already registered' });
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -268,9 +273,10 @@ app.post('/api/auth/login', authLimiter, validate(loginSchema), async (req: Requ
     const normalizedEmail = req.body.email.toLowerCase().trim();
     const { password } = req.body;
 
-    // Use findFirst with insensitive mode for robustness
+    // Use findFirst with insensitive mode and order by oldest first (to recover original account)
     const user = await prisma.user.findFirst({
       where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
+      orderBy: { createdAt: 'asc' },
       include: { _count: { select: { followers: true, following: true } } }
     });
 
