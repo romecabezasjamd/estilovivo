@@ -164,6 +164,9 @@ export interface TranslationSchema {
     homeDelivery: string;
     receiveIn: string;
     continueAction: string;
+    deleteAccount: string;
+    deleteAccountConfirm: string;
+    deleteAccountWarning: string;
 }
 
 export const languages: { id: Language, label: string }[] = [
@@ -338,7 +341,10 @@ export const TRANSLATIONS: Record<Language, TranslationSchema> = {
         free: 'Gratis',
         homeDelivery: 'Envío a domicilio',
         receiveIn: 'Recíbelo en 24-48h',
-        continueAction: 'Continuar'
+        continueAction: 'Continuar',
+        deleteAccount: 'Eliminar Cuenta',
+        deleteAccountConfirm: '¿Estás completamente seguro?',
+        deleteAccountWarning: 'Esta acción es permanente y borrará todo tu armario, looks y datos.'
     },
     en: {
         login: 'Login',
@@ -494,7 +500,10 @@ export const TRANSLATIONS: Record<Language, TranslationSchema> = {
         free: 'Free',
         homeDelivery: 'Home delivery',
         receiveIn: 'Receive in 24-48h',
-        continueAction: 'Continue'
+        continueAction: 'Continue',
+        deleteAccount: 'Delete Account',
+        deleteAccountConfirm: 'Are you absolutely sure?',
+        deleteAccountWarning: 'This action is permanent and will delete all your wardrobe, looks, and data.'
     },
     ja: {
         login: 'ログイン',
@@ -650,7 +659,10 @@ export const TRANSLATIONS: Record<Language, TranslationSchema> = {
         free: '無料',
         homeDelivery: '宅配',
         receiveIn: '24-48時間以内にお届け',
-        continueAction: '次へ'
+        continueAction: '次へ',
+        deleteAccount: 'アカウントを削除',
+        deleteAccountConfirm: '本当によろしいですか？',
+        deleteAccountWarning: 'この操作は元に戻せません。ワードローブ、ルック、すべてのデータが削除されます。'
     },
     zh: {
         login: '登录',
@@ -806,7 +818,10 @@ export const TRANSLATIONS: Record<Language, TranslationSchema> = {
         free: '免费',
         homeDelivery: '送货上门',
         receiveIn: '24-48小时内送达',
-        continueAction: '继续'
+        continueAction: '继续',
+        deleteAccount: '删除账户',
+        deleteAccountConfirm: '您确定要这样做吗？',
+        deleteAccountWarning: '此操作是永久性的，将删除您的所有衣橱、搭配和数据。'
     },
     ar: {
         login: 'تسجيل الدخول',
@@ -962,7 +977,10 @@ export const TRANSLATIONS: Record<Language, TranslationSchema> = {
         free: 'مجاني',
         homeDelivery: 'توصيل للمنزل',
         receiveIn: 'استلمها خلال 24-48 ساعة',
-        continueAction: 'استمرار'
+        continueAction: 'استمرار',
+        deleteAccount: 'حذف الحساب',
+        deleteAccountConfirm: 'هل أنت متأكد تمامًا؟',
+        deleteAccountWarning: 'هذا الإجراء دائم وسيؤدي إلى حذف جميع ملابسك وإطلالاتك وبياناتك.'
     },
     ru: {
         login: 'Войти',
@@ -1118,7 +1136,10 @@ export const TRANSLATIONS: Record<Language, TranslationSchema> = {
         free: 'Бесплатно',
         homeDelivery: 'Доставка на дом',
         receiveIn: 'Получите через 24-48ч',
-        continueAction: 'Продолжить'
+        continueAction: 'Продолжить',
+        deleteAccount: 'Удалить аккаунт',
+        deleteAccountConfirm: 'Вы абсолютно уверены?',
+        deleteAccountWarning: 'Это действие необратимо и приведет к удалению всего вашего гардероба, образов и данных.'
     },
 }
 

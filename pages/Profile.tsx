@@ -5,7 +5,7 @@ import {
   User, Settings, LogOut, Heart, Camera, Edit3, Save, X,
   ShoppingBag, Shirt, Calendar, Star, TrendingUp, ChevronRight,
   Eye, Bookmark, Bell, Shield, Moon, Music, BarChart3, Download,
-  HelpCircle, Lock, Palette, Languages, Globe
+  HelpCircle, Lock, Palette, Languages, Globe, AlertCircle
 } from 'lucide-react';
 import { applyTheme, getSavedTheme, ThemeColor, THEMES } from '../src/utils/theme';
 import { useLanguage } from '../src/context/LanguageContext';
@@ -37,6 +37,8 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
   const [currentTheme, setCurrentTheme] = useState<ThemeColor>(getSavedTheme());
   const { t, language, setLanguage, dialect, setDialect } = useLanguage();
   const [showLanguageSettings, setShowLanguageSettings] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Settings state
@@ -164,6 +166,22 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
       localStorage.removeItem('beyour_token');
       localStorage.removeItem('beyour_user');
       window.location.reload();
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    setDeleting(true);
+    try {
+      await api.deleteAccount();
+      localStorage.removeItem('beyour_token');
+      localStorage.removeItem('beyour_user');
+      window.location.reload();
+    } catch (e) {
+      console.warn('Error deleting account:', e);
+      alert('Error al eliminar la cuenta');
+    } finally {
+      setDeleting(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -910,6 +928,48 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                     <p className="text-sm font-semibold text-gray-800">{user.email}</p>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Danger Zone */}
+            <div className="mt-8 pt-8 border-t border-gray-100">
+              <div className="bg-red-50 rounded-2xl p-6 border border-red-100">
+                <h3 className="text-red-800 font-bold mb-2 flex items-center gap-2">
+                  <AlertCircle size={18} />
+                  {t('deleteAccount')}
+                </h3>
+                <p className="text-red-600 text-xs mb-4">
+                  {t('deleteAccountWarning')}
+                </p>
+
+                {showDeleteConfirm ? (
+                  <div className="space-y-3 animate-fade-in">
+                    <p className="text-sm font-bold text-red-900">{t('deleteAccountConfirm')}</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleConfirmDelete}
+                        disabled={deleting}
+                        className="flex-1 bg-red-600 text-white font-bold py-3 rounded-xl hover:bg-red-700 transition shadow-lg shadow-red-200 disabled:opacity-50"
+                      >
+                        {deleting ? '...' : t('deleteAccount')}
+                      </button>
+                      <button
+                        onClick={() => setShowDeleteConfirm(false)}
+                        className="flex-1 bg-white text-gray-500 font-bold py-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition"
+                      >
+                        {t('cancel')}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="w-full bg-red-500 text-white font-bold py-3 rounded-xl hover:bg-red-600 transition shadow-lg shadow-red-200 flex items-center justify-center gap-2"
+                  >
+                    <X size={18} />
+                    {t('deleteAccount')}
+                  </button>
+                )}
               </div>
             </div>
 

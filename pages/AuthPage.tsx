@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Lock, User, ArrowRight, Sparkles, AlertCircle, Calendar, Languages, Globe } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, Sparkles, AlertCircle, Calendar, Languages, Globe, Eye, EyeOff } from 'lucide-react';
 import { api } from '../services/api';
 import { useLanguage } from '../src/context/LanguageContext';
 import { languages, dialects } from '../src/utils/translations';
@@ -13,6 +13,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
     const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [name, setName] = useState('');
     const [gender, setGender] = useState<'male' | 'female' | 'other'>('other');
     const [birthDate, setBirthDate] = useState('');
@@ -222,14 +223,21 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                                 <input
                                     id="password"
                                     name="password"
-                                    type="password"
+                                    type={showPassword ? "text" : "password"}
                                     required
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-800"
+                                    className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-12 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-800"
                                     placeholder="••••••••"
                                     autoComplete={isLogin ? "current-password" : "new-password"}
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary transition-colors p-1"
+                                >
+                                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                </button>
                             </div>
                         </div>
 

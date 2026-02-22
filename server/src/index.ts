@@ -323,13 +323,26 @@ app.post('/api/auth/login', authLimiter, validate(loginSchema), async (req: Requ
 });
 
 app.post('/api/auth/logout', (req: Request, res: Response) => {
-  res.clearCookie('auth_token', {
-    httpOnly: true,
-    secure: NODE_ENV === 'production',
-    sameSite: 'lax',
-  });
-  logger.info('User logged out');
-  res.json({ message: 'Logged out successfully' });
+  res.clearCookie('auth_token');
+  res.json({ success: true });
+});
+
+app.delete('/api/auth/profile', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const userId = req.user.userId;
+
+    // Cascading deletes in Prisma will handle products, looks, etc.
+    await prisma.user.delete({
+      where: { id: userId }
+    });
+
+    res.clearCookie('auth_token');
+    logger.info('User deleted account successfully', { userId });
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Account deletion error', { error });
+    res.status(500).json({ error: 'Error deleting account' });
+  }
 });
 
 app.post('/api/auth/forgot-password', authLimiter, async (req: Request, res: Response) => {

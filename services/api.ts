@@ -101,6 +101,14 @@ export const api = {
         localStorage.removeItem('beyour_user');
     },
 
+    deleteAccount: async () => {
+        const res = await fetch(`${API_BASE}/auth/profile`, {
+            credentials: 'include',
+            method: 'DELETE'
+        });
+        return handleResponse(res);
+    },
+
     getMe: async (): Promise<UserState> => {
         const res = await fetch(`${API_BASE}/auth/me`, { headers: getHeaders(), credentials: 'include' });
         return handleResponse(res);
