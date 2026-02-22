@@ -109,6 +109,36 @@ export const api = {
         return handleResponse(res);
     },
 
+    changePassword: async (passwords: { currentPassword: string; newPassword: string }) => {
+        const res = await fetch(`${API_BASE}/auth/change-password`, {
+            credentials: 'include',
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(passwords)
+        });
+        return handleResponse(res);
+    },
+
+    forgotPassword: async (email: string) => {
+        const res = await fetch(`${API_BASE}/auth/forgot-password`, {
+            credentials: 'include',
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+        return handleResponse(res);
+    },
+
+    resetPassword: async (data: { token: string; newPassword: string }) => {
+        const res = await fetch(`${API_BASE}/auth/reset-password`, {
+            credentials: 'include',
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        return handleResponse(res);
+    },
+
     getMe: async (): Promise<UserState> => {
         const res = await fetch(`${API_BASE}/auth/me`, { headers: getHeaders(), credentials: 'include' });
         return handleResponse(res);

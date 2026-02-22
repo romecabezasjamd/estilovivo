@@ -37,8 +37,18 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
   const [currentTheme, setCurrentTheme] = useState<ThemeColor>(getSavedTheme());
   const { t, language, setLanguage, dialect, setDialect } = useLanguage();
   const [showLanguageSettings, setShowLanguageSettings] = useState(false);
+  const [showSecuritySettings, setShowSecuritySettings] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Password change state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Settings state
@@ -182,6 +192,31 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
     } finally {
       setDeleting(false);
       setShowDeleteConfirm(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      setPasswordError(t('passwordsDoNotMatch'));
+      return;
+    }
+
+    setPasswordLoading(true);
+    setPasswordError(null);
+    setPasswordSuccess(false);
+
+    try {
+      await api.changePassword({ currentPassword, newPassword });
+      setPasswordSuccess(true);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setTimeout(() => setPasswordSuccess(false), 3000);
+    } catch (e: any) {
+      setPasswordError(e.message === 'invalidCurrentPassword' ? t('invalidCurrentPassword') : 'Error al cambiar la contraseña');
+    } finally {
+      setPasswordLoading(false);
     }
   };
 
@@ -883,19 +918,96 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
               </div>
             </div>
 
-            {/* Privacy Settings */}
-            <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-5 border border-purple-100">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-pink-500 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <Lock size={24} className="text-white" />
+            {/* Privacy & Security Settings */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="p-4 border-b border-gray-50 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Lock size={18} className="text-primary" />
+                  <h3 className="text-sm font-bold text-gray-700">Privacidad y Seguridad</h3>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-gray-800 mb-1">Privacidad y Seguridad</h3>
-                  <p className="text-xs text-gray-600 mb-3">Controla quién puede ver tu perfil, favoritos y actividad</p>
-                  <button className="px-4 py-2 bg-purple-500 text-white text-xs font-bold rounded-lg hover:bg-purple-600 transition-colors">
-                    Configurar Privacidad
-                  </button>
-                </div>
+                <button
+                  onClick={() => setShowSecuritySettings(!showSecuritySettings)}
+                  className="text-primary text-xs font-bold"
+                >
+                  {showSecuritySettings ? t('back') : t('edit')}
+                </button>
+              </div>
+
+              <div className="p-5">
+                {!showSecuritySettings ? (
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-gray-500">Controla quién puede ver tu perfil y gestiona tu contraseña</p>
+                    <div className="w-10 h-10 bg-purple-50 rounded-full flex items-center justify-center">
+                      <Shield size={20} className="text-purple-500" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-6 animate-fade-in">
+                    {/* Password Change Form */}
+                    <form onSubmit={handleChangePassword} className="space-y-4">
+                      <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t('changePassword')}</h4>
+
+                      <div className="space-y-3">
+                        <div className="relative">
+                          <input
+                            type="password"
+                            placeholder={t('currentPassword')}
+                            value={currentPassword}
+                            onChange={(e) => setCurrentPassword(e.target.value)}
+                            className="w-full bg-gray-50 border-none rounded-xl py-3 px-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                            required
+                          />
+                        </div>
+                        <div className="relative">
+                          <input
+                            type="password"
+                            placeholder={t('newPassword')}
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            className="w-full bg-gray-50 border-none rounded-xl py-3 px-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                            required
+                          />
+                        </div>
+                        <div className="relative">
+                          <input
+                            type="password"
+                            placeholder={t('confirmPassword')}
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            className="w-full bg-gray-50 border-none rounded-xl py-3 px-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      {passwordError && (
+                        <p className="text-[10px] text-red-500 font-bold">{passwordError}</p>
+                      )}
+
+                      {passwordSuccess && (
+                        <p className="text-[10px] text-green-500 font-bold">{t('passwordChangedSuccess')}</p>
+                      )}
+
+                      <button
+                        type="submit"
+                        disabled={passwordLoading}
+                        className="w-full bg-gradient-to-r from-primary to-primary-dark text-white font-bold py-3 rounded-xl shadow-lg shadow-primary/20 transition-all transform active:scale-95 disabled:opacity-50"
+                      >
+                        {passwordLoading ? '...' : t('save')}
+                      </button>
+                    </form>
+
+                    {/* Other security options placeholders */}
+                    <div className="pt-4 border-t border-gray-50 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-gray-700">Perfil Público</span>
+                        <button className="w-11 h-6 bg-primary rounded-full relative">
+                          <div className="absolute right-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

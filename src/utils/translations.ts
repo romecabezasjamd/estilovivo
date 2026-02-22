@@ -11,6 +11,17 @@ export interface TranslationSchema {
     name: string;
     birthDate: string;
     gender: string;
+    currentPassword: string;
+    newPassword: string;
+    confirmPassword: string;
+    changePassword: string;
+    passwordChangedSuccess: string;
+    passwordsDoNotMatch: string;
+    invalidCurrentPassword: string;
+    forgotPassword: string;
+    recoveryEmailSent: string;
+    resetPassword: string;
+    emailNotFound: string;
     female: string;
     male: string;
     other: string;
@@ -344,7 +355,18 @@ export const TRANSLATIONS: Record<Language, TranslationSchema> = {
         continueAction: 'Continuar',
         deleteAccount: 'Eliminar Cuenta',
         deleteAccountConfirm: '¿Estás completamente seguro?',
-        deleteAccountWarning: 'Esta acción es permanente y borrará todo tu armario, looks y datos.'
+        deleteAccountWarning: 'Esta acción es permanente y borrará todo tu armario, looks y datos.',
+        currentPassword: 'Contraseña actual',
+        newPassword: 'Nueva contraseña',
+        confirmPassword: 'Confirmar nueva contraseña',
+        changePassword: 'Cambiar contraseña',
+        passwordChangedSuccess: 'Contraseña cambiada con éxito',
+        passwordsDoNotMatch: 'Las contraseñas no coinciden',
+        invalidCurrentPassword: 'La contraseña actual es incorrecta',
+        forgotPassword: '¿Olvidaste tu contraseña?',
+        recoveryEmailSent: 'Si el email está registrado, recibirás un enlace de recuperación',
+        resetPassword: 'Restablecer contraseña',
+        emailNotFound: 'Email no encontrado'
     },
     en: {
         login: 'Login',
@@ -503,7 +525,18 @@ export const TRANSLATIONS: Record<Language, TranslationSchema> = {
         continueAction: 'Continue',
         deleteAccount: 'Delete Account',
         deleteAccountConfirm: 'Are you absolutely sure?',
-        deleteAccountWarning: 'This action is permanent and will delete all your wardrobe, looks, and data.'
+        deleteAccountWarning: 'This action is permanent and will delete all your wardrobe, looks, and data.',
+        currentPassword: 'Current Password',
+        newPassword: 'New Password',
+        confirmPassword: 'Confirm New Password',
+        changePassword: 'Change Password',
+        passwordChangedSuccess: 'Password changed successfully',
+        passwordsDoNotMatch: 'Passwords do not match',
+        invalidCurrentPassword: 'Current password is incorrect',
+        forgotPassword: 'Forgot your password?',
+        recoveryEmailSent: 'If the email is registered, you will receive a recovery link',
+        resetPassword: 'Reset Password',
+        emailNotFound: 'Email not found'
     },
     ja: {
         login: 'ログイン',
@@ -662,7 +695,18 @@ export const TRANSLATIONS: Record<Language, TranslationSchema> = {
         continueAction: '次へ',
         deleteAccount: 'アカウントを削除',
         deleteAccountConfirm: '本当によろしいですか？',
-        deleteAccountWarning: 'この操作は元に戻せません。ワードローブ、ルック、すべてのデータが削除されます。'
+        deleteAccountWarning: 'この操作は元に戻せません。ワードローブ、ルック、すべてのデータが削除されます。',
+        currentPassword: '現在のパスワード',
+        newPassword: '新しいパスワード',
+        confirmPassword: '新しいパスワードを確認',
+        changePassword: 'パスワードを変更',
+        passwordChangedSuccess: 'パスワードが正常に変更されました',
+        passwordsDoNotMatch: 'パスワードが一致しません',
+        invalidCurrentPassword: '現在のパスワードが正しくありません',
+        forgotPassword: 'パスワードをお忘れですか？',
+        recoveryEmailSent: 'メールが登録されている場合、回復リンクが送信されます',
+        resetPassword: 'パスワードをリセット',
+        emailNotFound: 'メールが見つかりません'
     },
     zh: {
         login: '登录',
@@ -821,7 +865,18 @@ export const TRANSLATIONS: Record<Language, TranslationSchema> = {
         continueAction: '继续',
         deleteAccount: '删除账户',
         deleteAccountConfirm: '您确定要这样做吗？',
-        deleteAccountWarning: '此操作是永久性的，将删除您的所有衣橱、搭配和数据。'
+        deleteAccountWarning: '此操作是永久性的，将删除您的所有衣橱、搭配和数据。',
+        currentPassword: '当前密码',
+        newPassword: '新密码',
+        confirmPassword: '确认新密码',
+        changePassword: '更改密码',
+        passwordChangedSuccess: '密码更改成功',
+        passwordsDoNotMatch: '密码不匹配',
+        invalidCurrentPassword: '当前密码不正确',
+        forgotPassword: '忘记密码？',
+        recoveryEmailSent: '如果该邮箱已注册，您将收到一封恢复邮件',
+        resetPassword: '重置密码',
+        emailNotFound: '未找到该邮箱'
     },
     ar: {
         login: 'تسجيل الدخول',
@@ -980,7 +1035,18 @@ export const TRANSLATIONS: Record<Language, TranslationSchema> = {
         continueAction: 'استمرار',
         deleteAccount: 'حذف الحساب',
         deleteAccountConfirm: 'هل أنت متأكد تمامًا؟',
-        deleteAccountWarning: 'هذا الإجراء دائم وسيؤدي إلى حذف جميع ملابسك وإطلالاتك وبياناتك.'
+        deleteAccountWarning: 'هذا الإجراء دائم وسيؤدي إلى حذف جميع ملابسك وإطلالاتك وبياناتك.',
+        currentPassword: 'كلمة المرور الحالية',
+        newPassword: 'كلمة المرور الجديدة',
+        confirmPassword: 'تأكيد كلمة المرور الجديدة',
+        changePassword: 'تغيير كلمة المرور',
+        passwordChangedSuccess: 'تم تغيير كلمة المرور بنجاح',
+        passwordsDoNotMatch: 'كلمات المرor لا تتطابق',
+        invalidCurrentPassword: 'كلمة المرور الحالية غير صحيحة',
+        forgotPassword: 'هل نسيت كلمة المرور؟',
+        recoveryEmailSent: 'إذا كان البريد الإلكتروني مسجلاً، فستتلقى رابط استرداد',
+        resetPassword: 'إعادة تعيين كلمة المرور',
+        emailNotFound: 'البريد الإلكتروني غير موجود'
     },
     ru: {
         login: 'Войти',
@@ -1139,7 +1205,18 @@ export const TRANSLATIONS: Record<Language, TranslationSchema> = {
         continueAction: 'Продолжить',
         deleteAccount: 'Удалить аккаунт',
         deleteAccountConfirm: 'Вы абсолютно уверены?',
-        deleteAccountWarning: 'Это действие необратимо и приведет к удалению всего вашего гардероба, образов и данных.'
+        deleteAccountWarning: 'Это действие необратимо и приведет к удалению всего вашего гардероба, образов и данных.',
+        currentPassword: 'Текущий пароль',
+        newPassword: 'Новый пароль',
+        confirmPassword: 'Подтвердите новый пароль',
+        changePassword: 'Изменить пароль',
+        passwordChangedSuccess: 'Пароль успешно изменен',
+        passwordsDoNotMatch: 'Пароли не совпадают',
+        invalidCurrentPassword: 'Текущий пароль неверный',
+        forgotPassword: 'Забыли пароль?',
+        recoveryEmailSent: 'Если email зарегистрирован, вы получите ссылку для восстановления',
+        resetPassword: 'Сбросить пароль',
+        emailNotFound: 'Email не найден'
     },
 }
 

@@ -327,6 +327,110 @@ app.post('/api/auth/logout', (req: Request, res: Response) => {
   res.json({ success: true });
 });
 
+// ============= ACCOUNT MANAGEMENT =============
+
+app.post('/api/auth/change-password', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const userId = req.user.userId;
+    const { currentPassword, newPassword } = req.body;
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) return res.status(400).json({ error: 'invalidCurrentPassword' });
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword }
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Error changing password' });
+  }
+});
+
+app.post('/api/auth/forgot-password', authLimiter, async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase().trim() }
+    });
+
+    if (!user) {
+      // Don't reveal if user exists for security, just send success
+      return res.json({ success: true, message: 'recoveryEmailSent' });
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiry = new Date(Date.now() + 3600000); // 1 hour
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        resetToken: token,
+        resetTokenExpiry: expiry
+      }
+    });
+
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/auth?token=${token}`;
+
+    if (transporter) {
+      await transporter.sendMail({
+        to: user.email,
+        subject: 'Recuperar contraseña - Estilo Vivo',
+        html: `
+          <div style="font-family: sans-serif; padding: 20px;">
+            <h2>Hola ${user.name}</h2>
+            <p>Has solicitado restablecer tu contraseña en Estilo Vivo.</p>
+            <p>Haz clic en el siguiente botón para continuar:</p>
+            <a href="${resetUrl}" style="background: #ff4d94; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Restablecer Contraseña</a>
+            <p>Este enlace caducará en 1 hora.</p>
+            <p>Si no has solicitado esto, puedes ignorar este correo.</p>
+          </div>
+        `
+      });
+    } else {
+      logger.warn('SMTP not configured. Reset URL:', resetUrl);
+    }
+
+    res.json({ success: true, message: 'recoveryEmailSent' });
+  } catch (error) {
+    logger.error('Forgot password error', { error });
+    res.status(500).json({ error: 'Error processing request' });
+  }
+});
+
+app.post('/api/auth/reset-password', authLimiter, async (req: Request, res: Response) => {
+  try {
+    const { token, newPassword } = req.body;
+    const user = await prisma.user.findFirst({
+      where: {
+        resetToken: token,
+        resetTokenExpiry: { gt: new Date() }
+      }
+    });
+
+    if (!user) return res.status(400).json({ error: 'Invalid or expired token' });
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        resetToken: null,
+        resetTokenExpiry: null
+      }
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Error resetting password' });
+  }
+});
+
 app.delete('/api/auth/profile', authenticateToken, async (req: any, res: Response) => {
   try {
     const userId = req.user.userId;
