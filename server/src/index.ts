@@ -273,21 +273,30 @@ app.post('/api/auth/login', authLimiter, validate(loginSchema), async (req: Requ
     const normalizedEmail = req.body.email.toLowerCase().trim();
     const { password } = req.body;
 
-    // Use findFirst with insensitive mode and order by oldest first (to recover original account)
-    const user = await prisma.user.findFirst({
+    // Use findMany to get all potential accounts (case-insensitive)
+    const candidates = await prisma.user.findMany({
       where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: 'asc' }, // Prioritize original account
       include: { _count: { select: { followers: true, following: true } } }
     });
 
-    if (!user) {
+    if (candidates.length === 0) {
       logger.warn('Login failed: User not found', { email: normalizedEmail });
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      logger.warn('Login failed: Password mismatch', { userId: user.id });
+    // Check password for each candidate until one matches
+    let user = null;
+    for (const candidate of candidates) {
+      const isMatch = await bcrypt.compare(password, candidate.password);
+      if (isMatch) {
+        user = candidate;
+        break;
+      }
+    }
+
+    if (!user) {
+      logger.warn('Login failed: Password mismatch for all candidates', { email: normalizedEmail, count: candidates.length });
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
