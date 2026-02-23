@@ -3,15 +3,18 @@ import { Garment, Look, PlannerEntry, UserState, Trip, Comment, CommunityPost, S
 const API_BASE = '/api';
 
 const getHeaders = () => {
-    // Token now sent via httpOnly cookie automatically
+    const token = localStorage.getItem('beyour_token');
     return {
         'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
     };
 };
 
 const getAuthHeader = () => {
-    // Token now sent via httpOnly cookie automatically
-    return {};
+    const token = localStorage.getItem('beyour_token');
+    return {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
 };
 
 const handleResponse = async (res: Response) => {
@@ -78,7 +81,9 @@ export const api = {
             body: JSON.stringify(credentials)
         });
         const data = await handleResponse(res);
-        // Token now stored in httpOnly cookie
+        if (data.token) {
+            localStorage.setItem('beyour_token', data.token);
+        }
         return data;
     },
 
@@ -89,16 +94,24 @@ export const api = {
             body: JSON.stringify(userData)
         });
         const data = await handleResponse(res);
-        // Token now stored in httpOnly cookie
+        if (data.token) {
+            localStorage.setItem('beyour_token', data.token);
+        }
         return data;
     },
 
     logout: async () => {
-        await fetch(`${API_BASE}/auth/logout`, {
-            credentials: 'include',
-            method: 'POST'
-        });
-        localStorage.removeItem('beyour_user');
+        try {
+            await fetch(`${API_BASE}/auth/logout`, {
+                credentials: 'include',
+                method: 'POST'
+            });
+        } catch (e) {
+            console.error('Logout error', e);
+        } finally {
+            localStorage.removeItem('beyour_user');
+            localStorage.removeItem('beyour_token');
+        }
     },
 
     deleteAccount: async () => {
