@@ -152,6 +152,16 @@ export const api = {
         return handleResponse(res);
     },
 
+    resendVerification: async (email: string) => {
+        const res = await fetch(`${API_BASE}/auth/resend-verification`, {
+            credentials: 'include',
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+        return handleResponse(res);
+    },
+
     verifyEmail: async (token: string) => {
         const res = await fetch(`${API_BASE}/auth/verify-email`, {
             credentials: 'include',

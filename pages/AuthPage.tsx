@@ -22,6 +22,8 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const [isUnverified, setIsUnverified] = useState(false);
+    const [isResending, setIsResending] = useState(false);
     const [resetToken, setResetToken] = useState<string | null>(null);
     const { t, language, setLanguage, dialect, setDialect } = useLanguage();
     const [showLangMenu, setShowLangMenu] = useState(false);
@@ -74,12 +76,36 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                     gender,
                     birthDate: birthDate || undefined
                 });
-                onAuthSuccess(data.user);
+                if (data.requiresVerification) {
+                    setIsUnverified(true);
+                    setSuccessMessage('Por favor, revisa tu correo para verificar tu cuenta.');
+                } else {
+                    onAuthSuccess(data.user);
+                }
             }
         } catch (err: any) {
-            setError(err.message || 'Ocurrió un error');
+            if (err.message === 'emailNotVerified') {
+                setIsUnverified(true);
+                setError('Debes verificar tu correo antes de iniciar sesión.');
+            } else {
+                setError(err.message || 'Ocurrió un error');
+            }
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleResendVerification = async () => {
+        setIsResending(true);
+        setError(null);
+        setSuccessMessage(null);
+        try {
+            await api.resendVerification(email);
+            setSuccessMessage('¡Correo de verificación reenviado!');
+        } catch (err: any) {
+            setError(err.message || 'Error al reenviar el correo');
+        } finally {
+            setIsResending(false);
         }
     };
 

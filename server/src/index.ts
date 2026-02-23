@@ -254,38 +254,69 @@ app.post('/api/auth/register', authLimiter, validate(registerSchema), async (req
     });
 
     // Send verification email
+    let emailSent = false;
     if (transporter) {
       const verifyUrl = `${process.env.FRONTEND_URL}/auth?verifyToken=${verificationToken}`;
-      await transporter.sendMail({
-        to: user.email,
-        subject: 'Verifica tu cuenta - Estilo Vivo',
-        html: `
-          <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px; max-width: 500px; margin: auto;">
-            <h2 style="color: #ff4d94; text-align: center;">¡Bienvenida a Estilo Vivo!</h2>
-            <p>Hola <strong>${user.name}</strong>,</p>
-            <p>Gracias por unirte a nuestra comunidad. Para empezar a usar tu cuenta, por favor confirma tu correo electrónico haciendo clic en el botón de abajo:</p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${verifyUrl}" style="background: #ff4d94; color: white; padding: 12px 25px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">Verificar mi cuenta</a>
+      try {
+        await transporter.sendMail({
+          to: user.email,
+          subject: 'Verifica tu cuenta - Estilo Vivo',
+          html: `
+            <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px; max-width: 500px; margin: auto;">
+              <h2 style="color: #ff4d94; text-align: center;">¡Bienvenida a Estilo Vivo!</h2>
+              <p>Hola <strong>${user.name}</strong>,</p>
+              <p>Gracias por unirte a nuestra comunidad. Para empezar a usar tu cuenta, por favor confirma tu correo electrónico haciendo clic en el botón de abajo:</p>
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${verifyUrl}" style="background: #ff4d94; color: white; padding: 12px 25px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">Verificar mi cuenta</a>
+              </div>
+              <p style="font-size: 12px; color: #666;">Si el botón no funciona, puedes copiar y pegar este enlace en tu navegador:</p>
+              <p style="font-size: 12px; color: #666; word-break: break-all;">${verifyUrl}</p>
+              <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+              <p style="font-size: 10px; color: #999; text-align: center;">Estilo Vivo - Tu armario inteligente</p>
             </div>
-            <p style="font-size: 12px; color: #666;">Si el botón no funciona, puedes copiar y pegar este enlace en tu navegador:</p>
-            <p style="font-size: 12px; color: #666; word-break: break-all;">${verifyUrl}</p>
-            <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-            <p style="font-size: 10px; color: #999; text-align: center;">Estilo Vivo - Tu armario inteligente</p>
-          </div>
-        `
-      });
-      logger.info('Verification email sent', { userId: user.id });
+          `
+        });
+        logger.info('Verification email sent', { userId: user.id });
+        emailSent = true;
+      } catch (mailError) {
+        logger.error('Failed to send verification email, auto-verifying user as fallback', { userId: user.id, error: mailError });
+      }
     } else {
-      logger.warn('SMTP not configured. Verification token:', verificationToken);
+      logger.warn('SMTP not configured. Auto-verifying user.', { userId: user.id });
+    }
+
+    // Auto-verify if email failed or SMTP is not configured
+    if (!emailSent) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { isVerified: true, verificationToken: null }
+      });
+      user.isVerified = true;
     }
 
     const { password: _, ...safe } = user;
-    logger.info('User registered (pending verification)', { userId: user.id, email: user.email });
-    res.status(201).json({
-      user: safe,
-      message: 'verificationEmailSent',
-      requiresVerification: true
-    });
+    if (emailSent) {
+      logger.info('User registered (pending verification)', { userId: user.id, email: user.email });
+      res.status(201).json({
+        user: safe,
+        message: 'verificationEmailSent',
+        requiresVerification: true
+      });
+    } else {
+      logger.info('User registered & auto-verified', { userId: user.id, email: user.email });
+      const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+      res.cookie('auth_token', token, {
+        httpOnly: true,
+        secure: NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+      res.status(201).json({
+        user: safe,
+        token,
+        requiresVerification: false
+      });
+    }
   } catch (error: any) {
     logger.error('Registration error', { error: error.message });
     res.status(500).json({ error: 'Error during registration' });
@@ -325,8 +356,17 @@ app.post('/api/auth/login', authLimiter, validate(loginSchema), async (req: Requ
     }
 
     if (!user.isVerified) {
-      logger.warn('Login blocked: Email not verified', { userId: user.id });
-      return res.status(403).json({ error: 'emailNotVerified' });
+      if (!transporter) {
+        logger.warn('Login: Auto-verifying unverified user because SMTP is not configured', { userId: user.id });
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { isVerified: true, verificationToken: null }
+        });
+        user.isVerified = true;
+      } else {
+        logger.warn('Login blocked: Email not verified', { userId: user.id });
+        return res.status(403).json({ error: 'emailNotVerified' });
+      }
     }
 
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
@@ -348,6 +388,58 @@ app.post('/api/auth/login', authLimiter, validate(loginSchema), async (req: Requ
   } catch (error) {
     logger.error('Login error', { error });
     res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+app.post('/api/auth/resend-verification', authLimiter, async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const user = await prisma.user.findFirst({
+      where: { email: { equals: normalizedEmail, mode: 'insensitive' } }
+    });
+
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+    if (user.isVerified) return res.status(400).json({ error: 'La cuenta ya está verificada' });
+
+    if (!transporter) {
+      logger.warn('Resend verification: Auto-verifying since SMTP is offline', { userId: user.id });
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { isVerified: true, verificationToken: null }
+      });
+      return res.json({ success: true, autoVerified: true });
+    }
+
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { verificationToken }
+    });
+
+    const verifyUrl = `${process.env.FRONTEND_URL}/auth?verifyToken=${verificationToken}`;
+    await transporter.sendMail({
+      to: user.email,
+      subject: 'Verifica tu cuenta - Estilo Vivo',
+      html: `
+        <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px; max-width: 500px; margin: auto;">
+          <h2 style="color: #ff4d94; text-align: center;">Vuelve a verificar tu correo en Estilo Vivo</h2>
+          <p>Hola <strong>${user.name}</strong>,</p>
+          <p>Hemos recibido una solicitud para reenviar el enlace de verificación de tu cuenta. Por favor confirma tu correo electrónico haciendo clic en el botón de abajo:</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${verifyUrl}" style="background: #ff4d94; color: white; padding: 12px 25px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">Verificar mi cuenta</a>
+          </div>
+          <p style="font-size: 12px; color: #666;">Si el botón no funciona, puedes copiar y pegar este enlace en tu navegador:</p>
+          <p style="font-size: 12px; color: #666; word-break: break-all;">${verifyUrl}</p>
+        </div>
+      `
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Resend verification error', { error });
+    res.status(500).json({ error: 'Error resending verification email' });
   }
 });
 
