@@ -232,7 +232,9 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                                             type="email"
                                             required
                                             value={email}
-                                            onChange={(e) => setEmail(e.target.value)}
+                                            onChange={(e) => setEmail(e.target.value.trim())}
+                                            autoComplete="email"
+                                            autoCapitalize="none"
                                             className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-800"
                                             placeholder="ejemplo@email.com"
                                         />
@@ -259,6 +261,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                                             required
                                             value={password}
                                             onChange={(e) => setPassword(e.target.value)}
+                                            autoComplete={isLogin ? "current-password" : "new-password"}
                                             className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-12 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-800"
                                             placeholder="••••••••"
                                         />
@@ -282,7 +285,9 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                                             type="email"
                                             required
                                             value={email}
-                                            onChange={(e) => setEmail(e.target.value)}
+                                            onChange={(e) => setEmail(e.target.value.trim())}
+                                            autoComplete="email"
+                                            autoCapitalize="none"
                                             className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-800"
                                             placeholder="ejemplo@email.com"
                                         />
