@@ -17,12 +17,11 @@ COPY server/package*.json ./server/
 COPY server/prisma ./server/prisma
 
 # Instalar frontend deps (including devDependencies needed for build)
-# Using npm ci for reproducible installs, fallback to npm install
-RUN npm ci --prefer-offline --no-audit || npm install --prefer-offline --no-audit
+RUN npm install --prefer-offline --no-audit
 
 # Instalar backend deps (including devDependencies needed for build)
 WORKDIR /app/server
-RUN npm ci --prefer-offline --no-audit || npm install --prefer-offline --no-audit
+RUN npm install --prefer-offline --no-audit
 
 WORKDIR /app
 
@@ -74,7 +73,7 @@ COPY --from=backend-build /app/server/prisma ./prisma
 
 # Instalar solo runtime deps
 COPY server/package*.json ./
-RUN npm ci --only=production
+RUN npm install --omit=dev --prefer-offline --no-audit
 
 # Copiar backend compilado
 COPY --from=backend-build /app/server/dist ./dist
