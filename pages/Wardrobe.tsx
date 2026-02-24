@@ -925,6 +925,17 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                   />
                 </div>
               </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Descripción</label>
+                <textarea
+                  value={saleDescription}
+                  onChange={e => setSaleDescription(e.target.value)}
+                  placeholder="Describe el estado, estilo, historial de uso..."
+                  rows={3}
+                  className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-emerald-500/20 resize-none"
+                />
+              </div>
             </div>
 
             <div className="p-6 bg-gray-50 flex gap-3">

@@ -87,7 +87,7 @@ RUN mkdir -p /app/uploads && chmod 755 /app/uploads
 EXPOSE 3000
 
 # Resolve any failed migrations before deploying new ones
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy; node dist/index.js"]
 
 # ============= STAGE 5: Development Runtime =============
 FROM dependencies AS development
