@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { MessageCircle, ArrowRight, Send } from 'lucide-react';
+import { io, Socket } from 'socket.io-client';
 import { api } from '../services/api';
 import { ChatConversation, ChatMessage } from '../types';
 import { useLanguage } from '../src/context/LanguageContext';
@@ -16,6 +17,12 @@ const Chat: React.FC<ChatProps> = ({ onNavigate }) => {
   const [messageInput, setMessageInput] = useState('');
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   const currentUserId = useMemo(() => {
     const raw = localStorage.getItem('beyour_user');
@@ -64,6 +71,56 @@ const Chat: React.FC<ChatProps> = ({ onNavigate }) => {
     init();
   }, []);
 
+  useEffect(() => {
+    const newSocket = io(process.env.NODE_ENV === 'production' ? window.location.origin : 'http://localhost:3000', {
+      withCredentials: true,
+    });
+
+    setSocket(newSocket);
+
+    newSocket.on('new_message', (message: ChatMessage) => {
+      setMessagesById(prev => {
+        const threadMessages = prev[message.conversationId] || [];
+        if (threadMessages.some(m => m.id === message.id)) return prev;
+        return {
+          ...prev,
+          [message.conversationId]: [...threadMessages, message]
+        };
+      });
+
+      setConversations(prev => prev.map(c => c.id === message.conversationId
+        ? {
+          ...c,
+          updatedAt: message.createdAt,
+          lastMessage: {
+            id: message.id,
+            content: message.content,
+            createdAt: message.createdAt,
+            sender: message.sender
+          }
+        }
+        : c
+      ).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
+
+      scrollToBottom();
+    });
+
+    return () => {
+      newSocket.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (socket && conversations.length > 0) {
+      conversations.forEach(c => socket.emit('join_room', c.id));
+    }
+  }, [socket, conversations]);
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [messagesById, selectedThreadId]);
+
   const activeThread = useMemo(
     () => conversations.find(tThread => tThread.id === selectedThreadId) || null,
     [conversations, selectedThreadId]
@@ -92,24 +149,8 @@ const Chat: React.FC<ChatProps> = ({ onNavigate }) => {
     setMessageInput('');
 
     api.sendConversationMessage(activeThread.id, content)
-      .then((message) => {
-        setMessagesById(prev => ({
-          ...prev,
-          [activeThread.id]: [...(prev[activeThread.id] || []), message]
-        }));
-        setConversations(prev => prev.map(c => c.id === activeThread.id
-          ? {
-            ...c,
-            updatedAt: message.createdAt,
-            lastMessage: {
-              id: message.id,
-              content: message.content,
-              createdAt: message.createdAt,
-              sender: message.sender
-            }
-          }
-          : c
-        ));
+      .then(() => {
+        // Socket event will handle adding the message to the UI in real-time
       })
       .catch((e) => {
         console.warn('Error sending message:', e);
@@ -143,8 +184,8 @@ const Chat: React.FC<ChatProps> = ({ onNavigate }) => {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4">
-          <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm">
+        <div className="flex flex-col md:flex-row gap-4 h-[calc(100vh-220px)]">
+          <div className="w-full md:w-1/3 bg-white rounded-3xl border border-gray-100 overflow-y-auto no-scrollbar shadow-sm">
             <div className="divide-y divide-gray-100">
               {conversations.map(tThread => (
                 <button
@@ -168,20 +209,22 @@ const Chat: React.FC<ChatProps> = ({ onNavigate }) => {
           </div>
 
           {activeThread && (
-            <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4">
-              <div className="flex items-center gap-3 mb-4">
-                <img
-                  src={activeThread.otherUser?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(activeThread.otherUser?.name || 'U')}&background=0F4C5C&color=fff`}
-                  className="w-9 h-9 rounded-full object-cover"
-                  alt={activeThread.otherUser?.name}
-                />
-                <div>
-                  <p className="text-sm font-semibold text-gray-800">{activeThread.otherUser?.name || 'Usuario'}</p>
-                  <p className="text-[11px] text-gray-400 truncate">{activeThread.itemTitle || 'Conversacion'}</p>
+            <div className="w-full md:w-2/3 bg-white rounded-3xl border border-gray-100 shadow-sm p-4 flex flex-col relative h-full">
+              <div className="flex items-center justify-between gap-3 mb-4 pb-4 border-b border-gray-50 flex-shrink-0">
+                <div className="flex items-center gap-3">
+                  <img
+                    src={activeThread.otherUser?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(activeThread.otherUser?.name || 'U')}&background=0F4C5C&color=fff`}
+                    className="w-10 h-10 rounded-full object-cover"
+                    alt={activeThread.otherUser?.name}
+                  />
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">{activeThread.otherUser?.name || 'Usuario'}</p>
+                    <p className="text-[11px] text-gray-400 truncate">{activeThread.itemTitle || 'Conversacion'}</p>
+                  </div>
                 </div>
               </div>
 
-              <div className="space-y-2 max-h-56 overflow-y-auto no-scrollbar mb-3">
+              <div className="flex-1 overflow-y-auto no-scrollbar space-y-3 mb-4 pb-2">
                 {loadingMessages ? (
                   <div className="flex justify-center py-6">
                     <div className="w-6 h-6 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
@@ -195,20 +238,26 @@ const Chat: React.FC<ChatProps> = ({ onNavigate }) => {
                     </div>
                   ))
                 )}
+                <div ref={messagesEndRef} />
               </div>
 
-              <div className="flex items-center gap-2 bg-gray-50 rounded-full px-3 py-2">
+              <div className="flex items-center gap-2 bg-gray-50 rounded-full px-3 py-2 flex-shrink-0">
                 <input
                   value={messageInput}
                   onChange={e => setMessageInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleSend()}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
                   placeholder={t('typeMessage')}
-                  className="flex-1 bg-transparent text-sm outline-none"
+                  className="flex-1 bg-transparent text-sm outline-none px-2"
                 />
                 <button
                   onClick={handleSend}
                   disabled={!messageInput.trim()}
-                  className="text-primary disabled:text-gray-300"
+                  className="bg-primary text-white p-2 rounded-full disabled:bg-gray-300 disabled:opacity-50 transition-colors shadow-sm"
                 >
                   <Send size={16} />
                 </button>

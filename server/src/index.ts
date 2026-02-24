@@ -10,6 +10,8 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
 import logger from './logger.js';
@@ -34,6 +36,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app: Express = express();
+const httpServer = createServer(app);
 const prisma = new PrismaClient();
 
 // Trust first proxy (Docker / reverse proxy / Coolify)
@@ -125,6 +128,50 @@ app.use(cors({
   },
   credentials: true,
 }));
+
+const io = new Server(httpServer, {
+  cors: {
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.some(allowed => origin.startsWith(allowed || ''))) {
+        callback(null, true);
+      } else {
+        callback(null, true); // Allow all for simplicity inside the proxy
+      }
+    },
+    credentials: true,
+  }
+});
+
+io.on('connection', (socket) => {
+  logger.info(`Socket connected: ${socket.id}`);
+
+  socket.on('join_user', (userId) => {
+    socket.join(`user_${userId}`);
+    logger.info(`User ${userId} joined their personal room`);
+  });
+
+  socket.on('join_room', (roomId) => {
+    socket.join(roomId);
+    logger.info(`Socket ${socket.id} joined room ${roomId}`);
+  });
+
+  socket.on('leave_room', (roomId) => {
+    socket.leave(roomId);
+  });
+
+  socket.on('typing', ({ roomId, userId }) => {
+    socket.to(roomId).emit('typing', { userId });
+  });
+
+  socket.on('stop_typing', ({ roomId, userId }) => {
+    socket.to(roomId).emit('stop_typing', { userId });
+  });
+
+  socket.on('disconnect', () => {
+    logger.info(`Socket disconnected: ${socket.id}`);
+  });
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -734,7 +781,7 @@ app.get('/api/products/shop', authenticateToken, async (req: any, res: Response)
 
 app.post('/api/products', authenticateToken, upload.array('images', 5), validate(productSchema), async (req: any, res: Response) => {
   try {
-    const { name, category, color, season, brand, size, condition, description, price, forSale } = req.body;
+    const { name, category, color, season, brand, size, condition, description, price, forSale, isWashing } = req.body;
     const files = req.files as Express.Multer.File[] | undefined;
 
     // Process images with sharp
@@ -774,6 +821,7 @@ app.post('/api/products', authenticateToken, upload.array('images', 5), validate
         description: description || null,
         price: price ? parseFloat(price) : null,
         forSale: forSale === 'true' || forSale === true,
+        isWashing: isWashing === 'true' || isWashing === true,
         userId: req.user.userId,
         images: {
           create: processedImages.map(img => ({
@@ -796,7 +844,7 @@ app.post('/api/products', authenticateToken, upload.array('images', 5), validate
 app.put('/api/products/:id', authenticateToken, upload.array('images', 5), validate(productSchema), async (req: any, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, category, color, season, brand, size, condition, description, price, forSale, usageCount } = req.body;
+    const { name, category, color, season, brand, size, condition, description, price, forSale, usageCount, isWashing } = req.body;
     const files = req.files as Express.Multer.File[] | undefined;
 
     const existing = await prisma.product.findUnique({ where: { id } });
@@ -814,6 +862,7 @@ app.put('/api/products/:id', authenticateToken, upload.array('images', 5), valid
     if (price !== undefined && price !== null) updateData.price = parseFloat(price);
     if (price === null) updateData.price = null;
     if (forSale !== undefined) updateData.forSale = forSale === 'true' || forSale === true;
+    if (isWashing !== undefined) updateData.isWashing = isWashing === 'true' || isWashing === true;
     if (usageCount !== undefined) updateData.usageCount = parseInt(usageCount);
 
     const product = await prisma.product.update({
@@ -826,6 +875,18 @@ app.put('/api/products/:id', authenticateToken, upload.array('images', 5), valid
       },
       include: { images: true, user: { select: { id: true, name: true, avatar: true } } },
     });
+
+    if (existing.isWashing !== updateData.isWashing && updateData.isWashing === true) {
+      const notification = await prisma.notification.create({
+        data: {
+          type: 'WASHING',
+          content: `La prenda "${product.name}" está ahora en la lavadora`,
+          userId: req.user.userId
+        }
+      });
+      io.to(`user_${req.user.userId}`).emit('notification', notification);
+    }
+
     res.json(product);
   } catch (error) {
     logger.error('Error occurred', { error });
@@ -1500,6 +1561,146 @@ app.delete('/api/trips/:tripId/items/:itemId', authenticateToken, async (req: an
   }
 });
 
+// ============= NOTIFICATIONS =============
+
+app.get('/api/notifications', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const notifications = await prisma.notification.findMany({
+      where: { userId: req.user.userId },
+      orderBy: { createdAt: 'desc' },
+      take: 50
+    });
+    res.json(notifications);
+  } catch (error) {
+    logger.error('Error fetching notifications', { error });
+    res.status(500).json({ error: 'Error fetching notifications' });
+  }
+});
+
+app.put('/api/notifications/:id/read', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const { id } = req.params;
+    const notification = await prisma.notification.findUnique({ where: { id } });
+    if (!notification || notification.userId !== req.user.userId) return res.status(403).json({ error: 'Not authorized' });
+
+    const updated = await prisma.notification.update({
+      where: { id },
+      data: { isRead: true }
+    });
+    res.json(updated);
+  } catch (error) {
+    logger.error('Error marking notification read', { error });
+    res.status(500).json({ error: 'Error updating notification' });
+  }
+});
+
+// ============= CHAT =============
+
+app.get('/api/chat/conversations', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const conversations = await prisma.conversation.findMany({
+      where: { participants: { some: { userId: req.user.userId } } },
+      include: {
+        participants: { include: { user: { select: { id: true, name: true, avatar: true } } } },
+        messages: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          include: { sender: { select: { id: true, name: true, avatar: true } } }
+        }
+      },
+      orderBy: { updatedAt: 'desc' }
+    });
+    res.json(conversations);
+  } catch (error) {
+    logger.error('Error fetching conversations', { error });
+    res.status(500).json({ error: 'Error fetching conversations' });
+  }
+});
+
+app.post('/api/chat/conversations', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const { otherUserId, itemId, itemTitle, itemImage } = req.body;
+    if (otherUserId === req.user.userId) return res.status(400).json({ error: 'Cannot chat with yourself' });
+
+    let whereClause: any = {
+      AND: [
+        { participants: { some: { userId: req.user.userId } } },
+        { participants: { some: { userId: otherUserId } } }
+      ]
+    };
+    if (itemId) whereClause.AND.push({ itemId });
+
+    const existing = await prisma.conversation.findFirst({
+      where: whereClause,
+      include: { participants: { include: { user: { select: { id: true, name: true, avatar: true } } } } }
+    });
+
+    if (existing) return res.json(existing);
+
+    const conversation = await prisma.conversation.create({
+      data: {
+        itemId: itemId || null,
+        itemTitle: itemTitle || null,
+        itemImage: itemImage || null,
+        participants: { create: [{ userId: req.user.userId }, { userId: otherUserId }] }
+      },
+      include: { participants: { include: { user: { select: { id: true, name: true, avatar: true } } } } }
+    });
+    res.status(201).json(conversation);
+  } catch (error) {
+    logger.error('Error creating conversation', { error });
+    res.status(500).json({ error: 'Error creating conversation' });
+  }
+});
+
+app.get('/api/chat/conversations/:id/messages', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const { id } = req.params;
+    const participation = await prisma.conversationParticipant.findUnique({
+      where: { conversationId_userId: { conversationId: id, userId: req.user.userId } }
+    });
+    if (!participation) return res.status(403).json({ error: 'Not authorized' });
+
+    const messages = await prisma.message.findMany({
+      where: { conversationId: id },
+      include: { sender: { select: { id: true, name: true, avatar: true } } },
+      orderBy: { createdAt: 'asc' }
+    });
+    res.json(messages);
+  } catch (error) {
+    logger.error('Error fetching messages', { error });
+    res.status(500).json({ error: 'Error fetching messages' });
+  }
+});
+
+app.post('/api/chat/messages', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const { conversationId, content, otherUserId } = req.body;
+    const message = await prisma.message.create({
+      data: { conversationId, content, senderId: req.user.userId },
+      include: { sender: { select: { id: true, name: true, avatar: true } } }
+    });
+
+    await prisma.conversation.update({
+      where: { id: conversationId },
+      data: { updatedAt: new Date() }
+    });
+
+    io.to(conversationId).emit('new_message', message);
+
+    if (otherUserId) {
+      const notification = await prisma.notification.create({
+        data: { type: 'CHAT', content: `${message.sender.name} te ha enviado un mensaje`, userId: otherUserId }
+      });
+      io.to(`user_${otherUserId}`).emit('notification', notification);
+    }
+    res.status(201).json(message);
+  } catch (error) {
+    logger.error('Error sending message', { error });
+    res.status(500).json({ error: 'Error sending message' });
+  }
+});
+
 // ============= STATS =============
 
 app.get('/api/stats', authenticateToken, async (req: any, res: Response) => {
@@ -1555,7 +1756,7 @@ async function main() {
   try {
     await prisma.$connect();
     console.log('✓ Database connected');
-    app.listen(PORT, '0.0.0.0', () => {
+    httpServer.listen(PORT, '0.0.0.0', () => {
       console.log(`✓ Server running on port ${PORT}`);
       console.log(`  API: http://localhost:${PORT}/api`);
       console.log(`  Env: ${NODE_ENV}`);

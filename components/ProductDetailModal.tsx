@@ -35,6 +35,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
   const [isLiked, setIsLiked] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isDescExpanded, setIsDescExpanded] = useState(false);
 
   // Load initial favorite status
   useEffect(() => {
@@ -194,9 +195,19 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
               {/* Description */}
               <div className="space-y-2">
                 <h3 className="font-bold text-gray-900">{t('description')}</h3>
-                <p className="text-gray-700 text-sm leading-relaxed">
-                  {product.description || t('defaultDescription')}
-                </p>
+                <div className="relative">
+                  <p className={`text-gray-700 text-sm leading-relaxed ${!isDescExpanded ? 'line-clamp-3' : ''}`}>
+                    {product.description || t('defaultDescription')}
+                  </p>
+                  {((product.description || t('defaultDescription')).length > 120) && (
+                    <button
+                      onClick={() => setIsDescExpanded(!isDescExpanded)}
+                      className="text-primary text-xs font-bold mt-1 hover:underline inline-block"
+                    >
+                      {isDescExpanded ? 'Ver menos' : 'Ver más'}
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Details Grid */}

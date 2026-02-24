@@ -13,6 +13,7 @@ export interface Garment {
   size?: string;
   condition?: string;
   description?: string;
+  isWashing?: boolean;
   userId?: string;
   userName?: string;
   userAvatar?: string;

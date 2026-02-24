@@ -40,6 +40,7 @@ model User {
   following         Follow[]   @relation("follower")
   chatParticipants  ConversationParticipant[]
   messages          Message[]
+  notifications     Notification[]
 }
 
 model Product {
@@ -56,6 +57,7 @@ model Product {
   usageCount  Int        @default(0)
   lastWorn    DateTime?
   forSale     Boolean    @default(false)
+  isWashing   Boolean    @default(false)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   
@@ -239,4 +241,16 @@ model Message {
   createdAt      DateTime      @default(now())
   
   @@index([conversationId, createdAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  type      String   // e.g. "SALE", "CHAT", "WASHING", "INTEREST"
+  content   String?
+  isRead    Boolean  @default(false)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  
+  @@index([userId, createdAt])
 }

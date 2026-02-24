@@ -25,6 +25,7 @@ export const productSchema = z.object({
   size: z.string().optional(),
   price: z.union([z.number(), z.string()]).optional(),
   forSale: z.union([z.boolean(), z.string()]).optional(),
+  isWashing: z.union([z.boolean(), z.string()]).optional(),
   description: z.string().optional(),
   condition: z.string().optional(),
   usageCount: z.union([z.number(), z.string()]).optional(),

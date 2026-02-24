@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Home, Shirt, PlusSquare, Users, User } from 'lucide-react';
 import { useLanguage } from '../src/context/LanguageContext';
+import NotificationBell from './NotificationBell';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -29,6 +30,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
 
   return (
     <div className="flex flex-col h-screen w-full bg-gray-50 overflow-hidden relative font-sans">
+      <NotificationBell />
+
       {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto no-scrollbar pb-24">
         {children}

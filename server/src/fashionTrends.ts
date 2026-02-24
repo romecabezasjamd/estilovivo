@@ -44,12 +44,23 @@ class FashionTrendService {
                 fetch('https://www.revistagq.com/feed/rss').then(r => r.text())
             ]);
 
-            const vogueItems = vogueRes.split('<item>').slice(1, 4);
-            const gqItems = gqRes.split('<item>').slice(1, 4);
+            // Extraemos más items para poder filtrar y tener suficientes
+            const vogueItems = vogueRes.split('<item>').slice(1, 15);
+            const gqItems = gqRes.split('<item>').slice(1, 15);
+
+            const fashionKeywords = ['moda', 'ropa', 'vestido', 'pantalón', 'pantalon', 'zapato', 'zapatilla', 'accesorio', 'tendencia', 'colección', 'coleccion', 'pasarela', 'look', 'estilo', 'prenda', 'chaqueta', 'abrigo', 'camisa', 'falda', 'bolso', 'color', 'diseñador'];
+
+            const isFashionRelated = (text: string) => {
+                const lower = text.toLowerCase();
+                return fashionKeywords.some(kw => lower.includes(kw));
+            };
+
+            const vogueFashion = vogueItems.filter(item => isFashionRelated(item)).slice(0, 4).map(item => ({ item, source: 'Vogue España (Moda Mujer)' }));
+            const gqFashion = gqItems.filter(item => isFashionRelated(item)).slice(0, 4).map(item => ({ item, source: 'GQ España (Moda Hombre)' }));
 
             const allItems = [
-                ...vogueItems.map(item => ({ item, source: 'Vogue España' })),
-                ...gqItems.map(item => ({ item, source: 'GQ España' }))
+                ...vogueFashion,
+                ...gqFashion
             ];
 
             const newTrends: FashionTrend[] = allItems.map(({ item, source }, index) => {

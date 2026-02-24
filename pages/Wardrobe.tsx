@@ -63,6 +63,10 @@ const Wardrobe: React.FC<WardrobeProps> = ({
   const [colorFilter, setColorFilter] = useState('all');
   const [sortBy, setSortBy] = useState<'recent' | 'most-used' | 'least-used'>('recent');
 
+  // Drag & Drop for Washing Machine
+  const [isHoveringWashing, setIsHoveringWashing] = useState(false);
+  const [isHoveringCloset, setIsHoveringCloset] = useState(false);
+
   // Add Modal
   const [isAdding, setIsAdding] = useState(false);
   const [newImage, setNewImage] = useState<string | null>(null);
@@ -115,6 +119,9 @@ const Wardrobe: React.FC<WardrobeProps> = ({
 
     return items;
   }, [garments, filter, seasonFilter, colorFilter, searchQuery, sortBy]);
+
+  const washingItems = useMemo(() => garments.filter(g => g.isWashing), [garments]);
+  const closetItems = useMemo(() => filteredItems.filter(g => !g.isWashing), [filteredItems]);
 
   const availableColors = useMemo(() => {
     const colors = new Set<string>();
@@ -223,6 +230,30 @@ const Wardrobe: React.FC<WardrobeProps> = ({
     if (look.imageUrl) return look.imageUrl;
     if (look.garments && look.garments.length > 0) return look.garments[0].imageUrl;
     return null;
+  };
+
+  const onDragStart = (e: React.DragEvent, garmentId: string) => {
+    e.dataTransfer.setData('garmentId', garmentId);
+  };
+
+  const onDropWashingMachine = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsHoveringWashing(false);
+    const garmentId = e.dataTransfer.getData('garmentId');
+    const garment = garments.find(g => g.id === garmentId);
+    if (garment && !garment.isWashing && !garment.forSale) {
+      onUpdateGarment({ ...garment, isWashing: true });
+    }
+  };
+
+  const onDropCloset = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsHoveringCloset(false);
+    const garmentId = e.dataTransfer.getData('garmentId');
+    const garment = garments.find(g => g.id === garmentId);
+    if (garment && garment.isWashing) {
+      onUpdateGarment({ ...garment, isWashing: false });
+    }
   };
 
   const toggleSearch = () => {
@@ -388,6 +419,51 @@ const Wardrobe: React.FC<WardrobeProps> = ({
             ))}
           </div>
 
+          {/* Washing Machine Dropzone */}
+          {filter === 'all' && (
+            <div
+              className={`mb-6 p-4 rounded-3xl border-2 border-dashed transition-all duration-300 ${isHoveringWashing ? 'bg-blue-50 border-blue-400 scale-[1.02]' : 'bg-white border-gray-200'} shadow-sm`}
+              onDragOver={(e) => { e.preventDefault(); setIsHoveringWashing(true); }}
+              onDragLeave={() => setIsHoveringWashing(false)}
+              onDrop={onDropWashingMachine}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-100 text-blue-500 rounded-full flex items-center justify-center">
+                    <RefreshCcw size={20} className={washingItems.length > 0 ? 'animate-[spin_4s_linear_infinite]' : ''} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-800">Lavadora</h3>
+                    <p className="text-xs text-gray-400">Arrastra aquí la ropa sucia</p>
+                  </div>
+                </div>
+                <div className="text-xs font-bold text-blue-500 bg-blue-50 px-3 py-1 rounded-full">
+                  {washingItems.length} prendas
+                </div>
+              </div>
+
+              {washingItems.length === 0 ? (
+                <div className="py-4 text-center text-xs text-gray-400 font-medium bg-gray-50 rounded-2xl border border-gray-100/50">
+                  Lavadora vacía
+                </div>
+              ) : (
+                <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                  {washingItems.map(item => (
+                    <div
+                      key={item.id}
+                      draggable
+                      onDragStart={(e) => onDragStart(e, item.id)}
+                      onClick={() => openDetailModal(item)}
+                      className="w-16 h-16 flex-shrink-0 bg-gray-100 rounded-xl overflow-hidden cursor-grab active:cursor-grabbing border border-gray-200 relative group"
+                    >
+                      <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover opacity-80 mix-blend-multiply" />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Count & sort info */}
           <div className="flex justify-between items-center px-1 mb-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
             <span>{filteredItems.length} Prendas</span>
@@ -462,12 +538,19 @@ const Wardrobe: React.FC<WardrobeProps> = ({
           )}
 
           {/* Garments Grid */}
-          <div className="grid grid-cols-2 gap-4">
-            {filteredItems.map((garment) => (
+          <div
+            className={`grid grid-cols-2 gap-4 transition-all duration-300 ${isHoveringCloset ? 'bg-emerald-50/50 p-2 -m-2 rounded-2xl ring-2 ring-emerald-200 border-dashed' : ''}`}
+            onDragOver={(e) => { e.preventDefault(); setIsHoveringCloset(true); }}
+            onDragLeave={() => setIsHoveringCloset(false)}
+            onDrop={onDropCloset}
+          >
+            {closetItems.map((garment) => (
               <div
                 key={garment.id}
+                draggable={!garment.forSale}
+                onDragStart={(e) => onDragStart(e, garment.id)}
                 onClick={() => openDetailModal(garment)}
-                className="group stagger-child relative bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md hover:border-primary/50 transition-all cursor-pointer"
+                className={`group stagger-child relative bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md hover:border-primary/50 transition-all ${!garment.forSale ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
               >
                 <div className="aspect-[3/4] overflow-hidden bg-gray-50 relative">
                   <img
