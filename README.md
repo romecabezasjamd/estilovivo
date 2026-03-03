@@ -1,5 +1,41 @@
 # EstiloVivo - Fashion App
 
+> **EstiloVivo** es una aplicación web de moda y estilo personal. Permite a los usuarios gestionar su armario digital, crear y compartir outfits ("looks"), planificar sus outfits por calendario, organizar maletas para viajes, comprar y vender ropa entre usuarios, y conectar con una comunidad de moda. Tiene sistema de mensajería privada entre usuarios y notificaciones en tiempo real.
+
+## ✨ Funcionalidades Principales
+
+| Sección | Descripción |
+|---|---|
+| **Armario (Wardrobe)** | Gestión del guardarropa digital: añadir prendas con fotos, categorías, tallas, colores, temporadas, estado de uso y condición |
+| **Looks (CreateLook)** | Crear outfits combinando prendas del armario, con imagen, título, mood y opción de hacerlos públicos |
+| **Planner** | Calendario semanal para planificar qué look llevar cada día y añadir notas de eventos |
+| **Maleta (Suitcase)** | Organizador de viajes: destino, fechas, checklist de objetos esenciales y selección de prendas del armario |
+| **Social** | Feed público de looks de otros usuarios con likes, comentarios y sistema de seguidores/seguidos |
+| **Community** | Sección de comunidad para descubrir usuarios y tendencias |
+| **Chat** | Mensajería privada entre usuarios, vinculada a prendas en venta |
+| **Wishlist** | Lista de deseos con looks y prendas favoritas guardadas |
+| **Perfil (Profile)** | Perfil de usuario con avatar, bio, mood, seguimiento del ciclo, sincronización musical, y marketplace de prendas propias |
+| **Home** | Pantalla de inicio con recomendador diario de look y tendencias de moda |
+
+## 👤 Sistema de Usuarios
+
+- Registro con **verificación por email** obligatoria
+- Login con JWT
+- Recuperación de contraseña por email
+- Perfiles con avatar, bio, género, fecha de nacimiento
+- Sistema de **seguidores/seguidos** (Follow)
+- **Notificaciones** en tiempo real (ventas, chat, lavado, interés en prendas)
+
+## 🌐 Multiidioma
+
+La app tiene soporte completo de internacionalización (i18n) con traducciones en:
+- 🇪🇸 Español
+- 🇬🇧 Inglés
+- 🇫🇷 Francés
+- 🇩🇪 Alemán
+
+---
+
 Aplicación monolítica (una URL única) con:
 - **Frontend:** React 19 + Vite + TypeScript
 - **Backend:** Express + TypeScript
