@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Layout from './components/Layout';
 import Home from './pages/Home';
 import Wardrobe from './pages/Wardrobe';
@@ -8,118 +8,21 @@ import Social from './pages/Social';
 import Profile from './pages/Profile';
 import Suitcase from './pages/Suitcase';
 import AuthPage from './pages/AuthPage';
-import { UserState, Garment, Look, PlannerEntry, Trip } from './types';
-import { api } from './services/api';
-import { useLocalStorage, loadFromLocalStorage } from './hooks/useLocalStorage';
-import { useNotification } from './src/context/NotificationContext';
-import { applyTheme, getSavedTheme } from './src/utils/theme';
+import { GlobalStateProvider, useGlobalState } from './src/context/GlobalStateContext';
 import { useLanguage, LanguageProvider } from './src/context/LanguageContext';
 
 const AppContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState('home');
-  const [isLoading, setIsLoading] = useState(true);
-  const { notify } = useNotification();
   const { t } = useLanguage();
 
-  // GLOBAL STATE
-  const [user, setUser] = useState<UserState | null>(null);
-  const [garments, setGarments] = useState<Garment[]>([]);
-  const [looks, setLooks] = useState<Look[]>([]);
-  const [planner, setPlanner] = useState<PlannerEntry[]>([]);
-  const [trips, setTrips] = useState<Trip[]>([]);
-
-  // SANITIZE DATA HELPER
-  const sanitize = <T,>(data: any[]): T[] => {
-    if (!Array.isArray(data)) return [];
-    return data.filter(item => item && (item.id || item.date)) as T[];
-  };
-
-  // Fetch initial data & check auth
-  useEffect(() => {
-    // Apply saved theme immediately
-    applyTheme(getSavedTheme());
-
-    const init = async () => {
-      const hasSession = localStorage.getItem('beyour_user');
-      if (hasSession) {
-        try {
-          // Fetch user from API for fresh data
-          let userData: UserState;
-          try {
-            userData = await api.getMe();
-            setUser(userData);
-            localStorage.setItem('beyour_user', JSON.stringify(userData));
-          } catch {
-            const savedUser = localStorage.getItem('beyour_user');
-            if (savedUser) {
-              userData = JSON.parse(savedUser);
-              setUser(userData);
-            } else {
-              throw new Error('No user data');
-            }
-          }
-
-          // Fetch data in parallel
-          const [fetchedGarments, fetchedLooks, fetchedPlanner, fetchedTrips] = await Promise.allSettled([
-            api.getGarments(),
-            api.getLooks(),
-            api.getPlanner(),
-            api.getTrips(),
-          ]);
-
-          // Use API results if available, fallback to localStorage
-          if (fetchedGarments.status === 'fulfilled') {
-            const sanitized = sanitize<Garment>(fetchedGarments.value);
-            setGarments(sanitized);
-            localStorage.setItem('beyour_garments', JSON.stringify(sanitized));
-          } else {
-            const saved = loadFromLocalStorage('beyour_garments', []);
-            setGarments(sanitize<Garment>(saved));
-          }
-
-          if (fetchedLooks.status === 'fulfilled') {
-            const sanitized = sanitize<Look>(fetchedLooks.value);
-            setLooks(sanitized);
-            localStorage.setItem('beyour_looks', JSON.stringify(sanitized));
-          } else {
-            const saved = loadFromLocalStorage('beyour_looks', []);
-            setLooks(sanitize<Look>(saved));
-          }
-
-          if (fetchedPlanner.status === 'fulfilled') {
-            const sanitized = sanitize<PlannerEntry>(fetchedPlanner.value);
-            setPlanner(sanitized);
-            localStorage.setItem('beyour_planner', JSON.stringify(sanitized));
-          } else {
-            const saved = loadFromLocalStorage('beyour_planner', []);
-            setPlanner(sanitize<PlannerEntry>(saved));
-          }
-
-          if (fetchedTrips.status === 'fulfilled') {
-            const sanitized = sanitize<Trip>(fetchedTrips.value);
-            setTrips(sanitized);
-            localStorage.setItem('beyour_trips', JSON.stringify(sanitized));
-          } else {
-            const saved = loadFromLocalStorage('beyour_trips', []);
-            setTrips(sanitize<Trip>(saved));
-          }
-        } catch (error) {
-          console.error("Critical error during initialization:", error);
-          localStorage.removeItem('beyour_token');
-          localStorage.removeItem('beyour_user');
-          setUser(null);
-        }
-      }
-      setIsLoading(false);
-    };
-    init();
-  }, []);
-
-  const handleAuthSuccess = (userData: UserState) => {
-    setUser(userData);
-    localStorage.setItem('beyour_user', JSON.stringify(userData));
-    window.location.reload();
-  };
+  const {
+    user, garments, looks, planner, trips, isLoading,
+    handleAuthSuccess, handleMoodChange, handleUpdateUser,
+    addGarment, removeGarment, updateGarment,
+    saveLook, deleteLook,
+    updatePlannerEntry,
+    addTrip, deleteTrip, updateTrip,
+  } = useGlobalState();
 
   if (isLoading) {
     return (
@@ -132,182 +35,6 @@ const AppContent: React.FC = () => {
   if (!user) {
     return <AuthPage onAuthSuccess={handleAuthSuccess} />;
   }
-
-  // HANDLERS
-  const handleMoodChange = async (mood: string) => {
-    const updated = { ...user, mood: mood };
-    setUser(updated);
-    try {
-      await api.updateProfile({ mood });
-    } catch (e) {
-      console.warn('Failed to save mood:', e);
-    }
-  };
-
-  const addGarment = async (garment: Garment, file?: File) => {
-    const tempId = `temp-${Date.now()}`;
-    const optimisticGarment = { ...garment, id: tempId };
-
-    // Optimistic update
-    const updated = sanitize<Garment>([optimisticGarment, ...garments]);
-    setGarments(updated);
-    localStorage.setItem('beyour_garments', JSON.stringify(updated));
-
-    try {
-      const saved = await api.addGarment({
-        file,
-        name: garment.name || garment.type,
-        category: garment.type,
-        color: garment.color,
-        season: garment.season,
-      });
-
-      // Replace temp with real
-      setGarments(prev => {
-        const updated = sanitize<Garment>(prev.map(g => g.id === tempId ? saved : g));
-        localStorage.setItem('beyour_garments', JSON.stringify(updated));
-        return updated;
-      });
-
-      notify(`✓ ${t('garmentAdded')}`, 'success');
-    } catch (error) {
-      // Rollback on error
-      setGarments(prev => {
-        const filtered = prev.filter(g => g.id !== tempId);
-        localStorage.setItem('beyour_garments', JSON.stringify(filtered));
-        return filtered;
-      });
-
-      notify(`✗ ${t('garmentAddError')}`, 'error');
-      console.error("Error adding garment:", error);
-    }
-  };
-
-  const removeGarment = async (id: string) => {
-    const previousGarments = [...garments];
-    const filtered = garments.filter(g => g.id !== id);
-
-    // Optimistic update
-    setGarments(sanitize<Garment>(filtered));
-    localStorage.setItem('beyour_garments', JSON.stringify(filtered));
-
-    try {
-      await api.deleteGarment(id);
-      notify(`✓ ${t('garmentDeleted')}`, 'success');
-    } catch (error) {
-      // Rollback
-      setGarments(previousGarments);
-      localStorage.setItem('beyour_garments', JSON.stringify(previousGarments));
-      notify(`✗ ${t('garmentDeleteError')}`, 'error');
-      console.error("Error deleting garment:", error);
-    }
-  };
-
-  const updateGarment = async (g: Garment) => {
-    const previousGarments = [...garments];
-    const updated = garments.map(item => item.id === g.id ? g : item);
-
-    // Optimistic update
-    const sanitized = sanitize<Garment>(updated);
-    setGarments(sanitized);
-    localStorage.setItem('beyour_garments', JSON.stringify(sanitized));
-
-    try {
-      await api.updateGarment(g.id, g);
-      notify(`✓ ${t('garmentUpdated')}`, 'success');
-    } catch (error) {
-      // Rollback
-      setGarments(previousGarments);
-      localStorage.setItem('beyour_garments', JSON.stringify(previousGarments));
-      notify(`✗ ${t('garmentUpdateError')}`, 'error');
-      console.error("Error updating garment:", error);
-    }
-  };
-
-  const saveLook = async (look: Look) => {
-    const tempId = `temp-${Date.now()}`;
-    const optimisticLook = { ...look, id: tempId };
-
-    // Optimistic update
-    const updated = sanitize<Look>([optimisticLook, ...looks]);
-    setLooks(updated);
-    localStorage.setItem('beyour_looks', JSON.stringify(updated));
-
-    try {
-      const savedLook = await api.saveLook(look);
-
-      // Replace temp with real
-      setLooks(prev => {
-        const updated = prev.map(l => l.id === tempId ? savedLook : l);
-        localStorage.setItem('beyour_looks', JSON.stringify(updated));
-        return updated;
-      });
-
-      notify(`✓ ${t('lookSaved')}`, 'success');
-      setActiveTab('wardrobe');
-    } catch (error) {
-      // Rollback
-      setLooks(prev => {
-        const filtered = prev.filter(l => l.id !== tempId);
-        localStorage.setItem('beyour_looks', JSON.stringify(filtered));
-        return filtered;
-      });
-
-      notify(`✗ ${t('lookSaveError')}`, 'error');
-      console.error("Error saving look:", error);
-      setActiveTab('wardrobe');
-    }
-  };
-
-  const deleteLook = async (id: string) => {
-    const previousLooks = [...looks];
-    const filtered = looks.filter(l => l.id !== id);
-
-    // Optimistic update
-    setLooks(filtered);
-    localStorage.setItem('beyour_looks', JSON.stringify(filtered));
-
-    try {
-      await api.deleteLook(id);
-      notify(`✓ ${t('lookDeleted')}`, 'success');
-    } catch (error) {
-      // Rollback
-      setLooks(previousLooks);
-      localStorage.setItem('beyour_looks', JSON.stringify(previousLooks));
-      notify(`✗ ${t('lookDeleteError')}`, 'error');
-      console.error("Error deleting look:", error);
-    }
-  };
-
-  const updatePlannerEntry = async (entry: PlannerEntry) => {
-    setPlanner(prev => {
-      const filtered = prev.filter(p => p.date !== entry.date);
-      const updated = [...filtered, entry];
-      localStorage.setItem('beyour_planner', JSON.stringify(updated));
-      return updated;
-    });
-    try {
-      const saved = await api.updatePlanner(entry);
-      setPlanner(prev => {
-        const filtered = prev.filter(p => p.date !== entry.date);
-        const final = [...filtered, saved];
-        localStorage.setItem('beyour_planner', JSON.stringify(final));
-        return final;
-      });
-    } catch (error) {
-      console.error("Error updating planner:", error);
-    }
-  };
-
-  const handleUpdateUser = async (updatedUser: UserState) => {
-    setUser(updatedUser);
-    localStorage.setItem('beyour_user', JSON.stringify(updatedUser));
-    try {
-      await api.updateProfile(updatedUser);
-    } catch (error) {
-      console.warn("Error saving profile:", error);
-    }
-  };
 
   const renderActivePage = () => {
     switch (activeTab) {
@@ -336,7 +63,12 @@ const AppContent: React.FC = () => {
           />
         );
       case 'create':
-        return <CreateLook garments={garments} onSaveLook={saveLook} />;
+        return (
+          <CreateLook
+            garments={garments}
+            onSaveLook={(look) => saveLook(look, () => setActiveTab('wardrobe'))}
+          />
+        );
       case 'planner':
         return (
           <Planner
@@ -363,39 +95,9 @@ const AppContent: React.FC = () => {
           <Suitcase
             trips={trips}
             garments={garments}
-            onAddTrip={async (newTrip) => {
-              const newTrips = [newTrip, ...trips];
-              setTrips(newTrips);
-              localStorage.setItem('beyour_trips', JSON.stringify(newTrips));
-              try {
-                const saved = await api.saveTrip(newTrip);
-                const updated = [saved, ...trips];
-                setTrips(updated);
-                localStorage.setItem('beyour_trips', JSON.stringify(updated));
-              } catch (error) {
-                console.error("Error saving trip:", error);
-              }
-            }}
-            onDeleteTrip={async (id) => {
-              const filtered = trips.filter(t => t.id !== id);
-              setTrips(filtered);
-              localStorage.setItem('beyour_trips', JSON.stringify(filtered));
-              try {
-                await api.deleteTrip(id);
-              } catch (error) {
-                console.error("Error deleting trip:", error);
-              }
-            }}
-            onUpdateTrip={async (trip) => {
-              const updated = trips.map(t => t.id === trip.id ? trip : t);
-              setTrips(updated);
-              localStorage.setItem('beyour_trips', JSON.stringify(updated));
-              try {
-                await api.updateTrip(trip);
-              } catch (error) {
-                console.error("Error updating trip:", error);
-              }
-            }}
+            onAddTrip={addTrip}
+            onDeleteTrip={deleteTrip}
+            onUpdateTrip={updateTrip}
           />
         );
       default:
@@ -422,7 +124,9 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => {
   return (
     <LanguageProvider>
-      <AppContent />
+      <GlobalStateProvider>
+        <AppContent />
+      </GlobalStateProvider>
     </LanguageProvider>
   );
 };
