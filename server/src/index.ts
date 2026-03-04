@@ -29,6 +29,7 @@ import {
   tripSchema
 } from './validators.js';
 import { fashionTrendsService } from './fashionTrends.js';
+import { awardPoints } from './gamification.js';
 
 dotenv.config();
 
@@ -835,6 +836,8 @@ app.post('/api/products', authenticateToken, upload.array('images', 5), validate
 
     logger.info('Product created', { productId: product.id, userId: req.user.userId });
     res.status(201).json(product);
+    // Fire-and-forget: award XP for uploading a garment
+    awardPoints(prisma, req.user.userId, 'garment').catch(e => logger.warn('awardPoints failed', { e }));
   } catch (error) {
     logger.error('Error occurred', { error });
     res.status(500).json({ error: 'Error creating product' });
@@ -1065,6 +1068,8 @@ app.post('/api/looks', authenticateToken, validate(lookSchema), upload.array('im
 
     logger.info('Look created', { lookId: look.id, userId: req.user.userId });
     res.status(201).json({ ...look, likesCount: 0, commentsCount: 0, isLiked: false });
+    // Fire-and-forget: award XP for creating a look
+    awardPoints(prisma, req.user.userId, 'look').catch(e => logger.warn('awardPoints failed', { e }));
   } catch (error) {
     logger.error('Error occurred', { error });
     res.status(500).json({ error: 'Error creating look' });
@@ -1421,6 +1426,8 @@ app.post('/api/planner', authenticateToken, validate(plannerSchema), async (req:
     }
 
     res.json(entry);
+    // Fire-and-forget: award XP for planning the day
+    awardPoints(prisma, targetUserId, 'planner').catch(e => logger.warn('awardPoints failed', { e }));
   } catch (error) {
     logger.error('Error occurred', { error });
     res.status(500).json({ error: 'Error updating planner' });

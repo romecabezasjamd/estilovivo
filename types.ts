@@ -68,6 +68,8 @@ export interface UserState {
   followingCount?: number;
   gender?: 'male' | 'female' | 'other';
   birthDate?: string;
+  experiencePoints?: number;
+  level?: number;
 }
 
 export interface MoodOption {

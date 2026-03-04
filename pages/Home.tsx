@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../src/context/LanguageContext';
 import Logo from '../components/Logo';
+import LevelProgress from '../components/LevelProgress';
 
 interface HomeProps {
   user: UserState;
@@ -103,6 +104,7 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
           Hola, <span className="text-primary">{user.name}</span>
         </h1>
         <p className="text-gray-500 text-lg font-light">{t('howAreYouFeeling')}</p>
+        <LevelProgress user={user} />
       </header>
 
       {/* Mood Selector */}

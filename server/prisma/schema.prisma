@@ -26,6 +26,8 @@ model User {
   resetTokenExpiry  DateTime?
   isVerified        Boolean    @default(false)
   verificationToken String?
+  experiencePoints  Int        @default(0)
+  level             Int        @default(1)
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
   
