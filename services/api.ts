@@ -519,6 +519,11 @@ export const api = {
         return handleResponse(res);
     },
 
+    getTopUsers: async () => {
+        const res = await fetch(`${API_BASE}/users/top`, { headers: getHeaders(), credentials: 'include' });
+        return handleResponse(res);
+    },
+
     // ============= CHAT =============
     getConversations: async (): Promise<ChatConversation[]> => {
         const res = await fetch(`${API_BASE}/chat/conversations`, { headers: getHeaders(), credentials: 'include' });

@@ -1225,6 +1225,26 @@ app.post('/api/social/follow', authenticateToken, validate(followSchema), async 
   }
 });
 
+app.get('/api/users/top', async (req: Request, res: Response) => {
+  try {
+    const topUsers = await prisma.user.findMany({
+      orderBy: { experiencePoints: 'desc' },
+      take: 5,
+      select: {
+        id: true,
+        name: true,
+        avatar: true,
+        experiencePoints: true,
+        level: true
+      }
+    });
+    res.json(topUsers);
+  } catch (error) {
+    logger.error('Error fetching top users', { error });
+    res.status(500).json({ error: 'Error fetching top users' });
+  }
+});
+
 // ============= TRENDS =============
 app.get('/api/trends', async (req: Request, res: Response) => {
   try {

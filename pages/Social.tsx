@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Heart, MessageCircle, Bookmark, MoreHorizontal, ShoppingBag, Search, Tag, Send, X, Shirt, Sparkles, CheckCircle2, ArrowRight, ExternalLink } from 'lucide-react';
+import { Heart, MessageCircle, Bookmark, MoreHorizontal, ShoppingBag, Search, Tag, Send, X, Shirt, Sparkles, CheckCircle2, ArrowRight, ExternalLink, Plus, Camera } from 'lucide-react';
 import ProductDetailModal, { ProductDisplayItem } from '../components/ProductDetailModal';
 import { api } from '../services/api';
 import { Look, UserState, ShopItem, Comment, Garment, ChatConversation, ChatMessage } from '../types';
@@ -41,6 +41,17 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate }) => {
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
 
+  // Gamification & Top Users
+  const [topUsers, setTopUsers] = useState<any[]>([]);
+
+  // Publish Look Modal
+  const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
+  const [publishForm, setPublishForm] = useState({ name: '', isPublic: true, mood: '' });
+  const [selectedPublishGarmentIds, setSelectedPublishGarmentIds] = useState<Set<string>>(new Set());
+
+  // Click-to-Shop Modal
+  const [shopModalLook, setShopModalLook] = useState<Look | null>(null);
+
   const currentUserId = useMemo(() => {
     const raw = localStorage.getItem('beyour_user');
     if (!raw) return null;
@@ -59,6 +70,8 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate }) => {
     try {
       const looks = await api.getCommunityFeed();
       setFeedLooks(looks);
+      const top = await api.getTopUsers();
+      setTopUsers(top);
     } catch (error) {
       console.error("Error loading feed:", error);
     } finally {
@@ -157,6 +170,40 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate }) => {
     else if (activeTab === 'chat') loadConversations();
     else if (activeTab === 'trends') loadTrends();
   }, [activeTab, loadFeed, loadShop, loadFavorites, loadConversations, loadTrends]);
+
+  // === PUBLISH LOOK HANDLERS ===
+  const handlePublishSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!publishForm.name.trim() || selectedPublishGarmentIds.size === 0) return;
+
+    try {
+      const newLook: Look = {
+        id: '',
+        name: publishForm.name,
+        garmentIds: Array.from(selectedPublishGarmentIds),
+        isPublic: publishForm.isPublic,
+        mood: publishForm.mood,
+        tags: publishForm.mood ? [publishForm.mood.toLowerCase()] : [],
+        createdAt: new Date().toISOString(),
+      };
+      const saved = await api.saveLook(newLook);
+      setFeedLooks(prev => [saved, ...prev]);
+      setIsPublishModalOpen(false);
+      setPublishForm({ name: '', isPublic: true, mood: '' });
+      setSelectedPublishGarmentIds(new Set());
+    } catch (error) {
+      console.error("Error publishing look:", error);
+    }
+  };
+
+  const togglePublishGarment = (id: string) => {
+    setSelectedPublishGarmentIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   // === FEED HANDLERS ===
   const handleToggleLike = async (lookId: string) => {
@@ -478,12 +525,18 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate }) => {
 
         {/* Sub-headers per tab */}
         {activeTab === 'feed' && (
-          <div className="bg-gradient-to-r from-primary to-teal-800 rounded-2xl p-4 text-white relative overflow-hidden animate-fade-in mt-4">
+          <div className="bg-gradient-to-r from-primary to-teal-800 rounded-2xl p-4 text-white relative overflow-hidden animate-fade-in mt-4 flex justify-between items-center">
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10" />
-            <span className="inline-block px-2 py-1 bg-accent text-[10px] font-bold uppercase tracking-wider rounded-md mb-2">Reto Semanal</span>
-            <h3 className="font-bold text-lg mb-1">Color Block</h3>
-            <p className="text-sm text-teal-100 opacity-90 mb-3">Combina colores vibrantes y gana visibilidad en la tienda.</p>
-            <button className="text-xs font-semibold bg-white text-primary px-3 py-1.5 rounded-full">Participar</button>
+            <div className="relative z-10">
+              <span className="inline-block px-2 py-1 bg-accent text-[10px] font-bold uppercase tracking-wider rounded-md mb-2">Reto Semanal</span>
+              <h3 className="font-bold text-lg mb-1">Color Block</h3>
+              <p className="text-sm text-teal-100 opacity-90 mb-3">Combina colores vibrantes.</p>
+              <div className="flex items-center space-x-2">
+                <button className="text-xs font-semibold bg-white text-primary px-3 py-1.5 rounded-full">Participar</button>
+                <span className="text-xs font-bold text-teal-100 bg-black/20 px-2 py-1 rounded-full">+50 XP</span>
+              </div>
+            </div>
+            <Sparkles className="text-white/20 absolute right-4 bottom-4 w-12 h-12" />
           </div>
         )}
 
@@ -515,98 +568,132 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate }) => {
         <>
           {/* FEED TAB */}
           {activeTab === 'feed' && (
-            <div className="space-y-6 px-4">
-              {feedLooks.map(post => {
-                const postImage = getLookImage(post);
-                return (
-                  <div key={post.id} className="stagger-child bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md hover:border-primary/30 transition-all">
-                    <div className="p-4 flex justify-between items-center">
-                      <div className="flex items-center space-x-3">
-                        <img
-                          src={post.userAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.userName || 'U')}&background=0F4C5C&color=fff`}
-                          className="w-10 h-10 rounded-full object-cover border border-gray-100"
-                          alt={post.userName}
-                        />
-                        <div>
-                          <h4 className="font-bold text-sm text-gray-800">{post.userName || 'Usuario'}</h4>
-                          {post.mood && (
-                            <div className="flex items-center space-x-1">
-                              <div className="w-2 h-2 rounded-full bg-accent" />
-                              <span className="text-xs text-gray-500">{post.mood}</span>
-                            </div>
+            <div className="px-4 pb-20 animate-fade-in space-y-6">
+
+              {/* Top Users (Iconos de Estilo) Widget */}
+              {topUsers.length > 0 && (
+                <div className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 mb-6 overflow-hidden">
+                  <div className="flex items-center gap-2 mb-3 px-1">
+                    <Sparkles className="text-amber-500 w-4 h-4" />
+                    <h3 className="text-sm font-bold text-gray-800 tracking-wide uppercase">Iconos de Estilo</h3>
+                  </div>
+                  <div className="flex overflow-x-auto gap-4 pb-2 no-scrollbar px-1 snap-x">
+                    {topUsers.map((tu, idx) => (
+                      <div key={tu.id} className="flex flex-col items-center flex-shrink-0 snap-center w-16">
+                        <div className="relative">
+                          <img
+                            src={tu.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(tu.name)}&background=0F4C5C&color=fff`}
+                            className={`w-14 h-14 rounded-full object-cover border-2 shadow-sm ${idx === 0 ? 'border-amber-400' : idx === 1 ? 'border-gray-300' : idx === 2 ? 'border-amber-700' : 'border-primary/20'}`}
+                            alt={tu.name}
+                          />
+                          <div className="absolute -bottom-1 -right-1 bg-primary text-white text-[9px] font-bold w-5 h-5 flex items-center justify-center rounded-full border border-white">
+                            {tu.level || 1}
+                          </div>
+                          {idx === 0 && (
+                            <div className="absolute -top-2 -right-1 text-amber-500 bg-white rounded-full">👑</div>
                           )}
                         </div>
+                        <p className="text-[10px] font-semibold text-gray-700 truncate w-full text-center mt-1.5">{tu.name.split(' ')[0]}</p>
+                        <p className="text-[9px] text-gray-400">{tu.experiencePoints} XP</p>
                       </div>
-                      <button className="text-gray-400">
-                        <MoreHorizontal size={20} />
-                      </button>
-                    </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-                    {postImage ? (
-                      <div className="aspect-[4/5] bg-gray-100 relative">
-                        <img src={postImage} className="w-full h-full object-cover" loading="lazy" alt={post.name} />
-                      </div>
-                    ) : (
-                      <div className="aspect-[4/5] bg-gray-50 flex items-center justify-center">
-                        <div className="text-center opacity-40">
-                          <Shirt size={48} className="mx-auto mb-2 text-gray-400" />
-                          <p className="text-sm text-gray-500">{post.name}</p>
-                          {post.garments && post.garments.length > 0 && (
-                            <div className="flex justify-center mt-3 space-x-2">
-                              {post.garments.filter(g => !!g).slice(0, 4).map(g => (
-                                <img key={g.id} src={g.imageUrl} className="w-16 h-16 rounded-lg object-cover" alt={g.type} />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
+              {/* Masonry Grid Feed */}
+              <div className="columns-2 gap-4 space-y-4">
+                {feedLooks.map((post, idx) => {
+                  const postImage = getLookImage(post);
+                  const isFeatured = idx % 5 === 0; // Make some items taller for masonry effect arbitrarily if no real image ratio
+                  const hasForSaleItems = post.garments?.some(g => g.forSale);
 
-                    <div className="p-4">
-                      <div className="flex justify-between items-center mb-3">
-                        <div className="flex space-x-4">
-                          <button
-                            onClick={() => handleToggleLike(post.id)}
-                            className={`flex items-center space-x-1 transition-colors ${post.isLiked ? 'text-rose-500' : 'text-gray-600 hover:text-rose-500'}`}
-                          >
-                            <Heart size={24} fill={post.isLiked ? "currentColor" : "none"} />
-                            <span className="text-xs font-bold">{post.likesCount || 0}</span>
-                          </button>
-                          <button
-                            onClick={() => openComments(post.id)}
-                            className="flex items-center space-x-1 text-gray-600 hover:text-blue-500 transition-colors"
-                          >
-                            <MessageCircle size={24} />
-                            <span className="text-xs font-bold">{post.commentsCount || 0}</span>
-                          </button>
+                  return (
+                    <div key={post.id} className="break-inside-avoid fallback-height relative bg-white rounded-[2rem] overflow-hidden shadow-sm border border-gray-100 group">
+
+                      {/* Image Layer */}
+                      {postImage ? (
+                        <div className={`relative bg-gray-100 ${isFeatured ? 'aspect-[3/4]' : 'aspect-square'}`}>
+                          <img src={postImage} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" alt={post.name} />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
                         </div>
-                        <button
-                          onClick={() => handleToggleFavorite(post.id)}
-                          className={`transition-colors ${post.isFavorited ? 'text-amber-500' : 'text-gray-600 hover:text-amber-500'}`}
-                        >
-                          <Bookmark size={24} fill={post.isFavorited ? "currentColor" : "none"} />
-                        </button>
-                      </div>
-                      <p className="text-sm text-gray-700 leading-relaxed">
-                        <span className="font-bold mr-1">{post.userName || 'Usuario'}</span>
-                        {post.name}
-                      </p>
-                      {post.tags && post.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {post.tags.map(tag => (
-                            <span key={tag} className="text-[10px] text-primary bg-primary/10 px-2 py-0.5 rounded-full">#{tag}</span>
-                          ))}
+                      ) : (
+                        <div className={`relative bg-gray-50 flex items-center justify-center ${isFeatured ? 'aspect-[3/4]' : 'aspect-square'}`}>
+                          <div className="text-center opacity-40">
+                            <Shirt size={48} className="mx-auto mb-2 text-gray-400" />
+                          </div>
+                          <div className="absolute inset-0 bg-gradient-to-t from-gray-900/40 to-transparent pointer-events-none" />
                         </div>
                       )}
+
+                      {/* Overlays */}
+                      <div className="absolute top-0 left-0 right-0 p-3 flex justify-between items-start pointer-events-none">
+                        {/* Creator */}
+                        <div className="flex items-center space-x-2 bg-black/20 backdrop-blur-md pl-1 pr-3 py-1 rounded-full pointer-events-auto">
+                          <img
+                            src={post.userAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.userName || 'U')}&background=0F4C5C&color=fff`}
+                            className="w-5 h-5 rounded-full object-cover border border-white/20"
+                            alt={post.userName}
+                          />
+                          <span className="text-[10px] font-medium text-white shadow-sm">{post.userName || 'Usuario'}</span>
+                        </div>
+
+                        {/* Options */}
+                        <button className="text-white drop-shadow-md pointer-events-auto bg-black/20 rounded-full p-1 backdrop-blur-md">
+                          <MoreHorizontal size={14} />
+                        </button>
+                      </div>
+
+                      {/* Click to Shop Overlay */}
+                      {hasForSaleItems && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setShopModalLook(post); }}
+                          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/90 backdrop-blur text-primary rounded-full p-3 shadow-xl transform scale-90 group-hover:scale-100 opacity-80 group-hover:opacity-100 transition-all pointer-events-auto hover:bg-primary hover:text-white"
+                        >
+                          <ShoppingBag size={20} className="animate-pulse-slow" />
+                        </button>
+                      )}
+
+                      {/* Bottom Info Layer */}
+                      <div className="absolute bottom-0 left-0 right-0 p-3 pointer-events-auto w-full">
+                        <div className="flex justify-between items-end w-full mb-1">
+                          <div className="flex-1 overflow-hidden pr-2">
+                            <h4 className="font-bold text-white text-xs leading-tight mb-1 truncate">{post.name}</h4>
+                            {post.mood && (
+                              <div className="inline-flex items-center space-x-1 bg-white/20 backdrop-blur-md px-2 py-0.5 rounded-full">
+                                <span className="text-[9px] text-white font-medium">{post.mood}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex flex-col gap-2">
+                            <button
+                              onClick={() => handleToggleLike(post.id)}
+                              className={`flex flex-col items-center bg-black/20 backdrop-blur-md p-1.5 rounded-2xl transition-colors ${post.isLiked ? 'text-rose-500' : 'text-white'}`}
+                            >
+                              <Heart size={16} fill={post.isLiked ? "currentColor" : "none"} />
+                              {post.likesCount > 0 && <span className="text-[9px] font-bold mt-0.5">{post.likesCount}</span>}
+                            </button>
+                            <button
+                              onClick={() => openComments(post.id)}
+                              className="flex flex-col items-center text-white bg-black/20 backdrop-blur-md p-1.5 rounded-2xl"
+                            >
+                              <MessageCircle size={16} />
+                              {post.commentsCount > 0 && <span className="text-[9px] font-bold mt-0.5">{post.commentsCount}</span>}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+
               {feedLooks.length === 0 && (
-                <div className="text-center py-20 text-gray-400">
+                <div className="text-center py-20 text-gray-400 w-full col-span-2">
                   <Shirt size={48} className="mx-auto mb-3 text-gray-300" />
                   <p className="font-medium">Aún no hay looks compartidos</p>
-                  <p className="text-sm mt-1">Sé el primero en compartir un look público.</p>
+                  <p className="text-sm mt-1">Sé el primero en publicar.</p>
                 </div>
               )}
             </div>
@@ -1040,6 +1127,160 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate }) => {
           }}
           onShareFeed={handleShareFeed}
         />
+      )}
+
+      {/* Floating Action Button for Publishing */}
+      {activeTab === 'feed' && (
+        <button
+          onClick={() => setIsPublishModalOpen(true)}
+          className="fixed bottom-24 right-5 z-40 bg-primary text-white p-4 rounded-full shadow-lg shadow-primary/30 hover:scale-105 hover:bg-teal-800 transition-all active:scale-95 flex items-center justify-center animate-bounce-soft"
+        >
+          <Camera size={24} />
+        </button>
+      )}
+
+      {/* Publish Look Modal */}
+      {isPublishModalOpen && (
+        <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden animate-pop-in flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center p-5 bg-gray-50">
+              <h3 className="font-bold text-gray-800 text-lg">Compartir Look</h3>
+              <button onClick={() => setIsPublishModalOpen(false)} className="bg-white p-1.5 rounded-full shadow-sm text-gray-400">
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handlePublishSubmit} className="p-5 flex-1 overflow-y-auto no-scrollbar flex flex-col gap-4">
+              <div>
+                <label className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1 block">Título de tu publicación</label>
+                <input
+                  type="text"
+                  value={publishForm.name}
+                  onChange={e => setPublishForm({ ...publishForm, name: e.target.value })}
+                  className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:border-primary outline-none"
+                  placeholder="Ej. Outfit para el café"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1 block">Mood (Opcional)</label>
+                <input
+                  type="text"
+                  value={publishForm.mood}
+                  onChange={e => setPublishForm({ ...publishForm, mood: e.target.value })}
+                  className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:border-primary outline-none"
+                  placeholder="Ej. Casual Friday"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-2 flex items-center justify-between">
+                  <span>Selecciona Prendas Guardadas <span className="text-primary">*</span></span>
+                  <span className="text-[10px] text-gray-400 font-normal normal-case">{selectedPublishGarmentIds.size} seleccionadas</span>
+                </label>
+                <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto pr-1">
+                  {garments.map(g => (
+                    <div
+                      key={g.id}
+                      onClick={() => togglePublishGarment(g.id)}
+                      className={`relative aspect-square rounded-xl overflow-hidden cursor-pointer border-2 transition-all ${selectedPublishGarmentIds.has(g.id) ? 'border-primary' : 'border-transparent opacity-70 hover:opacity-100'}`}
+                    >
+                      <img src={g.imageUrl} className="w-full h-full object-cover" alt="" />
+                      {selectedPublishGarmentIds.has(g.id) && (
+                        <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                          <CheckCircle2 className="text-white drop-shadow-md" size={24} />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 bg-primary/5 p-4 rounded-xl mt-2">
+                <input
+                  type="checkbox"
+                  id="public"
+                  checked={publishForm.isPublic}
+                  onChange={e => setPublishForm({ ...publishForm, isPublic: e.target.checked })}
+                  className="w-5 h-5 accent-primary rounded"
+                />
+                <label htmlFor="public" className="text-sm font-medium text-gray-800">
+                  Visible en El Feed Vivo
+                  <p className="text-[10px] text-gray-500 font-normal leading-tight mt-0.5">Otros usuarios podrán ver e interactuar con tu estilo.</p>
+                </label>
+              </div>
+
+              <div className="mt-4 pb-2">
+                <button
+                  type="submit"
+                  disabled={!publishForm.name.trim() || selectedPublishGarmentIds.size === 0}
+                  className="w-full bg-primary text-white font-bold py-3.5 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-teal-800 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Sparkles size={18} /> Publicar y ganar +20 XP
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Click-to-Shop Modal Component */}
+      {shopModalLook && (
+        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end justify-center animate-fade-in sm:items-center sm:p-4">
+          {/* Dismiss area */}
+          <div className="absolute inset-0" onClick={() => setShopModalLook(null)} />
+
+          <div className="bg-white w-full sm:max-w-md rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl relative z-10 animate-slide-up max-h-[85vh] flex flex-col">
+            <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto my-3 sm:hidden" />
+
+            <div className="p-5 border-b border-gray-100 flex justify-between items-center">
+              <div>
+                <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
+                  <ShoppingBag size={18} className="text-primary" />
+                  Boutique del Look
+                </h3>
+                <p className="text-[10px] text-gray-500 uppercase font-semibold tracking-wider mt-1">{shopModalLook.name}</p>
+              </div>
+              <button onClick={() => setShopModalLook(null)} className="p-2 bg-gray-50 rounded-full text-gray-500 hover:bg-gray-100">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-5 flex-1 overflow-y-auto space-y-4">
+              {shopModalLook.garments?.filter(g => g.forSale).map(g => (
+                <div key={g.id} className="flex gap-4 border border-gray-100 p-3 rounded-2xl bg-gray-50/50">
+                  <img src={g.imageUrl} className="w-20 h-24 object-cover rounded-xl bg-gray-200" alt={g.name} />
+                  <div className="flex-1 min-w-0 flex flex-col justify-between">
+                    <div>
+                      <div className="flex justify-between items-start">
+                        <p className="font-bold text-sm text-gray-800 truncate pr-2">{g.name}</p>
+                        <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded flex-shrink-0">{g.price}€</span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1 capitalize">{g.brand || 'Varios'} • Talla {g.size || 'Única'}</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">Vendida por {shopModalLook.userName || 'Usuario'}</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setShopModalLook(null);
+                        handleStartChat(undefined, { ...g, user: { id: shopModalLook.userId, name: shopModalLook.userName, avatar: shopModalLook.userAvatar } });
+                      }}
+                      className="bg-primary/10 text-primary w-fit text-xs font-bold px-4 py-1.5 rounded-full hover:bg-primary hover:text-white transition-colors mt-2"
+                    >
+                      Chatear con el vendedor
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {(!shopModalLook.garments || !shopModalLook.garments.some(g => g.forSale)) && (
+                <div className="py-8 text-center text-gray-400">
+                  <p>Este look ya no tiene prendas disponibles para la venta.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
