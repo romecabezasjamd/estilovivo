@@ -86,9 +86,8 @@ COPY --from=frontend-build /app/dist ./public
 # Crear directorio para uploads
 RUN mkdir -p /app/uploads && chmod 755 /app/uploads
 
-# Resolve any failed migrations and capture output to prevent crashing
-# Node will start even if migrate deploy fails, helping us avoid 503s
-CMD ["sh", "-c", "npx prisma migrate resolve --applied 20260303220000_add_gamification_fields > prisma_resolve.log 2>&1 || true; npx prisma migrate deploy > prisma_migrate.log 2>&1; cat prisma_migrate.log; node dist/index.js"]
+# Resolve the specifically blocked migration and then deploy the rest normally
+CMD ["sh", "-c", "npx prisma migrate resolve --applied 20260224220000_add_realtime_features || true; npx prisma migrate deploy; node dist/index.js"]
 
 # ============= STAGE 5: Development Runtime =============
 FROM dependencies AS development

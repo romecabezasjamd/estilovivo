@@ -371,17 +371,6 @@ app.post('/api/auth/register', authLimiter, validate(registerSchema), async (req
   }
 });
 
-// ============= DEBUG MIGRATIONS =============
-app.get('/api/debug/migrations', (req: Request, res: Response) => {
-  try {
-    const migrateLog = existsSync('/app/prisma_migrate.log') ? readFileSync('/app/prisma_migrate.log', 'utf8') : 'No migrate log';
-    const resolveLog = existsSync('/app/prisma_resolve.log') ? readFileSync('/app/prisma_resolve.log', 'utf8') : 'No resolve log';
-    res.send(`<h2>Migrate Log:</h2><pre>${migrateLog}</pre><h2>Resolve Log:</h2><pre>${resolveLog}</pre>`);
-  } catch (error: any) {
-    res.status(500).send(error.message);
-  }
-});
-
 app.post('/api/auth/login', authLimiter, validate(loginSchema), async (req: Request, res: Response) => {
   try {
     const normalizedEmail = req.body.email.toLowerCase().trim();
