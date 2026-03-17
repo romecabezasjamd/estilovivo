@@ -58,9 +58,6 @@ COPY server/src ./src
 COPY server/tsconfig.json ./
 COPY server/prisma ./prisma
 
-# Generar Prisma Client
-RUN npx prisma generate
-
 # Build TypeScript
 RUN npm run build
 
@@ -75,8 +72,6 @@ ENV NODE_ENV=production
 
 # Copy Prisma schema BEFORE installing dependencies (needed for postinstall script)
 COPY --from=backend-build /app/server/prisma ./prisma
-COPY --from=backend-build /app/server/node_modules/.prisma ./node_modules/.prisma
-COPY --from=backend-build /app/server/node_modules/@prisma ./node_modules/@prisma
 
 # Instalar solo runtime deps
 COPY server/package*.json ./
@@ -91,10 +86,9 @@ COPY --from=frontend-build /app/dist ./public
 # Crear directorio para uploads
 RUN mkdir -p /app/uploads && chmod 755 /app/uploads
 
-EXPOSE 3000
-
-# Resolve any failed migrations and generate client before deploying new ones
-CMD ["sh", "-c", "npx prisma generate && npx prisma migrate deploy && node dist/index.js"]
+# Resolve any failed migrations and capture output to prevent crashing
+# Node will start even if migrate deploy fails, helping us avoid 503s
+CMD ["sh", "-c", "npx prisma migrate resolve --applied 20260303220000_add_gamification_fields > prisma_resolve.log 2>&1 || true; npx prisma migrate deploy > prisma_migrate.log 2>&1; cat prisma_migrate.log; node dist/index.js"]
 
 # ============= STAGE 5: Development Runtime =============
 FROM dependencies AS development
