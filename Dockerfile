@@ -58,6 +58,9 @@ COPY server/src ./src
 COPY server/tsconfig.json ./
 COPY server/prisma ./prisma
 
+# Generar Prisma Client
+RUN npx prisma generate
+
 # Build TypeScript
 RUN npm run build
 
@@ -72,6 +75,8 @@ ENV NODE_ENV=production
 
 # Copy Prisma schema BEFORE installing dependencies (needed for postinstall script)
 COPY --from=backend-build /app/server/prisma ./prisma
+COPY --from=backend-build /app/server/node_modules/.prisma ./node_modules/.prisma
+COPY --from=backend-build /app/server/node_modules/@prisma ./node_modules/@prisma
 
 # Instalar solo runtime deps
 COPY server/package*.json ./
@@ -88,8 +93,8 @@ RUN mkdir -p /app/uploads && chmod 755 /app/uploads
 
 EXPOSE 3000
 
-# Resolve any failed migrations before deploying new ones
-CMD ["sh", "-c", "npx prisma migrate deploy; node dist/index.js"]
+# Resolve any failed migrations and generate client before deploying new ones
+CMD ["sh", "-c", "npx prisma generate && npx prisma migrate deploy && node dist/index.js"]
 
 # ============= STAGE 5: Development Runtime =============
 FROM dependencies AS development
