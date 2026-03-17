@@ -33,6 +33,8 @@ WORKDIR /app
 # Copiar todo lo necesario para el frontend
 COPY tsconfig.json ./
 COPY vite.config.ts ./
+COPY postcss.config.js ./
+COPY tailwind.config.js ./
 COPY index.html ./
 COPY index.tsx ./
 COPY App.tsx ./

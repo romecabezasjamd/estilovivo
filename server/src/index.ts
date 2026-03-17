@@ -433,9 +433,9 @@ app.post('/api/auth/login', authLimiter, validate(loginSchema), async (req: Requ
       user: { ...safe, followersCount: _count.followers, followingCount: _count.following },
       token
     });
-  } catch (error) {
+  } catch (error: any) {
     logger.error('Login error', { error });
-    res.status(500).json({ error: 'Login failed' });
+    res.status(500).json({ error: `Error en login: ${error.message || 'Error interno'}` });
   }
 });
 
