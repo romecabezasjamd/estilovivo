@@ -20,6 +20,14 @@ const getAuthHeader = () => {
 const handleResponse = async (res: Response) => {
     if (!res.ok) {
         const error = await res.json().catch(() => ({ error: 'Request failed' }));
+
+        // Auto-logout en caso de token expirado o inválido (401 o 403 por token)
+        if (res.status === 401 || (res.status === 403 && error.error === 'Invalid or expired token')) {
+            localStorage.removeItem('beyour_token');
+            localStorage.removeItem('beyour_user');
+            window.location.href = '/';
+        }
+
         throw new Error(error.error || 'Request failed');
     }
     return res.json();
