@@ -243,6 +243,57 @@ app.get('/api/health', async (req: Request, res: Response) => {
   }
 });
 
+app.get('/api/debug-db', async (req: Request, res: Response) => {
+  try {
+    const results = [];
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "experiencePoints" INTEGER NOT NULL DEFAULT 0;`);
+      results.push('Added experiencePoints column');
+    } catch (e: any) {
+      results.push('Error adding experiencePoints: ' + e.message);
+    }
+    
+    try {
+      await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "level" INTEGER NOT NULL DEFAULT 1;`);
+      results.push('Added level column');
+    } catch (e: any) {
+      results.push('Error adding level: ' + e.message);
+    }
+
+    try {
+      const users = await prisma.$queryRaw`SELECT id, "experiencePoints", "level" FROM "User" LIMIT 1`;
+      results.push({ userCheck: users });
+    } catch (e: any) {
+      results.push('Error selecting users: ' + e.message);
+    }
+    
+    res.json({ success: true, results });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/api/server-logs', async (req: Request, res: Response) => {
+  try {
+    const logFile = path.join(process.cwd(), 'combined.log'); // Typical winston log file
+    const errFile = path.join(process.cwd(), 'error.log');
+    
+    let logs = '';
+    if (existsSync(errFile)) {
+      logs += '=== ERROR.LOG ===\n' + readFileSync(errFile, 'utf-8').slice(-5000) + '\n\n';
+    }
+    if (existsSync(logFile)) {
+      logs += '=== COMBINED.LOG ===\n' + readFileSync(logFile, 'utf-8').slice(-5000) + '\n\n';
+    }
+    
+    if (!logs) logs = 'No log files found in ' + process.cwd();
+    
+    res.type('text/plain').send(logs);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Health check detallado (solo para desarrollo o admin)
 app.get('/api/health/detailed', authenticateToken, async (req: any, res: Response) => {
   try {
@@ -1660,25 +1711,33 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
 });
 
-async function main() {
+// Inicialización del servidor
+const startServer = async () => {
   try {
     await prisma.$connect();
-    console.log('✓ Database connected');
+    // Attempt to automatically fix schema on startup
+    try {
+      logger.info('Running startup database schema checks...');
+      await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "experiencePoints" INTEGER NOT NULL DEFAULT 0;`);
+      await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "level" INTEGER NOT NULL DEFAULT 1;`);
+      logger.info('Database gamification schema checks passed.');
+    } catch (schemaError: any) {
+      logger.error('Failed to run schema startup checks', { error: schemaError.message });
+    }
+
     httpServer.listen(PORT, '0.0.0.0', () => {
-      console.log(`✓ Server running on port ${PORT}`);
-      console.log(`  API: http://localhost:${PORT}/api`);
-      console.log(`  Env: ${NODE_ENV}`);
+      logger.info(`Server running on port ${PORT} in ${NODE_ENV} mode`);
+      logger.info(`Uploads directory config: ${UPLOADS_DIR}`);
     });
   } catch (error) {
-    console.error('Failed to start server:', error);
+    logger.error('Failed to start server:', error);
     process.exit(1);
   }
-}
+};
+
+startServer();
 
 process.on('SIGINT', async () => {
   await prisma.$disconnect();
   process.exit(0);
 });
-
-main();
-
