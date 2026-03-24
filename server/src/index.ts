@@ -643,38 +643,6 @@ app.delete('/api/auth/profile', authenticateToken, async (req: any, res: Respons
   }
 });
 
-app.post('/api/auth/forgot-password', authLimiter, async (req: Request, res: Response) => {
-  try {
-    // Check if email is configured
-    if (!transporter) {
-      return res.status(503).json({
-        error: 'Email service not configured. Please contact support.'
-      });
-    }
-
-    const normalizedEmail = req.body.email.toLowerCase().trim();
-    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
-    if (!user) return res.status(404).json({ error: 'User not found' });
-
-    const token = crypto.randomBytes(32).toString('hex');
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { resetToken: token, resetTokenExpiry: new Date(Date.now() + 3600000) }
-    });
-
-    const resetUrl = `${process.env.APP_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
-    await transporter.sendMail({
-      from: '"Estilo Vivo" <no-reply@estilovivo.app>',
-      to: user.email,
-      subject: 'Recuperar contraseña - Estilo Vivo',
-      html: `<p>Hola ${user.name}, haz clic aquí para restablecer tu contraseña:</p><a href="${resetUrl}">${resetUrl}</a>`
-    });
-    res.json({ message: 'Recovery email sent' });
-  } catch (error) {
-    logger.error('Error occurred', { error });
-    res.status(500).json({ error: 'Error during forgot password process' });
-  }
-});
 
 app.get('/api/auth/me', authenticateToken, async (req: any, res: Response) => {
   try {
@@ -1256,141 +1224,6 @@ app.get('/api/trends', async (req: Request, res: Response) => {
   }
 });
 
-// ============= CHAT =============
-
-app.get('/api/chat/conversations', authenticateToken, async (req: any, res: Response) => {
-  try {
-    const userId = req.user.userId;
-    const conversations = await prisma.conversation.findMany({
-      where: { participants: { some: { userId } } },
-      include: {
-        participants: { include: { user: { select: { id: true, name: true, avatar: true } } } },
-        messages: { orderBy: { createdAt: 'desc' }, take: 1, include: { sender: { select: { id: true, name: true, avatar: true } } } }
-      },
-      orderBy: { updatedAt: 'desc' }
-    });
-
-    res.json(conversations.map(c => {
-      const lastMessage = c.messages[0];
-      const other = c.participants.find(p => p.userId !== userId)?.user;
-      return {
-        id: c.id,
-        itemId: c.itemId,
-        itemTitle: c.itemTitle,
-        itemImage: c.itemImage,
-        itemOwnerId: c.itemOwnerId,
-        updatedAt: c.updatedAt,
-        lastMessage: lastMessage ? {
-          id: lastMessage.id,
-          content: lastMessage.content,
-          createdAt: lastMessage.createdAt,
-          sender: lastMessage.sender
-        } : null,
-        participants: c.participants.map(p => p.user),
-        otherUser: other || null
-      };
-    }));
-  } catch (error) {
-    logger.error('Error occurred', { error });
-    res.status(500).json({ error: 'Error fetching conversations' });
-  }
-});
-
-app.post('/api/chat/conversations', authenticateToken, async (req: any, res: Response) => {
-  try {
-    const userId = req.user.userId;
-    const { targetUserId, itemId, itemTitle, itemImage, initialMessage } = req.body;
-    if (!targetUserId) return res.status(400).json({ error: 'targetUserId required' });
-    if (userId === targetUserId) return res.status(400).json({ error: 'Cannot create conversation with yourself' });
-
-    // If itemId provided, validate that targetUserId is the item/product owner
-    if (itemId) {
-      const product = await prisma.product.findUnique({ where: { id: itemId } });
-      if (product && product.userId !== targetUserId) {
-        return res.status(400).json({ error: 'Invalid targetUserId for this item' });
-      }
-    }
-
-    const existing = await prisma.conversation.findFirst({
-      where: {
-        itemId: itemId || undefined,
-        participants: { some: { userId } },
-        AND: { participants: { some: { userId: targetUserId } } }
-      },
-      include: { participants: { include: { user: { select: { id: true, name: true, avatar: true } } } } }
-    });
-
-    if (existing) {
-      return res.json({ id: existing.id });
-    }
-
-    const conversation = await prisma.conversation.create({
-      data: {
-        itemId: itemId || null,
-        itemTitle: itemTitle || null,
-        itemImage: itemImage || null,
-        itemOwnerId: targetUserId,
-        participants: {
-          create: [{ userId }, { userId: targetUserId }]
-        },
-        ...(initialMessage ? {
-          messages: { create: [{ senderId: userId, content: initialMessage }] }
-        } : {})
-      }
-    });
-
-    res.status(201).json({ id: conversation.id });
-  } catch (error) {
-    logger.error('Error occurred', { error });
-    res.status(500).json({ error: 'Error creating conversation' });
-  }
-});
-
-app.get('/api/chat/conversations/:id/messages', authenticateToken, async (req: any, res: Response) => {
-  try {
-    const userId = req.user.userId;
-    const conversationId = req.params.id;
-    const membership = await prisma.conversationParticipant.findFirst({ where: { conversationId, userId } });
-    if (!membership) return res.status(403).json({ error: 'Not authorized' });
-
-    const messages = await prisma.message.findMany({
-      where: { conversationId },
-      include: { sender: { select: { id: true, name: true, avatar: true } } },
-      orderBy: { createdAt: 'asc' }
-    });
-    res.json(messages);
-  } catch (error) {
-    logger.error('Error occurred', { error });
-    res.status(500).json({ error: 'Error fetching messages' });
-  }
-});
-
-app.post('/api/chat/conversations/:id/messages', authenticateToken, async (req: any, res: Response) => {
-  try {
-    const userId = req.user.userId;
-    const conversationId = req.params.id;
-    const { content } = req.body;
-    if (!content) return res.status(400).json({ error: 'content required' });
-
-    const membership = await prisma.conversationParticipant.findFirst({ where: { conversationId, userId } });
-    if (!membership) return res.status(403).json({ error: 'Not authorized' });
-
-    const message = await prisma.message.create({
-      data: { conversationId, senderId: userId, content }
-    });
-
-    // Update conversation's updatedAt timestamp to sort conversations by last activity
-    await prisma.conversation.update({
-      where: { id: conversationId },
-      data: { updatedAt: new Date() }
-    });
-
-    res.status(201).json(message);
-  } catch (error) {
-    logger.error('Error occurred', { error });
-    res.status(500).json({ error: 'Error sending message' });
-  }
-});
 
 // ============= PLANNER =============
 
@@ -1646,13 +1479,16 @@ app.get('/api/chat/conversations', authenticateToken, async (req: any, res: Resp
 
 app.post('/api/chat/conversations', authenticateToken, async (req: any, res: Response) => {
   try {
-    const { otherUserId, itemId, itemTitle, itemImage } = req.body;
-    if (otherUserId === req.user.userId) return res.status(400).json({ error: 'Cannot chat with yourself' });
+    // Accept both targetUserId (frontend) and otherUserId (legacy)
+    const { targetUserId, otherUserId, itemId, itemTitle, itemImage, initialMessage } = req.body;
+    const recipientId = targetUserId || otherUserId;
+    if (!recipientId) return res.status(400).json({ error: 'targetUserId required' });
+    if (recipientId === req.user.userId) return res.status(400).json({ error: 'Cannot chat with yourself' });
 
     let whereClause: any = {
       AND: [
         { participants: { some: { userId: req.user.userId } } },
-        { participants: { some: { userId: otherUserId } } }
+        { participants: { some: { userId: recipientId } } }
       ]
     };
     if (itemId) whereClause.AND.push({ itemId });
@@ -1662,18 +1498,22 @@ app.post('/api/chat/conversations', authenticateToken, async (req: any, res: Res
       include: { participants: { include: { user: { select: { id: true, name: true, avatar: true } } } } }
     });
 
-    if (existing) return res.json(existing);
+    if (existing) return res.json({ id: existing.id, ...existing });
 
     const conversation = await prisma.conversation.create({
       data: {
         itemId: itemId || null,
         itemTitle: itemTitle || null,
         itemImage: itemImage || null,
-        participants: { create: [{ userId: req.user.userId }, { userId: otherUserId }] }
+        itemOwnerId: recipientId,
+        participants: { create: [{ userId: req.user.userId }, { userId: recipientId }] },
+        ...(initialMessage ? {
+          messages: { create: [{ senderId: req.user.userId, content: initialMessage }] }
+        } : {})
       },
       include: { participants: { include: { user: { select: { id: true, name: true, avatar: true } } } } }
     });
-    res.status(201).json(conversation);
+    res.status(201).json({ id: conversation.id, ...conversation });
   } catch (error) {
     logger.error('Error creating conversation', { error });
     res.status(500).json({ error: 'Error creating conversation' });
@@ -1697,6 +1537,47 @@ app.get('/api/chat/conversations/:id/messages', authenticateToken, async (req: a
   } catch (error) {
     logger.error('Error fetching messages', { error });
     res.status(500).json({ error: 'Error fetching messages' });
+  }
+});
+
+app.post('/api/chat/conversations/:id/messages', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const conversationId = req.params.id;
+    const { content } = req.body;
+    if (!content) return res.status(400).json({ error: 'content required' });
+
+    const participation = await prisma.conversationParticipant.findUnique({
+      where: { conversationId_userId: { conversationId, userId: req.user.userId } }
+    });
+    if (!participation) return res.status(403).json({ error: 'Not authorized' });
+
+    const message = await prisma.message.create({
+      data: { conversationId, content, senderId: req.user.userId },
+      include: { sender: { select: { id: true, name: true, avatar: true } } }
+    });
+
+    await prisma.conversation.update({
+      where: { id: conversationId },
+      data: { updatedAt: new Date() }
+    });
+
+    io.to(conversationId).emit('new_message', message);
+
+    // Notify the other participant
+    const otherParticipant = await prisma.conversationParticipant.findFirst({
+      where: { conversationId, userId: { not: req.user.userId } }
+    });
+    if (otherParticipant) {
+      const notification = await prisma.notification.create({
+        data: { type: 'CHAT', content: `${message.sender.name} te ha enviado un mensaje`, userId: otherParticipant.userId }
+      });
+      io.to(`user_${otherParticipant.userId}`).emit('notification', notification);
+    }
+
+    res.status(201).json(message);
+  } catch (error) {
+    logger.error('Error sending message', { error });
+    res.status(500).json({ error: 'Error sending message' });
   }
 });
 
