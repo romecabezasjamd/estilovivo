@@ -1,9 +1,6 @@
 #!/bin/sh
 set -e
 
-echo "=== [entrypoint] Resolving blocked migrations ==="
-npx prisma migrate resolve --applied 20260224220000_add_realtime_features 2>/dev/null || true
-
 echo "=== [entrypoint] Running prisma migrate deploy ==="
 npx prisma migrate deploy || true
 

@@ -261,6 +261,9 @@ app.get('/api/debug-db', async (req: Request, res: Response) => {
     }
 
     try {
+      try { await prisma.$executeRawUnsafe(`ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "isWashing" BOOLEAN NOT NULL DEFAULT false;`); results.push('Added isWashing column'); } catch (e: any) { results.push('Error adding isWashing' + e.message); }
+      const tablesOptions = [`CREATE TABLE IF NOT EXISTS "Notification" ( "id" TEXT NOT NULL, "type" TEXT NOT NULL, "content" TEXT, "isRead" BOOLEAN NOT NULL DEFAULT false, "userId" TEXT NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "Notification_pkey" PRIMARY KEY ("id") );`, `CREATE TABLE IF NOT EXISTS "Conversation" ( "id" TEXT NOT NULL, "itemId" TEXT, "itemTitle" TEXT, "itemImage" TEXT, "itemOwnerId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "Conversation_pkey" PRIMARY KEY ("id") );`, `CREATE TABLE IF NOT EXISTS "ConversationParticipant" ( "id" TEXT NOT NULL, "conversationId" TEXT NOT NULL, "userId" TEXT NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "ConversationParticipant_pkey" PRIMARY KEY ("id") );`, `CREATE TABLE IF NOT EXISTS "Message" ( "id" TEXT NOT NULL, "conversationId" TEXT NOT NULL, "senderId" TEXT NOT NULL, "content" TEXT NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "Message_pkey" PRIMARY KEY ("id") );`];
+      for (const sql of tablesOptions) { try { await prisma.$executeRawUnsafe(sql); results.push('Created table'); } catch (e: any) { results.push('Error: ' + e.message); } }
       const users = await prisma.$queryRaw`SELECT id, "experiencePoints", "level" FROM "User" LIMIT 1`;
       results.push({ userCheck: users });
     } catch (e: any) {
