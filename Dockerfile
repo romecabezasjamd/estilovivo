@@ -86,8 +86,11 @@ COPY --from=frontend-build /app/dist ./public
 # Crear directorio para uploads
 RUN mkdir -p /app/uploads && chmod 755 /app/uploads
 
-# Resolve the specifically blocked migration and then deploy the rest normally
-CMD ["sh", "-c", "npx prisma migrate resolve --applied 20260224220000_add_realtime_features || true; npx prisma migrate deploy; node dist/index.js"]
+# Copiar entrypoint
+COPY server/entrypoint.sh ./entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+CMD ["/app/entrypoint.sh"]
 
 # ============= STAGE 5: Development Runtime =============
 FROM dependencies AS development
