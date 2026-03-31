@@ -157,11 +157,11 @@ const Wardrobe: React.FC<WardrobeProps> = ({
   };
 
   const confirmAdd = () => {
-    if (!newImage) return;
+    if (!newImage || !newName.trim()) return;
     const garment: Garment = {
       id: `g-${Date.now()}`,
       imageUrl: newImage,
-      name: newName || newCategory,
+      name: newName.trim(),
       type: newCategory,
       color: newColor || 'sin color',
       season: newSeason,
@@ -853,7 +853,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
 
             <div className="p-6 pt-4 flex-shrink-0">
               <button
-                disabled={!newImage}
+                disabled={!newImage || !newName.trim()}
                 onClick={confirmAdd}
                 className="w-full bg-primary disabled:bg-gray-300 text-white font-bold py-4 rounded-2xl transition-colors"
               >
