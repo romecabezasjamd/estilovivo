@@ -35,7 +35,7 @@ const NotificationBell: React.FC = () => {
         if (hasSession) fetchNotifications();
 
         // Setup Socket
-        const newSocket = io(process.env.NODE_ENV === 'production' ? window.location.origin : 'http://localhost:3000', {
+        const newSocket = io(process.env.NODE_ENV === 'production' ? 'https://estilovivo.xyoncloud.win' : 'http://localhost:3000', {
             withCredentials: true,
             autoConnect: true
         });

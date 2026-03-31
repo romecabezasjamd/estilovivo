@@ -144,18 +144,21 @@ const Community: React.FC<CommunityProps> = ({ user, onNavigate }) => {
         }
     };
 
-    const handleItemClick = (item: ShopItem) => {
-        setSelectedItem({
-            id: item.id,
-            title: item.title,
-            price: item.price,
-            image: item.image,
-            user: item.user,
-            avatar: item.avatar,
-            brand: item.brand,
-            size: item.size
-        });
-    };
+  const currentUserId = localStorage.getItem('beyour_user') ? JSON.parse(localStorage.getItem('beyour_user') || '{}').id : null;
+
+  const handleItemClick = (item: ShopItem) => {
+    setSelectedItem({
+      id: item.id,
+      title: item.title,
+      price: item.price,
+      image: item.image,
+      user: item.user,
+      avatar: item.avatar,
+      brand: item.brand,
+      size: item.size,
+      isOwnItem: item.userId === currentUserId || (item as any).user?.id === currentUserId
+    });
+  };
 
     const handleStartChat = async (item?: ShopItem) => {
         if (!item) {

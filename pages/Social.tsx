@@ -317,7 +317,8 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate }) => {
       user: item.user,
       avatar: item.avatar,
       brand: item.brand,
-      size: item.size
+      size: item.size,
+      isOwnItem: item.userId === currentUserId || (item as any).user?.id === currentUserId
     });
   };
 
