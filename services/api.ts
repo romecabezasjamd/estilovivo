@@ -244,6 +244,7 @@ export const api = {
                 price: data.price === null ? null : data.price,
                 forSale: data.forSale,
                 usageCount: data.usageCount,
+                isWashing: data.isWashing,
                 brand: data.brand,
                 size: data.size,
                 condition: data.condition,

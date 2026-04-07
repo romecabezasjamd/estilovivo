@@ -374,6 +374,75 @@ const Suitcase: React.FC<SuitcaseProps> = ({ trips, garments, onAddTrip, onDelet
                             </ul>
                         </div>
                     </div>
+
+                    {/* PRENDAS DEL VIAJE */}
+                    <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 mt-6">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="font-bold text-gray-800 flex items-center">
+                                <Shirt size={18} className="mr-2 text-primary" />
+                                Prendas seleccionadas
+                            </h3>
+                            <button
+                                onClick={() => setIsEditingGarments(!isEditingGarments)}
+                                className={`text-xs font-bold px-3 py-1.5 rounded-full transition-colors ${isEditingGarments ? 'bg-primary text-white' : 'bg-primary/10 text-primary'}`}
+                            >
+                                {isEditingGarments ? 'Cerrar' : '+ Editar'}
+                            </button>
+                        </div>
+
+                        {isEditingGarments ? (
+                            <div className="mb-4">
+                                <p className="text-xs text-gray-500 mb-3">Toca para añadir o quitar de la maleta:</p>
+                                <div className="grid grid-cols-2 gap-3 max-h-64 overflow-y-auto no-scrollbar pb-2">
+                                    {garments.map(garment => {
+                                        const isSelected = editedGarmentIds.includes(garment.id);
+                                        return (
+                                            <button
+                                                key={`edit-${garment.id}`}
+                                                type="button"
+                                                onClick={() => toggleEditGarment(garment.id)}
+                                                className={`text-left text-xs rounded-xl border p-2 transition-all ${isSelected ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-gray-200 bg-white'}`}
+                                            >
+                                                <div className="aspect-[4/3] rounded-lg overflow-hidden bg-gray-100 mb-1 relative">
+                                                    <img src={garment.imageUrl} alt={garment.name} className="w-full h-full object-cover" />
+                                                    {isSelected && (
+                                                        <div className="absolute top-1 right-1 bg-primary text-white rounded-full p-0.5">
+                                                            <CheckSquare size={12} />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="font-semibold text-gray-800 truncate">{garment.name || garment.type}</div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <button
+                                    onClick={handleSaveGarments}
+                                    className="w-full mt-3 bg-primary text-white text-sm font-bold py-2.5 rounded-xl transition-colors shadow-lg shadow-primary/30"
+                                >
+                                    Guardar cambios
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-3 gap-2">
+                                {activeTrip.garments && activeTrip.garments.length > 0 ? (
+                                    activeTrip.garments.filter(g => !!g).map(g => (
+                                        <div key={g.id} className="relative aspect-square rounded-xl bg-gray-100 overflow-hidden border border-gray-200" title={g.name}>
+                                            <img src={g.imageUrl} alt={g.name} className="w-full h-full object-cover" />
+                                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-1">
+                                                <p className="text-[9px] text-white truncate font-medium text-center">{g.name || g.type}</p>
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="col-span-3 text-center py-6 border-2 border-dashed border-gray-100 rounded-2xl">
+                                        <Shirt size={24} className="mx-auto text-gray-300 mb-2" />
+                                        <p className="text-xs text-gray-400 font-medium">No has añadido ropa aún.</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
         </div>
