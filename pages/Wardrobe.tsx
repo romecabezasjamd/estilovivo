@@ -929,6 +929,12 @@ const Wardrobe: React.FC<WardrobeProps> = ({
               setAddToTripModalGarment(selectedGarmentForDetail);
             }
           }}
+          onAddToWashing={() => {
+            if (selectedGarmentForDetail) {
+              onUpdateGarment({ ...selectedGarmentForDetail, isWashing: true });
+              window.dispatchEvent(new CustomEvent('animateLavadora'));
+            }
+          }}
           onSell={() => {
             if (selectedGarmentForDetail) {
               setSelectedForSale(selectedGarmentForDetail);

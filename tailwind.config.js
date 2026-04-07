@@ -23,6 +23,16 @@ export default {
                     100: '#EDE9FE',
                 },
                 gold: '#FB8B24',
+            },
+            keyframes: {
+                'wash-spin': {
+                    '0%': { transform: 'rotate(0deg) scale(1)' },
+                    '50%': { transform: 'rotate(180deg) scale(1.15)' },
+                    '100%': { transform: 'rotate(360deg) scale(1)' },
+                }
+            },
+            animation: {
+                'wash': 'wash-spin 0.6s ease-in-out 3',
             }
         },
     },

@@ -25,9 +25,10 @@ interface ProductDetailModalProps {
   onMessage?: (product: ProductDisplayItem) => void;
   onShareFeed?: (product: ProductDisplayItem) => void;
   onSell?: (product: ProductDisplayItem) => void;
+  onAddToWashing?: () => void;
 }
 
-const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClose, onEdit, onDelete, onAddToTrip, onMessage, onShareFeed, onSell }) => {
+const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClose, onEdit, onDelete, onAddToTrip, onMessage, onShareFeed, onSell, onAddToWashing }) => {
   if (!product) return null;
   const { t } = useLanguage();
   const [showBuyOptions, setShowBuyOptions] = useState(false);
@@ -251,6 +252,15 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                   className="w-full bg-gradient-to-r from-primary to-primary-dark text-white font-bold py-3 rounded-2xl shadow-lg shadow-primary/30 hover:shadow-xl transition-all active:scale-[0.98]"
                 >
                   ✈️ {t('addToSuitcase')}
+                </button>
+                <button
+                  onClick={() => {
+                    onAddToWashing?.();
+                    onClose();
+                  }}
+                  className="w-full bg-blue-50 text-blue-600 font-bold py-3 rounded-2xl border border-blue-100 shadow-sm hover:bg-blue-100 transition-all active:scale-[0.98]"
+                >
+                  🧺 Añadir a lavadora
                 </button>
                 {onSell && (
                   <button

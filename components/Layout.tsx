@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Home, Shirt, PlusSquare, Users, User, Map, RefreshCcw, X } from 'lucide-react';
 import { useLanguage } from '../src/context/LanguageContext';
 import { useGlobalState } from '../src/context/GlobalStateContext';
@@ -23,10 +23,18 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
     const garment = garments.find(g => g.id === garmentId);
     if (garment && !garment.isWashing && !garment.forSale) {
       updateGarment({ ...garment, isWashing: true });
-      setWashingAnimation(true);
-      setTimeout(() => setWashingAnimation(false), 2000);
+      window.dispatchEvent(new CustomEvent('animateLavadora'));
     }
   };
+
+  useEffect(() => {
+    const handleAnimate = () => {
+      setWashingAnimation(true);
+      setTimeout(() => setWashingAnimation(false), 2100); // Wait for 3 spins of 0.6s
+    };
+    window.addEventListener('animateLavadora', handleAnimate as EventListener);
+    return () => window.removeEventListener('animateLavadora', handleAnimate as EventListener);
+  }, []);
 
   const navItems = [
     { id: 'home', icon: Home, label: t('home') },
@@ -95,7 +103,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
                       onClick={() => { setShowWardrobeSubmenu(false); setShowWashingModal(true); }}
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={handleDropWashing}
-                      className={`relative w-14 h-14 bg-white rounded-full shadow-[0_4px_20px_rgba(0,0,0,0.15)] flex flex-col items-center justify-center hover:-translate-y-1 hover:shadow-[0_8px_25px_rgba(0,0,0,0.2)] transition-all duration-300 border border-gray-100 group ${washingAnimation ? 'animate-[spin_1s_ease-in-out_2] scale-125 ring-4 ring-blue-400 bg-blue-100 border-transparent shadow-[0_0_30px_rgba(96,165,250,0.6)]' : 'hover:bg-blue-50'}`}
+                      className={`relative w-14 h-14 bg-white rounded-full shadow-[0_4px_20px_rgba(0,0,0,0.15)] flex flex-col items-center justify-center hover:-translate-y-1 hover:shadow-[0_8px_25px_rgba(0,0,0,0.2)] transition-all duration-300 border border-gray-100 group ${washingAnimation ? 'animate-wash scale-125 ring-4 ring-blue-400 bg-blue-100 border-transparent shadow-[0_0_30px_rgba(96,165,250,0.6)]' : 'hover:bg-blue-50'}`}
                     >
                       <div className={`relative flex flex-col items-center justify-center transition-transform duration-500 ${washingAnimation ? 'scale-110' : ''}`}>
                          <RefreshCcw size={22} className={`mb-1 transition-colors duration-300 ${washingAnimation ? 'text-blue-600' : 'text-blue-400'} group-hover:-translate-y-0.5`} />
