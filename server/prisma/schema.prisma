@@ -16,6 +16,7 @@ model User {
   password          String
   name              String
   avatar            String?
+  fullBodyAvatar    String?
   bio               String?
   mood              String?
   cycleTracking     Boolean    @default(false)

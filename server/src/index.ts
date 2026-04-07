@@ -719,10 +719,12 @@ app.get('/api/auth/me', authenticateToken, async (req: any, res: Response) => {
   }
 });
 
-app.put('/api/auth/profile', authenticateToken, upload.single('avatar'), async (req: any, res: Response) => {
+app.put('/api/auth/profile', authenticateToken, upload.fields([{ name: 'avatar', maxCount: 1 }, { name: 'fullBodyAvatar', maxCount: 1 }]), async (req: any, res: Response) => {
   try {
     const { name, bio, mood, cycleTracking, musicSync, gender, birthDate } = req.body;
-    const file = req.file as Express.Multer.File | undefined;
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+    const avatarFile = files?.['avatar']?.[0];
+    const fullBodyFile = files?.['fullBodyAvatar']?.[0];
 
     const updateData: any = {};
     if (name !== undefined) updateData.name = name;
@@ -732,7 +734,8 @@ app.put('/api/auth/profile', authenticateToken, upload.single('avatar'), async (
     if (musicSync !== undefined) updateData.musicSync = musicSync === 'true' || musicSync === true;
     if (gender !== undefined) updateData.gender = gender;
     if (birthDate !== undefined) updateData.birthDate = birthDate ? new Date(birthDate) : null;
-    if (file) updateData.avatar = `/api/uploads/${file.filename}`;
+    if (avatarFile) updateData.avatar = `/api/uploads/${avatarFile.filename}`;
+    if (fullBodyFile) updateData.fullBodyAvatar = `/api/uploads/${fullBodyFile.filename}`;
 
     const user = await prisma.user.update({
       where: { id: req.user.userId },

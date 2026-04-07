@@ -239,6 +239,11 @@ const Wardrobe: React.FC<WardrobeProps> = ({
 
   const onDragStart = (e: React.DragEvent, garmentId: string) => {
     e.dataTransfer.setData('garmentId', garmentId);
+    window.dispatchEvent(new CustomEvent('dragStartGarment'));
+  };
+
+  const onDragEnd = () => {
+    window.dispatchEvent(new CustomEvent('dragEndGarment'));
   };
 
   const onDropWashingMachine = (e: React.DragEvent) => {
@@ -511,6 +516,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                 key={garment.id}
                 draggable={!garment.forSale}
                 onDragStart={(e) => onDragStart(e, garment.id)}
+                onDragEnd={onDragEnd}
                 onClick={() => openDetailModal(garment)}
                 className={`group stagger-child relative bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md hover:border-primary/50 transition-all ${!garment.forSale ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
               >

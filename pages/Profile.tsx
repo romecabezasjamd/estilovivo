@@ -28,6 +28,8 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
   const [editBio, setEditBio] = useState(user.bio || '');
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [fullBodyAvatarPreview, setFullBodyAvatarPreview] = useState<string | null>(null);
+  const [fullBodyAvatarFile, setFullBodyAvatarFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [favorites, setFavorites] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
@@ -50,6 +52,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
   const [passwordSuccess, setPasswordSuccess] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const fullBodyInputRef = useRef<HTMLInputElement>(null);
 
   // Settings state
   const [cycleTracking, setCycleTracking] = useState(user.cycleTracking || false);
@@ -125,14 +128,24 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
     reader.readAsDataURL(file);
   };
 
+  const handleFullBodyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFullBodyAvatarFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setFullBodyAvatarPreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
   // Save profile
   const handleSave = async () => {
     setSaving(true);
     try {
       let updatedUser: UserState;
-      if (avatarFile) {
+      if (avatarFile || fullBodyAvatarFile) {
         const formData = new FormData();
-        formData.append('avatar', avatarFile);
+        if (avatarFile) formData.append('avatar', avatarFile);
+        if (fullBodyAvatarFile) formData.append('fullBodyAvatar', fullBodyAvatarFile);
         formData.append('name', editName);
         formData.append('bio', editBio);
         updatedUser = await api.updateProfileWithAvatar(formData);
@@ -143,6 +156,8 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
       setEditing(false);
       setAvatarFile(null);
       setAvatarPreview(null);
+      setFullBodyAvatarFile(null);
+      setFullBodyAvatarPreview(null);
     } catch (error) {
       console.error('Error saving profile:', error);
       // Fallback local
@@ -380,6 +395,38 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
               <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mt-1">{t('avgUsageCount')}</p>
             </div>
           </div>
+
+          {/* Full Body Avatar */}
+          <div className="mt-6 border-t border-gray-100 pt-6 animate-fade-in-up">
+            <h3 className="text-sm font-bold text-gray-700 text-center mb-3">Tu Modelo (Cuerpo Entero)</h3>
+            <div 
+              className={`relative mx-auto w-32 h-48 rounded-2xl bg-gray-50 flex items-center justify-center overflow-hidden shadow-inner border-2 border-dashed border-gray-200 transition-all ${editing ? 'cursor-pointer hover:border-pink-300 ring-4 ring-transparent hover:ring-pink-100' : ''}`}
+              onClick={() => editing && fullBodyInputRef.current?.click()}
+            >
+              {fullBodyAvatarPreview || user.fullBodyAvatar ? (
+                <img src={fullBodyAvatarPreview || user.fullBodyAvatar} alt="Cuerpo Entero" className="w-full h-full object-cover" />
+              ) : (
+                <div className="text-gray-400 text-center flex flex-col items-center p-2">
+                  <User size={32} className="mb-2 opacity-50" />
+                  <span className="text-[10px] font-medium leading-tight">Sin modelo físico</span>
+                </div>
+              )}
+              {editing && (
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[2px] opacity-0 hover:opacity-100 transition-opacity">
+                  <Camera size={24} className="text-white" />
+                </div>
+              )}
+              <input
+                ref={fullBodyInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleFullBodyChange}
+              />
+            </div>
+            {editing && <p className="text-[10px] text-center text-gray-400 mt-2">Sube una foto de cuerpo entero para probarte la ropa</p>}
+          </div>
+
         </div>
       </div>
 

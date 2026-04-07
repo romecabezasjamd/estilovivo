@@ -64,6 +64,7 @@ export interface UserState {
   musicSync: boolean;
   bio: string;
   avatar?: string;
+  fullBodyAvatar?: string;
   followersCount?: number;
   followingCount?: number;
   gender?: 'male' | 'female' | 'other';

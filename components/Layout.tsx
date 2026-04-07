@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Home, Shirt, PlusSquare, Users, User, Map, RefreshCcw, X } from 'lucide-react';
+import { Home, Shirt, PlusSquare, Users, User, Map, RefreshCcw, X, Luggage, WashingMachine } from 'lucide-react';
 import { useLanguage } from '../src/context/LanguageContext';
 import { useGlobalState } from '../src/context/GlobalStateContext';
 import NotificationBell from './NotificationBell';
@@ -15,7 +15,11 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
   const [showWardrobeSubmenu, setShowWardrobeSubmenu] = useState(false);
   const [washingAnimation, setWashingAnimation] = useState(false);
   const [showWashingModal, setShowWashingModal] = useState(false);
+  const [dragOverLavadora, setDragOverLavadora] = useState(false);
   const { garments, updateGarment } = useGlobalState();
+
+  const washingAnimRef = React.useRef(washingAnimation);
+  washingAnimRef.current = washingAnimation;
 
   const handleDropWashing = (e: React.DragEvent) => {
     e.preventDefault();
@@ -29,11 +33,31 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
 
   useEffect(() => {
     const handleAnimate = () => {
+      setShowWardrobeSubmenu(true);
       setWashingAnimation(true);
-      setTimeout(() => setWashingAnimation(false), 2100); // Wait for 3 spins of 0.6s
+      setTimeout(() => {
+        setWashingAnimation(false);
+        setShowWardrobeSubmenu(false);
+      }, 2100);
     };
+
+    const handleDragStart = () => setShowWardrobeSubmenu(true);
+    const handleDragEnd = () => {
+      setTimeout(() => {
+        if (!washingAnimRef.current) {
+          setShowWardrobeSubmenu(false);
+        }
+      }, 50);
+    };
+
     window.addEventListener('animateLavadora', handleAnimate as EventListener);
-    return () => window.removeEventListener('animateLavadora', handleAnimate as EventListener);
+    window.addEventListener('dragStartGarment', handleDragStart as EventListener);
+    window.addEventListener('dragEndGarment', handleDragEnd as EventListener);
+    return () => {
+      window.removeEventListener('animateLavadora', handleAnimate as EventListener);
+      window.removeEventListener('dragStartGarment', handleDragStart as EventListener);
+      window.removeEventListener('dragEndGarment', handleDragEnd as EventListener);
+    };
   }, []);
 
   const navItems = [
@@ -44,7 +68,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
     { id: 'profile', icon: User, label: t('profile') },
   ];
 
-  // Calculate index for the sliding animation
   const activeIndex = useMemo(() => {
     let targetTab = activeTab;
     if (activeTab === 'planner' || activeTab === 'suitcase') {
@@ -57,16 +80,13 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
     <div className="flex flex-col h-screen w-full bg-gray-50 overflow-hidden relative font-sans">
       <NotificationBell />
 
-      {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto no-scrollbar pb-24">
         {children}
       </main>
 
-      {/* Floating Glass Navigation */}
       <div className="fixed bottom-6 left-4 right-4 z-50 flex justify-center pointer-events-none">
         <nav className="relative w-full max-w-lg h-16 bg-white/80 backdrop-blur-md border border-white/40 shadow-xl rounded-full flex items-center p-1 pointer-events-auto">
 
-          {/* Sliding Pill Indicator */}
           {activeIndex !== -1 && (
             <div
               className="absolute top-1 bottom-1 rounded-full bg-primary shadow-md transition-all duration-300 ease-out"
@@ -85,37 +105,38 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
               <div 
                 key={item.id} 
                 className="relative z-10 flex-1 h-full"
-                onDragOver={(e) => { e.preventDefault(); setShowWardrobeSubmenu(true); }}
               >
-                {/* FLOATING BUBBLES */}
                 {showWardrobeSubmenu && (
                   <div className="absolute bottom-[110%] left-1/2 -translate-x-1/2 flex gap-4 mb-2 animate-fade-in pointer-events-auto">
                     {/* Suitcase Bubble */}
-                    <button
-                      onClick={() => { setShowWardrobeSubmenu(false); onTabChange('suitcase'); }}
-                      className="w-14 h-14 bg-white rounded-full shadow-[0_4px_20px_rgba(0,0,0,0.15)] flex flex-col items-center justify-center hover:scale-110 hover:bg-gray-50 transition-all border border-gray-100 group"
-                    >
-                      <Map size={22} className="text-primary mb-1 group-hover:-translate-y-0.5 transition-transform" />
-                      <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest leading-none">Viajes</span>
-                    </button>
-                    {/* Lavadora Bubble (Dropzone) */}
-                    <button
-                      onClick={() => { setShowWardrobeSubmenu(false); setShowWashingModal(true); }}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={handleDropWashing}
-                      className={`relative w-14 h-14 bg-white rounded-full shadow-[0_4px_20px_rgba(0,0,0,0.15)] flex flex-col items-center justify-center hover:-translate-y-1 hover:shadow-[0_8px_25px_rgba(0,0,0,0.2)] transition-all duration-300 border border-gray-100 group ${washingAnimation ? 'animate-wash scale-125 ring-4 ring-blue-400 bg-blue-100 border-transparent shadow-[0_0_30px_rgba(96,165,250,0.6)]' : 'hover:bg-blue-50'}`}
-                    >
-                      <div className={`relative flex flex-col items-center justify-center transition-transform duration-500 ${washingAnimation ? 'scale-110' : ''}`}>
-                         <RefreshCcw size={22} className={`mb-1 transition-colors duration-300 ${washingAnimation ? 'text-blue-600' : 'text-blue-400'} group-hover:-translate-y-0.5`} />
-                         <span className={`text-[9px] font-bold uppercase tracking-widest leading-none transition-colors duration-300 ${washingAnimation ? 'text-blue-600' : 'text-gray-500'}`}>Lavar</span>
-                      </div>
-                      
-                      {garments.filter(g => g.isWashing).length > 0 && !washingAnimation && (
-                        <div className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold shadow-sm">
-                          {garments.filter(g => g.isWashing).length}
-                        </div>
-                      )}
-                    </button>
+                    <div className="flex flex-col items-center">
+                      <button
+                        onClick={() => { setShowWardrobeSubmenu(false); onTabChange('suitcase'); }}
+                        className="bg-white/90 backdrop-blur-sm p-3 rounded-full shadow-[0_8px_16px_rgba(0,0,0,0.1)] border border-white/50 text-indigo-500 hover:scale-110 hover:bg-indigo-50 transition-all flex flex-col items-center gap-1 group"
+                      >
+                        <Luggage size={22} className="group-hover:-translate-y-1 transition-transform" />
+                      </button>
+                      <span className="text-[10px] font-bold text-gray-600 bg-white/80 px-2 py-0.5 rounded-full mt-1.5 shadow-sm">Viajes</span>
+                    </div>
+
+                    {/* Lavadora Bubble */}
+                    <div className="flex flex-col items-center">
+                      <button
+                        onClick={() => { setShowWardrobeSubmenu(false); setShowWashingModal(true); }}
+                        onDragOver={(e) => { e.preventDefault(); setDragOverLavadora(true); }}
+                        onDragLeave={() => setDragOverLavadora(false)}
+                        onDrop={(e) => { setDragOverLavadora(false); handleDropWashing(e); }}
+                        className={`bg-white/90 backdrop-blur-sm p-3 rounded-full shadow-[0_8px_16px_rgba(0,0,0,0.1)] border border-white/50 text-blue-500 hover:scale-110 hover:bg-blue-50 transition-all flex flex-col items-center gap-1 relative overflow-hidden ${washingAnimation ? 'wash shadow-[0_0_20px_rgba(59,130,246,0.5)] scale-125' : ''} ${dragOverLavadora && !washingAnimation ? 'animate-bounce ring-4 ring-blue-300' : ''}`}
+                      >
+                        <WashingMachine size={22} className={washingAnimation ? 'animate-spin' : ''} />
+                        {garments.filter(g => g.isWashing).length > 0 && !washingAnimation && (
+                          <div className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold shadow-sm">
+                            {garments.filter(g => g.isWashing).length}
+                          </div>
+                        )}
+                      </button>
+                      <span className="text-[10px] font-bold text-gray-600 bg-white/80 px-2 py-0.5 rounded-full mt-1.5 shadow-sm">Lavar</span>
+                    </div>
                   </div>
                 )}
                 <button
