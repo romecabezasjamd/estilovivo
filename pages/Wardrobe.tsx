@@ -17,6 +17,8 @@ interface WardrobeProps {
   planner: PlannerEntry[];
   onUpdatePlanner: (e: PlannerEntry) => void;
   onNavigate: (tab: string) => void;
+  trips?: import('../types').Trip[];
+  onUpdateTrip?: (trip: import('../types').Trip) => void;
 }
 
 type ViewType = 'closet' | 'looks' | 'sales';
@@ -47,6 +49,8 @@ const Wardrobe: React.FC<WardrobeProps> = ({
   planner,
   onUpdatePlanner,
   onNavigate,
+  trips = [],
+  onUpdateTrip,
 }) => {
   const { t } = useLanguage();
   const [activeView, setActiveView] = useState<ViewType>('closet');
@@ -88,6 +92,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
   // Detail Modal
   const [detailItem, setDetailItem] = useState<ProductDisplayItem | null>(null);
   const [selectedGarmentForDetail, setSelectedGarmentForDetail] = useState<Garment | null>(null);
+  const [addToTripModalGarment, setAddToTripModalGarment] = useState<Garment | null>(null);
 
   // Filtered & searched items
   const filteredItems = useMemo(() => {
@@ -419,50 +424,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
             ))}
           </div>
 
-          {/* Washing Machine Dropzone */}
-          {filter === 'all' && (
-            <div
-              className={`mb-6 p-4 rounded-3xl border-2 border-dashed transition-all duration-300 ${isHoveringWashing ? 'bg-blue-50 border-blue-400 scale-[1.02]' : 'bg-white border-gray-200'} shadow-sm`}
-              onDragOver={(e) => { e.preventDefault(); setIsHoveringWashing(true); }}
-              onDragLeave={() => setIsHoveringWashing(false)}
-              onDrop={onDropWashingMachine}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-100 text-blue-500 rounded-full flex items-center justify-center">
-                    <RefreshCcw size={20} className={washingItems.length > 0 ? 'animate-[spin_4s_linear_infinite]' : ''} />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-gray-800">Lavadora</h3>
-                    <p className="text-xs text-gray-400">Arrastra aquí la ropa sucia</p>
-                  </div>
-                </div>
-                <div className="text-xs font-bold text-blue-500 bg-blue-50 px-3 py-1 rounded-full">
-                  {washingItems.length} prendas
-                </div>
-              </div>
-
-              {washingItems.length === 0 ? (
-                <div className="py-4 text-center text-xs text-gray-400 font-medium bg-gray-50 rounded-2xl border border-gray-100/50">
-                  Lavadora vacía
-                </div>
-              ) : (
-                <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                  {washingItems.map(item => (
-                    <div
-                      key={item.id}
-                      draggable
-                      onDragStart={(e) => onDragStart(e, item.id)}
-                      onClick={() => openDetailModal(item)}
-                      className="w-16 h-16 flex-shrink-0 bg-gray-100 rounded-xl overflow-hidden cursor-grab active:cursor-grabbing border border-gray-200 relative group"
-                    >
-                      <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover opacity-80 mix-blend-multiply" />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+          {/* Removed inline Washing Machine - moved to Layout nav bubbles */}
 
           {/* Count & sort info */}
           <div className="flex justify-between items-center px-1 mb-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
@@ -962,6 +924,11 @@ const Wardrobe: React.FC<WardrobeProps> = ({
         <ProductDetailModal
           product={detailItem}
           onClose={() => setDetailItem(null)}
+          onAddToTrip={() => {
+            if (selectedGarmentForDetail) {
+              setAddToTripModalGarment(selectedGarmentForDetail);
+            }
+          }}
           onSell={() => {
             if (selectedGarmentForDetail) {
               setSelectedForSale(selectedGarmentForDetail);
@@ -974,6 +941,59 @@ const Wardrobe: React.FC<WardrobeProps> = ({
             }
           }}
         />
+      )}
+
+      {/* SELECT TRIP MODAL */}
+      {addToTripModalGarment && (
+        <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-pop-in">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-gray-800">Añadir a un viaje</h3>
+              <button
+                onClick={() => setAddToTripModalGarment(null)}
+                className="p-2 -mr-2 bg-gray-50 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X size={20} className="text-gray-500" />
+              </button>
+            </div>
+            
+            {trips.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-sm text-gray-500 mb-4">No tienes viajes planificados.</p>
+                <button 
+                  onClick={() => { setAddToTripModalGarment(null); onNavigate('suitcase'); }}
+                  className="bg-primary text-white text-sm font-bold px-4 py-2 rounded-xl"
+                >
+                  Crear un Viaje
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-[50vh] overflow-y-auto no-scrollbar pb-2">
+                {trips.map(trip => {
+                  const isIncluded = trip.garments?.some(g => g && g.id === addToTripModalGarment.id);
+                  return (
+                    <button
+                      key={trip.id}
+                      onClick={() => {
+                        if (onUpdateTrip && !isIncluded) {
+                          onUpdateTrip({ ...trip, garments: [...(trip.garments || []), addToTripModalGarment] });
+                          setAddToTripModalGarment(null);
+                        }
+                      }}
+                      className={`w-full text-left flex items-center justify-between p-4 rounded-2xl border transition-all ${isIncluded ? 'border-primary bg-primary/5 opacity-50 cursor-default' : 'border-gray-200 bg-white hover:border-primary/50'}`}
+                    >
+                      <div>
+                        <p className="font-bold text-gray-800">{trip.destination}</p>
+                        <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400 mt-1">{trip.dateStart}</p>
+                      </div>
+                      {isIncluded ? <Check size={20} className="text-primary" /> : <Plus size={20} className="text-gray-400" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

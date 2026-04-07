@@ -60,6 +60,8 @@ const AppContent: React.FC = () => {
             planner={planner}
             onUpdatePlanner={updatePlannerEntry}
             onNavigate={setActiveTab}
+            trips={trips}
+            onUpdateTrip={updateTrip}
           />
         );
       case 'create':
