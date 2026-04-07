@@ -768,7 +768,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                     <Camera size={40} className="text-gray-300 mb-2" />
                     <span className="text-sm text-gray-500 font-medium">Subir foto</span>
                     <span className="text-xs text-gray-300 mt-1">JPG, PNG hasta 10MB</span>
-                    <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
+                    <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileUpload} />
                   </label>
                 ) : (
                   <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden">
