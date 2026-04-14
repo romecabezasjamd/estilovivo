@@ -1,8 +1,9 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Home, Shirt, PlusSquare, Users, User, Map, RefreshCcw, X, Luggage, WashingMachine } from 'lucide-react';
+import { Home, Shirt, PlusSquare, Users, User, Map, RefreshCcw, X, Luggage, WashingMachine, Wand2 } from 'lucide-react';
 import { useLanguage } from '../src/context/LanguageContext';
 import { useGlobalState } from '../src/context/GlobalStateContext';
 import NotificationBell from './NotificationBell';
+import FittingRoomModal from './FittingRoomModal';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -16,7 +17,13 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
   const [washingAnimation, setWashingAnimation] = useState(false);
   const [showWashingModal, setShowWashingModal] = useState(false);
   const [dragOverLavadora, setDragOverLavadora] = useState(false);
-  const { garments, updateGarment } = useGlobalState();
+  
+  // Fitting Room specific
+  const [dragOverProbar, setDragOverProbar] = useState(false);
+  const [showFittingRoom, setShowFittingRoom] = useState(false);
+  const [activeTryOn, setActiveTryOn] = useState<any>(null);
+
+  const { garments, updateGarment, user } = useGlobalState();
 
   const washingAnimRef = React.useRef(washingAnimation);
   washingAnimRef.current = washingAnimation;
@@ -28,6 +35,17 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
     if (garment && !garment.isWashing && !garment.forSale) {
       updateGarment({ ...garment, isWashing: true });
       window.dispatchEvent(new CustomEvent('animateLavadora'));
+    }
+  };
+
+  const handleDropFittingRoom = (e: React.DragEvent) => {
+    e.preventDefault();
+    const garmentId = e.dataTransfer.getData('garmentId');
+    const garment = garments.find(g => g.id === garmentId);
+    if (garment && !garment.forSale) {
+      setActiveTryOn(garment);
+      setShowFittingRoom(true);
+      setShowWardrobeSubmenu(false);
     }
   };
 
@@ -137,6 +155,25 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
                       </button>
                       <span className="text-[10px] font-bold text-gray-600 bg-white/80 px-2 py-0.5 rounded-full mt-1.5 shadow-sm">Lavar</span>
                     </div>
+
+                    {/* Probar Bubble */}
+                    <div className="flex flex-col items-center">
+                      <button
+                        onClick={() => { 
+                          /* Default opens empty try-on or forces a garment? We simply close menu if nothing is selected or notify */
+                          setShowWardrobeSubmenu(false); 
+                          if (garments.length > 0 && !activeTryOn) setActiveTryOn(garments[0]); // fallback to try on FIRST garment
+                          setShowFittingRoom(true); 
+                        }}
+                        onDragOver={(e) => { e.preventDefault(); setDragOverProbar(true); }}
+                        onDragLeave={() => setDragOverProbar(false)}
+                        onDrop={(e) => { setDragOverProbar(false); handleDropFittingRoom(e); }}
+                        className={`bg-white/90 backdrop-blur-sm p-3 rounded-full shadow-[0_8px_16px_rgba(0,0,0,0.1)] border border-white/50 text-pink-500 hover:scale-110 hover:bg-pink-50 transition-all flex flex-col items-center gap-1 relative overflow-hidden ${dragOverProbar ? 'animate-pulse ring-4 ring-pink-300' : ''}`}
+                      >
+                        <Wand2 size={22} className={dragOverProbar ? 'scale-110' : ''} />
+                      </button>
+                      <span className="text-[10px] font-bold text-gray-600 bg-white/80 px-2 py-0.5 rounded-full mt-1.5 shadow-sm">Probar</span>
+                    </div>
                   </div>
                 )}
                 <button
@@ -214,6 +251,16 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
           </div>
         </div>
       )}
+
+      {/* Virtual Fitting Room Modal Layer */}
+      {showFittingRoom && activeTryOn && (
+        <FittingRoomModal 
+          garment={activeTryOn} 
+          user={user} 
+          onClose={() => setShowFittingRoom(false)} 
+        />
+      )}
+
     </div>
   );
 };
