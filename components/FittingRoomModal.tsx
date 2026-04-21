@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Garment, UserState } from '../types';
-import { X, Camera, RotateCw, ZoomIn, ZoomOut, Check, ArrowLeft, Plus, Save } from 'lucide-react';
+import { X, Camera, RotateCw, ZoomIn, ZoomOut, Check, ArrowLeft, Plus, Save, Layers, FlipHorizontal } from 'lucide-react';
 import { useLanguage } from '../src/context/LanguageContext';
 import { useGlobalState } from '../src/context/GlobalStateContext';
 import html2canvas from 'html2canvas';
@@ -18,6 +18,7 @@ interface InteractiveGarment {
   pos: { x: number, y: number };
   scale: number;
   rotation: number;
+  flipped?: boolean;
 }
 
 export default function FittingRoomModal({ garment: initialGarment, user, onClose }: FittingRoomModalProps) {
@@ -28,7 +29,7 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
   
   // Transform states
   const [items, setItems] = useState<InteractiveGarment[]>([
-    { id: Date.now().toString(), garment: initialGarment, pos: { x: 0, y: 0 }, scale: 1, rotation: 0 }
+    { id: Date.now().toString(), garment: initialGarment, pos: { x: 0, y: 0 }, scale: 1, rotation: 0, flipped: false }
   ]);
   const [activeId, setActiveId] = useState<string | null>(() => items[0]?.id || null);
 
@@ -170,7 +171,7 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
   // --- ACTIONS ---
   const handleAddGarment = (g: Garment) => {
     const newId = Date.now().toString();
-    setItems(prev => [...prev, { id: newId, garment: g, pos: { x: 0, y: 0 }, scale: 1, rotation: 0 }]);
+    setItems(prev => [...prev, { id: newId, garment: g, pos: { x: 0, y: 0 }, scale: 1, rotation: 0, flipped: false }]);
     setActiveId(newId);
     setShowPicker(false);
   };
@@ -184,13 +185,31 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
     });
   };
 
-  const handleModifier = (action: 'zoomIn' | 'zoomOut' | 'rotate') => {
+  const handleModifier = (action: 'zoomIn' | 'zoomOut' | 'rotate' | 'flip' | 'forward' | 'backward') => {
     if (!activeId) return;
+    
+    if (action === 'forward' || action === 'backward') {
+      setItems(prev => {
+        const idx = prev.findIndex(i => i.id === activeId);
+        if (idx === -1) return prev;
+        const newItems = [...prev];
+        const [removed] = newItems.splice(idx, 1);
+        if (action === 'forward') {
+           newItems.splice(Math.min(newItems.length, idx + 1), 0, removed);
+        } else {
+           newItems.splice(Math.max(0, idx - 1), 0, removed);
+        }
+        return newItems;
+      });
+      return;
+    }
+
     setItems(prev => prev.map(item => {
       if (item.id === activeId) {
         if (action === 'zoomOut') return { ...item, scale: Math.max(0.2, item.scale - 0.1) };
         if (action === 'zoomIn') return { ...item, scale: Math.min(5, item.scale + 0.1) };
         if (action === 'rotate') return { ...item, rotation: item.rotation + 15 };
+        if (action === 'flip') return { ...item, flipped: !item.flipped };
       }
       return item;
     }));
@@ -281,7 +300,7 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
               onTouchStart={(e) => { e.stopPropagation(); setActiveId(item.id); }}
               className={`absolute origin-center will-change-transform shadow-2xl drop-shadow-2xl ${activeId === item.id ? 'z-10' : 'z-0'}`}
               style={{
-                transform: `translate3d(${item.pos.x}px, ${item.pos.y}px, 0) scale(${item.scale}) rotate(${item.rotation}deg)`,
+                transform: `translate3d(${item.pos.x}px, ${item.pos.y}px, 0) scale(${item.scale}) rotate(${item.rotation}deg) ${item.flipped ? 'scaleX(-1)' : ''}`,
                 transition: isDragging.current ? 'none' : 'transform 0.05s linear',
               }}
             >
@@ -312,15 +331,25 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
 
       {/* FOOTER CONTROLS */}
       <div className="absolute bottom-6 w-full z-20 px-6 flex flex-col items-center gap-4">
-        <div className="flex gap-4">
-           <button onClick={() => handleModifier('zoomOut')} className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white p-2 active:bg-white/40 border border-white/10">
-             <ZoomOut size={20} />
+        <div className="flex gap-2 flex-wrap justify-center">
+           <button onClick={() => handleModifier('zoomOut')} className="p-3 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/10 active:bg-white/40">
+             <ZoomOut size={18} />
            </button>
-           <button onClick={() => handleModifier('rotate')} className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white p-2 active:bg-white/40 border border-white/10">
-             <RotateCw size={20} />
+           <button onClick={() => handleModifier('zoomIn')} className="p-3 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/10 active:bg-white/40">
+             <ZoomIn size={18} />
            </button>
-           <button onClick={() => handleModifier('zoomIn')} className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white p-2 active:bg-white/40 border border-white/10">
-             <ZoomIn size={20} />
+           <button onClick={() => handleModifier('rotate')} className="p-3 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/10 active:bg-white/40">
+             <RotateCw size={18} />
+           </button>
+           <button onClick={() => handleModifier('flip')} title="Voltear" className="p-3 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/10 active:bg-white/40">
+             <FlipHorizontal size={18} />
+           </button>
+           <div className="w-[1px] h-10 bg-white/10 mx-1" />
+           <button onClick={() => handleModifier('backward')} title="Enviar atrás" className="p-3 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/10 active:bg-white/40">
+             <Layers size={18} className="rotate-180" />
+           </button>
+           <button onClick={() => handleModifier('forward')} title="Traer adelante" className="p-3 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/10 active:bg-white/40">
+             <Layers size={18} />
            </button>
         </div>
 
