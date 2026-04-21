@@ -1,7 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Garment, UserState } from '../types';
-import { X, Camera, RotateCw, ZoomIn, ZoomOut, Check, ArrowLeft } from 'lucide-react';
+import { X, Camera, RotateCw, ZoomIn, ZoomOut, Check, ArrowLeft, Plus, Save } from 'lucide-react';
 import { useLanguage } from '../src/context/LanguageContext';
+import { useGlobalState } from '../src/context/GlobalStateContext';
+import html2canvas from 'html2canvas';
+import { api } from '../services/api';
 
 interface FittingRoomModalProps {
   garment: Garment;
@@ -9,14 +12,31 @@ interface FittingRoomModalProps {
   onClose: () => void;
 }
 
-export default function FittingRoomModal({ garment, user, onClose }: FittingRoomModalProps) {
+interface InteractiveGarment {
+  id: string; // unique instance ID
+  garment: Garment;
+  pos: { x: number, y: number };
+  scale: number;
+  rotation: number;
+}
+
+export default function FittingRoomModal({ garment: initialGarment, user, onClose }: FittingRoomModalProps) {
   const { t } = useLanguage();
+  const { garments } = useGlobalState();
+  
   const [bgImage, setBgImage] = useState<string | null>(user.fullBodyAvatar || null);
   
   // Transform states
-  const [pos, setPos] = useState({ x: 0, y: 0 });
-  const [scale, setScale] = useState(1);
-  const [rotation, setRotation] = useState(0);
+  const [items, setItems] = useState<InteractiveGarment[]>([
+    { id: Date.now().toString(), garment: initialGarment, pos: { x: 0, y: 0 }, scale: 1, rotation: 0 }
+  ]);
+  const [activeId, setActiveId] = useState<string | null>(items[0].id);
+
+  // UI Flow states
+  const [showPicker, setShowPicker] = useState(false);
+  const [showNamePrompt, setShowNamePrompt] = useState(false);
+  const [lookName, setLookName] = useState('');
+  const [savingMsg, setSavingMsg] = useState('');
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -28,22 +48,30 @@ export default function FittingRoomModal({ garment, user, onClose }: FittingRoom
   const startScale = useRef(1);
   const startRotation = useRef(0);
 
-  // Center the garment initially
-  useEffect(() => {
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      setPos({ x: 0, y: 0 }); // Center assumes flex aligns it, but since it's absolute, let's keep it 0,0 relative to its default center position via flex context.
-    }
-  }, []);
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => setBgImage(reader.result as string);
       reader.readAsDataURL(file);
+
+      try {
+        const formData = new FormData();
+        formData.append('fullBodyAvatar', file);
+        await api.updateProfileWithAvatar(formData);
+      } catch (err) {
+        console.warn('Could not save avatar directly', err);
+      }
     }
   };
+
+  const syncAnimationStarts = () => {
+    const activeItem = items.find(i => i.id === activeId);
+    if (activeItem) {
+        startScale.current = activeItem.scale;
+        startRotation.current = activeItem.rotation;
+    }
+  }
 
   // --- MOUSE EVENTS (Desktop fallback) ---
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -53,10 +81,10 @@ export default function FittingRoomModal({ garment, user, onClose }: FittingRoom
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging.current) return;
+    if (!isDragging.current || !activeId) return;
     const dx = e.clientX - lastPos.current.x;
     const dy = e.clientY - lastPos.current.y;
-    setPos(p => ({ x: p.x + dx, y: p.y + dy }));
+    setItems(prev => prev.map(item => item.id === activeId ? { ...item, pos: { x: item.pos.x + dx, y: item.pos.y + dy } } : item));
     lastPos.current = { x: e.clientX, y: e.clientY };
   };
 
@@ -65,13 +93,18 @@ export default function FittingRoomModal({ garment, user, onClose }: FittingRoom
   };
 
   const handleWheel = (e: React.WheelEvent) => {
-    // Removed e.preventDefault() to prevent passive event listener error in console
+    if (!activeId) return;
     // Use shift+scroll to rotate instead of scale
-    if (e.shiftKey) {
-      setRotation(r => r + (e.deltaY > 0 ? 5 : -5));
-    } else {
-      setScale(s => Math.max(0.2, Math.min(s - e.deltaY * 0.005, 5)));
-    }
+    setItems(prev => prev.map(item => {
+      if (item.id === activeId) {
+        if (e.shiftKey) {
+          return { ...item, rotation: item.rotation + (e.deltaY > 0 ? 5 : -5) };
+        } else {
+          return { ...item, scale: Math.max(0.2, Math.min(item.scale - e.deltaY * 0.005, 5)) };
+        }
+      }
+      return item;
+    }));
   };
 
   // --- TOUCH EVENTS (Mobile Multi-Touch) ---
@@ -79,25 +112,23 @@ export default function FittingRoomModal({ garment, user, onClose }: FittingRoom
     if (e.touches.length === 1) {
       isDragging.current = true;
       lastPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    } else if (e.touches.length === 2) {
-      isDragging.current = false; // Stop dragging when pinching
+    } else if (e.touches.length === 2 && activeId) {
+      isDragging.current = false; // Stop simple dragging when pinching
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       initialPinchDist.current = Math.hypot(dx, dy);
       initialPinchAngle.current = Math.atan2(dy, dx) * (180 / Math.PI);
-      startScale.current = scale;
-      startRotation.current = rotation;
+      syncAnimationStarts();
     }
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    // Prevent default scrolling during touch
-    // Note: touch-none class on container already handles this without triggering passive event listener errors.
+    if (!activeId) return;
 
     if (e.touches.length === 1 && isDragging.current) {
       const dx = e.touches[0].clientX - lastPos.current.x;
       const dy = e.touches[0].clientY - lastPos.current.y;
-      setPos(p => ({ x: p.x + dx, y: p.y + dy }));
+      setItems(prev => prev.map(item => item.id === activeId ? { ...item, pos: { x: item.pos.x + dx, y: item.pos.y + dy } } : item));
       lastPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     } else if (e.touches.length === 2 && initialPinchDist.current !== null && initialPinchAngle.current !== null) {
       const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -105,16 +136,21 @@ export default function FittingRoomModal({ garment, user, onClose }: FittingRoom
       const dist = Math.hypot(dx, dy);
       const angle = Math.atan2(dy, dx) * (180 / Math.PI);
 
-      // Calculate new scale
       const zoomFactor = dist / initialPinchDist.current;
-      setScale(Math.max(0.2, Math.min(startScale.current * zoomFactor, 5)));
-
-      // Calculate new rotation
       let angleDelta = angle - initialPinchAngle.current;
-      // Handle wrap-around
       if (angleDelta > 180) angleDelta -= 360;
       if (angleDelta < -180) angleDelta += 360;
-      setRotation(startRotation.current + angleDelta);
+
+      setItems(prev => prev.map(item => {
+        if (item.id === activeId) {
+          return {
+            ...item,
+            scale: Math.max(0.2, Math.min(startScale.current * zoomFactor, 5)),
+            rotation: startRotation.current + angleDelta
+          };
+        }
+        return item;
+      }));
     }
   };
 
@@ -124,11 +160,73 @@ export default function FittingRoomModal({ garment, user, onClose }: FittingRoom
       initialPinchDist.current = null;
       initialPinchAngle.current = null;
     } else if (e.touches.length === 1) {
-      // Re-init simple drag if one finger remains
       isDragging.current = true;
       lastPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
       initialPinchDist.current = null;
       initialPinchAngle.current = null;
+    }
+  };
+
+  // --- ACTIONS ---
+  const handleAddGarment = (g: Garment) => {
+    const newId = Date.now().toString();
+    setItems(prev => [...prev, { id: newId, garment: g, pos: { x: 0, y: 0 }, scale: 1, rotation: 0 }]);
+    setActiveId(newId);
+    setShowPicker(false);
+  };
+
+  const handleRemoveItem = (id: string, e: React.MouseEvent | React.TouchEvent) => {
+    e.stopPropagation();
+    setItems(prev => {
+        const next = prev.filter(i => i.id !== id);
+        if (activeId === id) setActiveId(next.length ? next[next.length - 1].id : null);
+        return next;
+    });
+  };
+
+  const handleModifier = (action: 'zoomIn' | 'zoomOut' | 'rotate') => {
+    if (!activeId) return;
+    setItems(prev => prev.map(item => {
+      if (item.id === activeId) {
+        if (action === 'zoomOut') return { ...item, scale: Math.max(0.2, item.scale - 0.1) };
+        if (action === 'zoomIn') return { ...item, scale: Math.min(5, item.scale + 0.1) };
+        if (action === 'rotate') return { ...item, rotation: item.rotation + 15 };
+      }
+      return item;
+    }));
+  };
+
+  const handleSaveComposite = async () => {
+    if (!lookName.trim() || items.length === 0) return;
+    setSavingMsg('Generando imagen...');
+    try {
+      if (!containerRef.current) return;
+      
+      const canvas = await html2canvas(containerRef.current, {
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#000', // Match bg-black
+      });
+      
+      canvas.toBlob(async (blob) => {
+        if (!blob) throw new Error('Blob generation failed');
+        setSavingMsg('Guardando en tu armario...');
+        
+        // Collect unique garment IDs
+        const productIds = Array.from(new Set(items.map(i => i.garment.id)));
+        
+        await api.saveLookWithImage(lookName, productIds, blob);
+        
+        setSavingMsg('¡Guardado con éxito!');
+        setTimeout(() => {
+          onClose(); // Automatically close after success
+          window.location.reload(); // Quick refresh to show in looks
+        }, 1500);
+      }, 'image/png');
+    } catch (e) {
+        console.error('Error saving composite', e);
+        setSavingMsg('Error al guardar. Intenta de nuevo.');
+        setTimeout(() => setSavingMsg(''), 2000);
     }
   };
 
@@ -146,7 +244,7 @@ export default function FittingRoomModal({ garment, user, onClose }: FittingRoom
         <div className="w-10" />
       </div>
 
-      {/* RENDER AREA */}
+      {/* RENDER AREA (We target this ref directly for html2canvas) */}
       <div 
         ref={containerRef}
         className="flex-1 w-full h-full relative overflow-hidden flex items-center justify-center cursor-move"
@@ -171,57 +269,156 @@ export default function FittingRoomModal({ garment, user, onClose }: FittingRoom
           <div className="absolute inset-0 flex flex-col items-center justify-center text-white/50 px-8 text-center pointer-events-none">
             <Camera size={48} className="mb-4 opacity-50" />
             <p className="text-sm font-bold">No tienes modelo guardado.</p>
-            <p className="text-xs mt-2">Usa el botón de abajo para subir una foto tuya de cuerpo entero y empezar a probarte ropa.</p>
+            <p className="text-xs mt-2">Usa el botón de abajo para subir una foto tuya de cuerpo entero.</p>
           </div>
         )}
 
-        {/* Selected Garment Layer */}
-        <div 
-          className="absolute origin-center will-change-transform shadow-2xl drop-shadow-2xl"
-          style={{
-            transform: `translate3d(${pos.x}px, ${pos.y}px, 0) scale(${scale}) rotate(${rotation}deg)`,
-            transition: isDragging.current ? 'none' : 'transform 0.05s linear', // smooth drops
-          }}
-        >
-          <img 
-            src={garment.imageUrl} 
-            alt={garment.name} 
-            className="h-64 object-contain filter drop-shadow-[0_15px_25px_rgba(0,0,0,0.5)] pointer-events-none"
-            draggable="false"
-          />
-        </div>
+        {/* Selected Garment Layers */}
+        {items.map((item) => (
+            <div 
+              key={item.id}
+              onClick={(e) => { e.stopPropagation(); setActiveId(item.id); }}
+              onTouchStart={(e) => { e.stopPropagation(); setActiveId(item.id); }}
+              className={`absolute origin-center will-change-transform shadow-2xl drop-shadow-2xl ${activeId === item.id ? 'z-10' : 'z-0'}`}
+              style={{
+                transform: `translate3d(${item.pos.x}px, ${item.pos.y}px, 0) scale(${item.scale}) rotate(${item.rotation}deg)`,
+                transition: isDragging.current ? 'none' : 'transform 0.05s linear',
+              }}
+            >
+              {/* Active Selection Outline */}
+              {activeId === item.id && !showNamePrompt && (
+                  <div className="absolute -inset-1 border border-white/40 border-dashed rounded-lg pointer-events-none"></div>
+              )}
+              {/* Remove Button */}
+              {activeId === item.id && !showNamePrompt && (
+                  <button 
+                    onClick={(e) => handleRemoveItem(item.id, e)}
+                    onTouchEnd={(e) => handleRemoveItem(item.id, e)}
+                    className="absolute -top-3 -right-3 bg-red-500 w-6 h-6 rounded-full flex items-center justify-center text-white shadow-lg pointer-events-auto"
+                  >
+                      <X size={14} />
+                  </button>
+              )}
+              
+              <img 
+                src={item.garment.imageUrl} 
+                alt={item.garment.name} 
+                className="h-64 object-contain filter drop-shadow-[0_15px_25px_rgba(0,0,0,0.5)] pointer-events-none"
+                draggable="false"
+              />
+            </div>
+        ))}
       </div>
 
       {/* FOOTER CONTROLS */}
       <div className="absolute bottom-6 w-full z-20 px-6 flex flex-col items-center gap-4">
         <div className="flex gap-4">
-           {/* If they want manual control buttons */}
-           <button onClick={() => setScale(s => Math.max(0.2, s - 0.1))} className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white p-2 active:bg-white/40 border border-white/10">
+           <button onClick={() => handleModifier('zoomOut')} className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white p-2 active:bg-white/40 border border-white/10">
              <ZoomOut size={20} />
            </button>
-           <button onClick={() => setRotation(r => r + 15)} className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white p-2 active:bg-white/40 border border-white/10">
+           <button onClick={() => handleModifier('rotate')} className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white p-2 active:bg-white/40 border border-white/10">
              <RotateCw size={20} />
            </button>
-           <button onClick={() => setScale(s => Math.min(5, s + 0.1))} className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white p-2 active:bg-white/40 border border-white/10">
+           <button onClick={() => handleModifier('zoomIn')} className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white p-2 active:bg-white/40 border border-white/10">
              <ZoomIn size={20} />
            </button>
         </div>
 
         <div className="w-full flex gap-3">
-          <label className="flex-1 bg-white/10 backdrop-blur-md border border-white/20 text-white py-3 px-4 rounded-2xl font-bold flex items-center justify-center gap-2 cursor-pointer hover:bg-white/20">
-            <Camera size={16} />
-            <span className="text-xs uppercase tracking-widest">{bgImage ? 'Cambiar Foto' : 'Subir Foto'}</span>
-            <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
-          </label>
-          <button 
-            onClick={onClose}
-            className="flex-1 bg-primary text-white py-3 px-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-pink-600 shadow-lg shadow-primary/30"
-          >
-            <Check size={16} />
-            <span className="text-xs uppercase tracking-widest">¡Me gusta!</span>
-          </button>
+          {(!bgImage) ? (
+            <label className="flex-1 bg-white/10 backdrop-blur-md border border-white/20 text-white py-3 px-4 rounded-2xl font-bold flex items-center justify-center gap-2 cursor-pointer hover:bg-white/20">
+                <Camera size={16} />
+                <span className="text-xs uppercase tracking-widest">Subir Modelo</span>
+                <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
+            </label>
+          ) : (
+            <>
+                <button 
+                  onClick={() => setShowPicker(true)}
+                  className="flex-1 bg-white/10 backdrop-blur-md border border-white/20 text-white py-3 px-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-white/20"
+                >
+                  <Plus size={16} />
+                  <span className="text-xs uppercase tracking-widest">Añadir</span>
+                </button>
+                <button 
+                  onClick={() => { setActiveId(null); setShowNamePrompt(true); }}
+                  className="flex-1 bg-primary text-white py-3 px-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-pink-600 shadow-lg shadow-primary/30"
+                >
+                  <Check size={16} />
+                  <span className="text-xs uppercase tracking-widest">¡Me gusta!</span>
+                </button>
+            </>
+          )}
         </div>
       </div>
+
+      {/* GARMENT PICKER DRAWER */}
+      {showPicker && (
+        <div className="absolute bottom-0 w-full bg-black/60 backdrop-blur-2xl rounded-t-3xl border-t border-white/10 p-6 z-50 animate-fade-in-up">
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="text-white font-bold text-sm tracking-widest uppercase">Tu Armario</h3>
+                <button onClick={() => setShowPicker(false)} className="bg-white/10 rounded-full p-1 text-white">
+                    <X size={18} />
+                </button>
+            </div>
+            
+            {garments.length === 0 ? (
+                <p className="text-white/50 text-center text-sm py-8">No tienes más prendas en el armario.</p>
+            ) : (
+                <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar" style={{WebkitOverflowScrolling: 'touch'}}>
+                {garments.map(g => (
+                    <div 
+                      key={g.id} 
+                      onClick={() => handleAddGarment(g)} 
+                      className="flex-shrink-0 w-20 h-20 bg-white/10 rounded-2xl border border-white/5 p-2 flex items-center justify-center cursor-pointer hover:bg-white/20 transition-colors"
+                    >
+                        <img src={g.imageUrl} className="max-w-full max-h-full object-contain drop-shadow-md pointer-events-none" />
+                    </div>
+                ))}
+                </div>
+            )}
+        </div>
+      )}
+
+      {/* SAVE PROMPT */}
+      {showNamePrompt && (
+        <div className="absolute inset-0 bg-black/80 z-[200] flex items-center justify-center p-6 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white rounded-3xl p-6 w-full max-w-sm flex flex-col gap-4 shadow-2xl">
+                <h3 className="font-bold text-xl text-gray-800 text-center">Guardar Outfit</h3>
+                {savingMsg ? (
+                    <div className="flex items-center justify-center py-6">
+                        <span className="animate-pulse font-bold text-primary text-lg">{savingMsg}</span>
+                    </div>
+                ) : (
+                    <>
+                        <input 
+                            type="text" 
+                            placeholder="Ej: Conjunto de verano..." 
+                            value={lookName} 
+                            onChange={e => setLookName(e.target.value)} 
+                            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-medium text-black"
+                            autoFocus
+                        />
+                        <div className="flex gap-3 mt-2">
+                            <button 
+                              onClick={() => { setShowNamePrompt(false); setActiveId(items[items.length-1].id); }} 
+                              className="flex-1 py-3 bg-gray-100 rounded-xl font-bold text-gray-500 hover:bg-gray-200 transition-colors"
+                            >
+                                Cancelar
+                            </button>
+                            <button 
+                              onClick={handleSaveComposite} 
+                              disabled={!lookName.trim()}
+                              className="flex-1 py-3 bg-primary text-white rounded-xl font-bold disabled:opacity-50 hover:bg-pink-600 shadow-md shadow-primary/30 transition-all"
+                            >
+                                Guardar
+                            </button>
+                        </div>
+                    </>
+                )}
+            </div>
+        </div>
+      )}
 
     </div>
   );

@@ -325,6 +325,21 @@ export const api = {
         return mapLook(l)!;
     },
 
+    saveLookWithImage: async (name: string, productIds: string[], imageBlob: Blob): Promise<Look> => {
+        const formData = new FormData();
+        formData.append('title', name);
+        formData.append('productIds', JSON.stringify(productIds));
+        formData.append('images', imageBlob, 'look.png');
+        
+        const res = await fetch(`${API_BASE}/looks`, {
+            credentials: 'include', method: 'POST',
+            headers: getAuthHeader() as any,
+            body: formData
+        });
+        const l = await handleResponse(res);
+        return mapLook(l)!;
+    },
+
     updateLook: async (id: string, data: Partial<Look>): Promise<Look> => {
         const res = await fetch(`${API_BASE}/looks/${id}`, {
             credentials: 'include', method: 'PUT',

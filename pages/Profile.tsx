@@ -128,13 +128,23 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
     reader.readAsDataURL(file);
   };
 
-  const handleFullBodyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFullBodyChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setFullBodyAvatarFile(file);
     const reader = new FileReader();
     reader.onloadend = () => setFullBodyAvatarPreview(reader.result as string);
     reader.readAsDataURL(file);
+
+    // Auto-save just the full body avatar
+    try {
+      const formData = new FormData();
+      formData.append('fullBodyAvatar', file);
+      const updatedUser = await api.updateProfileWithAvatar(formData);
+      onUpdateUser(updatedUser);
+    } catch (e) {
+      console.warn('Error uploading full body avatar directly', e);
+    }
   };
 
   // Save profile
@@ -400,8 +410,8 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
           <div className="mt-6 border-t border-gray-100 pt-6 animate-fade-in-up">
             <h3 className="text-sm font-bold text-gray-700 text-center mb-3">Tu Modelo (Cuerpo Entero)</h3>
             <div 
-              className={`relative mx-auto w-32 h-48 rounded-2xl bg-gray-50 flex items-center justify-center overflow-hidden shadow-inner border-2 border-dashed border-gray-200 transition-all ${editing ? 'cursor-pointer hover:border-pink-300 ring-4 ring-transparent hover:ring-pink-100' : ''}`}
-              onClick={() => editing && fullBodyInputRef.current?.click()}
+              className="relative mx-auto w-32 h-48 rounded-2xl bg-gray-50 flex items-center justify-center overflow-hidden shadow-inner border-2 border-dashed border-gray-200 transition-all cursor-pointer hover:border-pink-300 ring-4 ring-transparent hover:ring-pink-100"
+              onClick={() => fullBodyInputRef.current?.click()}
             >
               {fullBodyAvatarPreview || user.fullBodyAvatar ? (
                 <img src={fullBodyAvatarPreview || user.fullBodyAvatar} alt="Cuerpo Entero" className="w-full h-full object-cover" />
@@ -411,11 +421,9 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                   <span className="text-[10px] font-medium leading-tight">Sin modelo físico</span>
                 </div>
               )}
-              {editing && (
-                <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[2px] opacity-0 hover:opacity-100 transition-opacity">
-                  <Camera size={24} className="text-white" />
-                </div>
-              )}
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[2px] opacity-0 hover:opacity-100 transition-opacity">
+                <Camera size={24} className="text-white" />
+              </div>
               <input
                 ref={fullBodyInputRef}
                 type="file"
@@ -424,7 +432,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                 onChange={handleFullBodyChange}
               />
             </div>
-            {editing && <p className="text-[10px] text-center text-gray-400 mt-2">Sube una foto de cuerpo entero para probarte la ropa</p>}
+            <p className="text-[10px] text-center text-gray-400 mt-2">Sube una foto de cuerpo entero para probarte la ropa</p>
           </div>
 
         </div>
