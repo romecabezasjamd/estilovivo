@@ -2,9 +2,9 @@
 # Soporta dev y production automáticamente
 
 # ============= STAGE 1: Dependencies =============
-FROM node:20-alpine AS dependencies
+FROM node:20-bookworm-slim AS dependencies
 
-RUN apk add --no-cache openssl curl
+RUN apt-get update && apt-get install -y openssl curl && rm -rf /var/lib/apt/lists/*
 
 # Ensure we install ALL dependencies (including devDependencies) for building
 ENV NODE_ENV=development
@@ -62,9 +62,9 @@ COPY server/prisma ./prisma
 RUN npm run build
 
 # ============= STAGE 4: Production Runtime =============
-FROM node:20-alpine AS production
+FROM node:20-bookworm-slim AS production
 
-RUN apk add --no-cache openssl curl
+RUN apt-get update && apt-get install -y openssl curl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
