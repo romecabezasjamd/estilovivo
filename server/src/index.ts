@@ -1041,7 +1041,7 @@ app.get('/api/looks/feed', authenticateToken, async (req: any, res: Response) =>
   }
 });
 
-app.post('/api/looks', authenticateToken, validate(lookSchema), upload.array('images', 10), async (req: any, res: Response) => {
+app.post('/api/looks', authenticateToken, upload.array('images', 10), validate(lookSchema), async (req: any, res: Response) => {
   try {
     const { title, productIds, isPublic, mood } = req.body;
     const files = req.files as Express.Multer.File[] | undefined;

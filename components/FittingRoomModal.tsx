@@ -303,7 +303,7 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
               <img 
                 src={item.garment.imageUrl} 
                 alt={item.garment.name} 
-                className="h-64 object-contain filter drop-shadow-[0_15px_25px_rgba(0,0,0,0.5)] pointer-events-none"
+                className="h-64 object-contain filter drop-shadow-[0_15px_25px_rgba(0,0,0,0.5)] mix-blend-multiply pointer-events-none"
                 draggable="false"
               />
             </div>
