@@ -30,7 +30,7 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
   const [items, setItems] = useState<InteractiveGarment[]>([
     { id: Date.now().toString(), garment: initialGarment, pos: { x: 0, y: 0 }, scale: 1, rotation: 0 }
   ]);
-  const [activeId, setActiveId] = useState<string | null>(items[0].id);
+  const [activeId, setActiveId] = useState<string | null>(() => items[0]?.id || null);
 
   // UI Flow states
   const [showPicker, setShowPicker] = useState(false);
@@ -213,7 +213,7 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
         setSavingMsg('Guardando en tu armario...');
         
         // Collect unique garment IDs
-        const productIds = Array.from(new Set(items.map(i => i.garment.id)));
+        const productIds = Array.from<string>(new Set(items.map(i => i.garment.id)));
         
         await api.saveLookWithImage(lookName, productIds, blob);
         
@@ -401,7 +401,7 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
                         />
                         <div className="flex gap-3 mt-2">
                             <button 
-                              onClick={() => { setShowNamePrompt(false); setActiveId(items[items.length-1].id); }} 
+                              onClick={() => { setShowNamePrompt(false); setActiveId(items.length ? items[items.length-1].id : null); }} 
                               className="flex-1 py-3 bg-gray-100 rounded-xl font-bold text-gray-500 hover:bg-gray-200 transition-colors"
                             >
                                 Cancelar
