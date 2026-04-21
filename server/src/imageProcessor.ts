@@ -2,7 +2,28 @@ import sharp from 'sharp';
 import path from 'path';
 import { mkdirSync, existsSync } from 'fs';
 import logger from './logger.js';
-import { removeBackground } from '@imgly/background-removal-node';
+import { removeBackground, Config } from '@imgly/background-removal-node';
+
+// Stabilization: Simple semaphore to ensure only one heavy AI task runs at a time
+let isProcessingAI = false;
+const aiQueue: (() => void)[] = [];
+
+async function acquireAILock(): Promise<void> {
+  if (!isProcessingAI) {
+    isProcessingAI = true;
+    return;
+  }
+  return new Promise(resolve => aiQueue.push(resolve));
+}
+
+function releaseAILock(): void {
+  if (aiQueue.length > 0) {
+    const next = aiQueue.shift();
+    if (next) next();
+  } else {
+    isProcessingAI = false;
+  }
+}
 
 interface ImageSizes {
   thumbnail: { width: number; height: number };
@@ -51,17 +72,30 @@ export async function processImage(
     let sourceInput: string | Buffer = inputPath;
     
     if (removeBg) {
+      await acquireAILock();
       try {
-        logger.info('Removing background with AI (Option A)...', { filename });
-        // We use the medium model for a good balance of performance/quality in production
-        const blob = await removeBackground(inputPath, {
-          model: 'medium', 
+        const memBefore = process.memoryUsage().rss / 1024 / 1024;
+        logger.info(`Starting AI removal (Model: small). Memory: ${memBefore.toFixed(2)} MB`, { filename });
+        
+        // Timeout wrapper
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('AI Processing Timeout (15s)')), 15000)
+        );
+
+        const config: Config = {
+          model: 'small', // Lightest model to prevent OOM
           debug: false,
-        });
+        };
+
+        const removalPromise = removeBackground(inputPath, config);
+        
+        const blob = await Promise.race([removalPromise, timeoutPromise]) as Blob;
         sourceInput = Buffer.from(await blob.arrayBuffer());
-        logger.info('AI background removal successful', { filename });
+        
+        const memAfter = process.memoryUsage().rss / 1024 / 1024;
+        logger.info(`AI removal successful. Memory: ${memAfter.toFixed(2)} MB`, { filename });
       } catch (aiError) {
-        logger.warn('AI background removal failed, applying smart fallback...', { error: aiError, filename });
+        logger.warn('AI background removal failed or timed out, applying smart fallback...', { error: aiError, filename });
         // Smart fallback: If it's a studio photo (on white/grey), Sharp can trim it
         try {
           const buffer = await sharp(inputPath)
@@ -75,6 +109,8 @@ export async function processImage(
           logger.error('Background removal fallback failed as well', { error: fallbackError, filename });
           sourceInput = inputPath; // Fallback to original if everything fails
         }
+      } finally {
+        releaseAILock();
       }
     }
 
