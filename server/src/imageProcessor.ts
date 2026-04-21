@@ -2,6 +2,7 @@ import sharp from 'sharp';
 import path from 'path';
 import { mkdirSync, existsSync } from 'fs';
 import logger from './logger.js';
+import { removeBackground } from '@imgly/background-removal-node';
 
 interface ImageSizes {
   thumbnail: { width: number; height: number };
@@ -28,7 +29,8 @@ export interface ProcessedImages {
 export async function processImage(
   inputPath: string,
   outputDir: string,
-  filename: string
+  filename: string,
+  removeBg: boolean = false
 ): Promise<ProcessedImages> {
   try {
     // Ensure output directory exists
@@ -44,8 +46,16 @@ export async function processImage(
     const thumbnailPath = path.join(outputDir, `${basename}-thumb.webp`);
     const mediumPath = path.join(outputDir, `${basename}-medium.webp`);
 
+    let sourceInput: string | Buffer = inputPath;
+    
+    if (removeBg) {
+      logger.info('Removing background...', { filename });
+      const blob = await removeBackground(inputPath);
+      sourceInput = Buffer.from(await blob.arrayBuffer());
+    }
+
     // Process original (optimize but keep original size)
-    await sharp(inputPath)
+    await sharp(sourceInput)
       .rotate() // Auto-rotate based on EXIF
       .resize(SIZES.large.width, SIZES.large.height, {
         fit: 'inside',
@@ -54,24 +64,24 @@ export async function processImage(
       .jpeg({ quality: 90, progressive: true })
       .toFile(originalPath);
 
-    // Create thumbnail
-    await sharp(inputPath)
+    // Process thumbnail
+    await sharp(sourceInput)
       .rotate()
       .resize(SIZES.thumbnail.width, SIZES.thumbnail.height, {
         fit: 'cover',
         position: 'center',
       })
-      .webp({ quality: 80 })
+      .webp({ quality: 60 })
       .toFile(thumbnailPath);
 
-    // Create medium size
-    await sharp(inputPath)
+    // Process medium size
+    await sharp(sourceInput)
       .rotate()
       .resize(SIZES.medium.width, SIZES.medium.height, {
         fit: 'inside',
         withoutEnlargement: true,
       })
-      .webp({ quality: 85 })
+      .webp({ quality: 75 })
       .toFile(mediumPath);
 
     logger.info('Image processed successfully', {

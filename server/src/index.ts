@@ -815,7 +815,7 @@ app.post('/api/products', authenticateToken, upload.array('images', 5), validate
     if (files && files.length > 0) {
       for (const file of files) {
         try {
-          const processed = await processImage(file.path, UPLOADS_DIR, file.filename);
+          const processed = await processImage(file.path, UPLOADS_DIR, file.filename, true);
           processedImages.push({
             filename: processed.medium,
             url: `/api/uploads/${processed.medium}`,
@@ -893,12 +893,34 @@ app.put('/api/products/:id', authenticateToken, upload.array('images', 5), valid
     if (isWashing !== undefined) updateData.isWashing = isWashing === 'true' || isWashing === true;
     if (usageCount !== undefined) updateData.usageCount = parseInt(usageCount);
 
+    const processedImages = [];
+    if (files && files.length > 0) {
+      for (const file of files) {
+        try {
+          const processed = await processImage(file.path, UPLOADS_DIR, file.filename, true);
+          processedImages.push({
+            filename: processed.medium,
+            url: `/api/uploads/${processed.medium}`,
+            thumbnail: `/api/uploads/${processed.thumbnail}`,
+            original: `/api/uploads/${processed.original}`,
+          });
+          unlinkSync(file.path);
+        } catch (imgError) {
+          logger.error('Image processing failed in PUT', { error: imgError, filename: file.filename });
+          processedImages.push({
+            filename: file.filename,
+            url: `/api/uploads/${file.filename}`,
+          });
+        }
+      }
+    }
+
     const product = await prisma.product.update({
       where: { id },
       data: {
         ...updateData,
-        ...(files && files.length > 0 ? {
-          images: { create: files.map((f) => ({ filename: f.filename, url: `/api/uploads/${f.filename}` })) }
+        ...(processedImages.length > 0 ? {
+          images: { create: processedImages.map((img) => ({ filename: img.filename, url: img.url })) }
         } : {}),
       },
       include: { images: true, user: { select: { id: true, name: true, avatar: true } } },
