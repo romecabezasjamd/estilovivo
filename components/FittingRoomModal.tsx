@@ -65,7 +65,7 @@ export default function FittingRoomModal({ garment, user, onClose }: FittingRoom
   };
 
   const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
+    // Removed e.preventDefault() to prevent passive event listener error in console
     // Use shift+scroll to rotate instead of scale
     if (e.shiftKey) {
       setRotation(r => r + (e.deltaY > 0 ? 5 : -5));
@@ -92,7 +92,7 @@ export default function FittingRoomModal({ garment, user, onClose }: FittingRoom
 
   const handleTouchMove = (e: React.TouchEvent) => {
     // Prevent default scrolling during touch
-    if (e.cancelable) e.preventDefault();
+    // Note: touch-none class on container already handles this without triggering passive event listener errors.
 
     if (e.touches.length === 1 && isDragging.current) {
       const dx = e.touches[0].clientX - lastPos.current.x;
