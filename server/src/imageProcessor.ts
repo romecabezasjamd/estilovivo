@@ -42,7 +42,9 @@ export async function processImage(
     const basename = path.basename(filename, ext);
     
     // Output paths
-    const originalPath = path.join(outputDir, `${basename}-original${ext}`);
+    const originalPath = removeBg 
+      ? path.join(outputDir, `${basename}-original.webp`)
+      : path.join(outputDir, `${basename}-original${ext}`);
     const thumbnailPath = path.join(outputDir, `${basename}-thumb.webp`);
     const mediumPath = path.join(outputDir, `${basename}-medium.webp`);
 
@@ -55,14 +57,18 @@ export async function processImage(
     }
 
     // Process original (optimize but keep original size)
-    await sharp(sourceInput)
+    const originalProcessor = sharp(sourceInput)
       .rotate() // Auto-rotate based on EXIF
       .resize(SIZES.large.width, SIZES.large.height, {
         fit: 'inside',
         withoutEnlargement: true,
-      })
-      .jpeg({ quality: 90, progressive: true })
-      .toFile(originalPath);
+      });
+
+    if (removeBg || ext.toLowerCase() === '.webp') {
+      await originalProcessor.webp({ quality: 90 }).toFile(originalPath);
+    } else {
+      await originalProcessor.jpeg({ quality: 90, progressive: true }).toFile(originalPath);
+    }
 
     // Process thumbnail
     await sharp(sourceInput)
