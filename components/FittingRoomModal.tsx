@@ -165,7 +165,7 @@ export default function FittingRoomModal({ garment, user, onClose }: FittingRoom
           <img 
             src={bgImage} 
             alt="Modelo" 
-            className="absolute w-full h-full object-cover opacity-90 pointer-events-none"
+            className="absolute w-full h-full object-contain opacity-90 pointer-events-none"
           />
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-white/50 px-8 text-center pointer-events-none">
