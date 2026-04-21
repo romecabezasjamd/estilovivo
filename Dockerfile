@@ -64,7 +64,7 @@ RUN npm run build
 # ============= STAGE 4: Production Runtime =============
 FROM node:20-bookworm-slim AS production
 
-RUN apt-get update && apt-get install -y openssl curl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y openssl curl libgomp1 ca-certificates && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

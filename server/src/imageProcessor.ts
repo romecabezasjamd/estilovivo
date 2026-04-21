@@ -51,9 +51,31 @@ export async function processImage(
     let sourceInput: string | Buffer = inputPath;
     
     if (removeBg) {
-      logger.info('Removing background...', { filename });
-      const blob = await removeBackground(inputPath);
-      sourceInput = Buffer.from(await blob.arrayBuffer());
+      try {
+        logger.info('Removing background with AI (Option A)...', { filename });
+        // We use the medium model for a good balance of performance/quality in production
+        const blob = await removeBackground(inputPath, {
+          model: 'medium', 
+          debug: false,
+        });
+        sourceInput = Buffer.from(await blob.arrayBuffer());
+        logger.info('AI background removal successful', { filename });
+      } catch (aiError) {
+        logger.warn('AI background removal failed, applying smart fallback...', { error: aiError, filename });
+        // Smart fallback: If it's a studio photo (on white/grey), Sharp can trim it
+        try {
+          const buffer = await sharp(inputPath)
+            .rotate()
+            .ensureAlpha()
+            .trim({ threshold: 12 }) // Trims near-white surroundings
+            .toBuffer();
+          sourceInput = buffer;
+          logger.info('Smart fallback removal applied', { filename });
+        } catch (fallbackError) {
+          logger.error('Background removal fallback failed as well', { error: fallbackError, filename });
+          sourceInput = inputPath; // Fallback to original if everything fails
+        }
+      }
     }
 
     // Process original (optimize but keep original size)

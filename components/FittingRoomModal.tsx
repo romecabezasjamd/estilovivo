@@ -298,10 +298,11 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
               key={item.id}
               onClick={(e) => { e.stopPropagation(); setActiveId(item.id); }}
               onTouchStart={(e) => { e.stopPropagation(); setActiveId(item.id); }}
-              className={`absolute origin-center will-change-transform shadow-2xl drop-shadow-2xl ${activeId === item.id ? 'z-10' : 'z-0'}`}
+              className={`absolute origin-center will-change-transform ${activeId === item.id ? 'z-10' : 'z-0'}`}
               style={{
                 transform: `translate3d(${item.pos.x}px, ${item.pos.y}px, 0) scale(${item.scale}) rotate(${item.rotation}deg) ${item.flipped ? 'scaleX(-1)' : ''}`,
                 transition: isDragging.current ? 'none' : 'transform 0.05s linear',
+                filter: 'drop-shadow(0 15px 25px rgba(0,0,0,0.35))'
               }}
             >
               {/* Active Selection Outline */}
@@ -322,7 +323,7 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
               <img 
                 src={item.garment.imageUrl} 
                 alt={item.garment.name} 
-                className="h-64 object-contain filter drop-shadow-[0_15px_25px_rgba(0,0,0,0.5)] mix-blend-multiply pointer-events-none"
+                className="h-64 object-contain mix-blend-multiply pointer-events-none"
                 draggable="false"
               />
             </div>
