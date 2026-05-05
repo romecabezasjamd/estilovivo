@@ -44,6 +44,11 @@ COPY pages ./pages
 COPY services ./services
 COPY hooks ./hooks
 COPY src ./src
+COPY public ./public
+
+# Build-time environment variables for Vite
+ARG GEMINI_API_KEY
+ENV GEMINI_API_KEY=$GEMINI_API_KEY
 
 # Build React
 RUN npm run build

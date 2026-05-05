@@ -3,15 +3,44 @@
 @tailwind utilities;
 
 :root {
-    --color-primary: #ec4899;
-    --color-primary-light: #f472b6;
-    --color-primary-dark: #db2777;
+    --color-primary: #ff4d94;
+    --color-primary-light: #ff85b3;
+    --color-primary-dark: #d6337a;
     --color-accent: #14b8a6;
     --color-secondary: #a78bfa;
+    
+    /* Safe Areas for mobile notch/home bar */
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
 }
 
 body {
     background-color: #F8F9FA;
+    padding-top: var(--safe-top);
+    padding-bottom: var(--safe-bottom);
+    padding-left: var(--safe-left);
+    padding-right: var(--safe-right);
+    min-height: 100vh;
+    min-height: -webkit-fill-available; /* Fix for mobile viewport height */
+}
+
+html {
+    height: -webkit-fill-available;
+}
+
+.glass {
+    @apply bg-white/70 backdrop-blur-md border border-white/40;
+}
+
+.glass-dark {
+    @apply bg-black/40 backdrop-blur-xl border border-white/10;
+}
+
+.vertical-text {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
 }
 
 .no-scrollbar::-webkit-scrollbar {

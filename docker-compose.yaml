@@ -47,6 +47,9 @@ services:
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
+      
+      # AI Features
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     volumes:
       # Almacenamiento persistente
       - uploads_data:/app/uploads

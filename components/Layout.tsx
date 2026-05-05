@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Home, Shirt, PlusSquare, Users, User, Map, RefreshCcw, X, Luggage, WashingMachine, Wand2 } from 'lucide-react';
 import { useLanguage } from '../src/context/LanguageContext';
 import { useGlobalState } from '../src/context/GlobalStateContext';
@@ -106,8 +107,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
         <nav className="relative w-full max-w-lg h-16 bg-white/80 backdrop-blur-md border border-white/40 shadow-xl rounded-full flex items-center p-1 pointer-events-auto">
 
           {activeIndex !== -1 && (
-            <div
-              className="absolute top-1 bottom-1 rounded-full bg-primary shadow-md transition-all duration-300 ease-out"
+            <motion.div
+              layoutId="nav-indicator"
+              className="absolute top-1 bottom-1 rounded-full bg-primary shadow-lg shadow-primary/40 z-0"
+              transition={{ type: "spring", stiffness: 350, damping: 30 }}
               style={{
                 left: `calc(0.25rem + ${activeIndex} * ((100% - 0.5rem) / ${navItems.length}))`,
                 width: `calc((100% - 0.5rem) / ${navItems.length})`
@@ -124,58 +127,64 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
                 key={item.id} 
                 className="relative z-10 flex-1 h-full"
               >
-                {showWardrobeSubmenu && (
-                  <div className="absolute bottom-[110%] left-1/2 -translate-x-1/2 flex gap-4 mb-2 animate-fade-in pointer-events-auto">
-                    {/* Suitcase Bubble */}
-                    <div className="flex flex-col items-center">
-                      <button
-                        onClick={() => { setShowWardrobeSubmenu(false); onTabChange('suitcase'); }}
-                        className="bg-white/90 backdrop-blur-sm p-3 rounded-full shadow-[0_8px_16px_rgba(0,0,0,0.1)] border border-white/50 text-indigo-500 hover:scale-110 hover:bg-indigo-50 transition-all flex flex-col items-center gap-1 group"
-                      >
-                        <Luggage size={22} className="group-hover:-translate-y-1 transition-transform" />
-                      </button>
-                      <span className="text-[10px] font-bold text-gray-600 bg-white/80 px-2 py-0.5 rounded-full mt-1.5 shadow-sm">Viajes</span>
-                    </div>
+                <AnimatePresence>
+                  {showWardrobeSubmenu && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 20, scale: 0.8 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                      className="absolute bottom-[115%] left-1/2 -translate-x-1/2 flex gap-4 mb-2 pointer-events-auto"
+                    >
+                      {/* Suitcase Bubble */}
+                      <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="flex flex-col items-center">
+                        <button
+                          onClick={() => { setShowWardrobeSubmenu(false); onTabChange('suitcase'); }}
+                          className="bg-white/90 backdrop-blur-md p-3 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-white/50 text-indigo-500 hover:bg-indigo-50 transition-colors flex flex-col items-center gap-1 group"
+                        >
+                          <Luggage size={22} className="group-hover:-translate-y-1 transition-transform" />
+                        </button>
+                        <span className="text-[10px] font-bold text-gray-600 bg-white/80 px-2 py-0.5 rounded-full mt-2 shadow-sm">Viajes</span>
+                      </motion.div>
 
-                    {/* Lavadora Bubble */}
-                    <div className="flex flex-col items-center">
-                      <button
-                        onClick={() => { setShowWardrobeSubmenu(false); setShowWashingModal(true); }}
-                        onDragOver={(e) => { e.preventDefault(); setDragOverLavadora(true); }}
-                        onDragLeave={() => setDragOverLavadora(false)}
-                        onDrop={(e) => { setDragOverLavadora(false); handleDropWashing(e); }}
-                        className={`bg-white/90 backdrop-blur-sm p-3 rounded-full shadow-[0_8px_16px_rgba(0,0,0,0.1)] border border-white/50 text-blue-500 hover:scale-110 hover:bg-blue-50 transition-all flex flex-col items-center gap-1 relative overflow-hidden ${washingAnimation ? 'wash shadow-[0_0_20px_rgba(59,130,246,0.5)] scale-125' : ''} ${dragOverLavadora && !washingAnimation ? 'animate-bounce ring-4 ring-blue-300' : ''}`}
-                      >
-                        <WashingMachine size={22} className={washingAnimation ? 'animate-spin' : ''} />
-                        {garments.filter(g => g.isWashing).length > 0 && !washingAnimation && (
-                          <div className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold shadow-sm">
-                            {garments.filter(g => g.isWashing).length}
-                          </div>
-                        )}
-                      </button>
-                      <span className="text-[10px] font-bold text-gray-600 bg-white/80 px-2 py-0.5 rounded-full mt-1.5 shadow-sm">Lavar</span>
-                    </div>
+                      {/* Lavadora Bubble */}
+                      <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="flex flex-col items-center">
+                        <button
+                          onClick={() => { setShowWardrobeSubmenu(false); setShowWashingModal(true); }}
+                          onDragOver={(e) => { e.preventDefault(); setDragOverLavadora(true); }}
+                          onDragLeave={() => setDragOverLavadora(false)}
+                          onDrop={(e) => { setDragOverLavadora(false); handleDropWashing(e); }}
+                          className={`bg-white/90 backdrop-blur-md p-3 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-white/50 text-blue-500 hover:bg-blue-50 transition-colors flex flex-col items-center gap-1 relative overflow-hidden ${washingAnimation ? 'wash shadow-[0_0_20px_rgba(59,130,246,0.5)] scale-125' : ''} ${dragOverLavadora && !washingAnimation ? 'animate-bounce ring-4 ring-blue-300' : ''}`}
+                        >
+                          <WashingMachine size={22} className={washingAnimation ? 'animate-spin' : ''} />
+                          {garments.filter(g => g.isWashing).length > 0 && !washingAnimation && (
+                            <div className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold shadow-sm">
+                              {garments.filter(g => g.isWashing).length}
+                            </div>
+                          )}
+                        </button>
+                        <span className="text-[10px] font-bold text-gray-600 bg-white/80 px-2 py-0.5 rounded-full mt-2 shadow-sm">Lavar</span>
+                      </motion.div>
 
-                    {/* Probar Bubble */}
-                    <div className="flex flex-col items-center">
-                      <button
-                        onClick={() => { 
-                          /* Default opens empty try-on or forces a garment? We simply close menu if nothing is selected or notify */
-                          setShowWardrobeSubmenu(false); 
-                          if (garments.length > 0 && !activeTryOn) setActiveTryOn(garments[0]); // fallback to try on FIRST garment
-                          setShowFittingRoom(true); 
-                        }}
-                        onDragOver={(e) => { e.preventDefault(); setDragOverProbar(true); }}
-                        onDragLeave={() => setDragOverProbar(false)}
-                        onDrop={(e) => { setDragOverProbar(false); handleDropFittingRoom(e); }}
-                        className={`bg-white/90 backdrop-blur-sm p-3 rounded-full shadow-[0_8px_16px_rgba(0,0,0,0.1)] border border-white/50 text-pink-500 hover:scale-110 hover:bg-pink-50 transition-all flex flex-col items-center gap-1 relative overflow-hidden ${dragOverProbar ? 'animate-pulse ring-4 ring-pink-300' : ''}`}
-                      >
-                        <Wand2 size={22} className={dragOverProbar ? 'scale-110' : ''} />
-                      </button>
-                      <span className="text-[10px] font-bold text-gray-600 bg-white/80 px-2 py-0.5 rounded-full mt-1.5 shadow-sm">Probar</span>
-                    </div>
-                  </div>
-                )}
+                      {/* Probar Bubble */}
+                      <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="flex flex-col items-center">
+                        <button
+                          onClick={() => { 
+                            setShowWardrobeSubmenu(false); 
+                            if (garments.length > 0 && !activeTryOn) setActiveTryOn(garments[0]);
+                            setShowFittingRoom(true); 
+                          }}
+                          onDragOver={(e) => { e.preventDefault(); setDragOverProbar(true); }}
+                          onDragLeave={() => setDragOverProbar(false)}
+                          onDrop={(e) => { setDragOverProbar(false); handleDropFittingRoom(e); }}
+                          className={`bg-white/90 backdrop-blur-md p-3 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-white/50 text-pink-500 hover:bg-pink-50 transition-colors flex flex-col items-center gap-1 relative overflow-hidden ${dragOverProbar ? 'animate-pulse ring-4 ring-pink-300' : ''}`}
+                        >
+                          <Wand2 size={22} className={dragOverProbar ? 'scale-110' : ''} />
+                        </button>
+                        <span className="text-[10px] font-bold text-gray-600 bg-white/80 px-2 py-0.5 rounded-full mt-2 shadow-sm">Probar</span>
+                      </motion.div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
                 <button
                   onClick={() => {
                     if (isActive) setShowWardrobeSubmenu(!showWardrobeSubmenu);

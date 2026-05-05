@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Garment, UserState } from '../types';
-import { X, Camera, RotateCw, ZoomIn, ZoomOut, Check, ArrowLeft, Plus, Save, Layers, FlipHorizontal } from 'lucide-react';
+import { X, Camera, RotateCw, ZoomIn, ZoomOut, Check, ArrowLeft, Plus, Save, Layers, FlipHorizontal, Trash2, Video, VideoOff, ChevronUp, ChevronDown } from 'lucide-react';
 import { useLanguage } from '../src/context/LanguageContext';
 import { useGlobalState } from '../src/context/GlobalStateContext';
 import html2canvas from 'html2canvas';
@@ -35,9 +36,13 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
 
   // UI Flow states
   const [showPicker, setShowPicker] = useState(false);
+  const [showLayers, setShowLayers] = useState(false);
   const [showNamePrompt, setShowNamePrompt] = useState(false);
+  const [isMirrorMode, setIsMirrorMode] = useState(false);
   const [lookName, setLookName] = useState('');
   const [savingMsg, setSavingMsg] = useState('');
+  
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -53,7 +58,10 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => setBgImage(reader.result as string);
+      reader.onloadend = () => {
+          setBgImage(reader.result as string);
+          setIsMirrorMode(false);
+      };
       reader.readAsDataURL(file);
 
       try {
@@ -63,6 +71,35 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
       } catch (err) {
         console.warn('Could not save avatar directly', err);
       }
+    }
+  };
+
+  const toggleMirrorMode = async () => {
+    if (!isMirrorMode) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          setIsMirrorMode(true);
+          setBgImage(null);
+        }
+      } catch (err) {
+        console.error("Camera access denied", err);
+        alert("No se pudo acceder a la cámara");
+      }
+    } else {
+      const stream = videoRef.current?.srcObject as MediaStream;
+      stream?.getTracks().forEach(track => track.stop());
+      setIsMirrorMode(false);
+      setBgImage(user.fullBodyAvatar || null);
+    }
+  };
+
+  const triggerHaptic = (type: 'light' | 'medium' | 'success' = 'light') => {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      if (type === 'light') navigator.vibrate(10);
+      else if (type === 'medium') navigator.vibrate(20);
+      else if (type === 'success') navigator.vibrate([10, 30, 10]);
     }
   };
 
@@ -174,15 +211,17 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
     setItems(prev => [...prev, { id: newId, garment: g, pos: { x: 0, y: 0 }, scale: 1, rotation: 0, flipped: false }]);
     setActiveId(newId);
     setShowPicker(false);
+    triggerHaptic('medium');
   };
 
-  const handleRemoveItem = (id: string, e: React.MouseEvent | React.TouchEvent) => {
-    e.stopPropagation();
+  const handleRemoveItem = (id: string, e?: React.MouseEvent | React.TouchEvent) => {
+    e?.stopPropagation();
     setItems(prev => {
         const next = prev.filter(i => i.id !== id);
         if (activeId === id) setActiveId(next.length ? next[next.length - 1].id : null);
         return next;
     });
+    triggerHaptic('light');
   };
 
   const handleModifier = (action: 'zoomIn' | 'zoomOut' | 'rotate' | 'flip' | 'forward' | 'backward') => {
@@ -206,6 +245,7 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
 
     setItems(prev => prev.map(item => {
       if (item.id === activeId) {
+        triggerHaptic('light');
         if (action === 'zoomOut') return { ...item, scale: Math.max(0.2, item.scale - 0.1) };
         if (action === 'zoomIn') return { ...item, scale: Math.min(5, item.scale + 0.1) };
         if (action === 'rotate') return { ...item, rotation: item.rotation + 15 };
@@ -255,12 +295,20 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
       <div className="absolute top-0 w-full z-20 flex justify-between items-center p-4 bg-gradient-to-b from-black/80 to-transparent">
         <button 
           onClick={onClose}
-          className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white"
+          className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white border border-white/10"
         >
           <X size={20} />
         </button>
-        <span className="text-white text-sm font-bold tracking-widest uppercase">Tu Modelo Virtual</span>
-        <div className="w-10" />
+        <div className="flex flex-col items-center">
+            <span className="text-white text-[10px] font-bold tracking-[0.2em] uppercase opacity-70">Probador Virtual</span>
+            <span className="text-white text-xs font-bold uppercase">Estilo Vivo</span>
+        </div>
+        <button 
+          onClick={toggleMirrorMode}
+          className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${isMirrorMode ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/50' : 'bg-white/10 text-white backdrop-blur-md border border-white/10'}`}
+        >
+          {isMirrorMode ? <Video size={20} /> : <VideoOff size={20} />}
+        </button>
       </div>
 
       {/* RENDER AREA (We target this ref directly for html2canvas) */}
@@ -278,17 +326,26 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
         onTouchCancel={handleTouchEnd}
       >
         {/* Background Overlay Layer */}
-        {bgImage ? (
+        {isMirrorMode && (
+            <video 
+                ref={videoRef} 
+                autoPlay 
+                playsInline 
+                className="absolute inset-0 w-full h-full object-cover scale-x-[-1]" 
+            />
+        )}
+        
+        {bgImage && !isMirrorMode ? (
           <img 
             src={bgImage} 
             alt="Modelo" 
             className="absolute w-full h-full object-contain opacity-90 pointer-events-none"
           />
-        ) : (
+        ) : !isMirrorMode && (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-white/50 px-8 text-center pointer-events-none">
-            <Camera size={48} className="mb-4 opacity-50" />
+            <Camera size={48} className="mb-4 opacity-30" />
             <p className="text-sm font-bold">No tienes modelo guardado.</p>
-            <p className="text-xs mt-2">Usa el botón de abajo para subir una foto tuya de cuerpo entero.</p>
+            <p className="text-xs mt-2">Sube una foto o activa el modo espejo arriba.</p>
           </div>
         )}
 
@@ -323,7 +380,7 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
               <img 
                 src={item.garment.imageUrl} 
                 alt={item.garment.name} 
-                className="h-64 object-contain mix-blend-multiply pointer-events-none"
+                className="h-64 object-contain pointer-events-none"
                 draggable="false"
               />
             </div>
@@ -333,23 +390,23 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
       {/* FOOTER CONTROLS */}
       <div className="absolute bottom-6 w-full z-20 px-6 flex flex-col items-center gap-4">
         <div className="flex gap-2 flex-wrap justify-center">
-           <button onClick={() => handleModifier('zoomOut')} className="p-3 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/10 active:bg-white/40">
+           <button onClick={() => handleModifier('zoomOut')} className="p-3 rounded-full bg-white/10 backdrop-blur-md text-white border border-white/10 active:bg-white/30 transition-colors">
              <ZoomOut size={18} />
            </button>
-           <button onClick={() => handleModifier('zoomIn')} className="p-3 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/10 active:bg-white/40">
+           <button onClick={() => handleModifier('zoomIn')} className="p-3 rounded-full bg-white/10 backdrop-blur-md text-white border border-white/10 active:bg-white/30 transition-colors">
              <ZoomIn size={18} />
            </button>
-           <button onClick={() => handleModifier('rotate')} className="p-3 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/10 active:bg-white/40">
+           <button onClick={() => handleModifier('rotate')} className="p-3 rounded-full bg-white/10 backdrop-blur-md text-white border border-white/10 active:bg-white/30 transition-colors">
              <RotateCw size={18} />
            </button>
-           <button onClick={() => handleModifier('flip')} title="Voltear" className="p-3 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/10 active:bg-white/40">
+           <button onClick={() => handleModifier('flip')} title="Voltear" className="p-3 rounded-full bg-white/10 backdrop-blur-md text-white border border-white/10 active:bg-white/30 transition-colors">
              <FlipHorizontal size={18} />
            </button>
            <div className="w-[1px] h-10 bg-white/10 mx-1" />
-           <button onClick={() => handleModifier('backward')} title="Enviar atrás" className="p-3 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/10 active:bg-white/40">
-             <Layers size={18} className="rotate-180" />
-           </button>
-           <button onClick={() => handleModifier('forward')} title="Traer adelante" className="p-3 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/10 active:bg-white/40">
+           <button 
+             onClick={() => setShowLayers(!showLayers)} 
+             className={`p-3 rounded-full border transition-all ${showLayers ? 'bg-primary text-white border-primary' : 'bg-white/10 backdrop-blur-md text-white border border-white/10'}`}
+           >
              <Layers size={18} />
            </button>
         </div>
@@ -382,73 +439,128 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
         </div>
       </div>
 
-      {/* GARMENT PICKER DRAWER */}
-      {showPicker && (
-        <div className="absolute bottom-0 w-full bg-black/60 backdrop-blur-2xl rounded-t-3xl border-t border-white/10 p-6 z-50 animate-fade-in-up">
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="text-white font-bold text-sm tracking-widest uppercase">Tu Armario</h3>
-                <button onClick={() => setShowPicker(false)} className="bg-white/10 rounded-full p-1 text-white">
-                    <X size={18} />
-                </button>
-            </div>
-            
-            {garments.length === 0 ? (
-                <p className="text-white/50 text-center text-sm py-8">No tienes más prendas en el armario.</p>
-            ) : (
-                <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar" style={{WebkitOverflowScrolling: 'touch'}}>
-                {garments.map(g => (
+      {/* LAYERS PANEL */}
+      <AnimatePresence>
+        {showLayers && (
+            <motion.div 
+                initial={{ x: 300 }}
+                animate={{ x: 0 }}
+                exit={{ x: 300 }}
+                className="absolute right-0 top-24 bottom-32 w-20 bg-black/40 backdrop-blur-xl border-l border-white/10 z-30 flex flex-col items-center py-4 gap-4 overflow-y-auto no-scrollbar"
+            >
+                <div className="text-[8px] font-bold text-white/50 uppercase tracking-widest vertical-text mb-2">Capas</div>
+                {[...items].reverse().map((item, idx) => (
                     <div 
-                      key={g.id} 
-                      onClick={() => handleAddGarment(g)} 
-                      className="flex-shrink-0 w-20 h-20 bg-white/10 rounded-2xl border border-white/5 p-2 flex items-center justify-center cursor-pointer hover:bg-white/20 transition-colors"
+                        key={item.id}
+                        onClick={() => { setActiveId(item.id); triggerHaptic('light'); }}
+                        className={`relative w-14 h-14 rounded-xl border-2 transition-all overflow-hidden flex-shrink-0 ${activeId === item.id ? 'border-primary ring-2 ring-primary/30' : 'border-white/10 opacity-60'}`}
                     >
-                        <img src={g.imageUrl} className="max-w-full max-h-full object-contain drop-shadow-md pointer-events-none" />
+                        <img src={item.garment.imageUrl} className="w-full h-full object-contain p-1" />
+                        <div className="absolute bottom-0 right-0 bg-black/60 text-[8px] text-white px-1 font-bold">
+                            {items.length - idx}
+                        </div>
                     </div>
                 ))}
+            </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* GARMENT PICKER DRAWER */}
+      <AnimatePresence>
+        {showPicker && (
+            <motion.div 
+                initial={{ y: 300 }}
+                animate={{ y: 0 }}
+                exit={{ y: 300 }}
+                className="absolute bottom-0 w-full bg-black/80 backdrop-blur-2xl rounded-t-[2.5rem] border-t border-white/20 p-6 z-50 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]"
+            >
+                <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-6" />
+                <div className="flex justify-between items-center mb-6 px-2">
+                    <h3 className="text-white font-bold text-lg tracking-tight">Añadir Prenda</h3>
+                    <button 
+                        onClick={() => setShowPicker(false)} 
+                        className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center text-white"
+                    >
+                        <X size={18} />
+                    </button>
                 </div>
-            )}
-        </div>
-      )}
+                
+                {garments.length === 0 ? (
+                    <p className="text-white/50 text-center text-sm py-12">No tienes más prendas en el armario.</p>
+                ) : (
+                    <div className="flex gap-4 overflow-x-auto pb-6 no-scrollbar snap-x">
+                    {garments.map(g => (
+                        <motion.div 
+                        whileHover={{ y: -5 }}
+                        whileTap={{ scale: 0.95 }}
+                        key={g.id} 
+                        onClick={() => handleAddGarment(g)} 
+                        className="flex-shrink-0 w-24 h-24 bg-white/5 rounded-3xl border border-white/10 p-3 flex items-center justify-center cursor-pointer hover:bg-white/10 transition-colors snap-center"
+                        >
+                            <img src={g.imageUrl} className="max-w-full max-h-full object-contain drop-shadow-2xl pointer-events-none" />
+                        </motion.div>
+                    ))}
+                    </div>
+                )}
+            </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* SAVE PROMPT */}
-      {showNamePrompt && (
-        <div className="absolute inset-0 bg-black/80 z-[200] flex items-center justify-center p-6 backdrop-blur-sm animate-fade-in">
-            <div className="bg-white rounded-3xl p-6 w-full max-w-sm flex flex-col gap-4 shadow-2xl">
-                <h3 className="font-bold text-xl text-gray-800 text-center">Guardar Outfit</h3>
-                {savingMsg ? (
-                    <div className="flex items-center justify-center py-6">
-                        <span className="animate-pulse font-bold text-primary text-lg">{savingMsg}</span>
+      <AnimatePresence>
+        {showNamePrompt && (
+            <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-black/60 z-[200] flex items-center justify-center p-6 backdrop-blur-md"
+            >
+                <motion.div 
+                    initial={{ scale: 0.9, y: 20 }}
+                    animate={{ scale: 1, y: 0 }}
+                    className="bg-white rounded-[2.5rem] p-8 w-full max-w-sm flex flex-col gap-6 shadow-2xl"
+                >
+                    <div className="text-center">
+                        <h3 className="font-bold text-2xl text-gray-900">¡Look espectacular!</h3>
+                        <p className="text-sm text-gray-500 mt-1">Dale un nombre a tu creación</p>
                     </div>
-                ) : (
-                    <>
-                        <input 
-                            type="text" 
-                            placeholder="Ej: Conjunto de verano..." 
-                            value={lookName} 
-                            onChange={e => setLookName(e.target.value)} 
-                            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-medium text-black"
-                            autoFocus
-                        />
-                        <div className="flex gap-3 mt-2">
-                            <button 
-                              onClick={() => { setShowNamePrompt(false); setActiveId(items.length ? items[items.length-1].id : null); }} 
-                              className="flex-1 py-3 bg-gray-100 rounded-xl font-bold text-gray-500 hover:bg-gray-200 transition-colors"
-                            >
-                                Cancelar
-                            </button>
-                            <button 
-                              onClick={handleSaveComposite} 
-                              disabled={!lookName.trim()}
-                              className="flex-1 py-3 bg-primary text-white rounded-xl font-bold disabled:opacity-50 hover:bg-pink-600 shadow-md shadow-primary/30 transition-all"
-                            >
-                                Guardar
-                            </button>
+                    
+                    {savingMsg ? (
+                        <div className="flex flex-col items-center justify-center py-10 gap-4">
+                            <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                            <span className="font-bold text-primary">{savingMsg}</span>
                         </div>
-                    </>
-                )}
-            </div>
-        </div>
-      )}
+                    ) : (
+                        <>
+                            <input 
+                                type="text" 
+                                placeholder="Ej: Outfit cena viernes ✨" 
+                                value={lookName} 
+                                onChange={e => setLookName(e.target.value)} 
+                                className="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl px-6 py-4 text-base focus:outline-none focus:border-primary transition-colors font-medium text-black"
+                                autoFocus
+                            />
+                            <div className="flex gap-3">
+                                <button 
+                                onClick={() => { setShowNamePrompt(false); setActiveId(items.length ? items[items.length-1].id : null); }} 
+                                className="flex-1 py-4 bg-gray-100 rounded-2xl font-bold text-gray-500 hover:bg-gray-200 transition-colors"
+                                >
+                                    Volver
+                                </button>
+                                <button 
+                                onClick={handleSaveComposite} 
+                                disabled={!lookName.trim()}
+                                className="flex-1 py-4 bg-primary text-white rounded-2xl font-bold disabled:opacity-50 hover:bg-pink-600 shadow-xl shadow-primary/30 transition-all"
+                                >
+                                    Guardar
+                                </button>
+                            </div>
+                        </>
+                    )}
+                </motion.div>
+            </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );
