@@ -77,17 +77,29 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
   const toggleMirrorMode = async () => {
     if (!isMirrorMode) {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+        // Use simpler constraints first
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: true 
+        });
+        
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           setIsMirrorMode(true);
           setBgImage(null);
+          triggerHaptic('success');
         }
       } catch (err) {
-        console.error("Camera access denied", err);
-        setIsMirrorMode(false); // Reset state on error
+        console.error("Camera access error:", err);
+        setIsMirrorMode(false);
         setBgImage(user.fullBodyAvatar || null);
-        alert("No se pudo acceder a la cámara. Verifica los permisos o si tienes una cámara conectada.");
+        
+        let msg = "No se pudo acceder a la cámara.";
+        if (err instanceof DOMException && err.name === 'NotFoundError') {
+          msg += " No se encontró ningún dispositivo de vídeo. Asegúrate de que tu cámara esté conectada y no esté siendo usada por otra aplicación.";
+        } else if (err instanceof DOMException && err.name === 'NotAllowedError') {
+          msg += " Permiso denegado. Por favor, permite el acceso a la cámara en los ajustes de tu navegador.";
+        }
+        alert(msg);
       }
     } else {
       const stream = videoRef.current?.srcObject as MediaStream;
