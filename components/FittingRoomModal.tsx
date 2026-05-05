@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Garment, UserState } from '../types';
-import { X, Camera, RotateCw, ZoomIn, ZoomOut, Check, ArrowLeft, Plus, Save, Layers, FlipHorizontal, Trash2, Video, VideoOff, ChevronUp, ChevronDown } from 'lucide-react';
+import { X, Camera, RotateCw, ZoomIn, ZoomOut, Check, ArrowLeft, Plus, Save, Layers, FlipHorizontal, Trash2, Video, VideoOff, ChevronUp, ChevronDown, RefreshCcw } from 'lucide-react';
 import { useLanguage } from '../src/context/LanguageContext';
 import { useGlobalState } from '../src/context/GlobalStateContext';
 import html2canvas from 'html2canvas';
