@@ -85,7 +85,9 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
         }
       } catch (err) {
         console.error("Camera access denied", err);
-        alert("No se pudo acceder a la cámara");
+        setIsMirrorMode(false); // Reset state on error
+        setBgImage(user.fullBodyAvatar || null);
+        alert("No se pudo acceder a la cámara. Verifica los permisos o si tienes una cámara conectada.");
       }
     } else {
       const stream = videoRef.current?.srcObject as MediaStream;
@@ -353,9 +355,9 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
         {items.map((item) => (
             <div 
               key={item.id}
-              onClick={(e) => { e.stopPropagation(); setActiveId(item.id); }}
-              onTouchStart={(e) => { e.stopPropagation(); setActiveId(item.id); }}
-              className={`absolute origin-center will-change-transform ${activeId === item.id ? 'z-10' : 'z-0'}`}
+              onMouseDown={(e) => { e.stopPropagation(); setActiveId(item.id); triggerHaptic('light'); }}
+              onTouchStart={(e) => { e.stopPropagation(); setActiveId(item.id); triggerHaptic('light'); }}
+              className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 origin-center will-change-transform ${activeId === item.id ? 'z-10' : 'z-0'}`}
               style={{
                 transform: `translate3d(${item.pos.x}px, ${item.pos.y}px, 0) scale(${item.scale}) rotate(${item.rotation}deg) ${item.flipped ? 'scaleX(-1)' : ''}`,
                 transition: isDragging.current ? 'none' : 'transform 0.05s linear',
@@ -401,6 +403,17 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
            </button>
            <button onClick={() => handleModifier('flip')} title="Voltear" className="p-3 rounded-full bg-white/10 backdrop-blur-md text-white border border-white/10 active:bg-white/30 transition-colors">
              <FlipHorizontal size={18} />
+           </button>
+           <button 
+             onClick={() => {
+               if (!activeId) return;
+               setItems(prev => prev.map(item => item.id === activeId ? { ...item, pos: { x: 0, y: 0 }, scale: 1, rotation: 0 } : item));
+               triggerHaptic('medium');
+             }}
+             title="Centrar"
+             className="p-3 rounded-full bg-white/10 backdrop-blur-md text-white border border-white/10 active:bg-white/30 transition-colors"
+           >
+             <RefreshCcw size={18} />
            </button>
            <div className="w-[1px] h-10 bg-white/10 mx-1" />
            <button 
