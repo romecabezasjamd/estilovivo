@@ -16,6 +16,18 @@
   }
 }
 </script>
+  <script>
+    // Force clear old service workers and problematic localStorage cache
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for(let registration of registrations) {
+          registration.unregister();
+        }
+      });
+    }
+    localStorage.removeItem('ev_chat_draft');
+    localStorage.removeItem('ev_chat_open');
+  </script>
 </head>
 
 <body>
