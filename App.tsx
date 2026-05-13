@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Layout from './components/Layout';
 import Home from './pages/Home';
@@ -14,7 +14,23 @@ import { useLanguage, LanguageProvider } from './src/context/LanguageContext';
 
 const AppContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState('home');
+  const [socialSubTab, setSocialSubTab] = useState<string | null>(null);
   const { t } = useLanguage();
+
+  // Listen for global navigation events (e.g. from notification clicks)
+  useEffect(() => {
+    const handleNavigate = (e: CustomEvent) => {
+      const { tab, subTab } = e.detail || {};
+      if (tab) {
+        setActiveTab(tab);
+        if (subTab) {
+          setSocialSubTab(subTab);
+        }
+      }
+    };
+    window.addEventListener('navigateTo', handleNavigate as EventListener);
+    return () => window.removeEventListener('navigateTo', handleNavigate as EventListener);
+  }, []);
 
   const {
     user, garments, looks, planner, trips, isLoading,
@@ -81,7 +97,7 @@ const AppContent: React.FC = () => {
           />
         );
       case 'social':
-        return <Social user={user} garments={garments} onNavigate={setActiveTab} />;
+        return <Social user={user} garments={garments} onNavigate={setActiveTab} initialSubTab={socialSubTab} onSubTabConsumed={() => setSocialSubTab(null)} />;
       case 'profile':
         return (
           <Profile

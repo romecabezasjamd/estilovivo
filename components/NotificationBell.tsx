@@ -9,6 +9,7 @@ interface Notification {
     content: string;
     isRead: boolean;
     createdAt: string;
+    data?: any;
 }
 
 const NotificationBell: React.FC = () => {
@@ -18,7 +19,6 @@ const NotificationBell: React.FC = () => {
     const { t } = useLanguage();
 
     useEffect(() => {
-        // Fetch initial notifications
         const fetchNotifications = async () => {
             try {
                 const res = await fetch('/api/notifications', { credentials: 'include' });
@@ -34,7 +34,6 @@ const NotificationBell: React.FC = () => {
         const hasSession = localStorage.getItem('beyour_user');
         if (hasSession) fetchNotifications();
 
-        // Setup Socket
         const newSocket = io(process.env.NODE_ENV === 'production' ? 'https://estilovivo.xyoncloud.win' : 'http://localhost:3000', {
             withCredentials: true,
             autoConnect: true
@@ -42,7 +41,6 @@ const NotificationBell: React.FC = () => {
 
         setSocket(newSocket);
 
-        // Get user id from localStorage session
         const userStr = localStorage.getItem('beyour_user');
         if (userStr) {
             try {
@@ -64,20 +62,51 @@ const NotificationBell: React.FC = () => {
 
     const unreadCount = notifications.filter(n => !n.isRead).length;
 
-    const handleMarkAsRead = async (id: string, e: React.MouseEvent) => {
+    const handleNotificationClick = async (notif: Notification, e: React.MouseEvent) => {
         e.stopPropagation();
-        try {
-            await fetch(`/api/notifications/${id}/read`, {
-                method: 'PUT',
-                credentials: 'include'
-            });
-            setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
-        } catch (e) {
-            console.error(e);
+        
+        // Mark as read
+        if (!notif.isRead) {
+            try {
+                await fetch(`/api/notifications/${notif.id}/read`, {
+                    method: 'PUT',
+                    credentials: 'include'
+                });
+                setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isRead: true } : n));
+            } catch (err) {
+                console.error(err);
+            }
+        }
+        
+        // Navigate based on notification type
+        if (notif.type === 'CHAT') {
+            if (notif.data?.conversationId) {
+                localStorage.setItem('ev_chat_open', notif.data.conversationId);
+            }
+            setIsOpen(false);
+            window.dispatchEvent(new CustomEvent('navigateTo', { detail: { tab: 'social', subTab: 'chat' } }));
+        } else if (notif.type === 'LIKE' || notif.type === 'COMMENT') {
+            setIsOpen(false);
+            window.dispatchEvent(new CustomEvent('navigateTo', { detail: { tab: 'social', subTab: 'feed' } }));
+        } else if (notif.type === 'FOLLOW') {
+            setIsOpen(false);
+            window.dispatchEvent(new CustomEvent('navigateTo', { detail: { tab: 'profile' } }));
+        } else {
+            setIsOpen(false);
         }
     };
 
     const handleClickOutside = () => setIsOpen(false);
+
+    const getNotificationIcon = (type: string) => {
+        switch (type) {
+            case 'CHAT': return '\uD83D\uDCAC';
+            case 'LIKE': return '\u2764\uFE0F';
+            case 'COMMENT': return '\uD83D\uDCAD';
+            case 'FOLLOW': return '\uD83D\uDC64';
+            default: return '\uD83D\uDD14';
+        }
+    };
 
     return (
         <div className="fixed top-6 right-6 z-[100]">
@@ -112,12 +141,12 @@ const NotificationBell: React.FC = () => {
                                         {notifications.map(notif => (
                                             <div
                                                 key={notif.id}
-                                                onClick={(e) => { if (!notif.isRead) handleMarkAsRead(notif.id, e); }}
+                                                onClick={(e) => handleNotificationClick(notif, e)}
                                                 className={`p-4 hover:bg-gray-50 transition-colors cursor-pointer ${!notif.isRead ? 'bg-primary/5' : ''}`}
                                             >
                                                 <div className="flex gap-3">
-                                                    <div className={`w-2 h-2 mt-1.5 rounded-full flex-shrink-0 ${!notif.isRead ? 'bg-primary' : 'bg-transparent'}`} />
-                                                    <div>
+                                                    <span className="text-base flex-shrink-0 mt-0.5">{getNotificationIcon(notif.type)}</span>
+                                                    <div className="flex-1 min-w-0">
                                                         <p className={`text-sm leading-snug ${!notif.isRead ? 'font-bold text-gray-900' : 'text-gray-600'}`}>
                                                             {notif.content}
                                                         </p>
@@ -125,6 +154,9 @@ const NotificationBell: React.FC = () => {
                                                             {new Date(notif.createdAt).toLocaleDateString()} a las {new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                         </p>
                                                     </div>
+                                                    {!notif.isRead && (
+                                                        <div className="w-2 h-2 mt-2 rounded-full bg-primary flex-shrink-0" />
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}

@@ -77,13 +77,13 @@ export async function processImage(
         const memBefore = process.memoryUsage().rss / 1024 / 1024;
         logger.info(`Starting AI removal (Model: small). Memory: ${memBefore.toFixed(2)} MB`, { filename });
         
-        // Timeout wrapper
+        // Longer timeout for slower servers
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('AI Processing Timeout (15s)')), 15000)
+          setTimeout(() => reject(new Error('AI Processing Timeout (45s)')), 45000)
         );
 
         const config: Config = {
-          model: 'small', // Lightest model to prevent OOM
+          model: 'small',
           debug: false,
         };
 
@@ -96,15 +96,36 @@ export async function processImage(
         logger.info(`AI removal successful. Memory: ${memAfter.toFixed(2)} MB`, { filename });
       } catch (aiError) {
         logger.warn('AI background removal failed or timed out, applying smart fallback...', { error: aiError, filename });
-        // Smart fallback: If it's a studio photo (on white/grey), Sharp can trim it
+        // Smart fallback: trim near-white/grey backgrounds and ensure transparency
         try {
-          const buffer = await sharp(inputPath)
+          const metadata = await sharp(inputPath).metadata();
+          const { width = 800, height = 800 } = metadata;
+          
+          // Strategy: trim white/grey borders, then convert near-white pixels to transparent
+          const { data, info } = await sharp(inputPath)
             .rotate()
             .ensureAlpha()
-            .trim({ threshold: 12 }) // Trims near-white surroundings
+            .raw()
+            .toBuffer({ resolveWithObject: true });
+          
+          // Make near-white pixels transparent (threshold approach)
+          const pixels = new Uint8Array(data);
+          const threshold = 240; // pixels brighter than this become transparent
+          for (let i = 0; i < pixels.length; i += 4) {
+            const r = pixels[i], g = pixels[i + 1], b = pixels[i + 2];
+            if (r > threshold && g > threshold && b > threshold) {
+              pixels[i + 3] = 0; // Set alpha to 0 (transparent)
+            }
+          }
+          
+          sourceInput = await sharp(Buffer.from(pixels), {
+            raw: { width: info.width, height: info.height, channels: 4 }
+          })
+            .trim({ threshold: 5 })
+            .png()
             .toBuffer();
-          sourceInput = buffer;
-          logger.info('Smart fallback removal applied', { filename });
+          
+          logger.info('Smart fallback removal applied (white-to-transparent)', { filename });
         } catch (fallbackError) {
           logger.error('Background removal fallback failed as well', { error: fallbackError, filename });
           sourceInput = inputPath; // Fallback to original if everything fails

@@ -27,6 +27,17 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
   const { garments } = useGlobalState();
   
   const [bgImage, setBgImage] = useState<string | null>(user.fullBodyAvatar || null);
+
+  // Cleanup camera on unmount
+  useEffect(() => {
+    return () => {
+      // Stop any active camera stream when modal closes
+      const video = document.querySelector('video[autoplay]') as HTMLVideoElement;
+      if (video?.srcObject) {
+        (video.srcObject as MediaStream).getTracks().forEach(t => t.stop());
+      }
+    };
+  }, []);
   
   // Transform states
   const [items, setItems] = useState<InteractiveGarment[]>([
@@ -77,33 +88,51 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
   const toggleMirrorMode = async () => {
     if (!isMirrorMode) {
       try {
-        // Use simpler constraints first
+        // Request camera with simple constraints for max compatibility
         const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: true 
+          video: true,
+          audio: false
         });
         
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
+          // Some browsers need muted + explicit play() for autoplay to work
+          videoRef.current.muted = true;
+          videoRef.current.playsInline = true;
+          
+          // Wait for metadata to load, then play
+          videoRef.current.onloadedmetadata = () => {
+            videoRef.current?.play().catch(playErr => {
+              console.warn('Video play() failed:', playErr);
+            });
+          };
+          
           setIsMirrorMode(true);
           setBgImage(null);
           triggerHaptic('success');
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Camera access error:", err);
         setIsMirrorMode(false);
         setBgImage(user.fullBodyAvatar || null);
         
         let msg = "No se pudo acceder a la cámara.";
-        if (err instanceof DOMException && err.name === 'NotFoundError') {
-          msg += " No se encontró ningún dispositivo de vídeo. Asegúrate de que tu cámara esté conectada y no esté siendo usada por otra aplicación.";
-        } else if (err instanceof DOMException && err.name === 'NotAllowedError') {
-          msg += " Permiso denegado. Por favor, permite el acceso a la cámara en los ajustes de tu navegador.";
+        if (err?.name === 'NotFoundError') {
+          msg += " No se encontró ningún dispositivo de vídeo. Asegúrate de que tu cámara no esté siendo usada por otra app (Zoom, Teams, etc).";
+        } else if (err?.name === 'NotAllowedError') {
+          msg += " Permiso denegado. Haz clic en el icono de candado en la barra de direcciones y permite el acceso a la cámara.";
+        } else if (err?.name === 'NotReadableError') {
+          msg += " La cámara está en uso por otra aplicación. Cierra cualquier app que use la cámara e inténtalo de nuevo.";
         }
         alert(msg);
       }
     } else {
+      // Stop camera
       const stream = videoRef.current?.srcObject as MediaStream;
       stream?.getTracks().forEach(track => track.stop());
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
       setIsMirrorMode(false);
       setBgImage(user.fullBodyAvatar || null);
     }
@@ -344,7 +373,8 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
             <video 
                 ref={videoRef} 
                 autoPlay 
-                playsInline 
+                playsInline
+                muted
                 className="absolute inset-0 w-full h-full object-cover scale-x-[-1]" 
             />
         )}

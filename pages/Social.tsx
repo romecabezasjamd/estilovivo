@@ -9,11 +9,21 @@ interface SocialProps {
   user: UserState;
   garments: Garment[];
   onNavigate: (tab: string) => void;
+  initialSubTab?: string | null;
+  onSubTabConsumed?: () => void;
 }
 
-const Social: React.FC<SocialProps> = ({ user, garments, onNavigate }) => {
+const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubTab, onSubTabConsumed }) => {
   // Main tabs: 'feed', 'shop', 'trends', 'favorites', 'chat'
   const [activeTab, setActiveTab] = useState<'feed' | 'shop' | 'trends' | 'favorites' | 'chat'>('feed');
+
+  // Handle deep-linking from notifications
+  useEffect(() => {
+    if (initialSubTab && ['feed', 'shop', 'trends', 'favorites', 'chat'].includes(initialSubTab)) {
+      setActiveTab(initialSubTab as any);
+      onSubTabConsumed?.();
+    }
+  }, [initialSubTab]);
 
   // Community Feed & Shop
   const [selectedItem, setSelectedItem] = useState<ProductDisplayItem | null>(null);
@@ -131,26 +141,34 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate }) => {
     const draftRaw = localStorage.getItem('ev_chat_draft');
     const openId = localStorage.getItem('ev_chat_open');
 
+    // Always clean up drafts immediately to prevent stale data
+    localStorage.removeItem('ev_chat_draft');
+
     setLoadingConversations(true);
     try {
       if (draftRaw) {
         const draft = JSON.parse(draftRaw);
-        if (draft.targetUserId) {
-          const created = await api.createConversation({
-            targetUserId: draft.targetUserId,
-            itemId: draft.itemId,
-            itemTitle: draft.itemTitle,
-            itemImage: draft.itemImage,
-            initialMessage: draft.message,
-          });
-          localStorage.setItem('ev_chat_open', created.id);
+        // Only create conversation if target is NOT yourself
+        if (draft.targetUserId && draft.targetUserId !== currentUserId) {
+          try {
+            const created = await api.createConversation({
+              targetUserId: draft.targetUserId,
+              itemId: draft.itemId,
+              itemTitle: draft.itemTitle,
+              itemImage: draft.itemImage,
+              initialMessage: draft.message,
+            });
+            localStorage.setItem('ev_chat_open', created.id);
+          } catch (draftErr) {
+            console.warn('Could not create conversation from draft:', draftErr);
+          }
         }
-        localStorage.removeItem('ev_chat_draft');
       }
 
       const data = await api.getConversations();
       setConversations(data);
-      const nextId = openId || data[0]?.id || null;
+      const finalOpenId = localStorage.getItem('ev_chat_open') || openId;
+      const nextId = finalOpenId || data[0]?.id || null;
       if (nextId) setSelectedThreadId(nextId);
     } catch (e) {
       console.warn('Error loading conversations:', e);
@@ -158,7 +176,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate }) => {
       setLoadingConversations(false);
       localStorage.removeItem('ev_chat_open');
     }
-  }, []);
+  }, [currentUserId]);
 
   useEffect(() => {
     if (activeTab === 'feed') loadFeed();
@@ -329,9 +347,16 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate }) => {
       return;
     }
 
+    // Prevent chatting with yourself
+    const targetUserId = targetItem.userId || targetItem.user?.id;
+    if (targetUserId === currentUserId) {
+      // It's your own item — no need to chat
+      return;
+    }
+
     try {
       const res = await api.createConversation({
-        targetUserId: targetItem.userId || targetItem.user?.id,
+        targetUserId,
         itemId: targetItem.id,
         itemTitle: targetItem.title || targetItem.name,
         itemImage: targetItem.image || targetItem.imageUrl || targetItem.images?.[0]?.url,
@@ -345,7 +370,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate }) => {
         avatar: targetItem.avatar || targetItem.user?.avatar,
         itemTitle: targetItem.title || targetItem.name,
         itemId: targetItem.id,
-        targetUserId: targetItem.userId || targetItem.user?.id,
+        targetUserId,
         itemImage: targetItem.image || targetItem.imageUrl || targetItem.images?.[0]?.url,
         message: `Hola, me interesa "${targetItem.title || targetItem.name}". ¿Sigue disponible?`
       }));
@@ -743,12 +768,14 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate }) => {
                       <div className="flex items-center pt-2 border-t border-gray-50">
                         <img src={item.avatar} className="w-5 h-5 rounded-full object-cover border border-gray-100 mr-1.5" alt={item.user} />
                         <span className="text-[10px] text-gray-500 truncate">{item.user}</span>
+                        {(item.userId !== currentUserId && (item as any).user?.id !== currentUserId) && (
                         <button
                           onClick={(e) => { e.stopPropagation(); handleStartChat(item); }}
                           className="ml-auto text-[10px] text-primary font-semibold"
                         >
                           Chatear
                         </button>
+                      )}
                       </div>
                     </div>
                   </div>
