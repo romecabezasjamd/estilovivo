@@ -9,6 +9,10 @@ RUN apt-get update && apt-get install -y openssl curl python3 build-essential &&
 # Ensure we install ALL dependencies (including devDependencies) for building
 ENV NODE_ENV=development
 
+# Prisma schema needs DATABASE_URL at build time
+ARG DATABASE_URL
+ENV DATABASE_URL=$DATABASE_URL
+
 WORKDIR /app
 
 # Copiar package.json de ambos lados
@@ -74,6 +78,10 @@ RUN apt-get update && apt-get install -y openssl curl python3 build-essential li
 WORKDIR /app
 
 ENV NODE_ENV=production
+
+# Prisma schema needs DATABASE_URL at build+install time
+ARG DATABASE_URL
+ENV DATABASE_URL=$DATABASE_URL
 
 # Copy Prisma schema BEFORE installing dependencies (needed for postinstall script)
 COPY --from=backend-build /app/server/prisma ./prisma
