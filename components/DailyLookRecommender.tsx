@@ -9,7 +9,7 @@ interface DailyLookRecommenderProps {
   looks: Look[];
   reasoning: string;
   onSelectLook?: (look: Look) => void;
-  onNavigate?: (tab: string) => void;
+  onNavigate?: (tab: string, subTab?: string) => void;
 }
 
 const DailyLookRecommender: React.FC<DailyLookRecommenderProps> = ({
@@ -63,7 +63,7 @@ const DailyLookRecommender: React.FC<DailyLookRecommenderProps> = ({
       {/* More Options */}
       {looks.length > 1 && (
         <button
-          onClick={() => onNavigate?.('create')}
+          onClick={() => onNavigate?.('wardrobe', 'createLook')}
           className="w-full py-2.5 px-4 bg-primary/10 text-primary font-semibold rounded-2xl hover:bg-primary/20 transition-colors flex items-center justify-center gap-2 text-sm"
         >
           {t('viewLooks')} ({looks.length})

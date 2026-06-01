@@ -1,9 +1,21 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Heart, MessageCircle, Bookmark, MoreHorizontal, ShoppingBag, Search, Tag, Send, X, Shirt, Sparkles, CheckCircle2, ArrowRight, ExternalLink, Plus, Camera } from 'lucide-react';
 import ProductDetailModal, { ProductDisplayItem } from '../components/ProductDetailModal';
 import { api } from '../services/api';
-import { Look, UserState, ShopItem, Comment, Garment, ChatConversation, ChatMessage } from '../types';
+import { Look, UserState, ShopItem, Comment, Garment, ChatConversation, ChatMessage, StoryEntry } from '../types';
 import { useLanguage } from '../src/context/LanguageContext';
+import { useGlobalState } from '../src/context/GlobalStateContext';
+import { useLocalStorage } from '../hooks/useLocalStorage';
+import { pickPhoto, dataUrlToFile } from '../src/utils/cameraPhoto';
+import { CameraSource } from '@capacitor/camera';
+
+interface StoryForm {
+  type: 'image' | 'text';
+  text: string;
+  imageUrl: string;
+  selectedGarmentId: string | null;
+  imageFile: File | null;
+}
 
 interface SocialProps {
   user: UserState;
@@ -31,6 +43,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
   const [shopItems, setShopItems] = useState<ShopItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [shopFilter, setShopFilter] = useState('all');
   const [favoritedProductIds, setFavoritedProductIds] = useState<Set<string>>(new Set());
 
   // Comments modal
@@ -53,11 +66,25 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
 
   // Gamification & Top Users
   const [topUsers, setTopUsers] = useState<any[]>([]);
+  const [stories, setStories] = useState<StoryEntry[]>([]);
+  const [selectedStoryId, setSelectedStoryId] = useState<string | null>(null);
+  const [isCreateStoryOpen, setIsCreateStoryOpen] = useState(false);
+  const [storyForm, setStoryForm] = useState<StoryForm>({ type: 'image', text: '', imageUrl: '', selectedGarmentId: null, imageFile: null });
+  const [storyUploadError, setStoryUploadError] = useState<string | null>(null);
+  const [storyToast, setStoryToast] = useState<string | null>(null);
+  const [hasParticipatedInChallenge, setHasParticipatedInChallenge] = useState(false);
+  const [followedUserIds, setFollowedUserIds] = useState<Set<string>>(new Set());
+  const [chatAttachment, setChatAttachment] = useState<string | null>(null);
+  const chatFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [messageReactions, setMessageReactions] = useState<Record<string, string[]>>({});
 
-  // Publish Look Modal
+  // Publish Post Modal (Instagram-style)
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
-  const [publishForm, setPublishForm] = useState({ name: '', isPublic: true, mood: '' });
-  const [selectedPublishGarmentIds, setSelectedPublishGarmentIds] = useState<Set<string>>(new Set());
+  const [publishPhoto, setPublishPhoto] = useState<string | null>(null);
+  const [publishPhotoFile, setPublishPhotoFile] = useState<File | null>(null);
+  const [publishDescription, setPublishDescription] = useState('');
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
 
   // Click-to-Shop Modal
   const [shopModalLook, setShopModalLook] = useState<Look | null>(null);
@@ -72,14 +99,73 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
     }
   }, []);
 
+  const { handleUpdateUser, user: globalUser } = useGlobalState();
+  const activeUser = globalUser || user;
+
   const { t } = useLanguage();
+
+  useLocalStorage<StoryEntry[]>('ev_social_stories', stories);
+
+  useEffect(() => {
+    try {
+      const savedStories = localStorage.getItem('ev_social_stories');
+      const rawStories: StoryEntry[] = savedStories ? JSON.parse(savedStories) : [];
+      const validStories = rawStories.filter(item => new Date(item.expiresAt) > new Date());
+      if (validStories.length !== rawStories.length) {
+        localStorage.setItem('ev_social_stories', JSON.stringify(validStories));
+      }
+      setStories(validStories);
+    } catch (error) {
+      console.warn('No se pudieron cargar las historias guardadas:', error);
+      setStories([]);
+    }
+
+    try {
+      const savedFollowing = localStorage.getItem('ev_social_followed');
+      const list = savedFollowing ? JSON.parse(savedFollowing) : [];
+      setFollowedUserIds(new Set<string>(Array.isArray(list) ? list : []));
+    } catch {
+      setFollowedUserIds(new Set());
+    }
+  }, []);
+
+  // Prioritize stories from followed users
+  const prioritizedStories = useMemo(() => {
+    return [...stories].sort((a, b) => {
+      // Own story always first
+      if (a.isOwn && !b.isOwn) return -1;
+      if (!a.isOwn && b.isOwn) return 1;
+      
+      // Followed users next
+      const aFollowed = followedUserIds.has(a.userId);
+      const bFollowed = followedUserIds.has(b.userId);
+      if (aFollowed && !bFollowed) return -1;
+      if (!aFollowed && bFollowed) return 1;
+      
+      // Then by creation time (newest first)
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  }, [stories, followedUserIds]);
+
+  useEffect(() => {
+    localStorage.setItem('ev_social_followed', JSON.stringify(Array.from(followedUserIds)));
+  }, [followedUserIds]);
 
   // === DATA LOADING ===
   const loadFeed = useCallback(async () => {
     setIsLoading(true);
     try {
       const looks = await api.getCommunityFeed();
-      setFeedLooks(looks);
+      // Filter out sales items from feed - only show user posts, looks, and social content
+      const socialFeed = looks.filter(look => {
+        // Exclude items that are primarily for sale (have forSale garments or price)
+        if (look.garments && look.garments.some(g => g.forSale)) return false;
+        // Exclude items with sales-related mood/tags
+        if (look.mood && look.mood.toLowerCase().includes('venta')) return false;
+        if (look.tags && look.tags.some(tag => tag.toLowerCase().includes('venta'))) return false;
+        return true;
+      });
+      setFeedLooks(socialFeed);
       const top = await api.getTopUsers();
       setTopUsers(top);
     } catch (error) {
@@ -92,14 +178,17 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
   const loadShop = useCallback(async () => {
     setIsLoading(true);
     try {
-      const items = await api.getShopProducts(searchQuery || undefined);
-      setShopItems(items);
+      const category = shopFilter !== 'all' ? shopFilter : undefined;
+      const items = await api.getShopProducts(searchQuery || undefined, category);
+      // Ensure only items with price (for sale) are shown in shop
+      const salesItems = items.filter(item => item.price > 0);
+      setShopItems(salesItems);
     } catch (error) {
       console.error("Error loading shop:", error);
     } finally {
       setIsLoading(false);
     }
-  }, [searchQuery]);
+  }, [searchQuery, shopFilter]);
 
   // Fashion Trends
   const [fashionTrends, setFashionTrends] = useState<any[]>([]);
@@ -136,6 +225,164 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
       setLoadingTrends(false);
     }
   }, []);
+
+  const addXp = (amount: number, reason: string) => {
+    if (!activeUser) return;
+    const currentXp = activeUser.experiencePoints || 0;
+    const nextXp = currentXp + amount;
+    const currentLevel = activeUser.level || 1;
+    const nextLevel = Math.max(1, Math.floor(nextXp / 100) + 1);
+    const leveledUp = nextLevel > currentLevel;
+    handleUpdateUser({ ...activeUser, experiencePoints: nextXp, level: nextLevel });
+    setStoryToast(leveledUp ? `¡Subiste al nivel ${nextLevel}! +${amount} XP por ${reason}` : `+${amount} XP por ${reason}`);
+    window.setTimeout(() => setStoryToast(null), 3200);
+  };
+
+  const weeklyChallenges = [
+    { title: 'Color Block', description: 'Combina colores vibrantes.', reward: 50, tag: 'Color Block' },
+    { title: 'Look Monocromático', description: 'Crea un outfit con una sola familia de color.', reward: 60, tag: 'Monocromo' },
+    { title: 'Street Style', description: 'Combina urbano con chic.', reward: 50, tag: 'Street' },
+    { title: 'Retro Vibes', description: 'Busca inspiración vintage.', reward: 55, tag: 'Retro' },
+  ];
+
+  const weekIndex = Math.floor(Date.now() / 1000 / 60 / 60 / 24 / 7);
+  const weeklyChallenge = weeklyChallenges[weekIndex % weeklyChallenges.length];
+
+  const handleParticipateChallenge = () => {
+    if (hasParticipatedInChallenge) return;
+    setHasParticipatedInChallenge(true);
+    addXp(weeklyChallenge.reward, 'participar en el reto semanal');
+  };
+
+  const toggleFollowUser = async (userId: string) => {
+    try {
+      const result = await api.toggleFollow(userId);
+      setFollowedUserIds(prev => {
+        const next = new Set(prev);
+        if (result.following) next.add(userId);
+        else next.delete(userId);
+        return next;
+      });
+    } catch (error) {
+      console.warn('Error toggling follow:', error);
+    }
+  };
+
+  const handleStoryPhotoPick = async (source: CameraSource) => {
+    setStoryUploadError(null);
+    try {
+      const { dataUrl, file } = await pickPhoto(source);
+      setStoryForm({ type: 'image', text: '', imageUrl: dataUrl, selectedGarmentId: null, imageFile: file });
+    } catch (err: any) {
+      const message = String(err?.message || err || '').toLowerCase();
+      if (message.includes('cancel') || message.includes('cancelado')) return;
+      setStoryUploadError(
+        message.includes('permiso')
+          ? message
+          : 'No se pudo obtener la imagen. Revisa los permisos de cámara y galería.'
+      );
+    }
+  };
+
+  const handlePublishStory = () => {
+    if (storyForm.type === 'text' && !storyForm.text.trim()) {
+      setStoryUploadError('Escribe una frase o reflexión para tu historia.');
+      return;
+    }
+    if (storyForm.type === 'image' && !storyForm.imageUrl) {
+      setStoryUploadError('Selecciona una foto o un look para publicar.');
+      return;
+    }
+
+    const newStory: StoryEntry = {
+      id: `story-${Date.now()}`,
+      userId: activeUser?.id || 'me',
+      userName: activeUser?.name || 'Tú',
+      userAvatar: activeUser?.avatar,
+      type: storyForm.type,
+      text: storyForm.type === 'text' ? storyForm.text.trim() : undefined,
+      imageUrl: storyForm.type === 'image' ? storyForm.imageUrl : undefined,
+      views: 0,
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(),
+      isOwn: true,
+    };
+
+    const hadStories = stories.length > 0;
+    setStories(prev => [newStory, ...prev]);
+    setIsCreateStoryOpen(false);
+    setStoryForm({ type: 'image', text: '', imageUrl: '', selectedGarmentId: null, imageFile: null });
+    setStoryUploadError(null);
+    addXp(15, 'subir una historia');
+    setStoryToast(hadStories ? 'Tu historia se publicó con éxito.' : '¡Bienvenida a tu primera historia!');
+    window.setTimeout(() => setStoryToast(null), 3200);
+  };
+
+  const handleStoryView = (storyId: string) => {
+    setSelectedStoryId(storyId);
+    setStories(prev => prev.map(story => story.id === storyId ? { ...story, views: story.views + 1 } : story));
+  };
+
+  const handleChatAttach = async () => {
+    if (chatFileInputRef.current) {
+      chatFileInputRef.current.click();
+      return;
+    }
+    try {
+      const { dataUrl } = await pickPhoto(CameraSource.Photos);
+      setChatAttachment(dataUrl);
+    } catch (err: any) {
+      const msg = String(err?.message || '').toLowerCase();
+      if (!msg.includes('cancel') && !msg.includes('cancelado')) {
+        console.warn('Error attaching chat image:', err);
+      }
+    }
+  };
+
+  const handleChatAttachmentUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === 'string') {
+        setChatAttachment(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const sendChatMessage = () => {
+    if (!activeThread || (!messageInput.trim() && !chatAttachment)) return;
+    const content = messageInput.trim() || '📷 Imagen adjunta';
+    const nextMessage: ChatMessage = {
+      id: `msg-${Date.now()}`,
+      conversationId: activeThread.id,
+      senderId: currentUserId || 'me',
+      content,
+      imageUrl: chatAttachment || undefined,
+      createdAt: new Date().toISOString(),
+    };
+
+    setMessagesById(prev => ({
+      ...prev,
+      [activeThread.id]: [...(prev[activeThread.id] || []), nextMessage]
+    }));
+
+    setMessageInput('');
+    setChatAttachment(null);
+
+    api.sendConversationMessage(activeThread.id, content).catch(e => console.warn('Error sending chat message:', e));
+  };
+
+  const getPostUserLevel = (post: Look) => {
+    const score = (post.likesCount || 0) + (post.commentsCount || 0);
+    return Math.max(1, Math.min(12, Math.ceil((score + 1) / 10)));
+  };
+
+  const getStoryOwnerBadge = (story: StoryEntry) => {
+    if (story.isOwn) return 'Tú';
+    return `Lv. ${Math.max(1, Math.min(12, Math.ceil((story.views + 1) / 8)))}`;
+  };
 
   const loadConversations = useCallback(async () => {
     const draftRaw = localStorage.getItem('ev_chat_draft');
@@ -189,43 +436,73 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
     else if (activeTab === 'trends') loadTrends();
   }, [activeTab, loadFeed, loadShop, loadFavorites, loadConversations, loadTrends]);
 
-  // === PUBLISH LOOK HANDLERS ===
-  const handlePublishSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!publishForm.name.trim() || selectedPublishGarmentIds.size === 0) return;
+  // Reload shop when category filter changes
+  useEffect(() => {
+    if (activeTab === 'shop') {
+      loadShop();
+    }
+  }, [shopFilter]);
 
+  // === PUBLISH LOOK HANDLERS (Instagram-style) ===
+  const handlePublishPhotoPick = async (source: CameraSource) => {
+    setPublishError(null);
     try {
-      const newLook: Look = {
-        id: '',
-        name: publishForm.name,
-        garmentIds: Array.from(selectedPublishGarmentIds),
-        isPublic: publishForm.isPublic,
-        mood: publishForm.mood,
-        tags: publishForm.mood ? [publishForm.mood.toLowerCase()] : [],
-        createdAt: new Date().toISOString(),
-      };
-      const saved = await api.saveLook(newLook);
-      setFeedLooks(prev => [saved, ...prev]);
-      setIsPublishModalOpen(false);
-      setPublishForm({ name: '', isPublic: true, mood: '' });
-      setSelectedPublishGarmentIds(new Set());
-    } catch (error) {
-      console.error("Error publishing look:", error);
+      const { dataUrl, file } = await pickPhoto(source);
+      setPublishPhoto(dataUrl);
+      setPublishPhotoFile(file);
+    } catch (err: any) {
+      const msg = String(err?.message || '').toLowerCase();
+      if (msg.includes('cancel') || msg.includes('cancelado')) return;
+      setPublishError('No se pudo seleccionar la foto.');
     }
   };
 
-  const togglePublishGarment = (id: string) => {
-    setSelectedPublishGarmentIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const handlePublishSubmit = async () => {
+    if (!publishPhoto) return;
+    setIsPublishing(true);
+    setPublishError(null);
+
+    try {
+      let imageUrl = publishPhoto;
+
+      if (publishPhotoFile) {
+        imageUrl = publishPhoto;
+      }
+
+      const newLook: Look = {
+        id: `look-${Date.now()}`,
+        name: publishDescription.trim() || 'Publicación',
+        garmentIds: [],
+        isPublic: true,
+        mood: '',
+        tags: [],
+        imageUrl,
+        createdAt: new Date().toISOString(),
+        userName: activeUser?.name || 'Tú',
+        userAvatar: activeUser?.avatar,
+      };
+
+      const saved = await api.saveLook(newLook);
+      setFeedLooks(prev => [saved, ...prev]);
+      setIsPublishModalOpen(false);
+      setPublishPhoto(null);
+      setPublishPhotoFile(null);
+      setPublishDescription('');
+      addXp(20, 'publicar en el feed');
+      setStoryToast('Publicación compartida +20 XP');
+      window.setTimeout(() => setStoryToast(null), 3200);
+    } catch (error) {
+      console.error("Error publishing:", error);
+      setPublishError('Error al publicar. Inténtalo de nuevo.');
+    } finally {
+      setIsPublishing(false);
+    }
   };
 
   // === FEED HANDLERS ===
   const handleToggleLike = async (lookId: string) => {
     try {
+      const likedBefore = feedLooks.find(l => l.id === lookId)?.isLiked;
       const result = await api.toggleLike(lookId);
       setFeedLooks(prev => prev.map(l => {
         if (l.id === lookId) {
@@ -233,6 +510,11 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
         }
         return l;
       }));
+      if (!likedBefore && result.liked) {
+        addXp(2, 'dar me gusta');
+        setStoryToast('Me gusta dado +2 XP');
+        window.setTimeout(() => setStoryToast(null), 3200);
+      }
     } catch (error) {
       console.error("Error toggling like:", error);
     }
@@ -306,6 +588,10 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
         }
         return l;
       }));
+      addXp(3, 'comentar una publicación');
+      // Show notification toast
+      setStoryToast('Comentario enviado +3 XP');
+      window.setTimeout(() => setStoryToast(null), 3200);
     } catch (error) {
       console.error("Error sending comment:", error);
     }
@@ -471,33 +757,61 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
   }, [selectedThreadId, messagesById]);
 
   const handleChatSend = () => {
-    if (!messageInput.trim() || !activeThread) return;
-    const content = messageInput.trim();
-    setMessageInput('');
+    if (!activeThread || (!messageInput.trim() && !chatAttachment)) return;
+    const content = messageInput.trim() || '📷 Imagen adjunta';
+    const nextMessage: ChatMessage = {
+      id: `msg-${Date.now()}`,
+      conversationId: activeThread.id,
+      senderId: currentUserId || 'me',
+      content,
+      imageUrl: chatAttachment || undefined,
+      createdAt: new Date().toISOString(),
+    };
 
-    api.sendConversationMessage(activeThread.id, content)
-      .then((message) => {
-        setMessagesById(prev => ({
-          ...prev,
-          [activeThread.id]: [...(prev[activeThread.id] || []), message]
-        }));
-        setConversations(prev => prev.map(c => c.id === activeThread.id
-          ? {
-            ...c,
-            updatedAt: message.createdAt,
-            lastMessage: {
-              id: message.id,
-              content: message.content,
-              createdAt: message.createdAt,
-              sender: message.sender
-            }
-          }
-          : c
-        ));
-      })
-      .catch((e) => {
-        console.warn('Error sending message:', e);
-      });
+    setMessagesById(prev => ({
+      ...prev,
+      [activeThread.id]: [...(prev[activeThread.id] || []), nextMessage]
+    }));
+    setConversations(prev => prev.map(c => c.id === activeThread.id
+      ? {
+        ...c,
+        updatedAt: nextMessage.createdAt,
+        lastMessage: {
+          id: nextMessage.id,
+          content: nextMessage.content,
+          createdAt: nextMessage.createdAt,
+          sender: c.otherUser
+        }
+      }
+      : c
+    ));
+    setMessageInput('');
+    setChatAttachment(null);
+
+    api.sendConversationMessage(activeThread.id, content).catch((e) => {
+      console.warn('Error sending message:', e);
+    });
+
+    // Show notification for sales-related chat
+    if (activeThread.itemTitle) {
+      setStoryToast('Mensaje enviado al vendedor');
+      window.setTimeout(() => setStoryToast(null), 3200);
+    }
+  };
+
+  const handleAddReaction = (messageId: string, emoji: string) => {
+    setMessageReactions(prev => {
+      const reactions = prev[messageId] || [];
+      if (reactions.includes(emoji)) {
+        // Remove reaction if already exists
+        return { ...prev, [messageId]: reactions.filter(r => r !== emoji) };
+      }
+      // Add reaction
+      return { ...prev, [messageId]: [...reactions, emoji] };
+    });
+    addXp(1, 'reaccionar a mensaje');
+    setStoryToast('Reacción añadida +1 XP');
+    window.setTimeout(() => setStoryToast(null), 3200);
   };
 
   // === UTILS ===
@@ -551,15 +865,29 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
 
         {/* Sub-headers per tab */}
         {activeTab === 'feed' && (
-          <div className="bg-gradient-to-r from-primary to-teal-800 rounded-2xl p-4 text-white relative overflow-hidden animate-fade-in mt-4 flex justify-between items-center">
+          <div className="bg-gradient-to-r from-primary to-accent rounded-2xl p-4 text-white relative overflow-hidden animate-fade-in mt-4">
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10" />
             <div className="relative z-10">
-              <span className="inline-block px-2 py-1 bg-accent text-[10px] font-bold uppercase tracking-wider rounded-md mb-2">Reto Semanal</span>
-              <h3 className="font-bold text-lg mb-1">Color Block</h3>
-              <p className="text-sm text-teal-100 opacity-90 mb-3">Combina colores vibrantes.</p>
+              <span className="inline-flex items-center gap-1 px-2 py-1 bg-accent text-[10px] font-bold uppercase tracking-wider rounded-md mb-2">
+                <Sparkles size={12} /> Reto Semanal
+              </span>
+              <h3 className="font-bold text-lg mb-1">{weeklyChallenge.title}</h3>
+              <p className="text-sm text-teal-100 opacity-90 mb-3">{weeklyChallenge.description}</p>
               <div className="flex items-center space-x-2">
-                <button className="text-xs font-semibold bg-white text-primary px-3 py-1.5 rounded-full">Participar</button>
-                <span className="text-xs font-bold text-teal-100 bg-black/20 px-2 py-1 rounded-full">+50 XP</span>
+                <button
+                  onClick={handleParticipateChallenge}
+                  disabled={hasParticipatedInChallenge}
+                  className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-all ${
+                    hasParticipatedInChallenge
+                      ? 'bg-emerald-400 text-white cursor-default'
+                      : 'bg-white text-primary hover:bg-primary hover:text-white'
+                  }`}
+                >
+                  {hasParticipatedInChallenge ? '¡Completado!' : 'Participar'}
+                </button>
+                <span className="text-xs font-bold text-teal-100 bg-black/20 px-2 py-1 rounded-full">
+                  +{weeklyChallenge.reward} XP
+                </span>
               </div>
             </div>
             <Sparkles className="text-white/20 absolute right-4 bottom-4 w-12 h-12" />
@@ -596,6 +924,64 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
           {activeTab === 'feed' && (
             <div className="px-4 pb-20 animate-fade-in space-y-6">
 
+              {storyToast && (
+                <div className="fixed top-24 right-4 z-50 rounded-3xl bg-primary text-white px-4 py-3 shadow-2xl shadow-primary/30 animate-fade-in">
+                  {storyToast}
+                </div>
+              )}
+
+              {/* Stories Carousel */}
+              <div className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 mb-6 overflow-hidden">
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.28em] text-gray-400">Historias</p>
+                    <h2 className="text-lg font-bold text-gray-800">Lo último de la comunidad</h2>
+                  </div>
+                  <button
+                    onClick={() => setIsCreateStoryOpen(true)}
+                    className="bg-primary text-white text-xs font-bold uppercase px-4 py-2 rounded-full shadow-sm hover:bg-teal-800 transition-colors"
+                  >
+                    Crear nueva historia
+                  </button>
+                </div>
+
+                <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateStoryOpen(true)}
+                    className="min-w-[90px] h-28 rounded-3xl border border-dashed border-primary/30 bg-primary/5 text-primary flex flex-col items-center justify-center gap-2 text-xs font-semibold"
+                  >
+                    <Plus size={20} />
+                    Nueva
+                  </button>
+
+                  {stories.length === 0 ? (
+                    <div className="min-w-[220px] h-28 rounded-3xl border border-gray-200 bg-gray-50 flex items-center justify-center text-sm text-gray-400">
+                      Publica tu primera historia y gana visibilidad.
+                    </div>
+                  ) : prioritizedStories.map(story => (
+                    <button
+                      key={story.id}
+                      type="button"
+                      onClick={() => handleStoryView(story.id)}
+                      className="relative min-w-[90px] h-28 rounded-3xl overflow-hidden bg-gray-100 ring-1 ring-gray-200 hover:ring-primary transition-all flex flex-col items-center justify-center text-left"
+                    >
+                      {story.imageUrl ? (
+                        <img src={story.imageUrl} alt={story.text || 'Historia'} className="w-full h-full object-cover opacity-90" />
+                      ) : (
+                        <div className="w-full h-full bg-primary/5 flex items-center justify-center text-primary text-xs font-bold px-2 text-center">
+                          {story.text?.slice(0, 40) || 'Texto'}
+                        </div>
+                      )}
+                      <div className="absolute bottom-2 left-2 right-2 text-white text-[10px] font-semibold flex justify-between items-center">
+                        <span className="bg-black/40 px-2 py-1 rounded-full">{story.userName}</span>
+                        <span className="bg-black/40 px-2 py-1 rounded-full">{story.views} vistas</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Top Users (Iconos de Estilo) Widget */}
               {topUsers.length > 0 && (
                 <div className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 mb-6 overflow-hidden">
@@ -621,6 +1007,12 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                         </div>
                         <p className="text-[10px] font-semibold text-gray-700 truncate w-full text-center mt-1.5">{tu.name.split(' ')[0]}</p>
                         <p className="text-[9px] text-gray-400">{tu.experiencePoints} XP</p>
+                        <button
+                          onClick={() => toggleFollowUser(tu.id)}
+                          className={`mt-2 text-[10px] font-bold px-2 py-1 rounded-full transition ${followedUserIds.has(tu.id) ? 'bg-primary text-white' : 'bg-white text-gray-600 border border-gray-200'}`}
+                        >
+                          {followedUserIds.has(tu.id) ? 'Siguiendo' : 'Seguir'}
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -631,8 +1023,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
               <div className="columns-2 gap-4 space-y-4">
                 {feedLooks.map((post, idx) => {
                   const postImage = getLookImage(post);
-                  const isFeatured = idx % 5 === 0; // Make some items taller for masonry effect arbitrarily if no real image ratio
-                  const hasForSaleItems = post.garments?.some(g => g.forSale);
+                  const isFeatured = idx % 5 === 0;
 
                   return (
                     <div key={post.id} className="break-inside-avoid fallback-height relative bg-white rounded-[2rem] overflow-hidden shadow-sm border border-gray-100 group">
@@ -661,24 +1052,12 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                             className="w-5 h-5 rounded-full object-cover border border-white/20"
                             alt={post.userName}
                           />
-                          <span className="text-[10px] font-medium text-white shadow-sm">{post.userName || 'Usuario'}</span>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] font-medium text-white shadow-sm">{post.userName || 'Usuario'}</span>
+                            <span className="text-[9px] px-2 py-0.5 rounded-full bg-white/20 text-white">Lv. {getPostUserLevel(post)}</span>
+                          </div>
                         </div>
-
-                        {/* Options */}
-                        <button className="text-white drop-shadow-md pointer-events-auto bg-black/20 rounded-full p-1 backdrop-blur-md">
-                          <MoreHorizontal size={14} />
-                        </button>
                       </div>
-
-                      {/* Click to Shop Overlay */}
-                      {hasForSaleItems && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setShopModalLook(post); }}
-                          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/90 backdrop-blur text-primary rounded-full p-3 shadow-xl transform scale-90 group-hover:scale-100 opacity-80 group-hover:opacity-100 transition-all pointer-events-auto hover:bg-primary hover:text-white"
-                        >
-                          <ShoppingBag size={20} className="animate-pulse-slow" />
-                        </button>
-                      )}
 
                       {/* Bottom Info Layer */}
                       <div className="absolute bottom-0 left-0 right-0 p-3 pointer-events-auto w-full">
@@ -725,9 +1104,25 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
             </div>
           )}
 
-          {/* SHOP TAB */}
+          {/* SHOP TAB (Solo ventas) */}
           {activeTab === 'shop' && (
             <div className="px-4 pb-4 animate-fade-in">
+              {/* Category Filters */}
+              <div className="flex gap-2 overflow-x-auto no-scrollbar mb-4 pb-1">
+                {['all', 'top', 'bottom', 'shoes', 'outerwear', 'accessories', 'dress'].map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setShopFilter(cat)}
+                    className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors border ${
+                      shopFilter === cat
+                        ? 'bg-primary text-white border-primary'
+                        : 'bg-white text-gray-500 border-gray-200 hover:border-primary/30'
+                    }`}
+                  >
+                    {cat === 'all' ? 'Todo' : cat.charAt(0).toUpperCase() + cat.slice(1)}
+                  </button>
+                ))}
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 {shopItems.map((item) => (
                   <div
@@ -1043,29 +1438,85 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                         ) : (
                           (messagesById[activeThread.id] || []).map((m: ChatMessage) => (
                             <div key={m.id} className={`flex ${m.senderId === currentUserId ? 'justify-end' : 'justify-start'}`}>
-                              <div className={`px-3 py-2 rounded-2xl text-xs max-w-[75%] ${m.senderId === currentUserId ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600'}`}>
-                                {m.content}
+                              <div className={`max-w-[75%]`}>
+                                <div className={`px-3 py-2 rounded-2xl text-xs ${m.senderId === currentUserId ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600'}`}>
+                                  {m.imageUrl ? (
+                                    <img src={m.imageUrl} alt="Adjunto" className="w-full h-auto rounded-xl mb-2" />
+                                  ) : null}
+                                  {m.content.includes('http') ? (
+                                    <a href={m.content} target="_blank" rel="noreferrer" className="text-white underline break-all">
+                                      {m.content}
+                                    </a>
+                                  ) : (
+                                    <span>{m.content}</span>
+                                  )}
+                                </div>
+                                {/* Reactions */}
+                                {messageReactions[m.id] && messageReactions[m.id].length > 0 && (
+                                  <div className="flex gap-1 mt-1 ml-1">
+                                    {messageReactions[m.id].map((emoji, idx) => (
+                                      <span key={idx} className="text-xs bg-white border border-gray-200 rounded-full px-1.5 py-0.5 shadow-sm">
+                                        {emoji}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                                {/* Reaction buttons */}
+                                <div className="flex gap-1 mt-1 ml-1 opacity-0 hover:opacity-100 transition-opacity">
+                                  {['❤️', '👍', '😂', '🔥'].map((emoji) => (
+                                    <button
+                                      key={emoji}
+                                      onClick={() => handleAddReaction(m.id, emoji)}
+                                      className="text-xs hover:scale-125 transition-transform"
+                                      title="Reaccionar"
+                                    >
+                                      {emoji}
+                                    </button>
+                                  ))}
+                                </div>
                               </div>
                             </div>
                           ))
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2 bg-gray-50 rounded-full px-3 py-2">
-                        <input
-                          value={messageInput}
-                          onChange={e => setMessageInput(e.target.value)}
-                          onKeyDown={e => e.key === 'Enter' && handleChatSend()}
-                          placeholder="Escribe un mensaje..."
-                          className="flex-1 bg-transparent text-sm outline-none"
-                        />
-                        <button
-                          onClick={handleChatSend}
-                          disabled={!messageInput.trim()}
-                          className="text-primary disabled:text-gray-300"
-                        >
-                          <Send size={16} />
-                        </button>
+                      <div className="flex flex-col gap-2">
+                        {chatAttachment && (
+                          <div className="flex items-center justify-between rounded-2xl bg-white border border-gray-200 p-3">
+                            <span className="text-xs text-gray-500">Adjunto listo para enviar</span>
+                            <button onClick={() => setChatAttachment(null)} className="text-[10px] text-primary font-semibold">Eliminar</button>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 bg-gray-50 rounded-full px-3 py-2">
+                          <button
+                            type="button"
+                            onClick={handleChatAttach}
+                            className="text-primary disabled:text-gray-300"
+                          >
+                            📎
+                          </button>
+                          <input
+                            ref={chatFileInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleChatAttachmentUpload}
+                          />
+                          <input
+                            value={messageInput}
+                            onChange={e => setMessageInput(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && handleChatSend()}
+                            placeholder="Escribe un mensaje..."
+                            className="flex-1 bg-transparent text-sm outline-none"
+                          />
+                          <button
+                            onClick={handleChatSend}
+                            disabled={!messageInput.trim() && !chatAttachment}
+                            className="text-primary disabled:text-gray-300"
+                          >
+                            <Send size={16} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -1144,6 +1595,177 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
         </div>
       )}
 
+      {/* Story View Modal */}
+      {selectedStoryId && (
+        <div className="fixed inset-0 z-[70] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setSelectedStoryId(null)}>
+          <div className="bg-white w-full max-w-lg rounded-[2rem] overflow-hidden shadow-2xl animate-pop-in max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 ring-2 ring-primary/20">
+                  <img src={stories.find(s => s.id === selectedStoryId)?.userAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(stories.find(s => s.id === selectedStoryId)?.userName || 'U')}&background=0F4C5C&color=fff`} alt="Avatar" className="w-full h-full object-cover" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-gray-900">{stories.find(s => s.id === selectedStoryId)?.userName}</p>
+                  <p className="text-[10px] text-gray-500">{getStoryOwnerBadge(stories.find(s => s.id === selectedStoryId)!)} · {stories.find(s => s.id === selectedStoryId)?.views} vistas</p>
+                </div>
+              </div>
+              <button onClick={() => setSelectedStoryId(null)} className="text-gray-400 p-2 rounded-full hover:bg-gray-100 transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto bg-gradient-to-b from-primary/[0.02] to-transparent p-4">
+              {(() => {
+                const story = stories.find(s => s.id === selectedStoryId);
+                if (!story) return null;
+                return (
+                  <div className="space-y-4 animate-fade-in-up">
+                    {story.imageUrl ? (
+                      <div className="relative rounded-3xl overflow-hidden">
+                        <img src={story.imageUrl} alt="Historia" className="w-full object-cover transition-all duration-500" loading="lazy" />
+                        {story.text && (
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4 pt-12">
+                            <p className="text-white text-sm font-medium">{story.text}</p>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="min-h-[260px] rounded-3xl bg-gradient-to-br from-primary/10 to-accent/10 p-6 flex items-center justify-center">
+                        <p className="text-base text-gray-700 leading-relaxed text-center italic">&ldquo;{story.text}&rdquo;</p>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between text-[11px] text-gray-500 px-1">
+                      <span>{new Date(story.createdAt).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-primary font-semibold text-xs">{story.views} visualizaciones</span>
+                        <div className="flex gap-1">
+                          {['❤️', '🔥', '💯', '😍', '👏'].map((emoji) => (
+                            <button
+                              key={emoji}
+                              onClick={() => {
+                                addXp(1, 'reaccionar a historia');
+                                setSelectedStoryId(null);
+                              }}
+                              className="text-lg hover:scale-125 transition-transform active:scale-150"
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Story Modal */}
+      {isCreateStoryOpen && (
+        <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setIsCreateStoryOpen(false)}>
+          <div className="bg-white w-full max-w-md rounded-[2rem] overflow-hidden shadow-2xl animate-pop-in max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b border-gray-100">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Crear nueva historia</h3>
+                <p className="text-[12px] text-gray-500">Sube una foto, look o comparte una frase corta.</p>
+              </div>
+              <button onClick={() => setIsCreateStoryOpen(false)} className="text-gray-400 p-2 rounded-full hover:bg-gray-100 transition-colors">
+                <X size={22} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 overflow-y-auto no-scrollbar flex-1">
+              <div className="flex gap-2 bg-gray-50 rounded-2xl p-1">
+                <button
+                  type="button"
+                  onClick={() => setStoryForm(prev => ({ ...prev, type: 'image' }))}
+                  className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-300 ${storyForm.type === 'image' ? 'bg-white text-primary shadow-sm' : 'text-gray-500'}`}
+                >
+                  Imagen
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStoryForm(prev => ({ ...prev, type: 'text' }))}
+                  className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-300 ${storyForm.type === 'text' ? 'bg-white text-primary shadow-sm' : 'text-gray-500'}`}
+                >
+                  Texto
+                </button>
+              </div>
+
+              {storyForm.type === 'image' ? (
+                <div className="space-y-3 animate-fade-in-up">
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => handleStoryPhotoPick(CameraSource.Camera)}
+                      className="rounded-3xl bg-primary/10 text-primary py-3 font-semibold hover:bg-primary hover:text-white transition-all active:scale-95"
+                    >
+                      Cámara
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleStoryPhotoPick(CameraSource.Photos)}
+                      className="rounded-3xl bg-gray-100 text-gray-700 py-3 font-semibold hover:bg-gray-200 transition-all active:scale-95"
+                    >
+                      Galería
+                    </button>
+                  </div>
+                  <div className="rounded-3xl border border-dashed border-gray-200 bg-gray-50 p-4 text-center min-h-[160px] flex items-center justify-center transition-all duration-300">
+                    {storyForm.imageUrl ? (
+                      <img src={storyForm.imageUrl} alt="Vista previa" className="mx-auto max-h-40 rounded-3xl object-cover shadow-sm animate-pop-in" />
+                    ) : (
+                      <p className="text-sm text-gray-400">Selecciona una foto para tu historia.</p>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <textarea
+                  value={storyForm.text}
+                  onChange={e => setStoryForm(prev => ({ ...prev, text: e.target.value }))}
+                  placeholder="Escribe tu frase o reflexión..."
+                  className="w-full min-h-[160px] rounded-3xl border border-gray-200 p-4 text-sm text-gray-700 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all resize-none"
+                />
+              )}
+
+              <div className="space-y-3">
+                <p className="text-[12px] font-semibold text-gray-500 uppercase tracking-[0.2em]">O desde tu armario</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {garments.slice(0, 6).map(g => (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => setStoryForm({ type: 'image', text: g.name, imageUrl: g.imageUrl, selectedGarmentId: g.id, imageFile: null })}
+                      className={`h-24 rounded-3xl overflow-hidden border-2 transition-all duration-200 ${storyForm.selectedGarmentId === g.id ? 'border-primary shadow-md scale-105' : 'border-gray-200 hover:border-primary/30'} bg-white`}
+                    >
+                      <img src={g.imageUrl} alt={g.name} className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                  {garments.length === 0 && (
+                    <div className="col-span-3 rounded-3xl border border-dashed border-gray-200 bg-gray-50 p-4 text-center text-xs text-gray-400">
+                      Añade prendas a tu armario y compártelas como historia.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="pt-2 space-y-2">
+                <button
+                  type="button"
+                  onClick={handlePublishStory}
+                  className="w-full rounded-3xl bg-primary text-white px-4 py-3 text-sm font-semibold hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-40"
+                >
+                  Publicar historia
+                </button>
+                {storyUploadError && (
+                  <p className="text-xs text-rose-500 text-center animate-fade-in">{storyUploadError}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Product Detail Modal */}
       {selectedItem && (
         <ProductDetailModal
@@ -1167,88 +1789,78 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
         </button>
       )}
 
-      {/* Publish Look Modal */}
+      {/* Publish Post Modal (Instagram-style) */}
       {isPublishModalOpen && (
-        <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden animate-pop-in flex flex-col max-h-[90vh]">
-            <div className="flex justify-between items-center p-5 bg-gray-50">
-              <h3 className="font-bold text-gray-800 text-lg">Compartir Look</h3>
-              <button onClick={() => setIsPublishModalOpen(false)} className="bg-white p-1.5 rounded-full shadow-sm text-gray-400">
+        <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setIsPublishModalOpen(false)}>
+          <div className="bg-white w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden animate-pop-in" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+              <h3 className="font-bold text-gray-800 text-lg">Nueva publicación</h3>
+              <button onClick={() => { setIsPublishModalOpen(false); setPublishPhoto(null); setPublishDescription(''); }} className="p-1.5 rounded-full text-gray-400 hover:bg-gray-100 transition-colors">
                 <X size={20} />
               </button>
             </div>
 
-            <form onSubmit={handlePublishSubmit} className="p-5 flex-1 overflow-y-auto no-scrollbar flex flex-col gap-4">
-              <div>
-                <label className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1 block">Título de tu publicación</label>
-                <input
-                  type="text"
-                  value={publishForm.name}
-                  onChange={e => setPublishForm({ ...publishForm, name: e.target.value })}
-                  className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:border-primary outline-none"
-                  placeholder="Ej. Outfit para el café"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-1 block">Mood (Opcional)</label>
-                <input
-                  type="text"
-                  value={publishForm.mood}
-                  onChange={e => setPublishForm({ ...publishForm, mood: e.target.value })}
-                  className="w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm focus:border-primary outline-none"
-                  placeholder="Ej. Casual Friday"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-gray-600 uppercase tracking-wide mb-2 flex items-center justify-between">
-                  <span>Selecciona Prendas Guardadas <span className="text-primary">*</span></span>
-                  <span className="text-[10px] text-gray-400 font-normal normal-case">{selectedPublishGarmentIds.size} seleccionadas</span>
-                </label>
-                <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto pr-1">
-                  {garments.map(g => (
-                    <div
-                      key={g.id}
-                      onClick={() => togglePublishGarment(g.id)}
-                      className={`relative aspect-square rounded-xl overflow-hidden cursor-pointer border-2 transition-all ${selectedPublishGarmentIds.has(g.id) ? 'border-primary' : 'border-transparent opacity-70 hover:opacity-100'}`}
+            <div className="p-5 space-y-4">
+              {!publishPhoto ? (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-500 text-center">Selecciona una foto para tu publicación</p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => handlePublishPhotoPick(CameraSource.Camera)}
+                      className="flex-1 bg-primary/10 text-primary py-4 rounded-2xl font-semibold hover:bg-primary hover:text-white transition-all active:scale-[0.98]"
                     >
-                      <img src={g.imageUrl} className="w-full h-full object-cover" alt="" />
-                      {selectedPublishGarmentIds.has(g.id) && (
-                        <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
-                          <CheckCircle2 className="text-white drop-shadow-md" size={24} />
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                      Cámara
+                    </button>
+                    <button
+                      onClick={() => handlePublishPhotoPick(CameraSource.Photos)}
+                      className="flex-1 bg-gray-100 text-gray-700 py-4 rounded-2xl font-semibold hover:bg-gray-200 transition-all active:scale-[0.98]"
+                    >
+                      Galería
+                    </button>
+                  </div>
+                  {publishError && <p className="text-xs text-rose-500 text-center animate-fade-in">{publishError}</p>}
                 </div>
-              </div>
-
-              <div className="flex items-center gap-3 bg-primary/5 p-4 rounded-xl mt-2">
-                <input
-                  type="checkbox"
-                  id="public"
-                  checked={publishForm.isPublic}
-                  onChange={e => setPublishForm({ ...publishForm, isPublic: e.target.checked })}
-                  className="w-5 h-5 accent-primary rounded"
-                />
-                <label htmlFor="public" className="text-sm font-medium text-gray-800">
-                  Visible en El Feed Vivo
-                  <p className="text-[10px] text-gray-500 font-normal leading-tight mt-0.5">Otros usuarios podrán ver e interactuar con tu estilo.</p>
-                </label>
-              </div>
-
-              <div className="mt-4 pb-2">
-                <button
-                  type="submit"
-                  disabled={!publishForm.name.trim() || selectedPublishGarmentIds.size === 0}
-                  className="w-full bg-primary text-white font-bold py-3.5 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-teal-800 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Sparkles size={18} /> Publicar y ganar +20 XP
-                </button>
-              </div>
-            </form>
+              ) : (
+                <div className="space-y-4 animate-fade-in-up">
+                  <div className="relative rounded-2xl overflow-hidden bg-gray-50">
+                    <img src={publishPhoto} alt="Preview" className="w-full max-h-80 object-contain" />
+                    <button
+                      onClick={() => { setPublishPhoto(null); setPublishPhotoFile(null); }}
+                      className="absolute top-2 right-2 bg-black/50 text-white p-1.5 rounded-full hover:bg-black/70 transition-colors"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                  <textarea
+                    value={publishDescription}
+                    onChange={e => setPublishDescription(e.target.value)}
+                    placeholder="Escribe una descripción..."
+                    rows={3}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all resize-none"
+                  />
+                  {publishError && <p className="text-xs text-rose-500 animate-fade-in">{publishError}</p>}
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      onClick={() => handlePublishPhotoPick(CameraSource.Camera)}
+                      className="px-4 py-2.5 bg-gray-100 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-200 transition-colors"
+                    >
+                      Cambiar foto
+                    </button>
+                    <button
+                      onClick={handlePublishSubmit}
+                      disabled={isPublishing}
+                      className="flex-1 bg-primary text-white py-2.5 rounded-xl font-bold hover:opacity-90 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {isPublishing ? (
+                        <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Publicando...</>
+                      ) : (
+                        <><Sparkles size={16} /> Publicar +20 XP</>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

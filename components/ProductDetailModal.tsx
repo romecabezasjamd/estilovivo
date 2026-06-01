@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Share2, Heart, CreditCard, MessageCircle, Truck, Store, Copy, Send, Eye } from 'lucide-react';
 import { useLanguage } from '../src/context/LanguageContext';
+import { api } from '../services/api';
 
 export interface ProductDisplayItem {
   id: string | number;
@@ -42,12 +43,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
   useEffect(() => {
     const loadFavoriteStatus = async () => {
       try {
-        const token = localStorage.getItem('token');
-        const res = await fetch('/api/social/favorites', {
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include'
-        });
-        const favorites = await res.json();
+        const favorites = await api.getFavorites();
         const isFavorited = Array.isArray(favorites) && favorites.some((fav: any) => fav && (fav.productId === product.id || fav.product?.id === product.id));
         setIsLiked(isFavorited);
       } catch (e) {
@@ -72,15 +68,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
   const handleLike = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/social/favorite', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify({ productId: product.id })
-      });
-      const data = await res.json();
+      const data = await api.toggleFavorite(undefined, String(product.id));
       setIsLiked(data.favorited || false);
     } catch (error) {
       console.error('Error toggling favorite:', error);

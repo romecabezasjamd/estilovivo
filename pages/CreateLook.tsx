@@ -6,11 +6,12 @@ import { useLanguage } from '../src/context/LanguageContext';
 interface CreateLookProps {
   garments: Garment[];
   onSaveLook: (look: Look) => void;
+  onClose?: () => void;
 }
 
 const CATEGORY_ORDER = ['top', 'outerwear', 'bottom', 'dress', 'shoes', 'accessories'];
 
-const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook }) => {
+const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook, onClose }) => {
   const { t } = useLanguage();
   const [selectedItems, setSelectedItems] = useState<Garment[]>([]);
   const [isPickerOpen, setIsPickerOpen] = useState(true);
@@ -121,6 +122,10 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook }) => {
       createdAt: new Date().toISOString(),
     };
     onSaveLook(newLook);
+    if (onClose) {
+      onClose();
+      return;
+    }
     // Reset
     setSelectedItems([]);
     setLookName('');
@@ -154,9 +159,9 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook }) => {
       {/* Header */}
       <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-white z-20">
         <button
-          onClick={() => setSelectedItems([])}
+          onClick={() => (onClose ? onClose() : setSelectedItems([]))}
           className="text-gray-400 hover:text-red-500 transition"
-          title={t('clear')}
+          title={onClose ? t('cancel') || 'Cerrar' : t('clear')}
         >
           <X size={24} />
         </button>

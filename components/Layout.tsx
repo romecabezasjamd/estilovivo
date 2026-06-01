@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Home, Shirt, PlusSquare, Users, User, Map, RefreshCcw, X, Luggage, WashingMachine, Wand2 } from 'lucide-react';
+import { Home, Shirt, Users, User, RefreshCcw, X, Luggage, WashingMachine, Wand2 } from 'lucide-react';
 import { useLanguage } from '../src/context/LanguageContext';
 import { useGlobalState } from '../src/context/GlobalStateContext';
 import NotificationBell from './NotificationBell';
@@ -82,15 +82,17 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
   const navItems = [
     { id: 'home', icon: Home, label: t('home') },
     { id: 'wardrobe', icon: Shirt, label: t('wardrobe') },
-    { id: 'create', icon: PlusSquare, label: t('create') },
     { id: 'social', icon: Users, label: t('social') },
     { id: 'profile', icon: User, label: t('profile') },
   ];
 
   const activeIndex = useMemo(() => {
     let targetTab = activeTab;
-    if (activeTab === 'planner' || activeTab === 'suitcase') {
+    if (activeTab === 'planner' || activeTab === 'suitcase' || activeTab === 'create') {
       targetTab = 'wardrobe';
+    }
+    if (activeTab === 'wishlist') {
+      targetTab = 'home';
     }
     return navItems.findIndex(item => item.id === targetTab);
   }, [activeTab, navItems]);

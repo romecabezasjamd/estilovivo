@@ -1,18 +1,26 @@
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useEffect, useRef } from 'react';
 import { UserState, MoodOption, Look, PlannerEntry, Garment } from '../types';
 import {
-  Sun, Search, Bell, TrendingUp, Calendar, Heart, ArrowRight, Sparkles, User, LogOut,
-  Palette, Smartphone, Sync, Moon, Music, BarChart3, Info, ChevronRight, RefreshCcw, Shirt, AlertTriangle
+  Sun, TrendingUp, Heart, Sparkles, ChevronRight, RefreshCcw, Shirt, AlertTriangle
 } from 'lucide-react';
 import { useLanguage } from '../src/context/LanguageContext';
 import Logo from '../components/Logo';
 import LevelProgress from '../components/LevelProgress';
+import {
+  getCyclePeriod,
+  isDateInCycle,
+  isTodayInCycle,
+  getMotivationalMessageForToday,
+  getMotivationalMessageForDate,
+} from '../src/utils/cycleTracking';
+import { useNotification } from '../src/context/NotificationContext';
+import CycleDayMarker from '../src/components/CycleDayMarker';
 
 interface HomeProps {
   user: UserState;
   onMoodChange: (mood: string) => void;
-  onNavigate: (tab: string) => void;
+  onNavigate: (tab: string, subTab?: string) => void;
   plannerEntries: PlannerEntry[];
   looks: Look[];
   garments: Garment[];
@@ -35,7 +43,34 @@ const getMoods = (gender?: string, t?: (key: any) => string): MoodOption[] => {
 
 const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntries, looks, garments }) => {
   const { t } = useLanguage();
+  const { notify } = useNotification();
   const moods = getMoods(user?.gender, t);
+  const showCycleFeatures = user.gender === 'female' && user.cycleTracking;
+  const cyclePeriod = useMemo(
+    () => (user.cycleTracking && user.gender === 'female' ? getCyclePeriod(user.id) : null),
+    [user.id, user.cycleTracking, user.gender]
+  );
+  const cycleActiveToday = useMemo(
+    () => Boolean(user.cycleTracking && user.gender === 'female' && isTodayInCycle(user.id, cyclePeriod)),
+    [user.cycleTracking, user.gender, user.id, cyclePeriod]
+  );
+  const cycleMessage = useMemo(
+    () => (user.cycleTracking && user.gender === 'female' ? getMotivationalMessageForToday(user.id) : null),
+    [user.cycleTracking, user.gender, user.id, cyclePeriod]
+  );
+  const moodAutoSetRef = useRef(false);
+
+  useEffect(() => {
+    if (cycleActiveToday && !moodAutoSetRef.current) {
+      moodAutoSetRef.current = true;
+      if (user.mood !== 'confident') {
+        onMoodChange('confident');
+      }
+    }
+    if (!cycleActiveToday) {
+      moodAutoSetRef.current = false;
+    }
+  }, [cycleActiveToday, user.mood, onMoodChange]);
 
   // Real stats
   const mostUsedGarment = useMemo(
@@ -79,16 +114,26 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
         }
       }
 
+      const isCycleDay = Boolean(
+        showCycleFeatures && cyclePeriod && isDateInCycle(dateStr, cyclePeriod)
+      );
+
       return {
         day: days[i],
         date: dateStr,
         isToday: d.toDateString() === today.toDateString(),
         lookImage,
         lookName: look?.name || null,
-        hasEntry: !!entry
+        hasEntry: !!entry,
+        isCycleDay,
       };
     });
-  }, [plannerEntries, looks, today]);
+  }, [plannerEntries, looks, today, cyclePeriod, showCycleFeatures]);
+
+  const handleCycleDayTap = (dateStr: string) => {
+    const msg = getMotivationalMessageForDate(dateStr, user.id);
+    if (msg) notify(msg, 'info');
+  };
 
   // Today's plan
   const todayStr = today.toISOString().split('T')[0];
@@ -107,21 +152,33 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
         <LevelProgress user={user} />
       </header>
 
+      {showCycleFeatures && cycleMessage && (
+        <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-100 rounded-2xl px-4 py-3 flex items-start gap-3 animate-fade-in">
+          <span className="text-lg flex-shrink-0 animate-pulse">🌙</span>
+          <p className="text-sm font-medium text-purple-900 leading-snug">{cycleMessage}</p>
+        </div>
+      )}
+
       {/* Mood Selector */}
       <section className="flex space-x-3 overflow-x-auto no-scrollbar py-2">
-        {moods.map((m) => (
+        {moods.map((m) => {
+          const isSelected = user.mood === m.id;
+          const isCycleHighlight = cycleActiveToday && m.id === 'confident';
+          const isActive = isSelected || isCycleHighlight;
+          return (
           <button
             key={m.id}
             onClick={() => onMoodChange(m.id)}
-            className={`flex-shrink-0 px-4 py-3 rounded-2xl border flex items-center space-x-2 transition-all transform active:scale-95 ${user.mood === m.id
+            className={`flex-shrink-0 px-4 py-3 rounded-2xl border flex items-center space-x-2 transition-all transform active:scale-95 ${isActive
               ? 'bg-primary text-white border-primary shadow-lg ring-2 ring-offset-2 ring-primary/30'
               : 'bg-white border-gray-100 text-gray-600 shadow-sm hover:border-gray-200'
-              }`}
+              } ${isCycleHighlight && !isSelected ? 'ring-2 ring-purple-300 border-purple-200' : ''}`}
           >
             <span className="text-xl">{m.emoji}</span>
             <span className="font-medium text-sm">{m.label}</span>
           </button>
-        ))}
+        );
+        })}
       </section>
 
       {/* Today's Look or CTA */}
@@ -155,7 +212,7 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
           </div>
         ) : (
           <button
-            onClick={() => onNavigate('create')}
+            onClick={() => onNavigate('wardrobe', 'createLook')}
             className="w-full bg-primary text-white p-5 rounded-3xl shadow-xl shadow-primary/20 flex items-center justify-between group hover:bg-teal-900 transition-colors"
           >
             <div className="flex flex-col items-start">
@@ -181,19 +238,47 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
         </div>
         <div className="flex space-x-3 overflow-x-auto no-scrollbar pb-2">
           {weeklyPlanner.map((day) => (
-            <div key={day.date} className="flex flex-col items-center space-y-2">
+            <div key={day.date} className="flex flex-col items-center space-y-2 flex-shrink-0">
               <span className={`text-xs font-medium ${day.isToday ? 'text-primary' : 'text-gray-400'}`}>{day.day}</span>
-              <div className={`w-14 h-14 rounded-2xl border-2 flex items-center justify-center relative overflow-hidden ${day.isToday ? 'border-accent shadow-md' : day.lookImage ? 'border-primary/30' : 'border-dashed border-gray-200 bg-gray-50'}`}>
-                {day.lookImage ? (
-                  <img src={day.lookImage} className="w-full h-full object-cover" alt={day.lookName || 'Look'} />
-                ) : day.isToday ? (
-                  <button onClick={() => onNavigate('planner')} className="w-full h-full flex items-center justify-center">
-                    <span className="text-gray-300 text-[10px] text-center leading-none px-1">Planear</span>
-                  </button>
-                ) : (
-                  <div className="w-2 h-2 rounded-full bg-gray-200" />
-                )}
-              </div>
+              {day.isCycleDay && showCycleFeatures ? (
+                <button
+                  type="button"
+                  onClick={() => handleCycleDayTap(day.date)}
+                  className={`w-14 h-14 rounded-2xl border-2 flex items-center justify-center relative overflow-hidden border-rose-200/80 bg-rose-50/90 cycle-day-cell--active touch-manipulation ${
+                    day.isToday ? 'ring-2 ring-primary/30' : ''
+                  }`}
+                  aria-label="Día de ciclo — ver mensaje"
+                >
+                  {day.lookImage ? (
+                    <img src={day.lookImage} className="w-full h-full object-cover opacity-60" alt="" />
+                  ) : null}
+                  <CycleDayMarker />
+                </button>
+              ) : (
+                <div
+                  className={`w-14 h-14 rounded-2xl border-2 flex items-center justify-center relative overflow-hidden ${
+                    day.isToday
+                      ? 'border-accent shadow-md'
+                      : day.lookImage
+                        ? 'border-primary/30'
+                        : 'border-dashed border-gray-200 bg-gray-50'
+                  }`}
+                >
+                  {day.lookImage ? (
+                    <img src={day.lookImage} className="w-full h-full object-cover" alt={day.lookName || 'Look'} />
+                  ) : day.isToday ? (
+                    <button
+                      type="button"
+                      onClick={() => onNavigate('planner')}
+                      className="w-full h-full flex items-center justify-center"
+                    >
+                      <span className="text-gray-300 text-[10px] text-center leading-none px-1">Planear</span>
+                    </button>
+                  ) : (
+                    <div className="w-2 h-2 rounded-full bg-gray-200" />
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>

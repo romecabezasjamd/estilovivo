@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Bell } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
+import { API_BASE, getAuthHeader, getSocketOrigin, parseApiErrorMessage } from '../services/api';
+
+const AUTH_TOKEN_KEY = 'beyour_token';
 import { useLanguage } from '../src/context/LanguageContext';
 
 interface Notification {
@@ -9,32 +12,41 @@ interface Notification {
     content: string;
     isRead: boolean;
     createdAt: string;
-    data?: any;
+    relatedId?: string | null;
+    data?: { conversationId?: string } | null;
 }
 
 const NotificationBell: React.FC = () => {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [isOpen, setIsOpen] = useState(false);
     const [socket, setSocket] = useState<Socket | null>(null);
+    const [fetchError, setFetchError] = useState<string | null>(null);
     const { t } = useLanguage();
 
     useEffect(() => {
         const fetchNotifications = async () => {
             try {
-                const res = await fetch('/api/notifications', { credentials: 'include' });
+                const res = await fetch(`${API_BASE}/notifications`, {
+                    credentials: 'include',
+                    headers: getAuthHeader() as HeadersInit,
+                });
                 if (res.ok) {
                     const data = await res.json();
                     setNotifications(data);
+                    setFetchError(null);
+                } else {
+                    setFetchError(await parseApiErrorMessage(res));
                 }
             } catch (e) {
                 console.error('Error fetching notifications', e);
+                setFetchError('No se pudieron cargar las notificaciones');
             }
         };
 
-        const hasSession = localStorage.getItem('beyour_user');
+        const hasSession = localStorage.getItem(AUTH_TOKEN_KEY) || localStorage.getItem('beyour_user');
         if (hasSession) fetchNotifications();
 
-        const newSocket = io(process.env.NODE_ENV === 'production' ? 'https://estilovivo.xyoncloud.win' : 'http://localhost:3000', {
+        const newSocket = io(getSocketOrigin(), {
             withCredentials: true,
             autoConnect: true
         });
@@ -68,9 +80,10 @@ const NotificationBell: React.FC = () => {
         // Mark as read
         if (!notif.isRead) {
             try {
-                await fetch(`/api/notifications/${notif.id}/read`, {
+                await fetch(`${API_BASE}/notifications/${notif.id}/read`, {
                     method: 'PUT',
-                    credentials: 'include'
+                    credentials: 'include',
+                    headers: getAuthHeader() as HeadersInit,
                 });
                 setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isRead: true } : n));
             } catch (err) {
@@ -80,8 +93,9 @@ const NotificationBell: React.FC = () => {
         
         // Navigate based on notification type
         if (notif.type === 'CHAT') {
-            if (notif.data?.conversationId) {
-                localStorage.setItem('ev_chat_open', notif.data.conversationId);
+            const conversationId = notif.relatedId || notif.data?.conversationId;
+            if (conversationId) {
+                localStorage.setItem('ev_chat_open', conversationId);
             }
             setIsOpen(false);
             window.dispatchEvent(new CustomEvent('navigateTo', { detail: { tab: 'social', subTab: 'chat' } }));
@@ -132,7 +146,11 @@ const NotificationBell: React.FC = () => {
                                 {unreadCount > 0 && <span className="text-xs text-primary font-bold bg-primary/10 px-2 py-1 rounded-full">{unreadCount} nuevas</span>}
                             </div>
                             <div className="max-h-96 overflow-y-auto no-scrollbar">
-                                {notifications.length === 0 ? (
+                                {fetchError ? (
+                                    <div className="p-6 text-center text-red-500 text-sm">
+                                        {fetchError}
+                                    </div>
+                                ) : notifications.length === 0 ? (
                                     <div className="p-8 text-center text-gray-400 text-sm">
                                         No tienes notificaciones recientes
                                     </div>

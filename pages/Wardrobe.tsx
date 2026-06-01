@@ -1,11 +1,14 @@
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect, lazy, Suspense } from 'react';
+const CreateLook = lazy(() => import('./CreateLook'));
 import { Garment, Look, PlannerEntry } from '../types';
 import {
   Filter, Plus, Search, Trash2, X, Camera, Tag, DollarSign,
-  Info, ExternalLink, RefreshCcw, Check, ShoppingBag as SellIcon, ShoppingBag, ChevronRight, Shirt, SlidersHorizontal, ArrowLeft, Sparkles
+  Info, ExternalLink, RefreshCcw, Check, ShoppingBag as SellIcon, ShoppingBag, ChevronRight, Shirt, SlidersHorizontal, ArrowLeft, Sparkles, ImagePlus
 } from 'lucide-react';
+import { CameraSource } from '@capacitor/camera';
 import { useLanguage } from '../src/context/LanguageContext';
+import { dataUrlToFile, pickPhoto } from '../src/utils/cameraPhoto';
 import ProductDetailModal, { ProductDisplayItem } from '../components/ProductDetailModal';
 
 interface WardrobeProps {
@@ -16,7 +19,10 @@ interface WardrobeProps {
   looks: Look[];
   planner: PlannerEntry[];
   onUpdatePlanner: (e: PlannerEntry) => void;
-  onNavigate: (tab: string) => void;
+  onNavigate: (tab: string, subTab?: string) => void;
+  onSaveLook: (look: Look, onAfterSave?: () => void) => void;
+  wardrobeIntent?: 'looks' | 'createLook' | null;
+  onWardrobeIntentConsumed?: () => void;
   trips?: import('../types').Trip[];
   onUpdateTrip?: (trip: import('../types').Trip) => void;
 }
@@ -49,11 +55,33 @@ const Wardrobe: React.FC<WardrobeProps> = ({
   planner,
   onUpdatePlanner,
   onNavigate,
+  onSaveLook,
+  wardrobeIntent,
+  onWardrobeIntentConsumed,
   trips = [],
   onUpdateTrip,
 }) => {
   const { t } = useLanguage();
   const [activeView, setActiveView] = useState<ViewType>('closet');
+  const [showCreateLook, setShowCreateLook] = useState(false);
+
+  useEffect(() => {
+    if (!wardrobeIntent) return;
+    if (wardrobeIntent === 'looks') {
+      setActiveView('looks');
+      onWardrobeIntentConsumed?.();
+    }
+    if (wardrobeIntent === 'createLook') {
+      setActiveView('looks');
+      setShowCreateLook(true);
+      onWardrobeIntentConsumed?.();
+    }
+  }, [wardrobeIntent, onWardrobeIntentConsumed]);
+
+  const openCreateLook = () => {
+    setActiveView('looks');
+    setShowCreateLook(true);
+  };
   const [filter, setFilter] = useState('all');
 
   // Search
@@ -80,6 +108,31 @@ const Wardrobe: React.FC<WardrobeProps> = ({
   const [newColor, setNewColor] = useState('');
   const [newSeason, setNewSeason] = useState<'all' | 'summer' | 'winter' | 'transition'>('all');
   const [newBrand, setNewBrand] = useState('');
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [addPhotoError, setAddPhotoError] = useState<string | null>(null);
+  const [isPickingPhoto, setIsPickingPhoto] = useState(false);
+
+  const applyPickedPhoto = (dataUrl: string, file: File) => {
+    setNewImage(dataUrl);
+    setNewFile(file);
+    setAddPhotoError(null);
+  };
+
+  const pickGarmentPhoto = async (source: CameraSource) => {
+    setIsPickingPhoto(true);
+    setAddPhotoError(null);
+    try {
+      const { dataUrl, file } = await pickPhoto(source);
+      applyPickedPhoto(dataUrl, file);
+    } catch (err: any) {
+      const message = String(err?.message || err || '').toLowerCase();
+      if (message.includes('cancel') || message.includes('cancelado')) return;
+      console.warn('Photo pick failed:', err);
+      setAddPhotoError('No se pudo obtener la foto. Revisa los permisos de cámara y galería e inténtalo de nuevo.');
+    } finally {
+      setIsPickingPhoto(false);
+    }
+  };
 
   // Sell Flow
   const [isSelling, setIsSelling] = useState(false);
@@ -163,6 +216,10 @@ const Wardrobe: React.FC<WardrobeProps> = ({
 
   const confirmAdd = () => {
     if (!newImage || !newName.trim()) return;
+    let fileToUpload = newFile;
+    if (!fileToUpload && newImage.startsWith('data:')) {
+      fileToUpload = dataUrlToFile(newImage, `garment-${Date.now()}.jpg`);
+    }
     const garment: Garment = {
       id: `g-${Date.now()}`,
       imageUrl: newImage,
@@ -174,7 +231,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
       forSale: false,
       brand: newBrand || undefined,
     };
-    onAddGarment(garment, newFile || undefined);
+    onAddGarment(garment, fileToUpload);
     resetAddModal();
   };
 
@@ -182,6 +239,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
     setIsAdding(false);
     setNewImage(null);
     setNewFile(null);
+    setAddPhotoError(null);
     setNewName('');
     setNewCategory('top');
     setNewColor('');
@@ -590,7 +648,8 @@ const Wardrobe: React.FC<WardrobeProps> = ({
           <div className="flex justify-between items-center mb-4">
             <h3 className="font-bold text-gray-800">Tus Looks</h3>
             <button
-              onClick={() => onNavigate('create')}
+              type="button"
+              onClick={openCreateLook}
               className="text-primary text-xs font-bold bg-primary/10 px-3 py-1.5 rounded-full"
             >
               + Crear Look
@@ -603,7 +662,8 @@ const Wardrobe: React.FC<WardrobeProps> = ({
               <p className="text-gray-400 text-sm">Aún no tienes looks guardados</p>
               <p className="text-xs text-gray-300 mt-1">Crea tu primer look en minutos</p>
               <button
-                onClick={() => onNavigate('create')}
+                type="button"
+                onClick={openCreateLook}
                 className="mt-4 text-primary text-sm font-medium"
               >
                 Crear Look
@@ -732,12 +792,36 @@ const Wardrobe: React.FC<WardrobeProps> = ({
               {/* Image Upload */}
               <div>
                 {!newImage ? (
-                  <label className="w-full aspect-[4/3] bg-gray-50 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:bg-gray-100 transition-colors">
-                    <Camera size={40} className="text-gray-300 mb-2" />
-                    <span className="text-sm text-gray-500 font-medium">Subir foto</span>
-                    <span className="text-xs text-gray-300 mt-1">JPG, PNG hasta 10MB</span>
-                    <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileUpload} />
-                  </label>
+                  <div className="w-full aspect-[4/3] bg-gray-50 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center p-4 gap-3">
+                    <Camera size={36} className="text-gray-300" />
+                    <span className="text-sm text-gray-500 font-medium">Añade una foto de la prenda</span>
+                    <div className="flex gap-2 w-full max-w-xs">
+                      <button
+                        type="button"
+                        disabled={isPickingPhoto}
+                        onClick={() => pickGarmentPhoto(CameraSource.Camera)}
+                        className="flex-1 py-2.5 rounded-xl bg-primary text-white text-xs font-bold disabled:opacity-50 hover:opacity-80 transition-opacity"
+                      >
+                        Cámara
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isPickingPhoto}
+                        onClick={() => pickGarmentPhoto(CameraSource.Photos)}
+                        className="flex-1 py-2.5 rounded-xl bg-gray-800 text-white text-xs font-bold disabled:opacity-50 hover:opacity-80 transition-opacity"
+                      >
+                        Galería
+                      </button>
+                    </div>
+                    <label className="flex items-center gap-1 text-xs text-gray-400 cursor-pointer hover:text-primary transition-colors">
+                      <ImagePlus size={14} />
+                      <span>O subir desde el dispositivo</span>
+                      <input ref={el => { fileInputRef.current = el; }} type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
+                    </label>
+                    {addPhotoError && (
+                      <p className="text-xs text-red-500 font-medium text-center">{addPhotoError}</p>
+                    )}
+                  </div>
                 ) : (
                   <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden">
                     <img src={newImage} className="w-full h-full object-cover" />
@@ -1005,6 +1089,26 @@ const Wardrobe: React.FC<WardrobeProps> = ({
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {showCreateLook && (
+        <div className="fixed inset-0 z-[55] bg-white">
+          <Suspense
+            fallback={
+              <div className="h-full flex items-center justify-center">
+                <div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+              </div>
+            }
+          >
+            <CreateLook
+              garments={garments}
+              onSaveLook={(look) => {
+                onSaveLook(look, () => setShowCreateLook(false));
+              }}
+              onClose={() => setShowCreateLook(false)}
+            />
+          </Suspense>
         </div>
       )}
     </div>

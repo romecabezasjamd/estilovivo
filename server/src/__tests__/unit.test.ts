@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 
 // Mock image processor
-vi.mock('../imageProcessor', () => ({
+vi.mock('../imageProcessor.js', () => ({
   processImage: vi.fn().mockResolvedValue({
     original: 'test-original.jpg',
     thumbnail: 'test-thumb.webp',
@@ -17,7 +17,7 @@ vi.mock('../imageProcessor', () => ({
 
 describe('Image Processor', () => {
   it('should process images correctly', async () => {
-    const { processImage } = await import('../imageProcessor');
+    const { processImage } = await import('../imageProcessor.js');
     const result = await processImage('/tmp/test.jpg', '/uploads', 'test.jpg');
     
     expect(result).toHaveProperty('original');
@@ -26,7 +26,7 @@ describe('Image Processor', () => {
   });
 
   it('should get image metadata', async () => {
-    const { getImageMetadata } = await import('../imageProcessor');
+    const { getImageMetadata } = await import('../imageProcessor.js');
     const metadata = await getImageMetadata('/tmp/test.jpg');
     
     expect(metadata).toHaveProperty('width');
@@ -37,7 +37,7 @@ describe('Image Processor', () => {
 
 describe('Validation Schemas', () => {
   it('should validate registerSchema correctly', async () => {
-    const { registerSchema } = await import('../validators');
+    const { registerSchema } = await import('../validators.js');
     
     const validData = {
       email: 'test@example.com',
@@ -49,7 +49,7 @@ describe('Validation Schemas', () => {
   });
 
   it('should reject invalid email in registerSchema', async () => {
-    const { registerSchema } = await import('../validators');
+    const { registerSchema } = await import('../validators.js');
     
     const invalidData = {
       email: 'not-an-email',
@@ -61,7 +61,7 @@ describe('Validation Schemas', () => {
   });
 
   it('should reject short password in registerSchema', async () => {
-    const { registerSchema } = await import('../validators');
+    const { registerSchema } = await import('../validators.js');
     
     const invalidData = {
       email: 'test@example.com',
@@ -73,7 +73,7 @@ describe('Validation Schemas', () => {
   });
 
   it('should validate productSchema correctly', async () => {
-    const { productSchema } = await import('../validators');
+    const { productSchema } = await import('../validators.js');
     
     const validData = {
       name: 'Test Product',
@@ -86,7 +86,7 @@ describe('Validation Schemas', () => {
   });
 
   it('should validate lookSchema correctly', async () => {
-    const { lookSchema } = await import('../validators');
+    const { lookSchema } = await import('../validators.js');
     
     const validData = {
       title: 'My Outfit',

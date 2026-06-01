@@ -1,237 +1,144 @@
-# EstiloVivo - Fashion App
+# Estilo Vivo
 
-> **EstiloVivo** es una aplicación web de moda y estilo personal. Permite a los usuarios gestionar su armario digital, crear y compartir outfits ("looks"), planificar sus outfits por calendario, organizar maletas para viajes, comprar y vender ropa entre usuarios, y conectar con una comunidad de moda. Tiene sistema de mensajería privada entre usuarios y notificaciones en tiempo real.
+**Estilo Vivo** es una aplicación web de moda para gestionar tu armario digital, crear looks, planificar viajes, compartir con la comunidad y chatear con usuarios.
 
-## ✨ Funcionalidades Principales
+## 🌟 Qué incluye
 
-| Sección | Descripción |
-|---|---|
-| **Armario (Wardrobe)** | Gestión del guardarropa digital: añadir prendas con fotos, categorías, tallas, colores, temporadas, estado de uso y condición |
-| **Looks (CreateLook)** | Crear outfits combinando prendas del armario, con imagen, título, mood y opción de hacerlos públicos |
-| **Planner** | Calendario semanal para planificar qué look llevar cada día y añadir notas de eventos |
-| **Maleta (Suitcase)** | Organizador de viajes: destino, fechas, checklist de objetos esenciales y selección de prendas del armario |
-| **Social** | Feed público de looks de otros usuarios con likes, comentarios y sistema de seguidores/seguidos |
-| **Community** | Sección de comunidad para descubrir usuarios y tendencias |
-| **Chat** | Mensajería privada entre usuarios, vinculada a prendas en venta |
-| **Wishlist** | Lista de deseos con looks y prendas favoritas guardadas |
-| **Perfil (Profile)** | Perfil de usuario con avatar, bio, mood, seguimiento del ciclo, sincronización musical, y marketplace de prendas propias |
-| **Home** | Pantalla de inicio con recomendador diario de look y tendencias de moda |
+- Gestión de prendas, looks y planes
+- Perfil de usuario con preferencias y notificaciones por email
+- Autenticación con JWT y `rememberMe`
+- PWA + iconos y manifest
+- Backend Express + Prisma + SQLite
+- Deploy con Docker Compose
 
-## 👤 Sistema de Usuarios
+## 🧱 Stack técnico
 
-- Registro con **verificación por email** obligatoria
-- Login con JWT
-- Recuperación de contraseña por email
-- Perfiles con avatar, bio, género, fecha de nacimiento
-- Sistema de **seguidores/seguidos** (Follow)
-- **Notificaciones** en tiempo real (ventas, chat, lavado, interés en prendas)
+- Frontend: React 19 + TypeScript + Vite
+- Backend: Express + TypeScript
+- ORM: Prisma
+- Base de datos: SQLite (`DATABASE_URL=file:./data/dev.db`)
+- PWA: `manifest.json` + `icon-192.png` / `icon-512.png`
+- Build: `npm run build` (frontend) / `npm run build` (servidor)
 
-## 🌐 Multiidioma
-
-La app tiene soporte completo de internacionalización (i18n) con traducciones en:
-- 🇪🇸 Español
-- 🇬🇧 Inglés
-- 🇫🇷 Francés
-- 🇩🇪 Alemán
-
----
-
-Aplicación monolítica (una URL única) con:
-- **Frontend:** React 19 + Vite + TypeScript
-- **Backend:** Express + TypeScript
-- **BD:** PostgreSQL + Prisma ORM
-- **Deploy:** Docker Compose (Coolify, VPS)
-
-## 🏗️ Estructura del Proyecto
+## 📁 Estructura principal
 
 ```
 estilovivo/
-├── server/                 # 🔧 Backend Express
-│   ├── src/
-│   │   └── index.ts       # Servidor Express principal
-│   ├── prisma/
-│   │   ├── schema.prisma  # Modelos de BD
-│   │   └── migrations/    # Cambios automáticos
+├── server/                 # Backend Express + Prisma
+│   ├── src/                # Código backend
+│   ├── prisma/             # Prisma schema y configuración
 │   ├── package.json
 │   └── tsconfig.json
-│
-├── components/             # 🎨 Componentes React
-├── pages/                 # 📄 Páginas React
-├── App.tsx                # Aplicación principal
-├── index.tsx              # Entry point React
-├── index.html             # Template HTML
-├── types.ts               # TypeScript types
-│
-├── Dockerfile             # Single builder para todo
-├── docker-compose.yml     # Orquestación única
-├── .env.dev               # Variables desarrollo
-├── .env.prod              # Variables producción
-├── .env.example           # Template
-│
-└── [config files]         # tsconfig, vite, package.json, etc
+├── components/             # Componentes React
+├── pages/                  # Páginas React
+├── public/                 # Archivos estáticos + PWA icons
+├── Dockerfile              # Imagen de producción
+├── docker-compose.yaml     # Deployment con Docker Compose
+├── .env.example            # Variables de entorno de ejemplo
+└── README.md
 ```
 
-## 🚀 Inicio Rápido
+## 🚀 Desarrollo local
 
-### Desarrollo Local (Docker)
+1. Copia el archivo de ejemplo:
 
 ```bash
-# 1. Clonar y entrar
-git clone <repo> && cd estilovivo
-
-# 2. Usar variables de desarrollo
-cp .env.dev .env
-
-# 3. Levantar todo
-docker-compose up
-
-# 4. Acceder
-# Frontend: http://localhost:3000
-# API: http://localhost:3000/api
-# Base de datos: localhost:5432
+cp .env.example .env
 ```
 
-**Todo se construye automáticamente en desarrollo con hot reload.**
-
-### Producción / Coolify
+2. Instala dependencias y arranca el frontend:
 
 ```bash
-# 1. Configurar variables
-cp .env.prod .env
-# Editar .env con contraseñas reales
-
-# 2. Build + Run
-docker-compose up -d
-
-# Todo compila una sola vez y sirve lo estático.
+npm install
+npm run dev
 ```
 
-## 📦 Una URL Única - Cómo Funciona
-
-El backend Express sirve TODO:
-
-```
-GET  /              → index.html (React SPA)
-GET  /app/*         → archivos estáticos compilados
-GET  /api/*         → endpoints API
-POST /api/products  → crear productos con imágenes
-```
-
-**Resultado:** Accedes a `https://tudominio.com` y tanto web como API salen de ahí.
-
-## 🗄️ Base de Datos
-
-### Migraciones automáticas
-
-Al iniciar el container, Prisma migra automáticamente:
-```bash
-# Ya no necesitas correr esto manualmente
-npx prisma migrate deploy
-```
-
-### Ver/editar datos
+3. Arranca el backend desde `server/` si es necesario:
 
 ```bash
 cd server
-npx prisma studio
-# Abre http://localhost:5555
+npm install
+npm run dev
 ```
 
-### Crear nueva migración
+> El frontend accede a la API usando los endpoints configurados en `services/api.ts`.
+
+## 🛠️ Preparar producción
+
+### 1. Copia el ejemplo de variables
 
 ```bash
-cd server
-# Editar server/prisma/schema.prisma
-npx prisma migrate dev --name nombre_cambio
+cp .env.example .env
 ```
 
-## 📡 API Endpoints
+### 2. Ajusta los valores importantes
 
-```typescript
-GET    /api/health                    // Status servidor
-GET    /api/products                  // Listar todos
-GET    /api/products/:id              // Obtener uno
-POST   /api/products                  // Crear (multipart: images)
-DELETE /api/products/:id              // Eliminar
+En `.env` debes definir al menos:
 
-GET    /api/looks                     // Listar looks
-POST   /api/looks                     // Crear (multipart: images)
-
-GET    /api/users/:id                 // Perfil completo
-POST   /api/users                     // Crear usuario
-
-GET    /api/uploads/:filename         // Descargar imagen
-```
-
-## 🐳 Docker
-
-### Un Dockerfile, dos targets
-
-```dockerfile
-# Desarrollo (con hot reload)
-docker-compose up --build  # DOCKER_TARGET=development
-
-# Producción (compilado, optimizado)
-DOCKER_TARGET=production docker-compose up  # build estático
-```
-
-### Volúmenes persistentes
-
-- `postgres_data` → Base de datos (automático backup)
-- `uploads_data` → Imágenes de productos
-
-## 📝 Variables de Ambiente
-
-### Desarrollo (`.env.dev`)
-```
-DB_USER=estilovivo
-DB_PASSWORD=dev_password
-DB_NAME=estilovivo_dev
-NODE_ENV=development
-DOCKER_TARGET=development
-```
-
-### Producción (`.env.prod`)
-```
-DB_USER=estilovivo
-DB_PASSWORD=CONTRASEÑA_FUERTE
-DB_NAME=estilovivo
+```env
+DATABASE_URL="file:./data/dev.db"
+JWT_SECRET="tu_secreto_super_seguro"
+PORT=3000
 NODE_ENV=production
-DOCKER_TARGET=production
+UPLOADS_DIR="/app/uploads"
+GEMINI_API_KEY=
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASS=
 ```
 
-## 🌐 Deploy en Coolify
+### 3. Construye y despliega con Docker Compose
 
-Ver [DEPLOYMENT.md](DEPLOYMENT.md) para instrucciones completas.
+```bash
+docker compose up --build -d
+```
 
-**Lo importante:**
-1. Usar `docker-compose.yml` (único archivo)
-2. Configurar variables en Coolify
-3. Listo - Coolify maneja SSL, DNS, etc.
+La aplicación será accesible en `http://localhost:3000` cuando se despliegue localmente.
 
-## 🔧 Tech Stack
+### 4. Accede a la aplicación
 
-| Componente | Tecnología | Versión |
-|-----------|-----------|---------|
-| **Runtime** | Node.js | 20 Alpine |
-| **Frontend** | React | 19.2 |
-| **Build Frontend** | Vite | 6.2 |
-| **Backend** | Express | 4.21 |
-| **BD** | PostgreSQL | 16 Alpine |
-| **ORM** | Prisma | 5.23 |
-| **Uploads** | Multer | 1.4 |
-| **Tipado** | TypeScript | 5.8 |
+La app quedará disponible en `http://localhost:3000` si la ejecutas localmente.
 
-## ❌ Archivos Antiguos (ya no necesarios)
+## 📦 Docker Compose actual
 
-Se pueden eliminar:
-- `Dockerfile.backend` ❌
-- `Dockerfile.frontend` ❌
-- `Dockerfile.production` ❌
-- `docker-compose.dev.yaml` ❌
+La configuración de `docker-compose.yaml` usa SQLite y persiste:
 
-Todo está consolidado en:
-- `Dockerfile` ✅
-- `docker-compose.yml` ✅
+- `sqlite_data` → archivo de base de datos `./data/dev.db`
+- `uploads_data` → imágenes subidas
 
+Esto evita dependencias externas en producción y permite desplegar con un único contenedor.
 
+## 🧪 Validación
+
+### Frontend
+
+```bash
+npm run build
+```
+
+### Backend
+
+```bash
+cd server
+npm run build
+npx vitest run
+```
+
+## 🌐 API rápida
+
+- `GET /api/health`
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `POST /api/auth/logout`
+- `GET /api/products`
+- `POST /api/products`
+- `GET /api/looks`
+- `POST /api/looks`
+
+## 📌 Notas importantes
+
+- El proyecto actual usa SQLite en producción con Docker Compose.
+- Si quieres usar PostgreSQL a futuro, deberás adaptar `server/prisma/schema.prisma` y la inicialización de Prisma.
+- El `docker-compose.yaml` ya no requiere un servicio de postgres.

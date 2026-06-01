@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { UserState, Look, Garment, PlannerEntry } from '../types';
-import { api } from '../services/api';
+import { api, clearAuthToken, clearPersistedSession } from '../services/api';
 import {
   User, Settings, LogOut, Heart, Camera, Edit3, Save, X,
   ShoppingBag, Shirt, Calendar, Star, TrendingUp, ChevronRight,
-  Eye, Bookmark, Bell, Shield, Moon, Music, BarChart3, Download,
+  Eye, Bookmark, Bell, Shield, Moon, BarChart3, Download,
   HelpCircle, Lock, Palette, Languages, Globe, AlertCircle
 } from 'lucide-react';
-import { applyTheme, getSavedTheme, ThemeColor, THEMES } from '../src/utils/theme';
+import { ThemeColor, THEMES } from '../src/utils/theme';
+import { useTheme } from '../src/context/ThemeContext';
+import { normalizeHex } from '../src/utils/colorUtils';
+import { getCyclePeriod, saveCyclePeriod } from '../src/utils/cycleTracking';
 import { useLanguage } from '../src/context/LanguageContext';
 import { languages, dialects } from '../src/utils/translations';
 import Logo from '../components/Logo';
@@ -36,7 +39,8 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
   const [loadingFavs, setLoadingFavs] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
-  const [currentTheme, setCurrentTheme] = useState<ThemeColor>(getSavedTheme());
+  const { presetTheme, customColor, isCustom, setPresetTheme, setCustomColor, resetToDefault } = useTheme();
+  const [pickerValue, setPickerValue] = useState(customColor || THEMES[presetTheme].primary);
   const { t, language, setLanguage, dialect, setDialect } = useLanguage();
   const [showLanguageSettings, setShowLanguageSettings] = useState(false);
   const [showSecuritySettings, setShowSecuritySettings] = useState(false);
@@ -56,7 +60,33 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
 
   // Settings state
   const [cycleTracking, setCycleTracking] = useState(user.cycleTracking || false);
-  const [musicSync, setMusicSync] = useState(user.musicSync || false);
+  const [emailNotifications, setEmailNotifications] = useState(user.emailNotifications ?? true);
+  const [cycleStartDate, setCycleStartDate] = useState('');
+  const [cycleEndDate, setCycleEndDate] = useState('');
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setEmailNotifications(user.emailNotifications ?? true);
+  }, [user.emailNotifications]);
+
+  useEffect(() => {
+    setCycleTracking(user.cycleTracking || false);
+  }, [user.cycleTracking]);
+
+  useEffect(() => {
+    setPickerValue(customColor || THEMES[presetTheme].primary);
+  }, [customColor, presetTheme]);
+
+  useEffect(() => {
+    if (user.id) {
+      const period = getCyclePeriod(user.id);
+      if (period) {
+        setCycleStartDate(period.startDate);
+        setCycleEndDate(period.endDate);
+      }
+    }
+  }, [user.id]);
 
   // Load stats
   useEffect(() => {
@@ -150,6 +180,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
   // Save profile
   const handleSave = async () => {
     setSaving(true);
+    setSaveError(null);
     try {
       let updatedUser: UserState;
       if (avatarFile || fullBodyAvatarFile) {
@@ -168,27 +199,56 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
       setAvatarPreview(null);
       setFullBodyAvatarFile(null);
       setFullBodyAvatarPreview(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving profile:', error);
-      // Fallback local
-      onUpdateUser({ ...user, name: editName, bio: editBio });
-      setEditing(false);
+      setSaveError(error?.message || 'No se pudo guardar el perfil');
     } finally {
       setSaving(false);
     }
   };
 
   // Save settings
-  const handleToggleSetting = async (setting: 'cycleTracking' | 'musicSync', value: boolean) => {
-    if (setting === 'cycleTracking') setCycleTracking(value);
-    else setMusicSync(value);
+  const handleToggleSetting = async (setting: 'cycleTracking' | 'emailNotifications', value: boolean) => {
+    const prev = {
+      cycleTracking,
+      emailNotifications,
+    };
 
+    if (setting === 'cycleTracking') {
+      setCycleTracking(value);
+      if (!value && user.id) {
+        saveCyclePeriod(user.id, null);
+        setCycleStartDate('');
+        setCycleEndDate('');
+      }
+    } else if (setting === 'emailNotifications') {
+      setEmailNotifications(value);
+    }
+
+    setSettingsError(null);
     try {
-      await api.updateProfile({ [setting]: value });
-      onUpdateUser({ ...user, [setting]: value });
-    } catch (e) {
+      const updated = await api.updateProfile({ [setting]: value });
+      onUpdateUser({ ...user, ...updated, [setting]: value });
+    } catch (e: any) {
+      if (setting === 'cycleTracking') setCycleTracking(prev.cycleTracking);
+      else setEmailNotifications(prev.emailNotifications);
+      setSettingsError(e?.message || 'No se pudo guardar la preferencia');
       console.warn('Error saving setting:', e);
     }
+  };
+
+  const handleSaveCycleDates = () => {
+    if (!user.id) return;
+    if (!cycleStartDate || !cycleEndDate) {
+      setSettingsError('Indica fecha de inicio y fin del periodo');
+      return;
+    }
+    if (cycleStartDate > cycleEndDate) {
+      setSettingsError('La fecha de fin debe ser posterior al inicio');
+      return;
+    }
+    saveCyclePeriod(user.id, { startDate: cycleStartDate, endDate: cycleEndDate });
+    setSettingsError(null);
   };
 
   const handleLogout = async () => {
@@ -198,8 +258,8 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
     } catch (e) {
       console.warn('Error logging out:', e);
     } finally {
-      localStorage.removeItem('beyour_token');
-      localStorage.removeItem('beyour_user');
+      clearPersistedSession();
+      await clearAuthToken();
       window.location.reload();
     }
   };
@@ -208,11 +268,11 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
     setDeleting(true);
     try {
       await api.deleteAccount();
-      localStorage.removeItem('beyour_token');
-      localStorage.removeItem('beyour_user');
+      clearPersistedSession();
+      await clearAuthToken();
       window.location.reload();
     } catch (e) {
-      console.warn('Error deleting account:', e);
+      console.warn('Error al eliminar la cuenta:', e);
       alert('Error al eliminar la cuenta');
     } finally {
       setDeleting(false);
@@ -373,6 +433,9 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
           </div>
 
           {/* Bio */}
+          {saveError && editing && (
+            <p className="text-xs text-red-600 font-medium text-center mb-3">{saveError}</p>
+          )}
           {editing ? (
             <textarea
               value={editBio}
@@ -768,7 +831,15 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                 <div className="flex-1 min-w-0">
                   <h3 className="font-bold text-gray-800 mb-1">Información del Perfil</h3>
                   <p className="text-xs text-gray-600 mb-3">Personaliza tu nombre, biografía y foto de perfil</p>
-                  <button className="px-4 py-2 bg-blue-500 text-white text-xs font-bold rounded-lg hover:bg-blue-600 transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveSection('stats');
+                      setEditing(true);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className="px-4 py-2 bg-blue-500 text-white text-xs font-bold rounded-lg hover:bg-blue-600 transition-colors"
+                  >
                     Editar Perfil
                   </button>
                 </div>
@@ -793,7 +864,13 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                         key={option.id}
                         onClick={async () => {
                           try {
-                            const updated = await api.updateProfile({ gender: option.id as any });
+                            const payload: Record<string, unknown> = { gender: option.id };
+                            if (option.id !== 'female' && user.cycleTracking) {
+                              payload.cycleTracking = false;
+                              setCycleTracking(false);
+                              if (user.id) saveCyclePeriod(user.id, null);
+                            }
+                            const updated = await api.updateProfile(payload as any);
                             onUpdateUser(updated);
                           } catch (e) {
                             console.warn('Error saving gender:', e);
@@ -811,41 +888,78 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                     ))}
                   </div>
                 </div>
-                <div className="flex items-center justify-between p-4">
+                {user.gender === 'female' && (
+                  <>
+                    <div className="flex items-center justify-between p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-purple-100 to-pink-100 rounded-lg flex items-center justify-center">
+                          <Moon size={18} className="text-purple-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-gray-800">Seguimiento del ciclo</p>
+                          <p className="text-xs text-gray-500">Calendario y mensajes en Inicio</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleSetting('cycleTracking', !cycleTracking)}
+                        className={`w-11 h-6 rounded-full transition-colors ${cycleTracking ? 'bg-gradient-to-r from-purple-400 to-pink-500' : 'bg-gray-200'}`}
+                      >
+                        <div className={`w-5 h-5 rounded-full bg-white shadow transform transition-transform ${cycleTracking ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                      </button>
+                    </div>
+                    {cycleTracking && (
+                      <div className="px-4 pb-4 space-y-3 border-t border-gray-50 pt-3">
+                        <div>
+                          <label className="text-xs font-semibold text-gray-500 mb-1 block">Inicio del periodo</label>
+                          <input
+                            type="date"
+                            value={cycleStartDate}
+                            onChange={(e) => setCycleStartDate(e.target.value)}
+                            className="w-full bg-gray-50 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs font-semibold text-gray-500 mb-1 block">Fin del periodo</label>
+                          <input
+                            type="date"
+                            value={cycleEndDate}
+                            onChange={(e) => setCycleEndDate(e.target.value)}
+                            className="w-full bg-gray-50 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleSaveCycleDates}
+                          className="w-full py-2.5 rounded-xl bg-primary text-white text-xs font-bold"
+                        >
+                          Guardar fechas del ciclo
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+                <div id="email-notifications-setting" className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-purple-100 to-pink-100 rounded-lg flex items-center justify-center">
-                      <Moon size={18} className="text-purple-500" />
+                    <div className="w-10 h-10 bg-gradient-to-br from-sky-100 to-blue-100 rounded-lg flex items-center justify-center">
+                      <Bell size={18} className="text-blue-500" />
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-gray-800">Seguimiento del ciclo</p>
-                      <p className="text-xs text-gray-500">Ajusta sugerencias según tu ciclo</p>
+                      <p className="text-sm font-bold text-gray-800">Notificaciones por correo</p>
+                      <p className="text-xs text-gray-500">Avisos por email cuando recibes mensajes en el chat</p>
                     </div>
                   </div>
                   <button
-                    onClick={() => handleToggleSetting('cycleTracking', !cycleTracking)}
-                    className={`w-11 h-6 rounded-full transition-colors ${cycleTracking ? 'bg-gradient-to-r from-purple-400 to-pink-500' : 'bg-gray-200'} ${user.gender === 'male' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    disabled={user.gender === 'male'}
+                    type="button"
+                    onClick={() => handleToggleSetting('emailNotifications', !emailNotifications)}
+                    className={`w-11 h-6 rounded-full transition-colors ${emailNotifications ? 'bg-gradient-to-r from-sky-400 to-blue-500' : 'bg-gray-200'}`}
                   >
-                    <div className={`w-5 h-5 rounded-full bg-white shadow transform transition-transform ${cycleTracking ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                    <div className={`w-5 h-5 rounded-full bg-white shadow transform transition-transform ${emailNotifications ? 'translate-x-5' : 'translate-x-0.5'}`} />
                   </button>
                 </div>
-                <div className="flex items-center justify-between p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-green-100 to-emerald-100 rounded-lg flex items-center justify-center">
-                      <Music size={18} className="text-green-500" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-gray-800">Sincronización musical</p>
-                      <p className="text-xs text-gray-500">Conecta música con tu mood</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleToggleSetting('musicSync', !musicSync)}
-                    className={`w-11 h-6 rounded-full transition-colors ${musicSync ? 'bg-gradient-to-r from-green-400 to-emerald-500' : 'bg-gray-200'}`}
-                  >
-                    <div className={`w-5 h-5 rounded-full bg-white shadow transform transition-transform ${musicSync ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                  </button>
-                </div>
+                {settingsError && (
+                  <p className="px-4 pb-3 text-xs text-red-600 font-medium">{settingsError}</p>
+                )}
               </div>
             </div>
 
@@ -853,27 +967,30 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
               <div className="p-4 border-b border-gray-50 flex items-center gap-2">
                 <Palette size={18} className="text-primary" />
-                <h3 className="text-sm font-bold text-gray-700">Tema Visual</h3>
+                <h3 className="text-sm font-bold text-gray-700">Color de la app</h3>
               </div>
-              <div className="p-5">
-                <p className="text-xs text-gray-500 mb-4">Personaliza el color principal de toda la aplicación</p>
+              <div className="p-5 space-y-5">
+                <p className="text-xs text-gray-500">
+                  Elige una paleta o un color personalizado. Se guarda de forma segura y se aplica al instante.
+                </p>
+
                 <div className="flex flex-wrap gap-4">
                   {(Object.keys(THEMES) as ThemeColor[]).map(themeKey => (
                     <button
                       key={themeKey}
-                      onClick={() => {
-                        applyTheme(themeKey);
-                        setCurrentTheme(themeKey);
-                      }}
-                      className={`group relative flex flex-col items-center gap-2 transition-all ${currentTheme === themeKey ? 'scale-110' : 'hover:scale-105'
-                        }`}
+                      type="button"
+                      onClick={() => setPresetTheme(themeKey)}
+                      className={`group relative flex flex-col items-center gap-2 transition-all ${
+                        !isCustom && presetTheme === themeKey ? 'scale-110' : 'hover:scale-105'
+                      }`}
                     >
                       <div
-                        className={`w-12 h-12 rounded-full border-4 transition-all shadow-md ${currentTheme === themeKey ? 'border-primary' : 'border-transparent'
-                          }`}
+                        className={`w-12 h-12 rounded-full border-4 transition-all shadow-md ${
+                          !isCustom && presetTheme === themeKey ? 'border-primary' : 'border-transparent'
+                        }`}
                         style={{ backgroundColor: THEMES[themeKey].primary }}
                       >
-                        {currentTheme === themeKey && (
+                        {!isCustom && presetTheme === themeKey && (
                           <div className="absolute inset-x-0 -bottom-1 flex justify-center">
                             <div className="bg-primary text-white p-0.5 rounded-full shadow-sm">
                               <Save size={10} />
@@ -881,8 +998,11 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                           </div>
                         )}
                       </div>
-                      <span className={`text-[10px] font-bold capitalize ${currentTheme === themeKey ? 'text-primary' : 'text-gray-400'
-                        }`}>
+                      <span
+                        className={`text-[10px] font-bold capitalize ${
+                          !isCustom && presetTheme === themeKey ? 'text-primary' : 'text-gray-400'
+                        }`}
+                      >
                         {themeKey === 'pink' ? 'Rosa' :
                           themeKey === 'blue' ? 'Azul' :
                             themeKey === 'green' ? 'Verde' :
@@ -898,6 +1018,43 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                     </button>
                   ))}
                 </div>
+
+                <div className="pt-3 border-t border-gray-100">
+                  <p className="text-xs font-semibold text-gray-600 mb-3">Color personalizado</p>
+                  <div className="flex items-center gap-3">
+                    <label
+                      className="relative w-14 h-14 rounded-2xl border-2 border-gray-200 overflow-hidden cursor-pointer shadow-sm flex-shrink-0"
+                      style={{ backgroundColor: pickerValue }}
+                    >
+                      <input
+                        type="color"
+                        value={pickerValue}
+                        onChange={(e) => {
+                          const hex = normalizeHex(e.target.value);
+                          if (!hex) return;
+                          setPickerValue(hex);
+                          setCustomColor(hex);
+                        }}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        aria-label="Selector de color"
+                      />
+                    </label>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-mono font-semibold text-gray-800 uppercase">{pickerValue}</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">
+                        {isCustom ? 'Color activo en toda la app' : 'Toca el cuadrado para elegir'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => resetToDefault()}
+                  className="w-full py-2.5 rounded-xl border border-gray-200 text-gray-600 text-xs font-bold hover:bg-gray-50 transition-colors"
+                >
+                  Restablecer color por defecto (Rosa)
+                </button>
               </div>
             </div>
 
@@ -1075,7 +1232,13 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                 <div className="flex-1 min-w-0">
                   <h3 className="font-bold text-gray-800 mb-1">Notificaciones</h3>
                   <p className="text-xs text-gray-600 mb-3">Elige qué notificaciones deseas recibir</p>
-                  <button className="px-4 py-2 bg-amber-500 text-white text-xs font-bold rounded-lg hover:bg-amber-600 transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      document.getElementById('email-notifications-setting')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }}
+                    className="px-4 py-2 bg-amber-500 text-white text-xs font-bold rounded-lg hover:bg-amber-600 transition-colors"
+                  >
                     Preferencias
                   </button>
                 </div>
@@ -1099,7 +1262,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
             </div>
 
             {/* Danger Zone */}
-            <div className="mt-8 pt-8 border-t border-gray-100">
+            <div className="mt-8 pt-8 border-t border-gray-100" data-delete-account>
               <div className="bg-red-50 rounded-2xl p-6 border border-red-100">
                 <h3 className="text-red-800 font-bold mb-2 flex items-center gap-2">
                   <AlertCircle size={18} />
@@ -1149,7 +1312,16 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                 <div className="flex-1 min-w-0">
                   <h3 className="font-bold text-gray-800 mb-1">Datos y Descargas</h3>
                   <p className="text-xs text-gray-600 mb-3">Descarga tus datos o solicita la eliminación de tu cuenta</p>
-                  <button className="px-4 py-2 bg-indigo-500 text-white text-xs font-bold rounded-lg hover:bg-indigo-600 transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowDeleteConfirm(true);
+                      setTimeout(() => {
+                        document.querySelector('[data-delete-account]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }, 100);
+                    }}
+                    className="px-4 py-2 bg-indigo-500 text-white text-xs font-bold rounded-lg hover:bg-indigo-600 transition-colors"
+                  >
                     Más Opciones
                   </button>
                 </div>
@@ -1165,7 +1337,13 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                 <div className="flex-1 min-w-0">
                   <h3 className="font-bold text-gray-800 mb-1">Ayuda y Soporte</h3>
                   <p className="text-xs text-gray-600 mb-3">Preguntas frecuentes, contacta con nosotros o reporta un problema</p>
-                  <button className="px-4 py-2 bg-red-500 text-white text-xs font-bold rounded-lg hover:bg-red-600 transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.location.href = 'mailto:soporte@estilovivo.app?subject=Soporte%20Estilo%20Vivo';
+                    }}
+                    className="px-4 py-2 bg-red-500 text-white text-xs font-bold rounded-lg hover:bg-red-600 transition-colors"
+                  >
                     Contactar
                   </button>
                 </div>

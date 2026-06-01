@@ -1,102 +1,27 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Estilo Vivo</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Poppins', 'sans-serif'],
-                    },
-                    colors: {
-                        primary: 'var(--color-primary)',
-                        'primary-light': 'var(--color-primary-light)',
-                        'primary-dark': 'var(--color-primary-dark)',
-                        accent: 'var(--color-accent)',
-                        secondary: 'var(--color-secondary)',
-                        lavender: {
-                            50: '#F5F3FF',
-                            100: '#EDE9FE',
-                        },
-                        gold: '#FB8B24',
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        :root {
-            --color-primary: #ec4899;
-            --color-primary-light: #f472b6;
-            --color-primary-dark: #db2777;
-            --color-accent: #14b8a6;
-            --color-secondary: #a78bfa;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0F172A">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+  <link rel="apple-touch-icon" href="/icon-512.png">
+  <title>Estilo Vivo</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-        body {
-            background-color: #F8F9FA; /* Warm Grey/Off white */
+  <script>
+    // Force clear old service workers and problematic localStorage cache
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for(let registration of registrations) {
+          registration.unregister();
         }
-        /* Hide scrollbar for clean UI in carousels */
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
-        }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-
-        /* === Animations used throughout the app === */
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes slide-in {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-        @keyframes slide-out {
-            from {
-                transform: translateX(0);
-                opacity: 1;
-            }
-            to {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-        }
-        .animate-fade-in {
-            animation: fadeIn 0.3s ease-out both;
-        }
-        .animate-fade-in-up {
-            animation: fadeInUp 0.35s ease-out both;
-        }
-        .animate-fadeIn {
-            animation: fadeIn 0.4s ease-out both;
-        }
-        .animate-slide-in {
-            animation: slide-in 0.3s ease-out both;
-        }
-        .animate-slide-out {
-            animation: slide-out 0.3s ease-in both;
-        }
-    </style>
-
-<script type="importmap">
+      });
+    }
+  </script>
+  <script type="importmap">
 {
   "imports": {
     "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
@@ -106,9 +31,12 @@
   }
 }
 </script>
-  <script type="module" crossorigin src="/assets/index-Dva2Dsyk.js"></script>
-</head>
+  <script type="module" crossorigin src="/assets/index-Fu-ek8D4.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-BFY4S_fK.css">
+<link rel="manifest" href="/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/registerSW.js"></script></head>
+
 <body>
-    <div id="root"></div>
+  <div id="root"></div>
 </body>
+
 </html>

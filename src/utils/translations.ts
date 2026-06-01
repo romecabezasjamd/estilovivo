@@ -183,6 +183,20 @@ export interface TranslationSchema {
     deleteAccount: string;
     deleteAccountConfirm: string;
     deleteAccountWarning: string;
+    happy: string;
+    bold: string;
+    chill: string;
+    romantic: string;
+    untitled: string;
+    all: string;
+    tops: string;
+    bottoms: string;
+    shoes: string;
+    outerwear: string;
+    accessories: string;
+    dresses: string;
+    elegant: string;
+    casual: string;
 }
 
 export const languages: { id: Language, label: string }[] = [
@@ -377,6 +391,20 @@ export const TRANSLATIONS: Record<Language, TranslationSchema> = {
         emailVerifiedSuccess: 'Correo verificado correctamente. ¡Ya puedes entrar!',
         emailNotVerifiedError: 'Debes verificar tu correo antes de poder entrar.',
         resendVerification: 'Reenviar enlace de confirmación',
+        happy: 'Feliz',
+        bold: 'Atrevido',
+        chill: 'Relajado',
+        romantic: 'Romántico',
+        untitled: 'Sin título',
+        all: 'Todo',
+        tops: 'Partes de arriba',
+        bottoms: 'Partes de abajo',
+        shoes: 'Calzado',
+        outerwear: 'Abrigos y chaquetas',
+        accessories: 'Accesorios',
+        dresses: 'Vestidos',
+        elegant: 'Elegante',
+        casual: 'Casual',
     },
     en: {
         login: 'Login',
@@ -552,6 +580,20 @@ export const TRANSLATIONS: Record<Language, TranslationSchema> = {
         emailVerifiedSuccess: 'Email verified successfully. You can now log in!',
         emailNotVerifiedError: 'You must verify your email before logging in.',
         resendVerification: 'Resend verification link',
+        happy: 'Happy',
+        bold: 'Bold',
+        chill: 'Chill',
+        romantic: 'Romantic',
+        untitled: 'Untitled',
+        all: 'All',
+        tops: 'Tops',
+        bottoms: 'Bottoms',
+        shoes: 'Shoes',
+        outerwear: 'Outerwear',
+        accessories: 'Accessories',
+        dresses: 'Dresses',
+        elegant: 'Elegant',
+        casual: 'Casual',
     },
     ja: {
         login: 'ログイン',
@@ -721,7 +763,26 @@ export const TRANSLATIONS: Record<Language, TranslationSchema> = {
         forgotPassword: 'パスワードをお忘れですか？',
         recoveryEmailSent: 'メールが登録されている場合、回復リンクが送信されます',
         resetPassword: 'パスワードをリセット',
-        emailNotFound: 'メールが見つかりません'
+        emailNotFound: 'メールが見つかりません',
+        verificationEmailSent: 'まもなく完了します！メールをご確認ください。',
+        checkEmailToVerify: 'アカウント確認のためのリンクをお送りしました。',
+        emailVerifiedSuccess: 'メールアドレスが確認されました。ログインできます！',
+        emailNotVerifiedError: 'ログインする前にメールアドレスを確認する必要があります。',
+        resendVerification: '確認リンクを再送する',
+        happy: 'ハッピー',
+        bold: 'ボールド',
+        chill: 'チル',
+        romantic: 'ロマンチック',
+        untitled: '無題',
+        all: 'すべて',
+        tops: 'トップス',
+        bottoms: 'ボトムス',
+        shoes: 'シューズ',
+        outerwear: 'アウター',
+        accessories: 'アクセサリー',
+        dresses: 'ワンピース',
+        elegant: 'エレガント',
+        casual: 'カジュアル',
     },
     zh: {
         login: '登录',
@@ -891,7 +952,26 @@ export const TRANSLATIONS: Record<Language, TranslationSchema> = {
         forgotPassword: '忘记密码？',
         recoveryEmailSent: '如果该邮箱已注册，您将收到一封恢复邮件',
         resetPassword: '重置密码',
-        emailNotFound: '未找到该邮箱'
+        emailNotFound: '未找到该邮箱',
+        verificationEmailSent: '即将完成！请检查您的电子邮件。',
+        checkEmailToVerify: '我们已向您发送了一封确认账户的链接。',
+        emailVerifiedSuccess: '电子邮件验证成功。您现在可以登录了！',
+        emailNotVerifiedError: '您必须在登录前验证您的电子邮件。',
+        resendVerification: '重新发送确认链接',
+        happy: '快乐',
+        bold: '大胆',
+        chill: '休闲',
+        romantic: '浪漫',
+        untitled: '未命名',
+        all: '全部',
+        tops: '上装',
+        bottoms: '下装',
+        shoes: '鞋履',
+        outerwear: '外套',
+        accessories: '配饰',
+        dresses: '连衣裙',
+        elegant: '优雅',
+        casual: '休闲',
     },
     ar: {
         login: 'تسجيل الدخول',
@@ -1061,7 +1141,26 @@ export const TRANSLATIONS: Record<Language, TranslationSchema> = {
         forgotPassword: 'هل نسيت كلمة المرور؟',
         recoveryEmailSent: 'إذا كان البريد الإلكتروني مسجلاً، فستتلقى رابط استرداد',
         resetPassword: 'إعادة تعيين كلمة المرور',
-        emailNotFound: 'البريد الإلكتروني غير موجود'
+        emailNotFound: 'البريد الإلكتروني غير موجود',
+        verificationEmailSent: 'أوشكنا على الانتهاء! تحقق من بريدك الإلكتروني.',
+        checkEmailToVerify: 'لقد أرسلنا لك رابطًا لتأكيد حسابك.',
+        emailVerifiedSuccess: 'تم التحقق من البريد الإلكتروني بنجاح. يمكنك تسجيل الدخول الآن!',
+        emailNotVerifiedError: 'يجب عليك التحقق من بريدك الإلكتروني قبل تسجيل الدخول.',
+        resendVerification: 'إعادة إرسال رابط التأكيد',
+        happy: 'سعيد',
+        bold: 'جريء',
+        chill: 'مسترخي',
+        romantic: 'رومانسي',
+        untitled: 'بدون عنوان',
+        all: 'الكل',
+        tops: 'ملابس علوية',
+        bottoms: 'ملابس سفلية',
+        shoes: 'أحذية',
+        outerwear: 'ملابس خارجية',
+        accessories: 'إكسسوارات',
+        dresses: 'فساتين',
+        elegant: 'أنيق',
+        casual: 'كاجوال',
     },
     ru: {
         login: 'Войти',
@@ -1231,7 +1330,26 @@ export const TRANSLATIONS: Record<Language, TranslationSchema> = {
         forgotPassword: 'Забыли пароль?',
         recoveryEmailSent: 'Если email зарегистрирован, вы получите ссылку для восстановления',
         resetPassword: 'Сбросить пароль',
-        emailNotFound: 'Email не найден'
+        emailNotFound: 'Email не найден',
+        verificationEmailSent: 'Почти готово! Проверьте вашу почту.',
+        checkEmailToVerify: 'Мы отправили вам ссылку для подтверждения аккаунта.',
+        emailVerifiedSuccess: 'Электронная почта успешно подтверждена. Теперь вы можете войти!',
+        emailNotVerifiedError: 'Вы должны подтвердить свой email перед входом.',
+        resendVerification: 'Отправить ссылку подтверждения повторно',
+        happy: 'Радостный',
+        bold: 'Смелый',
+        chill: 'Расслабленный',
+        romantic: 'Романтичный',
+        untitled: 'Без названия',
+        all: 'Все',
+        tops: 'Верх',
+        bottoms: 'Низ',
+        shoes: 'Обувь',
+        outerwear: 'Верхняя одежда',
+        accessories: 'Аксессуары',
+        dresses: 'Платья',
+        elegant: 'Элегантный',
+        casual: 'Повседневный',
     },
 }
 

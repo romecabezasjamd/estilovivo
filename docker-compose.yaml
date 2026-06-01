@@ -1,23 +1,6 @@
 version: '3.8'
 
 services:
-  # ============= BASE DE DATOS =============
-  db:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U estilovivo" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   # ============= APLICACIÓN MONOLÍTICA =============
   app:
     build:
@@ -25,37 +8,35 @@ services:
       dockerfile: Dockerfile
       target: production
     restart: unless-stopped
-    expose:
-      - "3000"
+    ports:
+      - "3000:3000"
     environment:
       # Server Configuration
       NODE_ENV: ${NODE_ENV:-production}
       PORT: 3000
-      
-      # Database
-      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?schema=public
-      
+
+      # Database (SQLite file)
+      DATABASE_URL: ${DATABASE_URL:-file:./data/dev.db}
+
       # Authentication
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: 7d
-      
+
       # Uploads
       UPLOADS_DIR: /app/uploads
-      
-      # Optional: SMTP (for password recovery)
+
+      # Optional: SMTP (para recuperación de contraseña)
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
-      
+
       # AI Features
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     volumes:
       # Almacenamiento persistente
       - uploads_data:/app/uploads
-    depends_on:
-      db:
-        condition: service_healthy
+      - sqlite_data:/app/data
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:3000/api/health" ]
       interval: 30s
@@ -64,5 +45,5 @@ services:
       start_period: 40s
 
 volumes:
-  postgres_data:
+  sqlite_data:
   uploads_data:

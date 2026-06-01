@@ -6,16 +6,18 @@ import { languages, dialects } from '../src/utils/translations';
 import Logo from '../components/Logo';
 
 interface AuthPageProps {
-    onAuthSuccess: (user: any) => void;
+    onAuthSuccess: (user: any, rememberMe?: boolean) => void;
 }
 
 const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
     const [isLogin, setIsLogin] = useState(true);
     const [view, setView] = useState<'auth' | 'forgot' | 'reset'>('auth');
     const [email, setEmail] = useState('');
+    const [savedEmail, setSavedEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [rememberMe, setRememberMe] = useState(true);
     const [name, setName] = useState('');
     const [gender, setGender] = useState<'male' | 'female' | 'other'>('other');
     const [birthDate, setBirthDate] = useState('');
@@ -31,10 +33,36 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
-        if (token) {
+        const type = urlParams.get('type');
+        const verifyToken = urlParams.get('verifyToken');
+
+        if (token && (type === 'reset' || (!type && urlParams.has('reset')))) {
             setResetToken(token);
             setView('reset');
+        } else if (verifyToken || (token && (type === 'verify' || urlParams.has('verify')))) {
+            const t = verifyToken || token;
+            (async () => {
+                try {
+                    await api.verifyEmail(t);
+                    setSuccessMessage('Tu correo ha sido verificado correctamente.');
+                    setTimeout(() => {
+                        setView('auth');
+                        window.history.replaceState({}, '', window.location.pathname);
+                    }, 1800);
+                } catch (err: any) {
+                    setError(err.message || 'Error verificando el correo');
+                }
+            })();
         }
+
+        const storedEmail = localStorage.getItem('beyour_saved_email');
+        if (storedEmail) {
+            setSavedEmail(storedEmail);
+            if (!email) setEmail(storedEmail);
+        }
+
+        const storedRemember = localStorage.getItem('beyour_remember_me');
+        setRememberMe(storedRemember !== 'false');
     }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -66,8 +94,9 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
             }
 
             if (isLogin) {
-                const data = await api.login({ email: normalizedEmail, password });
-                onAuthSuccess(data.user);
+                const data = await api.login({ email: normalizedEmail, password }, rememberMe);
+                localStorage.setItem('beyour_saved_email', normalizedEmail);
+                onAuthSuccess(data.user, rememberMe);
             } else {
                 const data = await api.register({
                     email: normalizedEmail,
@@ -75,20 +104,24 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                     name,
                     gender,
                     birthDate: birthDate || undefined
-                });
+                }, rememberMe);
+                localStorage.setItem('beyour_saved_email', normalizedEmail);
                 if (data.requiresVerification) {
                     setIsUnverified(true);
                     setSuccessMessage('Por favor, revisa tu correo para verificar tu cuenta.');
                 } else {
-                    onAuthSuccess(data.user);
+                    onAuthSuccess(data.user, rememberMe);
                 }
             }
         } catch (err: any) {
-            if (err.message === 'emailNotVerified') {
+            const msg = err?.message || '';
+            if (msg === 'emailNotVerified' || msg.includes('emailNotVerified')) {
                 setIsUnverified(true);
-                setError('Debes verificar tu correo antes de iniciar sesión.');
+                setError(t('emailNotVerifiedError'));
+            } else if (err?.name === 'TypeError' && msg.includes('fetch')) {
+                setError('No se pudo conectar con el servidor. Comprueba tu conexión.');
             } else {
-                setError(err.message || 'Ocurrió un error');
+                setError(msg || 'Ocurrió un error');
             }
         } finally {
             setIsLoading(false);
@@ -172,15 +205,21 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
 
             <div className="w-full max-w-md z-10">
                 <div className="text-center mb-10">
-                    <div className="flex justify-center mb-6">
-                        <Logo variant="icon" size={80} />
+                    <div className="flex justify-center mb-2">
+                        <Logo variant="horizontal" size={280} className="max-w-[min(100%,320px)]" />
                     </div>
-                    <h1 className="text-4xl font-black text-gray-900 tracking-tight mb-2">
-                        {view === 'forgot' ? t('forgotPassword') : view === 'reset' ? t('resetPassword') : t('welcome')}
-                    </h1>
-                    <p className="text-gray-500 font-medium">
-                        {view === 'forgot' ? 'Introduce tu email para recuperar tu acceso' : view === 'reset' ? 'Crea una contraseña nueva y segura' : t('subtitle')}
-                    </p>
+                    {(view === 'forgot' || view === 'reset') && (
+                        <>
+                            <h1 className="text-2xl font-black text-gray-900 tracking-tight mb-2 mt-6">
+                                {view === 'forgot' ? t('forgotPassword') : t('resetPassword')}
+                            </h1>
+                            <p className="text-gray-500 font-medium text-sm">
+                                {view === 'forgot'
+                                    ? 'Introduce tu email para recuperar tu acceso'
+                                    : 'Crea una contraseña nueva y segura'}
+                            </p>
+                        </>
+                    )}
                 </div>
 
                 <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl shadow-gray-200/50 border border-gray-100">
@@ -262,7 +301,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                                             autoComplete="email"
                                             autoCapitalize="none"
                                             className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-800"
-                                            placeholder="ejemplo@email.com"
+                                            placeholder={savedEmail || "ejemplo@email.com"}
                                         />
                                     </div>
                                 </div>
@@ -299,6 +338,20 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                                             {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                                         </button>
                                     </div>
+                                    {view === 'auth' && (
+                                        <div className="mt-2">
+                                            <label className="flex items-center gap-3 text-sm text-gray-600">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={rememberMe}
+                                                    onChange={(e) => setRememberMe(e.target.checked)}
+                                                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                                />
+                                                <span>Recordarme en este dispositivo</span>
+                                            </label>
+                                            <p className="text-xs text-gray-400 mt-1">Mantén tu email y sesión guardados para iniciar más rápido.</p>
+                                        </div>
+                                    )}
                                 </div>
                             </>
                         ) : view === 'forgot' ? (
@@ -315,7 +368,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                                             autoComplete="email"
                                             autoCapitalize="none"
                                             className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-800"
-                                            placeholder="ejemplo@email.com"
+                                            placeholder={savedEmail || "ejemplo@email.com"}
                                         />
                                     </div>
                                 </div>

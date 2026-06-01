@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { MessageCircle, ArrowRight, Send } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
-import { api } from '../services/api';
+import { api, getSocketOrigin } from '../services/api';
 import { ChatConversation, ChatMessage } from '../types';
 import { useLanguage } from '../src/context/LanguageContext';
 
@@ -72,7 +72,7 @@ const Chat: React.FC<ChatProps> = ({ onNavigate }) => {
   }, []);
 
   useEffect(() => {
-    const newSocket = io(process.env.NODE_ENV === 'production' ? window.location.origin : 'http://localhost:3000', {
+    const newSocket = io(getSocketOrigin(), {
       withCredentials: true,
     });
 
@@ -143,18 +143,35 @@ const Chat: React.FC<ChatProps> = ({ onNavigate }) => {
     loadMessages();
   }, [selectedThreadId, messagesById]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!messageInput.trim() || !activeThread) return;
     const content = messageInput.trim();
     setMessageInput('');
 
-    api.sendConversationMessage(activeThread.id, content)
-      .then(() => {
-        // Socket event will handle adding the message to the UI in real-time
-      })
-      .catch((e) => {
-        console.warn('Error sending message:', e);
+    try {
+      const newMessage = await api.sendConversationMessage(activeThread.id, content);
+      setMessagesById(prev => {
+        const threadMessages = prev[activeThread.id] || [];
+        if (threadMessages.some(m => m.id === newMessage.id)) return prev;
+        return { ...prev, [activeThread.id]: [...threadMessages, newMessage] };
       });
+      setConversations(prev => prev.map(c => c.id === activeThread.id
+        ? {
+          ...c,
+          updatedAt: newMessage.createdAt,
+          lastMessage: {
+            id: newMessage.id,
+            content: newMessage.content,
+            createdAt: newMessage.createdAt,
+            sender: newMessage.sender
+          }
+        }
+        : c
+      ).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
+      scrollToBottom();
+    } catch (e) {
+      console.warn('Error sending message:', e);
+    }
   };
 
   return (

@@ -1,44 +1,181 @@
 import { Garment, Look, PlannerEntry, UserState, Trip, Comment, CommunityPost, ShopItem, ChatConversation, ChatMessage } from '../types';
+import { getSecureItem, setSecureItem, removeSecureItem } from '../src/utils/secureStorage';
 
-const API_BASE = '/api';
+const normalizeApiBase = (value?: string) => {
+    const base = value.trim().replace(/\/+$/, '');
+    return base.endsWith('/api') ? base : `${base}/api`;
+};
+
+const resolveDefaultApiBase = (): string => {
+    const fromEnv = (import.meta as any).env?.VITE_API_BASE || (import.meta as any).env?.VITE_API_URL;
+    if (fromEnv?.trim()) return normalizeApiBase(fromEnv);
+
+    if (typeof window !== 'undefined') {
+        const isNative =
+            (window as any).Capacitor?.isNativePlatform?.() === true ||
+            window.location.protocol === 'capacitor:';
+        if (isNative) {
+            return normalizeApiBase('https://estilovivo.xyoncloud.win/api');
+        }
+        return '/api';
+    }
+    return normalizeApiBase('https://estilovivo.xyoncloud.win/api');
+};
+
+export const API_BASE = resolveDefaultApiBase();
+export const API_ORIGIN = API_BASE.replace(/\/api\/?$/, '');
+
+const AUTH_TOKEN_KEY = 'beyour_token';
+const REMEMBER_ME_KEY = 'beyour_remember_me';
+const SESSION_KEYS = [
+    AUTH_TOKEN_KEY,
+    REMEMBER_ME_KEY,
+    'beyour_user',
+    'beyour_garments',
+    'beyour_looks',
+    'beyour_planner',
+    'beyour_trips'
+];
+let currentAuthToken: string | null = null;
+
+const getRememberMe = () => localStorage.getItem(REMEMBER_ME_KEY) === 'true';
+export const setRememberMeFlag = (remember: boolean) => {
+    localStorage.setItem(REMEMBER_ME_KEY, remember ? 'true' : 'false');
+};
+
+export const clearPersistedSession = () => {
+    SESSION_KEYS.forEach(key => localStorage.removeItem(key));
+};
+
+const getAuthTokenSync = () => localStorage.getItem(AUTH_TOKEN_KEY) || currentAuthToken;
+
+export const loadAuthToken = async (): Promise<void> => {
+    if (!getRememberMe()) {
+        currentAuthToken = null;
+        localStorage.removeItem(AUTH_TOKEN_KEY);
+        return;
+    }
+
+    const secureToken = await getSecureItem(AUTH_TOKEN_KEY);
+    if (secureToken) {
+        localStorage.setItem(AUTH_TOKEN_KEY, secureToken);
+    }
+};
+
+export const cacheAuthToken = async (token: string, remember: boolean = true): Promise<void> => {
+    currentAuthToken = token;
+    setRememberMeFlag(remember);
+
+    if (remember) {
+        localStorage.setItem(AUTH_TOKEN_KEY, token);
+        await setSecureItem(AUTH_TOKEN_KEY, token);
+    } else {
+        localStorage.removeItem(AUTH_TOKEN_KEY);
+        await removeSecureItem(AUTH_TOKEN_KEY);
+    }
+};
+
+export const clearAuthToken = async (): Promise<void> => {
+    currentAuthToken = null;
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    setRememberMeFlag(false);
+    await removeSecureItem(AUTH_TOKEN_KEY);
+};
+
+const resolveAssetUrl = (url?: string | null): string | undefined => {
+    if (!url) return undefined;
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')) {
+        return url;
+    }
+    if (url.startsWith('/')) return `${API_ORIGIN}${url}`;
+    return `${API_ORIGIN}/${url}`;
+};
+
+const normalizeUser = (user: any): UserState => ({
+    ...user,
+    avatar: resolveAssetUrl(user?.avatar),
+    fullBodyAvatar: resolveAssetUrl(user?.fullBodyAvatar),
+});
+
+const normalizeAssetsDeep = <T>(value: T): T => {
+    if (Array.isArray(value)) return value.map(item => normalizeAssetsDeep(item)) as T;
+    if (!value || typeof value !== 'object') return value;
+
+    const normalized: any = { ...(value as any) };
+    for (const key of Object.keys(normalized)) {
+        const item = normalized[key];
+        if (typeof item === 'string' && (item.startsWith('/api/uploads') || item.startsWith('/uploads'))) {
+            normalized[key] = resolveAssetUrl(item);
+        } else if (Array.isArray(item) || (item && typeof item === 'object')) {
+            normalized[key] = normalizeAssetsDeep(item);
+        }
+    }
+    return normalized;
+};
 
 const getHeaders = () => {
-    const token = localStorage.getItem('beyour_token');
+    const token = getAuthTokenSync();
     return {
         'Content-Type': 'application/json',
         ...(token ? { 'Authorization': `Bearer ${token}` } : {})
     };
 };
 
-const getAuthHeader = () => {
-    const token = localStorage.getItem('beyour_token');
+export const getAuthHeader = () => {
+    const token = getAuthTokenSync();
     return {
         ...(token ? { 'Authorization': `Bearer ${token}` } : {})
     };
 };
 
+export const getSocketOrigin = () => API_ORIGIN;
+
+export const parseApiErrorMessage = async (res: Response): Promise<string> => {
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+        const body = await res.json().catch(() => ({}));
+        if (typeof body?.error === 'string') return body.error;
+        if (typeof body?.message === 'string') return body.message;
+    }
+    const text = await res.text().catch(() => '');
+    if (text) {
+        try {
+            const parsed = JSON.parse(text);
+            if (typeof parsed?.error === 'string') return parsed.error;
+        } catch {
+            /* texto plano */
+        }
+        return text.length > 200 ? `Error ${res.status}` : text;
+    }
+    return `Error ${res.status}: no se pudo procesar la respuesta del servidor`;
+};
+
 const handleResponse = async (res: Response) => {
     if (!res.ok) {
-        const error = await res.json().catch(() => ({ error: 'Request failed' }));
+        const message = await parseApiErrorMessage(res);
+        const error = { error: message };
 
         // Auto-logout en caso de token expirado o inválido (401 o 403 por token)
         if (res.status === 401 || (res.status === 403 && error.error === 'Invalid or expired token')) {
-            localStorage.removeItem('beyour_token');
-            localStorage.removeItem('beyour_user');
+            await clearAuthToken();
+            clearPersistedSession();
             window.location.href = '/';
         }
 
         throw new Error(error.error || 'Request failed');
     }
-    return res.json();
+    if (res.status === 204) return null;
+    return res.json().catch(() => {
+        throw new Error('Respuesta inválida del servidor');
+    });
 };
 
 // Helper: map backend product to frontend Garment
-const mapProductToGarment = (p: any): Garment | null => {
-    if (!p) return null;
+const mapProductToGarment = (p: any): Garment | undefined => {
+    if (!p) return undefined;
     return {
         id: p.id,
-        imageUrl: p.images?.[0]?.url || '/api/uploads/placeholder.png',
+        imageUrl: resolveAssetUrl(p.images?.[0]?.url) || `${API_ORIGIN}/api/uploads/placeholder.png`,
         name: p.name || p.category,
         type: p.category || 'top',
         color: p.color || 'varios',
@@ -53,13 +190,13 @@ const mapProductToGarment = (p: any): Garment | null => {
         description: p.description || undefined,
         userId: p.userId || p.user?.id,
         userName: p.user?.name,
-        userAvatar: p.user?.avatar,
+        userAvatar: resolveAssetUrl(p.user?.avatar),
     };
 };
 
 // Helper: map backend look to frontend Look
-const mapLook = (l: any): Look | null => {
-    if (!l) return null;
+const mapLook = (l: any): Look | undefined => {
+    if (!l) return undefined;
     return {
         id: l.id,
         name: l.title || l.name,
@@ -69,10 +206,10 @@ const mapLook = (l: any): Look | null => {
         mood: l.mood,
         createdAt: l.createdAt,
         isPublic: l.isPublic,
-        imageUrl: l.images?.[0]?.url || l.products?.[0]?.images?.[0]?.url || undefined,
+        imageUrl: resolveAssetUrl(l.images?.[0]?.url || l.products?.[0]?.images?.[0]?.url),
         userId: l.userId || l.user?.id,
         userName: l.user?.name,
-        userAvatar: l.user?.avatar,
+        userAvatar: resolveAssetUrl(l.user?.avatar),
         likesCount: l.likesCount ?? l._count?.likes ?? 0,
         commentsCount: l.commentsCount ?? l._count?.comments ?? 0,
         isLiked: l.isLiked || false,
@@ -81,21 +218,30 @@ const mapLook = (l: any): Look | null => {
 };
 
 export const api = {
-    // ============= AUTH =============
-    login: async (credentials: { email: string; password: string }) => {
+    auth: async (credentials: { email: string; password: string }, remember: boolean = true) => {
         const res = await fetch(`${API_BASE}/auth/login`, {
-            credentials: 'include', method: 'POST',
+            credentials: 'include',
+            method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(credentials)
+            body: JSON.stringify(credentials),
         });
-        const data = await handleResponse(res);
-        if (data.token) {
-            localStorage.setItem('beyour_token', data.token);
+
+        if (!res.ok) {
+            throw new Error(await parseApiErrorMessage(res));
         }
-        return data;
+
+        const data = await res.json();
+        if (data.token) {
+            await cacheAuthToken(data.token, remember);
+        }
+        return { ...data, user: normalizeUser(data.user) };
     },
 
-    register: async (userData: { email: string; password: string; name: string; gender?: 'male' | 'female' | 'other'; birthDate?: string }) => {
+    login: async (credentials: { email: string; password: string }, remember: boolean = true) => {
+        return api.auth(credentials, remember);
+    },
+
+    register: async (userData: { email: string; password: string; name: string; gender?: 'male' | 'female' | 'other'; birthDate?: string }, remember: boolean = true) => {
         const res = await fetch(`${API_BASE}/auth/register`, {
             credentials: 'include', method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -103,7 +249,7 @@ export const api = {
         });
         const data = await handleResponse(res);
         if (data.token) {
-            localStorage.setItem('beyour_token', data.token);
+            await cacheAuthToken(data.token, remember);
         }
         return data;
     },
@@ -117,8 +263,8 @@ export const api = {
         } catch (e) {
             console.error('Logout error', e);
         } finally {
-            localStorage.removeItem('beyour_user');
-            localStorage.removeItem('beyour_token');
+            clearPersistedSession();
+            await clearAuthToken();
         }
     },
 
@@ -182,7 +328,8 @@ export const api = {
 
     getMe: async (): Promise<UserState> => {
         const res = await fetch(`${API_BASE}/auth/me`, { headers: getHeaders(), credentials: 'include' });
-        return handleResponse(res);
+        const updated = await handleResponse(res);
+        return normalizeUser(updated);
     },
 
     updateProfile: async (data: Partial<UserState>): Promise<UserState> => {
@@ -191,7 +338,8 @@ export const api = {
             headers: getHeaders(),
             body: JSON.stringify(data)
         });
-        return handleResponse(res);
+        const updated = await handleResponse(res);
+        return normalizeUser(updated);
     },
 
     updateProfileWithAvatar: async (data: FormData): Promise<UserState> => {
@@ -200,7 +348,8 @@ export const api = {
             headers: getAuthHeader() as any,
             body: data
         });
-        return handleResponse(res);
+        const updated = await handleResponse(res);
+        return normalizeUser(updated);
     },
 
 
@@ -283,8 +432,8 @@ export const api = {
             id: p.id,
             user: p.user?.name || 'Vendedor',
             userId: p.user?.id || '',
-            avatar: p.user?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.user?.name || 'V')}&background=0F4C5C&color=fff`,
-            image: p.images?.[0]?.url || '/api/uploads/placeholder.png',
+            avatar: resolveAssetUrl(p.user?.avatar) || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.user?.name || 'V')}&background=0F4C5C&color=fff`,
+            image: resolveAssetUrl(p.images?.[0]?.url) || `${API_ORIGIN}/api/uploads/placeholder.png`,
             title: p.name || p.category,
             price: p.price || 0,
             size: p.size || 'Única',
@@ -488,7 +637,7 @@ export const api = {
             content: c.content,
             userId: c.user?.id || c.userId,
             userName: c.user?.name || 'Usuario',
-            userAvatar: c.user?.avatar,
+            userAvatar: resolveAssetUrl(c.user?.avatar),
             createdAt: c.createdAt,
         };
     },
@@ -501,7 +650,7 @@ export const api = {
             content: c.content,
             userId: c.user?.id || c.userId,
             userName: c.user?.name || 'Usuario',
-            userAvatar: c.user?.avatar,
+            userAvatar: resolveAssetUrl(c.user?.avatar),
             createdAt: c.createdAt,
         }));
     },
@@ -525,7 +674,8 @@ export const api = {
 
     getFavorites: async () => {
         const res = await fetch(`${API_BASE}/social/favorites`, { headers: getHeaders(), credentials: 'include' });
-        return handleResponse(res);
+        const data = await handleResponse(res);
+        return normalizeAssetsDeep(data);
     },
 
     toggleFollow: async (targetUserId: string): Promise<{ following: boolean }> => {
@@ -540,18 +690,21 @@ export const api = {
     // ============= STATS =============
     getStats: async () => {
         const res = await fetch(`${API_BASE}/stats`, { headers: getHeaders(), credentials: 'include' });
-        return handleResponse(res);
+        const data = await handleResponse(res);
+        return normalizeAssetsDeep(data);
     },
 
     getTopUsers: async () => {
         const res = await fetch(`${API_BASE}/users/top`, { headers: getHeaders(), credentials: 'include' });
-        return handleResponse(res);
+        const data = await handleResponse(res);
+        return normalizeAssetsDeep(data);
     },
 
     // ============= CHAT =============
     getConversations: async (): Promise<ChatConversation[]> => {
         const res = await fetch(`${API_BASE}/chat/conversations`, { headers: getHeaders(), credentials: 'include' });
-        return handleResponse(res);
+        const data = await handleResponse(res);
+        return normalizeAssetsDeep(data);
     },
 
     createConversation: async (payload: { targetUserId: string; itemId?: string; itemTitle?: string; itemImage?: string; initialMessage?: string; }) => {
@@ -565,7 +718,8 @@ export const api = {
 
     getConversationMessages: async (conversationId: string): Promise<ChatMessage[]> => {
         const res = await fetch(`${API_BASE}/chat/conversations/${conversationId}/messages`, { headers: getHeaders(), credentials: 'include' });
-        return handleResponse(res);
+        const data = await handleResponse(res);
+        return normalizeAssetsDeep(data);
     },
 
     sendConversationMessage: async (conversationId: string, content: string): Promise<ChatMessage> => {

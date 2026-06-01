@@ -9,6 +9,7 @@ npx prisma db execute --url "$DATABASE_URL" --stdin << 'SQL'
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "experiencePoints" INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "level" INTEGER NOT NULL DEFAULT 1;
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "fullBodyAvatar" TEXT;
+ALTER TABLE "Notification" ADD COLUMN IF NOT EXISTS "relatedId" TEXT;
 SQL
 
 echo "=== [entrypoint] Starting server ==="

@@ -6,22 +6,22 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider = "sqlite"
 }
 
 model User {
-  id                String     @id @default(cuid())
-  email             String     @unique
-  password          String
-  name              String
-  avatar            String?
-  fullBodyAvatar    String?
-  bio               String?
-  mood              String?
-  cycleTracking     Boolean    @default(false)
-  musicSync         Boolean    @default(false)
-  gender            String?    @default("other")
+  id                 String     @id @default(cuid())
+  email              String     @unique
+  password           String
+  name               String
+  avatar             String?
+  fullBodyAvatar     String?
+  bio                String?
+  mood               String?
+  cycleTracking      Boolean    @default(false)
+  musicSync          Boolean    @default(false)
+  emailNotifications Boolean    @default(true)
+  gender             String?    @default("other")
   birthDate         DateTime?
   resetToken        String?
   resetTokenExpiry  DateTime?
@@ -250,10 +250,11 @@ model Notification {
   id        String   @id @default(cuid())
   type      String   // e.g. "SALE", "CHAT", "WASHING", "INTEREST"
   content   String?
+  relatedId String?  // p. ej. conversationId para CHAT
   isRead    Boolean  @default(false)
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
-  
+
   @@index([userId, createdAt])
 }

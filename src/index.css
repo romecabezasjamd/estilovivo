@@ -64,6 +64,9 @@ html {
 @keyframes slideInLeft { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 @keyframes slideOutRight { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
 @keyframes slideOutUp { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-100%); opacity: 0; } }
+@keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes pulseSoft { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+@keyframes shimmer { 0% { background-position: -200px 0; } 100% { background-position: 200px 0; } }
 @keyframes checkmark { 0% { transform: scale(0) rotate(-45deg); } 50% { transform: scale(1.2); } 100% { transform: scale(1) rotate(0deg); } }
 @keyframes staggerItem { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -79,6 +82,9 @@ html {
 .animate-slide-in-left { animation: slideInLeft 0.3s ease-out both; }
 .animate-slide-out-right { animation: slideOutRight 0.3s ease-in both; }
 .animate-slide-out-up { animation: slideOutUp 0.3s ease-in both; }
+.animate-slide-up { animation: slideUp 0.4s ease-out both; }
+.animate-pulse-soft { animation: pulseSoft 2s ease-in-out infinite; }
+.animate-shimmer { background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200px 100%; animation: shimmer 1.5s infinite; }
 .animate-checkmark { animation: checkmark 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
 
 .stagger-child {
@@ -90,3 +96,42 @@ html {
 .stagger-child:nth-child(4) { animation-delay: 0.2s; }
 .stagger-child:nth-child(5) { animation-delay: 0.25s; }
 .stagger-child:nth-child(n+6) { animation-delay: 0.3s; }
+
+/* Ciclo menstrual — animación ligera (GPU: transform + opacity) */
+@keyframes cycleDropPulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 0.82;
+    }
+    50% {
+        transform: scale(1.14);
+        opacity: 1;
+    }
+}
+
+@keyframes cycleDayGlow {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(192, 132, 168, 0.25);
+    }
+    50% {
+        box-shadow: 0 0 0 3px rgba(192, 132, 168, 0.12);
+    }
+}
+
+.cycle-drop-icon {
+    animation: cycleDropPulse 2.4s ease-in-out infinite;
+    will-change: transform, opacity;
+    transform-origin: center bottom;
+}
+
+.cycle-day-cell--active {
+    animation: cycleDayGlow 2.8s ease-in-out infinite;
+    will-change: box-shadow;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cycle-drop-icon,
+    .cycle-day-cell--active {
+        animation: none;
+    }
+}

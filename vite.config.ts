@@ -21,13 +21,13 @@ export default defineConfig(({ mode }) => {
         react(),
         VitePWA({
           registerType: 'autoUpdate',
-          includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+          includeAssets: ['icon-192.png', 'icon-512.png', 'estilo-vivo-logo-full.png', 'estilo-vivo-logo-icon.png'],
           manifest: {
             name: 'Estilo Vivo',
             short_name: 'EstiloVivo',
             description: 'Tu armario inteligente y probador virtual',
-            theme_color: '#ff4d94',
-            background_color: '#ffffff',
+            theme_color: '#0F172A',
+            background_color: '#0F172A',
             display: 'standalone',
             icons: [
               {

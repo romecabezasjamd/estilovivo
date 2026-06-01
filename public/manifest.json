@@ -4,8 +4,8 @@
   "description": "Tu armario inteligente y probador virtual",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#ff4d94",
+  "background_color": "#0F172A",
+  "theme_color": "#0F172A",
   "icons": [
     {
       "src": "icon-192.png",

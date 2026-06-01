@@ -53,7 +53,7 @@ class ErrorBoundary extends Component<Props, State> {
             <p className="text-gray-600 mb-4">
               Lo sentimos, ha ocurrido un error inesperado. Por favor, intenta recargar la página.
             </p>
-            {process.env.NODE_ENV === 'development' && this.state.error && (
+            {import.meta.env.DEV && this.state.error && (
               <details className="text-left text-xs text-gray-500 mb-4 p-3 bg-gray-100 rounded overflow-auto max-h-40">
                 <summary className="cursor-pointer font-semibold mb-2">
                   Detalles del error (desarrollo)

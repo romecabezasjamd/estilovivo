@@ -1,10 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { UserState, Garment, Look, PlannerEntry, Trip } from '../../types';
-import { api } from '../../services/api';
+import { api, loadAuthToken } from '../../services/api';
 import { loadFromLocalStorage } from '../../hooks/useLocalStorage';
 import { useNotification } from './NotificationContext';
 import { useLanguage } from './LanguageContext';
-import { applyTheme, getSavedTheme } from '../utils/theme';
+
+const AUTH_TOKEN_KEY = 'beyour_token';
+const REMEMBER_ME_KEY = 'beyour_remember_me';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -19,7 +21,7 @@ interface GlobalStateContextValue {
 
     // User
     setUser: React.Dispatch<React.SetStateAction<UserState | null>>;
-    handleAuthSuccess: (userData: UserState) => void;
+    handleAuthSuccess: (userData: UserState, remember?: boolean) => void;
     handleMoodChange: (mood: string) => Promise<void>;
     handleUpdateUser: (updatedUser: UserState) => Promise<void>;
 
@@ -52,6 +54,20 @@ const sanitize = <T,>(data: any[]): T[] => {
     return data.filter(item => item && (item.id || item.date)) as T[];
 };
 
+const SESSION_KEYS = [
+    'beyour_user',
+    'beyour_garments',
+    'beyour_looks',
+    'beyour_planner',
+    'beyour_trips',
+    'beyour_token',
+    'beyour_remember_me'
+];
+
+const clearPersistedSession = () => {
+    SESSION_KEYS.forEach(key => localStorage.removeItem(key));
+};
+
 // ─── Provider ────────────────────────────────────────────────────────────────
 
 export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -68,74 +84,107 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
     // ── Init ─────────────────────────────────────────────────────────────────
 
     useEffect(() => {
-        applyTheme(getSavedTheme());
-
         const init = async () => {
-            const hasSession = localStorage.getItem('beyour_user');
-            if (hasSession) {
+            const shouldRestoreSession = localStorage.getItem(REMEMBER_ME_KEY) === 'true';
+            const cachedUser = shouldRestoreSession ? localStorage.getItem('beyour_user') : null;
+            const cachedGarments = shouldRestoreSession ? loadFromLocalStorage('beyour_garments', []) : [];
+            const cachedLooks = shouldRestoreSession ? loadFromLocalStorage('beyour_looks', []) : [];
+            const cachedPlanner = shouldRestoreSession ? loadFromLocalStorage('beyour_planner', []) : [];
+            const cachedTrips = shouldRestoreSession ? loadFromLocalStorage('beyour_trips', []) : [];
+
+            if (cachedUser) {
                 try {
-                    let userData: UserState;
-                    try {
-                        userData = await api.getMe();
-                        setUser(userData);
-                        localStorage.setItem('beyour_user', JSON.stringify(userData));
-                    } catch {
-                        const savedUser = localStorage.getItem('beyour_user');
-                        if (savedUser) {
-                            userData = JSON.parse(savedUser);
-                            setUser(userData);
-                        } else {
-                            throw new Error('No user data');
-                        }
-                    }
-
-                    const [fetchedGarments, fetchedLooks, fetchedPlanner, fetchedTrips] =
-                        await Promise.allSettled([
-                            api.getGarments(),
-                            api.getLooks(),
-                            api.getPlanner(),
-                            api.getTrips(),
-                        ]);
-
-                    if (fetchedGarments.status === 'fulfilled') {
-                        const sanitized = sanitize<Garment>(fetchedGarments.value);
-                        setGarments(sanitized);
-                        localStorage.setItem('beyour_garments', JSON.stringify(sanitized));
-                    } else {
-                        setGarments(sanitize<Garment>(loadFromLocalStorage('beyour_garments', [])));
-                    }
-
-                    if (fetchedLooks.status === 'fulfilled') {
-                        const sanitized = sanitize<Look>(fetchedLooks.value);
-                        setLooks(sanitized);
-                        localStorage.setItem('beyour_looks', JSON.stringify(sanitized));
-                    } else {
-                        setLooks(sanitize<Look>(loadFromLocalStorage('beyour_looks', [])));
-                    }
-
-                    if (fetchedPlanner.status === 'fulfilled') {
-                        const sanitized = sanitize<PlannerEntry>(fetchedPlanner.value);
-                        setPlanner(sanitized);
-                        localStorage.setItem('beyour_planner', JSON.stringify(sanitized));
-                    } else {
-                        setPlanner(sanitize<PlannerEntry>(loadFromLocalStorage('beyour_planner', [])));
-                    }
-
-                    if (fetchedTrips.status === 'fulfilled') {
-                        const sanitized = sanitize<Trip>(fetchedTrips.value);
-                        setTrips(sanitized);
-                        localStorage.setItem('beyour_trips', JSON.stringify(sanitized));
-                    } else {
-                        setTrips(sanitize<Trip>(loadFromLocalStorage('beyour_trips', [])));
-                    }
-                } catch (error) {
-                    console.error('Critical error during initialization:', error);
-                    localStorage.removeItem('beyour_token');
-                    localStorage.removeItem('beyour_user');
-                    setUser(null);
+                    setUser(JSON.parse(cachedUser));
+                } catch {
+                    console.warn('Invalid cached user, clearing local user');
+                    clearPersistedSession();
                 }
             }
-            setIsLoading(false);
+
+            setGarments(sanitize<Garment>(cachedGarments));
+            setLooks(sanitize<Look>(cachedLooks));
+            setPlanner(sanitize<PlannerEntry>(cachedPlanner));
+            setTrips(sanitize<Trip>(cachedTrips));
+
+            if (!shouldRestoreSession) {
+                clearPersistedSession();
+                setIsLoading(false);
+                return;
+            }
+
+            try {
+                await loadAuthToken();
+                const hasSession = !!localStorage.getItem(AUTH_TOKEN_KEY);
+                if (!hasSession) {
+                    clearPersistedSession();
+                    setUser(null);
+                    setIsLoading(false);
+                    return;
+                }
+
+                let userData: UserState;
+                try {
+                    userData = await api.getMe();
+                    setUser(userData);
+                    localStorage.setItem('beyour_user', JSON.stringify(userData));
+                } catch {
+                    if (cachedUser) {
+                        userData = JSON.parse(cachedUser);
+                        setUser(userData);
+                    } else {
+                        throw new Error('No user data');
+                    }
+                }
+
+                const [fetchedGarments, fetchedLooks, fetchedPlanner, fetchedTrips] =
+                    await Promise.allSettled([
+                        api.getGarments(),
+                        api.getLooks(),
+                        api.getPlanner(),
+                        api.getTrips(),
+                    ]);
+
+                if (fetchedGarments.status === 'fulfilled') {
+                    const sanitized = sanitize<Garment>(fetchedGarments.value);
+                    setGarments(sanitized);
+                    localStorage.setItem('beyour_garments', JSON.stringify(sanitized));
+                }
+
+                if (fetchedLooks.status === 'fulfilled') {
+                    const sanitized = sanitize<Look>(fetchedLooks.value);
+                    setLooks(sanitized);
+                    localStorage.setItem('beyour_looks', JSON.stringify(sanitized));
+                }
+
+                if (fetchedPlanner.status === 'fulfilled') {
+                    const sanitized = sanitize<PlannerEntry>(fetchedPlanner.value);
+                    setPlanner(sanitized);
+                    localStorage.setItem('beyour_planner', JSON.stringify(sanitized));
+                }
+
+                if (fetchedTrips.status === 'fulfilled') {
+                    const sanitized = sanitize<Trip>(fetchedTrips.value);
+                    setTrips(sanitized);
+                    localStorage.setItem('beyour_trips', JSON.stringify(sanitized));
+                }
+
+                const syncFailures: string[] = [];
+                if (fetchedGarments.status === 'rejected') syncFailures.push('armario');
+                if (fetchedLooks.status === 'rejected') syncFailures.push('looks');
+                if (fetchedPlanner.status === 'rejected') syncFailures.push('planificador');
+                if (fetchedTrips.status === 'rejected') syncFailures.push('maletas');
+                if (syncFailures.length > 0) {
+                    console.warn(
+                        `No se pudo sincronizar con el servidor: ${syncFailures.join(', ')}. Se muestran datos en caché si están disponibles.`
+                    );
+                }
+            } catch (error) {
+                console.error('Critical error during initialization:', error);
+                clearPersistedSession();
+                setUser(null);
+            } finally {
+                setIsLoading(false);
+            }
         };
 
         init();
@@ -143,10 +192,13 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     // ── Auth ─────────────────────────────────────────────────────────────────
 
-    const handleAuthSuccess = useCallback((userData: UserState) => {
+    const handleAuthSuccess = useCallback((userData: UserState, remember: boolean = true) => {
         setUser(userData);
-        localStorage.setItem('beyour_user', JSON.stringify(userData));
-        window.location.reload();
+        if (remember) {
+            localStorage.setItem('beyour_user', JSON.stringify(userData));
+        } else {
+            clearPersistedSession();
+        }
     }, []);
 
     const handleMoodChange = useCallback(async (mood: string) => {

@@ -1,19 +1,18 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import request from 'supertest';
-
-// This would need the actual express app exported from index.ts
-// For now, this is a template showing the structure
+import { app } from '../index.js';
 
 describe('API Integration Tests', () => {
   let authToken: string;
   let userId: string;
+  const testEmail = `test-${Date.now()}@example.com`;
 
   describe('Authentication', () => {
     it('POST /api/auth/register - should register a new user', async () => {
-      const response = await request('http://localhost:4000')
+      const response = await request(app)
         .post('/api/auth/register')
         .send({
-          email: `test-${Date.now()}@example.com`,
+          email: testEmail,
           password: 'password123',
           name: 'Test User',
         });
@@ -27,10 +26,10 @@ describe('API Integration Tests', () => {
     });
 
     it('POST /api/auth/login - should login with valid credentials', async () => {
-      const response = await request('http://localhost:4000')
+      const response = await request(app)
         .post('/api/auth/login')
         .send({
-          email: 'test@example.com',
+          email: testEmail,
           password: 'password123',
         });
 
@@ -41,10 +40,10 @@ describe('API Integration Tests', () => {
     });
 
     it('POST /api/auth/login - should reject invalid credentials', async () => {
-      const response = await request('http://localhost:4000')
+      const response = await request(app)
         .post('/api/auth/login')
         .send({
-          email: 'test@example.com',
+          email: testEmail,
           password: 'wrongpassword',
         });
 
@@ -54,7 +53,7 @@ describe('API Integration Tests', () => {
     it('GET /api/auth/me - should return current user with valid token', async () => {
       if (!authToken) return;
       
-      const response = await request('http://localhost:4000')
+      const response = await request(app)
         .get('/api/auth/me')
         .set('Authorization', `Bearer ${authToken}`);
 
@@ -68,7 +67,7 @@ describe('API Integration Tests', () => {
     it('GET /api/products - should return paginated products', async () => {
       if (!authToken) return;
       
-      const response = await request('http://localhost:4000')
+      const response = await request(app)
         .get('/api/products')
         .set('Authorization', `Bearer ${authToken}`);
 
@@ -82,7 +81,7 @@ describe('API Integration Tests', () => {
     it('GET /api/products?limit=5 - should respect limit parameter', async () => {
       if (!authToken) return;
       
-      const response = await request('http://localhost:4000')
+      const response = await request(app)
         .get('/api/products?limit=5')
         .set('Authorization', `Bearer ${authToken}`);
 
@@ -95,7 +94,7 @@ describe('API Integration Tests', () => {
     it('GET /api/looks - should return paginated looks', async () => {
       if (!authToken) return;
       
-      const response = await request('http://localhost:4000')
+      const response = await request(app)
         .get('/api/looks')
         .set('Authorization', `Bearer ${authToken}`);
 
@@ -108,7 +107,7 @@ describe('API Integration Tests', () => {
     it('GET /api/looks/feed - should return public looks feed', async () => {
       if (!authToken) return;
       
-      const response = await request('http://localhost:4000')
+      const response = await request(app)
         .get('/api/looks/feed')
         .set('Authorization', `Bearer ${authToken}`);
 
@@ -119,7 +118,7 @@ describe('API Integration Tests', () => {
 
   describe('Health Checks', () => {
     it('GET /api/health - should return health status', async () => {
-      const response = await request('http://localhost:4000')
+      const response = await request(app)
         .get('/api/health');
 
       expect(response.status).toBe(200);
@@ -135,10 +134,10 @@ describe('API Integration Tests', () => {
       // Make 6 requests (limit is 5)
       for (let i = 0; i < 6; i++) {
         requests.push(
-          request('http://localhost:4000')
+          request(app)
             .post('/api/auth/login')
             .send({
-              email: 'test@example.com',
+              email: testEmail,
               password: 'wrong',
             })
         );

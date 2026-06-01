@@ -1,11 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Garment, UserState } from '../types';
-import { X, Camera, RotateCw, ZoomIn, ZoomOut, Check, ArrowLeft, Plus, Save, Layers, FlipHorizontal, Trash2, Video, VideoOff, ChevronUp, ChevronDown, RefreshCcw } from 'lucide-react';
+import { X, Camera as CameraIcon, RotateCw, ZoomIn, ZoomOut, Check, Plus, Layers, FlipHorizontal, RefreshCcw, ImageIcon } from 'lucide-react';
+import { CameraSource } from '@capacitor/camera';
+import { Capacitor } from '@capacitor/core';
 import { useLanguage } from '../src/context/LanguageContext';
 import { useGlobalState } from '../src/context/GlobalStateContext';
 import html2canvas from 'html2canvas';
 import { api } from '../services/api';
+import { pickPhoto } from '../src/utils/cameraPhoto';
 
 interface FittingRoomModalProps {
   garment: Garment;
@@ -24,20 +27,15 @@ interface InteractiveGarment {
 
 export default function FittingRoomModal({ garment: initialGarment, user, onClose }: FittingRoomModalProps) {
   const { t } = useLanguage();
-  const { garments } = useGlobalState();
+  const { garments, setUser } = useGlobalState();
   
   const [bgImage, setBgImage] = useState<string | null>(user.fullBodyAvatar || null);
 
-  // Cleanup camera on unmount
   useEffect(() => {
-    return () => {
-      // Stop any active camera stream when modal closes
-      const video = document.querySelector('video[autoplay]') as HTMLVideoElement;
-      if (video?.srcObject) {
-        (video.srcObject as MediaStream).getTracks().forEach(t => t.stop());
-      }
-    };
-  }, []);
+    if (user.fullBodyAvatar) {
+      setBgImage(user.fullBodyAvatar);
+    }
+  }, [user.fullBodyAvatar]);
   
   // Transform states
   const [items, setItems] = useState<InteractiveGarment[]>([
@@ -49,13 +47,13 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
   const [showPicker, setShowPicker] = useState(false);
   const [showLayers, setShowLayers] = useState(false);
   const [showNamePrompt, setShowNamePrompt] = useState(false);
-  const [isMirrorMode, setIsMirrorMode] = useState(false);
   const [lookName, setLookName] = useState('');
   const [savingMsg, setSavingMsg] = useState('');
-  
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isTakingPhoto, setIsTakingPhoto] = useState(false);
+  const [modelError, setModelError] = useState<string | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const modelFileInputRef = useRef<HTMLInputElement>(null);
 
   // Interaction refs
   const isDragging = useRef(false);
@@ -65,76 +63,54 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
   const startScale = useRef(1);
   const startRotation = useRef(0);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-          setBgImage(reader.result as string);
-          setIsMirrorMode(false);
-      };
-      reader.readAsDataURL(file);
+  const persistModelPhoto = async (file: File, previewUrl: string) => {
+    setBgImage(previewUrl);
+    setModelError(null);
+    triggerHaptic('success');
 
-      try {
-        const formData = new FormData();
-        formData.append('fullBodyAvatar', file);
-        await api.updateProfileWithAvatar(formData);
-      } catch (err) {
-        console.warn('Could not save avatar directly', err);
-      }
+    try {
+      const formData = new FormData();
+      formData.append('fullBodyAvatar', file);
+      const updated = await api.updateProfileWithAvatar(formData);
+      setUser((prev) => {
+        if (!prev) return prev;
+        const next = { ...prev, fullBodyAvatar: updated.fullBodyAvatar };
+        localStorage.setItem('beyour_user', JSON.stringify(next));
+        return next;
+      });
+    } catch (uploadErr) {
+      console.warn('Could not save full body avatar', uploadErr);
+      setModelError('La foto se muestra aquí pero no se guardó en tu perfil. Inténtalo de nuevo.');
     }
   };
 
-  const toggleMirrorMode = async () => {
-    if (!isMirrorMode) {
-      try {
-        // Request camera with simple constraints for max compatibility
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: true,
-          audio: false
-        });
-        
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          // Some browsers need muted + explicit play() for autoplay to work
-          videoRef.current.muted = true;
-          videoRef.current.playsInline = true;
-          
-          // Wait for metadata to load, then play
-          videoRef.current.onloadedmetadata = () => {
-            videoRef.current?.play().catch(playErr => {
-              console.warn('Video play() failed:', playErr);
-            });
-          };
-          
-          setIsMirrorMode(true);
-          setBgImage(null);
-          triggerHaptic('success');
-        }
-      } catch (err: any) {
-        console.error("Camera access error:", err);
-        setIsMirrorMode(false);
-        setBgImage(user.fullBodyAvatar || null);
-        
-        let msg = "No se pudo acceder a la cámara.";
-        if (err?.name === 'NotFoundError') {
-          msg += " No se encontró ningún dispositivo de vídeo. Asegúrate de que tu cámara no esté siendo usada por otra app (Zoom, Teams, etc).";
-        } else if (err?.name === 'NotAllowedError') {
-          msg += " Permiso denegado. Haz clic en el icono de candado en la barra de direcciones y permite el acceso a la cámara.";
-        } else if (err?.name === 'NotReadableError') {
-          msg += " La cámara está en uso por otra aplicación. Cierra cualquier app que use la cámara e inténtalo de nuevo.";
-        }
-        alert(msg);
+  const handleModelFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === 'string') {
+        persistModelPhoto(file, reader.result);
       }
-    } else {
-      // Stop camera
-      const stream = videoRef.current?.srcObject as MediaStream;
-      stream?.getTracks().forEach(track => track.stop());
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const captureModelPhoto = async (source: CameraSource) => {
+    if (isTakingPhoto) return;
+    setIsTakingPhoto(true);
+    setModelError(null);
+    try {
+      const { dataUrl, file } = await pickPhoto(source);
+      await persistModelPhoto(file, dataUrl);
+    } catch (err: any) {
+      const message = String(err?.message || err || '');
+      if (!message.toLowerCase().includes('cancel')) {
+        setModelError('No se pudo obtener la foto. Revisa permisos de cámara y galería.');
       }
-      setIsMirrorMode(false);
-      setBgImage(user.fullBodyAvatar || null);
+    } finally {
+      setIsTakingPhoto(false);
     }
   };
 
@@ -342,15 +318,15 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
         >
           <X size={20} />
         </button>
-        <div className="flex flex-col items-center">
-            <span className="text-white text-[10px] font-bold tracking-[0.2em] uppercase opacity-70">Probador Virtual</span>
-            <span className="text-white text-xs font-bold uppercase">Estilo Vivo</span>
-        </div>
-        <button 
-          onClick={toggleMirrorMode}
-          className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${isMirrorMode ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/50' : 'bg-white/10 text-white backdrop-blur-md border border-white/10'}`}
+        <span className="text-white text-xs font-bold tracking-[0.2em] uppercase opacity-90">Probador Virtual</span>
+        <button
+          type="button"
+          onClick={() => captureModelPhoto(CameraSource.Camera)}
+          disabled={isTakingPhoto}
+          title="Cambiar foto de cuerpo entero"
+          className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 text-white backdrop-blur-md border border-white/10 disabled:opacity-50"
         >
-          {isMirrorMode ? <Video size={20} /> : <VideoOff size={20} />}
+          {isTakingPhoto ? <RefreshCcw size={20} className="animate-spin" /> : <CameraIcon size={20} />}
         </button>
       </div>
 
@@ -368,28 +344,18 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchEnd}
       >
-        {/* Background Overlay Layer */}
-        {isMirrorMode && (
-            <video 
-                ref={videoRef} 
-                autoPlay 
-                playsInline
-                muted
-                className="absolute inset-0 w-full h-full object-cover scale-x-[-1]" 
-            />
-        )}
-        
-        {bgImage && !isMirrorMode ? (
-          <img 
-            src={bgImage} 
-            alt="Modelo" 
-            className="absolute w-full h-full object-contain opacity-90 pointer-events-none"
+        {bgImage ? (
+          <img
+            src={bgImage}
+            alt="Tu foto de cuerpo entero"
+            className="absolute inset-0 w-full h-full object-contain pointer-events-none select-none"
+            draggable={false}
           />
-        ) : !isMirrorMode && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-white/50 px-8 text-center pointer-events-none">
-            <Camera size={48} className="mb-4 opacity-30" />
-            <p className="text-sm font-bold">No tienes modelo guardado.</p>
-            <p className="text-xs mt-2">Sube una foto o activa el modo espejo arriba.</p>
+        ) : (
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-white/60 px-8 text-center pointer-events-none">
+            <CameraIcon size={48} className="mb-4 opacity-40" />
+            <p className="text-sm font-bold">Añade tu foto de cuerpo entero</p>
+            <p className="text-xs mt-2 max-w-xs">Después podrás colocar y ajustar las prendas encima, como en un probador.</p>
           </div>
         )}
 
@@ -466,30 +432,88 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
            </button>
         </div>
 
-        <div className="w-full flex gap-3">
-          {(!bgImage) ? (
-            <label className="flex-1 bg-white/10 backdrop-blur-md border border-white/20 text-white py-3 px-4 rounded-2xl font-bold flex items-center justify-center gap-2 cursor-pointer hover:bg-white/20">
-                <Camera size={16} />
-                <span className="text-xs uppercase tracking-widest">Subir Modelo</span>
-                <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
-            </label>
-          ) : (
+        {modelError && (
+          <p className="text-xs text-red-300 font-medium text-center px-2">{modelError}</p>
+        )}
+
+        <div className="w-full flex flex-col gap-3">
+          {!bgImage ? (
             <>
-                <button 
-                  onClick={() => setShowPicker(true)}
-                  className="flex-1 bg-white/10 backdrop-blur-md border border-white/20 text-white py-3 px-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-white/20"
-                >
-                  <Plus size={16} />
-                  <span className="text-xs uppercase tracking-widest">Añadir</span>
-                </button>
-                <button 
-                  onClick={() => { setActiveId(null); setShowNamePrompt(true); }}
-                  className="flex-1 bg-primary text-white py-3 px-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-pink-600 shadow-lg shadow-primary/30"
-                >
-                  <Check size={16} />
-                  <span className="text-xs uppercase tracking-widest">¡Me gusta!</span>
-                </button>
+              {Capacitor.getPlatform() !== 'web' ? (
+                <div className="flex gap-2 w-full">
+                  <button
+                    type="button"
+                    disabled={isTakingPhoto}
+                    onClick={() => captureModelPhoto(CameraSource.Camera)}
+                    className="flex-1 bg-primary text-white py-3 px-4 rounded-2xl font-bold flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    <CameraIcon size={16} />
+                    <span className="text-xs uppercase tracking-widest">Cámara</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isTakingPhoto}
+                    onClick={() => captureModelPhoto(CameraSource.Photos)}
+                    className="flex-1 bg-white/15 backdrop-blur-md border border-white/20 text-white py-3 px-4 rounded-2xl font-bold flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    <ImageIcon size={16} />
+                    <span className="text-xs uppercase tracking-widest">Galería</span>
+                  </button>
+                </div>
+              ) : null}
+              <label className="w-full bg-white/10 backdrop-blur-md border border-white/20 text-white py-3 px-4 rounded-2xl font-bold flex items-center justify-center gap-2 cursor-pointer hover:bg-white/20">
+                <ImageIcon size={16} />
+                <span className="text-xs uppercase tracking-widest">
+                  {Capacitor.getPlatform() === 'web' ? 'Subir foto de cuerpo entero' : 'O subir archivo'}
+                </span>
+                <input
+                  ref={modelFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleModelFileUpload}
+                />
+              </label>
             </>
+          ) : (
+            <div className="flex gap-2 w-full">
+              <button
+                type="button"
+                onClick={() => setShowPicker(true)}
+                className="flex-1 bg-white/10 backdrop-blur-md border border-white/20 text-white py-3 px-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-white/20"
+              >
+                <Plus size={16} />
+                <span className="text-xs uppercase tracking-widest">Prenda</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setActiveId(null); setShowNamePrompt(true); }}
+                className="flex-1 bg-primary text-white py-3 px-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-pink-600 shadow-lg shadow-primary/30"
+              >
+                <Check size={16} />
+                <span className="text-xs uppercase tracking-widest">¡Me gusta!</span>
+              </button>
+            </div>
+          )}
+          {bgImage && Capacitor.getPlatform() !== 'web' && (
+            <div className="flex gap-2 w-full">
+              <button
+                type="button"
+                disabled={isTakingPhoto}
+                onClick={() => captureModelPhoto(CameraSource.Camera)}
+                className="flex-1 py-2 rounded-xl bg-white/5 border border-white/10 text-white/80 text-[10px] font-bold uppercase tracking-wider disabled:opacity-50"
+              >
+                Nueva foto (cámara)
+              </button>
+              <button
+                type="button"
+                disabled={isTakingPhoto}
+                onClick={() => captureModelPhoto(CameraSource.Photos)}
+                className="flex-1 py-2 rounded-xl bg-white/5 border border-white/10 text-white/80 text-[10px] font-bold uppercase tracking-wider disabled:opacity-50"
+              >
+                Desde galería
+              </button>
+            </div>
           )}
         </div>
       </div>

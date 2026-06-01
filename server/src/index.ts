@@ -1,9 +1,10 @@
+import 'dotenv/config';
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { PrismaClient } from '@prisma/client';
-import dotenv from 'dotenv';
+import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
 import multer from 'multer';
 import { mkdirSync, existsSync, unlinkSync, readFileSync } from 'fs';
 import bcrypt from 'bcryptjs';
@@ -31,14 +32,16 @@ import {
 import { fashionTrendsService } from './fashionTrends.js';
 import { awardPoints } from './gamification.js';
 
-dotenv.config();
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app: Express = express();
 const httpServer = createServer(app);
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  adapter: new PrismaBetterSqlite3({
+    url: process.env.DATABASE_URL || 'file:./dev.db'
+  })
+});
 
 // Trust first proxy (Docker / reverse proxy / Coolify)
 app.set('trust proxy', 1);
@@ -88,6 +91,37 @@ const transporter = isEmailConfigured
     },
   })
   : null;
+
+const getFrontendUrl = () => (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/+$/, '');
+
+const sendMailWithRetry = async (mailOptions: any, retries = 2) => {
+  if (!transporter) {
+    throw new Error('SMTP transporter is not configured');
+  }
+
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      return await transporter.sendMail({
+        from: process.env.EMAIL_FROM || process.env.SMTP_USER!,
+        ...mailOptions,
+      });
+    } catch (error) {
+      lastError = error;
+      logger.warn('Email send attempt failed', {
+        attempt: attempt + 1,
+        retries: retries + 1,
+        to: mailOptions.to,
+        error
+      });
+      if (attempt < retries) {
+        await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
+      }
+    }
+  }
+
+  throw lastError;
+};
 
 // Crear directorio de uploads si no existe
 if (!existsSync(UPLOADS_DIR)) {
@@ -248,21 +282,21 @@ app.get('/api/debug-db', async (req: Request, res: Response) => {
   try {
     const results = [];
     try {
-      await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "experiencePoints" INTEGER NOT NULL DEFAULT 0;`);
+      await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN "experiencePoints" INTEGER NOT NULL DEFAULT 0;`);
       results.push('Added experiencePoints column');
     } catch (e: any) {
       results.push('Error adding experiencePoints: ' + e.message);
     }
     
     try {
-      await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "level" INTEGER NOT NULL DEFAULT 1;`);
+      await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN "level" INTEGER NOT NULL DEFAULT 1;`);
       results.push('Added level column');
     } catch (e: any) {
       results.push('Error adding level: ' + e.message);
     }
 
     try {
-      try { await prisma.$executeRawUnsafe(`ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS "isWashing" BOOLEAN NOT NULL DEFAULT false;`); results.push('Added isWashing column'); } catch (e: any) { results.push('Error adding isWashing' + e.message); }
+      try { await prisma.$executeRawUnsafe(`ALTER TABLE "Product" ADD COLUMN "isWashing" BOOLEAN NOT NULL DEFAULT false;`); results.push('Added isWashing column'); } catch (e: any) { results.push('Error adding isWashing' + e.message); }
       const tablesOptions = [`CREATE TABLE IF NOT EXISTS "Notification" ( "id" TEXT NOT NULL, "type" TEXT NOT NULL, "content" TEXT, "isRead" BOOLEAN NOT NULL DEFAULT false, "userId" TEXT NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "Notification_pkey" PRIMARY KEY ("id") );`, `CREATE TABLE IF NOT EXISTS "Conversation" ( "id" TEXT NOT NULL, "itemId" TEXT, "itemTitle" TEXT, "itemImage" TEXT, "itemOwnerId" TEXT, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "Conversation_pkey" PRIMARY KEY ("id") );`, `CREATE TABLE IF NOT EXISTS "ConversationParticipant" ( "id" TEXT NOT NULL, "conversationId" TEXT NOT NULL, "userId" TEXT NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "ConversationParticipant_pkey" PRIMARY KEY ("id") );`, `CREATE TABLE IF NOT EXISTS "Message" ( "id" TEXT NOT NULL, "conversationId" TEXT NOT NULL, "senderId" TEXT NOT NULL, "content" TEXT NOT NULL, "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "Message_pkey" PRIMARY KEY ("id") );`];
       for (const sql of tablesOptions) { try { await prisma.$executeRawUnsafe(sql); results.push('Created table'); } catch (e: any) { results.push('Error: ' + e.message); } }
       const users = await prisma.$queryRaw`SELECT id, "experiencePoints", "level" FROM "User" LIMIT 1`;
@@ -337,7 +371,7 @@ app.post('/api/auth/register', authLimiter, validate(registerSchema), async (req
 
     // Case-insensitive check to prevent duplicate emails with different casing
     const existingUser = await prisma.user.findFirst({
-      where: { email: { equals: normalizedEmail, mode: 'insensitive' } }
+      where: { email: { equals: normalizedEmail } }
     });
 
     if (existingUser) return res.status(400).json({ error: 'Email already registered' });
@@ -359,9 +393,9 @@ app.post('/api/auth/register', authLimiter, validate(registerSchema), async (req
     // Send verification email
     let emailSent = false;
     if (transporter) {
-      const verifyUrl = `${process.env.FRONTEND_URL}/auth?verifyToken=${verificationToken}`;
+      const verifyUrl = `${getFrontendUrl()}/auth?verifyToken=${verificationToken}`;
       try {
-        await transporter.sendMail({
+        await sendMailWithRetry({
           to: user.email,
           subject: 'Verifica tu cuenta - Estilo Vivo',
           html: `
@@ -433,7 +467,7 @@ app.post('/api/auth/login', authLimiter, validate(loginSchema), async (req: Requ
 
     // Use findMany to get all potential accounts (case-insensitive)
     const candidates = await prisma.user.findMany({
-      where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
+      where: { email: { equals: normalizedEmail } },
       orderBy: { createdAt: 'asc' }, // Prioritize original account
       include: { _count: { select: { followers: true, following: true } } }
     });
@@ -500,7 +534,7 @@ app.post('/api/auth/resend-verification', authLimiter, async (req: Request, res:
     const normalizedEmail = email.toLowerCase().trim();
 
     const user = await prisma.user.findFirst({
-      where: { email: { equals: normalizedEmail, mode: 'insensitive' } }
+      where: { email: { equals: normalizedEmail } }
     });
 
     if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
@@ -521,8 +555,8 @@ app.post('/api/auth/resend-verification', authLimiter, async (req: Request, res:
       data: { verificationToken }
     });
 
-    const verifyUrl = `${process.env.FRONTEND_URL}/auth?verifyToken=${verificationToken}`;
-    await transporter.sendMail({
+    const verifyUrl = `${getFrontendUrl()}/auth?verifyToken=${verificationToken}`;
+    await sendMailWithRetry({
       to: user.email,
       subject: 'Verifica tu cuenta - Estilo Vivo',
       html: `
@@ -599,10 +633,10 @@ app.post('/api/auth/forgot-password', authLimiter, async (req: Request, res: Res
       }
     });
 
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/auth?token=${token}`;
+    const resetUrl = `${getFrontendUrl()}/auth?token=${token}`;
 
     if (transporter) {
-      await transporter.sendMail({
+      await sendMailWithRetry({
         to: user.email,
         subject: 'Recuperar contraseña - Estilo Vivo',
         html: `
@@ -722,7 +756,7 @@ app.get('/api/auth/me', authenticateToken, async (req: any, res: Response) => {
 
 app.put('/api/auth/profile', authenticateToken, upload.fields([{ name: 'avatar', maxCount: 1 }, { name: 'fullBodyAvatar', maxCount: 1 }]), async (req: any, res: Response) => {
   try {
-    const { name, bio, mood, cycleTracking, musicSync, gender, birthDate } = req.body;
+    const { name, bio, mood, cycleTracking, musicSync, emailNotifications, gender, birthDate } = req.body;
     const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
     const avatarFile = files?.['avatar']?.[0];
     const fullBodyFile = files?.['fullBodyAvatar']?.[0];
@@ -733,6 +767,7 @@ app.put('/api/auth/profile', authenticateToken, upload.fields([{ name: 'avatar',
     if (mood !== undefined) updateData.mood = mood;
     if (cycleTracking !== undefined) updateData.cycleTracking = cycleTracking === 'true' || cycleTracking === true;
     if (musicSync !== undefined) updateData.musicSync = musicSync === 'true' || musicSync === true;
+    if (emailNotifications !== undefined) updateData.emailNotifications = emailNotifications === 'true' || emailNotifications === true;
     if (gender !== undefined) updateData.gender = gender;
     if (birthDate !== undefined) updateData.birthDate = birthDate ? new Date(birthDate) : null;
     if (avatarFile) updateData.avatar = `/api/uploads/${avatarFile.filename}`;
@@ -787,9 +822,9 @@ app.get('/api/products/shop', authenticateToken, async (req: any, res: Response)
     const where: any = { forSale: true, userId: { not: req.user.userId } };
     if (search) {
       where.OR = [
-        { name: { contains: search as string, mode: 'insensitive' } },
-        { brand: { contains: search as string, mode: 'insensitive' } },
-        { category: { contains: search as string, mode: 'insensitive' } },
+        { name: { contains: search as string } },
+        { brand: { contains: search as string } },
+        { category: { contains: search as string } },
       ];
     }
     if (category && category !== 'all') where.category = category as string;
@@ -1649,9 +1684,28 @@ app.post('/api/chat/conversations/:id/messages', authenticateToken, async (req: 
     });
     if (otherParticipant) {
       const notification = await prisma.notification.create({
-        data: { type: 'CHAT', content: `${message.sender.name} te ha enviado un mensaje`, userId: otherParticipant.userId }
+        data: {
+          type: 'CHAT',
+          content: `${message.sender.name} te ha enviado un mensaje`,
+          userId: otherParticipant.userId,
+          relatedId: conversationId,
+        }
       });
       io.to(`user_${otherParticipant.userId}`).emit('notification', notification);
+
+      const otherUser = await prisma.user.findUnique({ where: { id: otherParticipant.userId } });
+      if (transporter && otherUser?.email && otherUser.emailNotifications) {
+        try {
+          await sendMailWithRetry({
+            to: otherUser.email,
+            subject: `Nuevo mensaje de ${message.sender.name}`,
+            text: `Has recibido un nuevo mensaje de ${message.sender.name}: ${message.content}`,
+            html: `<p>Has recibido un nuevo mensaje de <strong>${message.sender.name}</strong></p><p>${message.content}</p><p><a href="${getFrontendUrl()}/social?tab=chat">Ver conversación</a></p>`
+          });
+        } catch (mailErr) {
+          logger.warn('Could not send chat email notification', { error: mailErr, userId: otherParticipant.userId });
+        }
+      }
     }
 
     res.status(201).json(message);
@@ -1678,9 +1732,28 @@ app.post('/api/chat/messages', authenticateToken, async (req: any, res: Response
 
     if (otherUserId) {
       const notification = await prisma.notification.create({
-        data: { type: 'CHAT', content: `${message.sender.name} te ha enviado un mensaje`, userId: otherUserId }
+        data: {
+          type: 'CHAT',
+          content: `${message.sender.name} te ha enviado un mensaje`,
+          userId: otherUserId,
+          relatedId: conversationId,
+        }
       });
       io.to(`user_${otherUserId}`).emit('notification', notification);
+
+      const otherUser = await prisma.user.findUnique({ where: { id: otherUserId } });
+      if (transporter && otherUser?.email && otherUser.emailNotifications) {
+        try {
+          await sendMailWithRetry({
+            to: otherUser.email,
+            subject: `Nuevo mensaje de ${message.sender.name}`,
+            text: `Has recibido un nuevo mensaje de ${message.sender.name}: ${message.content}`,
+            html: `<p>Has recibido un nuevo mensaje de <strong>${message.sender.name}</strong></p><p>${message.content}</p><p><a href="${getFrontendUrl()}/social?tab=chat">Ver conversación</a></p>`
+          });
+        } catch (mailErr) {
+          logger.warn('Could not send chat email notification', { error: mailErr, userId: otherUserId });
+        }
+      }
     }
     res.status(201).json(message);
   } catch (error) {
@@ -1747,11 +1820,23 @@ const startServer = async () => {
     // Attempt to automatically fix schema on startup
     try {
       logger.info('Running startup database schema checks...');
-      await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "experiencePoints" INTEGER NOT NULL DEFAULT 0;`);
-      await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "level" INTEGER NOT NULL DEFAULT 1;`);
+      try {
+        await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN "experiencePoints" INTEGER NOT NULL DEFAULT 0;`);
+      } catch (e: any) {
+        if (!String(e.message).toLowerCase().includes('duplicate column')) {
+          throw e;
+        }
+      }
+      try {
+        await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN "level" INTEGER NOT NULL DEFAULT 1;`);
+      } catch (e: any) {
+        if (!String(e.message).toLowerCase().includes('duplicate column')) {
+          throw e;
+        }
+      }
       logger.info('Database gamification schema checks passed.');
     } catch (schemaError: any) {
-      logger.error('Failed to run schema startup checks', { error: schemaError.message });
+      logger.warn('Schema startup checks could not be completed cleanly', { error: schemaError.message });
     }
 
     httpServer.listen(PORT, '0.0.0.0', () => {
@@ -1764,7 +1849,15 @@ const startServer = async () => {
   }
 };
 
-startServer();
+export { app, startServer };
+
+const isMain = process.argv[1]
+  ? pathToFileURL(process.argv[1]).href === import.meta.url
+  : false;
+
+if (isMain) {
+  startServer();
+}
 
 process.on('SIGINT', async () => {
   await prisma.$disconnect();

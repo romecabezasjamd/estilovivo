@@ -62,6 +62,7 @@ export interface UserState {
   mood: string | null;
   cycleTracking: boolean;
   musicSync: boolean;
+  emailNotifications?: boolean;
   bio: string;
   avatar?: string;
   fullBodyAvatar?: string;
@@ -136,7 +137,22 @@ export interface ChatMessage {
   senderId: string;
   content: string;
   createdAt: string;
+  imageUrl?: string;
   sender?: ChatParticipant;
+}
+
+export interface StoryEntry {
+  id: string;
+  userId: string;
+  userName: string;
+  userAvatar?: string;
+  type: 'image' | 'text';
+  text?: string;
+  imageUrl?: string;
+  views: number;
+  createdAt: string;
+  expiresAt: string;
+  isOwn: boolean;
 }
 
 export interface ChatConversation {

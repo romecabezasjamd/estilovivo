@@ -1,59 +1,65 @@
-# ⚠️ CONFIGURACIÓN REQUERIDA EN COOLIFY
+# Despliegue en producción
 
-**IMPORTANTE:** Este proyecto NO usa archivos .env en el repositorio.
-**Todas las variables deben configurarse en Coolify UI.**
+Este proyecto se despliega como una sola aplicación monolítica que sirve la SPA y la API desde el mismo contenedor.
 
-## 📋 Variables Requeridas en Coolify
+## Requisitos
 
-Ve a tu aplicación → **Environment Variables** y agrega:
+- Docker 24+ instalado
+- Docker Compose
+- Crear un archivo `.env` en la raíz del proyecto
 
-### Base de Datos (ya configuradas)
-```
-DB_USER=estilovivo
-DB_PASSWORD=changeme
-DB_NAME=estilovivo
-```
+## Variables de entorno necesarias
 
-### Server
-```
+Usa `.env.example` como base. Debes definir al menos:
+
+```env
+DATABASE_URL="file:./data/dev.db"
+JWT_SECRET="tu_secreto_super_seguro"
+PORT=3000
 NODE_ENV=production
-```
-
-### Autenticación (CRÍTICA)
-```
-JWT_SECRET=1713cd2057028b1dbbc5cd0b44b4106a0df1dcb66eb058763d09bf6de9ed733c
-```
-
-### SMTP (opcional - agregar vacías)
-```
+UPLOADS_DIR="/app/uploads"
+GEMINI_API_KEY=
 SMTP_HOST=
 SMTP_PORT=587
 SMTP_USER=
 SMTP_PASS=
 ```
 
-**NOTA:** Si NODE_ENV o las variables SMTP ya existen, no es necesario agregarlas de nuevo - el docker-compose.yaml ahora tiene valores por defecto.
+## Despliegue con Docker Compose
 
-## ✅ Variables Auto-provistas por Coolify
+Construye y levanta el servicio:
 
-Estas variables las genera Coolify automáticamente, **NO las agregues manualmente**:
-- `SERVICE_URL_APP` ← **Si existe con sintaxis `${...:-...}`, BÓRRALA**
-- `SERVICE_FQDN_APP`
-- `COOLIFY_URL`
-- `COOLIFY_FQDN`
+```bash
+docker compose up --build -d
+```
 
-## 🔧 Solución de Problemas
+La aplicación será accesible en `http://localhost:3000` cuando se despliegue localmente.
 
-### Error: "Invalid template: ${SERVICE_URL_APP:-..."
+El contenedor creará y persistirá:
 
-Si ves este error en los logs de deployment:
-1. Ve a **Environment Variables** en Coolify
-2. Busca y **ELIMINA** la variable `SERVICE_URL_APP` (si existe manualmente)
-3. Coolify la generará automáticamente, o el docker-compose usará `*` como fallback
+- `sqlite_data` → base de datos SQLite `./data/dev.db`
+- `uploads_data` → archivos subidos
 
-## 🚀 Después de Configurar
+## Verificar
 
-1. Guarda las variables en Coolify
-2. Redeploya la aplicación
-3. Espera 2-3 minutos
-4. Accede a https://estilovivo.xyoncloud.win
+```bash
+docker compose ps
+docker compose logs -f
+```
+
+Una vez levantado, comprueba la salud:
+
+```bash
+curl -f http://localhost:3000/api/health
+```
+
+## Notas sobre producción
+
+- El backend actual usa SQLite para el deploy actual.
+- Si quieres usar PostgreSQL más adelante, hay que cambiar `server/prisma/schema.prisma` y la inicialización de Prisma.
+- En este estado, no necesitas un servicio de base de datos adicional.
+
+## Opciones adicionales
+
+- Si necesitas SMTP funcional, completa `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` y `SMTP_PASS`.
+- Si no configuras SMTP, la app auto-verifica cuentas y sigue funcionando.
