@@ -21,6 +21,9 @@ import {
   validate,
   registerSchema,
   loginSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  verifyEmailSchema,
   productSchema,
   lookSchema,
   commentSchema,
@@ -610,11 +613,11 @@ app.post('/api/auth/change-password', authenticateToken, async (req: any, res: R
   }
 });
 
-app.post('/api/auth/forgot-password', authLimiter, async (req: Request, res: Response) => {
+app.post('/api/auth/forgot-password', authLimiter, validate(forgotPasswordSchema), async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
     const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase().trim() }
+      where: { email }
     });
 
     if (!user) {
@@ -661,7 +664,7 @@ app.post('/api/auth/forgot-password', authLimiter, async (req: Request, res: Res
   }
 });
 
-app.post('/api/auth/reset-password', authLimiter, async (req: Request, res: Response) => {
+app.post('/api/auth/reset-password', authLimiter, validate(resetPasswordSchema), async (req: Request, res: Response) => {
   try {
     const { token, newPassword } = req.body;
     const user = await prisma.user.findFirst({
@@ -689,7 +692,7 @@ app.post('/api/auth/reset-password', authLimiter, async (req: Request, res: Resp
   }
 });
 
-app.post('/api/auth/verify-email', authLimiter, async (req: Request, res: Response) => {
+app.post('/api/auth/verify-email', authLimiter, validate(verifyEmailSchema), async (req: Request, res: Response) => {
   try {
     const { token } = req.body;
     const user = await prisma.user.findFirst({

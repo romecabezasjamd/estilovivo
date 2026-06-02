@@ -75,10 +75,23 @@ export const followSchema = z.object({
 
 // ============= MIDDLEWARE VALIDATOR =============
 
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().toLowerCase().email('Email inválido'),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1, 'Token requerido'),
+  newPassword: z.string().min(8, 'Contraseña debe tener al menos 8 caracteres'),
+});
+
+export const verifyEmailSchema = z.object({
+  token: z.string().min(1, 'Token requerido'),
+});
+
 export const validate = (schema: z.ZodSchema) => {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
-      schema.parse(req.body);
+      req.body = schema.parse(req.body);
       next();
     } catch (error) {
       if (error instanceof z.ZodError) {
