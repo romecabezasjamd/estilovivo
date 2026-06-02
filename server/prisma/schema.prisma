@@ -7,7 +7,6 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -175,15 +174,19 @@ model Like {
 }
 
 model Comment {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   content   String
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   lookId    String
-  look      Look     @relation(fields: [lookId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  look      Look      @relation(fields: [lookId], references: [id], onDelete: Cascade)
+  parentId  String?
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[] @relation("CommentReplies")
+  createdAt DateTime  @default(now())
   
   @@index([lookId, createdAt])
+  @@index([parentId])
 }
 
 model Favorite {
@@ -242,6 +245,8 @@ model Message {
   senderId       String
   sender         User          @relation(fields: [senderId], references: [id], onDelete: Cascade)
   content        String
+  imageUrl       String?
+  productId      String?
   createdAt      DateTime      @default(now())
   
   @@index([conversationId, createdAt])

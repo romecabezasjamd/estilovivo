@@ -60,6 +60,7 @@ export const tripSchema = z.object({
 export const commentSchema = z.object({
   lookId: z.string().min(1, 'Look ID requerido'),
   content: z.string().min(1, 'El comentario no puede estar vacío').max(500, 'Comentario muy largo'),
+  parentId: z.string().optional(),
 });
 
 export const favoriteSchema = z.object({

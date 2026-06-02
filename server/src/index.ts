@@ -1062,7 +1062,7 @@ app.get('/api/looks/feed', authenticateToken, async (req: any, res: Response) =>
     const take = parseInt(limit as string) + 1;
 
     const looks = await prisma.look.findMany({
-      where: { isPublic: true },
+      where: { isPublic: true, products: { none: { forSale: true } } },
       include: {
         images: true,
         user: { select: { id: true, name: true, avatar: true } },
@@ -1210,7 +1210,15 @@ app.post('/api/social/like', authenticateToken, async (req: any, res: Response) 
       await prisma.like.delete({ where: { id: existing.id } });
       res.json({ liked: false, likesCount: await prisma.like.count({ where: { lookId } }) });
     } else {
-      await prisma.like.create({ data: { userId, lookId } });
+      const like = await prisma.like.create({ data: { userId, lookId } });
+      const look = await prisma.look.findUnique({ where: { id: lookId }, select: { userId: true } });
+      if (look && look.userId !== userId) {
+        const me = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
+        const notif = await prisma.notification.create({
+          data: { type: 'LIKE', content: `${me?.name || 'Alguien'} le gustó tu publicación`, userId: look.userId, relatedId: lookId }
+        });
+        io.to(`user_${look.userId}`).emit('notification', notif);
+      }
       res.json({ liked: true, likesCount: await prisma.like.count({ where: { lookId } }) });
     }
   } catch (error) {
@@ -1221,11 +1229,29 @@ app.post('/api/social/like', authenticateToken, async (req: any, res: Response) 
 
 app.post('/api/social/comment', authenticateToken, validate(commentSchema), async (req: any, res: Response) => {
   try {
-    const { lookId, content } = req.body;
+    const { lookId, content, parentId } = req.body;
     const comment = await prisma.comment.create({
-      data: { userId: req.user.userId, lookId, content },
-      include: { user: { select: { id: true, name: true, avatar: true } } }
+      data: { userId: req.user.userId, lookId, content, parentId: parentId || null },
+      include: { user: { select: { id: true, name: true, avatar: true } }, replies: { include: { user: { select: { id: true, name: true, avatar: true } } }, orderBy: { createdAt: 'asc' } } }
     });
+    const look = await prisma.look.findUnique({ where: { id: lookId }, select: { userId: true } });
+    if (look && look.userId !== req.user.userId) {
+      const me = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { name: true } });
+      const notif = await prisma.notification.create({
+        data: { type: 'COMMENT', content: `${me?.name || 'Alguien'} comentó tu publicación`, userId: look.userId, relatedId: lookId }
+      });
+      io.to(`user_${look.userId}`).emit('notification', notif);
+    }
+    if (parentId) {
+      const parent = await prisma.comment.findUnique({ where: { id: parentId }, select: { userId: true } });
+      if (parent && parent.userId !== req.user.userId) {
+        const me = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { name: true } });
+        const notif = await prisma.notification.create({
+          data: { type: 'COMMENT', content: `${me?.name || 'Alguien'} respondió a tu comentario`, userId: parent.userId, relatedId: lookId }
+        });
+        io.to(`user_${parent.userId}`).emit('notification', notif);
+      }
+    }
     res.status(201).json(comment);
   } catch (error) {
     logger.error('Error occurred', { error });
@@ -1236,8 +1262,8 @@ app.post('/api/social/comment', authenticateToken, validate(commentSchema), asyn
 app.get('/api/social/comments/:lookId', authenticateToken, async (req: any, res: Response) => {
   try {
     const comments = await prisma.comment.findMany({
-      where: { lookId: req.params.lookId },
-      include: { user: { select: { id: true, name: true, avatar: true } } },
+      where: { lookId: req.params.lookId, parentId: null },
+      include: { user: { select: { id: true, name: true, avatar: true } }, replies: { include: { user: { select: { id: true, name: true, avatar: true } } }, orderBy: { createdAt: 'asc' } } },
       orderBy: { createdAt: 'desc' }
     });
     res.json(comments);
@@ -1304,7 +1330,15 @@ app.post('/api/social/follow', authenticateToken, validate(followSchema), async 
     if (userId === targetUserId) return res.status(400).json({ error: 'Cannot follow yourself' });
     const existing = await prisma.follow.findUnique({ where: { followerId_followingId: { followerId: userId, followingId: targetUserId } } });
     if (existing) { await prisma.follow.delete({ where: { id: existing.id } }); res.json({ following: false }); }
-    else { await prisma.follow.create({ data: { followerId: userId, followingId: targetUserId } }); res.json({ following: true }); }
+    else {
+      const follow = await prisma.follow.create({ data: { followerId: userId, followingId: targetUserId } });
+      const me = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
+      const notif = await prisma.notification.create({
+        data: { type: 'FOLLOW', content: `${me?.name || 'Alguien'} te siguió`, userId: targetUserId }
+      });
+      io.to(`user_${targetUserId}`).emit('notification', notif);
+      res.json({ following: true });
+    }
   } catch (error) {
     logger.error('Error occurred', { error });
     res.status(500).json({ error: 'Error toggling follow' });
@@ -1658,11 +1692,23 @@ app.get('/api/chat/conversations/:id/messages', authenticateToken, async (req: a
   }
 });
 
+app.post('/api/chat/upload', authenticateToken, upload.single('image'), async (req: any, res: Response) => {
+  try {
+    const file = req.file;
+    if (!file) return res.status(400).json({ error: 'No image provided' });
+    const url = `/api/uploads/${file.filename}`;
+    res.json({ imageUrl: url });
+  } catch (error) {
+    logger.error('Error uploading chat image', { error });
+    res.status(500).json({ error: 'Error uploading image' });
+  }
+});
+
 app.post('/api/chat/conversations/:id/messages', authenticateToken, async (req: any, res: Response) => {
   try {
     const conversationId = req.params.id;
-    const { content } = req.body;
-    if (!content) return res.status(400).json({ error: 'content required' });
+    const { content, imageUrl, productId } = req.body;
+    if (!content && !imageUrl) return res.status(400).json({ error: 'content or imageUrl required' });
 
     const participation = await prisma.conversationParticipant.findUnique({
       where: { conversationId_userId: { conversationId, userId: req.user.userId } }
@@ -1670,7 +1716,7 @@ app.post('/api/chat/conversations/:id/messages', authenticateToken, async (req: 
     if (!participation) return res.status(403).json({ error: 'Not authorized' });
 
     const message = await prisma.message.create({
-      data: { conversationId, content, senderId: req.user.userId },
+      data: { conversationId, content: content || '', imageUrl: imageUrl || null, productId: productId || null, senderId: req.user.userId },
       include: { sender: { select: { id: true, name: true, avatar: true } } }
     });
 
@@ -1720,9 +1766,10 @@ app.post('/api/chat/conversations/:id/messages', authenticateToken, async (req: 
 
 app.post('/api/chat/messages', authenticateToken, async (req: any, res: Response) => {
   try {
-    const { conversationId, content, otherUserId } = req.body;
+    const { conversationId, content, otherUserId, imageUrl, productId } = req.body;
+    if (!content && !imageUrl) return res.status(400).json({ error: 'content or imageUrl required' });
     const message = await prisma.message.create({
-      data: { conversationId, content, senderId: req.user.userId },
+      data: { conversationId, content: content || '', senderId: req.user.userId, imageUrl: imageUrl || null, productId: productId || null },
       include: { sender: { select: { id: true, name: true, avatar: true } } }
     });
 

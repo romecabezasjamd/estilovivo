@@ -51,6 +51,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentInput, setCommentInput] = useState('');
   const [loadingComments, setLoadingComments] = useState(false);
+  const [replyToComment, setReplyToComment] = useState<{id: string; name: string} | null>(null);
 
   // Favorites (Wishlist)
   const [favorites, setFavorites] = useState<any[]>([]);
@@ -578,9 +579,14 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
   const handleSendComment = async () => {
     if (!commentInput.trim() || !commentsLookId) return;
     try {
-      const newComment = await api.addComment(commentsLookId, commentInput.trim());
-      setComments(prev => [newComment, ...prev]);
+      const newComment = await api.addComment(commentsLookId, commentInput.trim(), replyToComment?.id);
+      if (replyToComment) {
+        setComments(prev => prev.map(c => c.id === replyToComment.id ? { ...c, replies: [...(c.replies || []), newComment] } : c));
+      } else {
+        setComments(prev => [newComment, ...prev]);
+      }
       setCommentInput('');
+      setReplyToComment(null);
       // Update count in feed
       setFeedLooks(prev => prev.map(l => {
         if (l.id === commentsLookId) {
@@ -756,15 +762,26 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
     loadMessages();
   }, [selectedThreadId, messagesById]);
 
-  const handleChatSend = () => {
+  const handleChatSend = async () => {
     if (!activeThread || (!messageInput.trim() && !chatAttachment)) return;
     const content = messageInput.trim() || '📷 Imagen adjunta';
+    let serverImageUrl: string | undefined;
+    if (chatAttachment) {
+      try {
+        const blob = await fetch(chatAttachment).then(r => r.blob());
+        const file = new File([blob], `chat-${Date.now()}.jpg`, { type: 'image/jpeg' });
+        const { imageUrl } = await api.uploadChatImage(file);
+        serverImageUrl = imageUrl;
+      } catch {
+        serverImageUrl = chatAttachment;
+      }
+    }
     const nextMessage: ChatMessage = {
       id: `msg-${Date.now()}`,
       conversationId: activeThread.id,
       senderId: currentUserId || 'me',
       content,
-      imageUrl: chatAttachment || undefined,
+      imageUrl: serverImageUrl,
       createdAt: new Date().toISOString(),
     };
 
@@ -788,7 +805,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
     setMessageInput('');
     setChatAttachment(null);
 
-    api.sendConversationMessage(activeThread.id, content).catch((e) => {
+    api.sendConversationMessage(activeThread.id, content, serverImageUrl).catch((e) => {
       console.warn('Error sending message:', e);
     });
 
@@ -1547,48 +1564,88 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                 <p className="text-center text-gray-400 py-10">Sé el primero en comentar</p>
               ) : (
                 comments.map(c => (
-                  <div key={c.id} className="flex space-x-3">
-                    <img
-                      src={c.userAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(c.userName)}&background=0F4C5C&color=fff`}
-                      className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-                      alt={c.userName}
-                    />
-                    <div>
-                      <p className="text-sm">
-                        <span className="font-bold text-gray-800 mr-1">{c.userName}</span>
-                        <span className="text-gray-600">{c.content}</span>
-                      </p>
-                      <span className="text-[10px] text-gray-400">
-                        {new Date(c.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
-                      </span>
+                  <div key={c.id}>
+                    <div className="flex space-x-3">
+                      <img
+                        src={c.userAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(c.userName)}&background=0F4C5C&color=fff`}
+                        className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                        alt={c.userName}
+                      />
+                      <div className="flex-1">
+                        <p className="text-sm">
+                          <span className="font-bold text-gray-800 mr-1">{c.userName}</span>
+                          <span className="text-gray-600">{c.content}</span>
+                        </p>
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="text-[10px] text-gray-400">
+                            {new Date(c.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                          </span>
+                          <button
+                            onClick={() => setReplyToComment(replyToComment?.id === c.id ? null : { id: c.id, name: c.userName })}
+                            className="text-[10px] font-semibold text-gray-500 hover:text-primary"
+                          >
+                            Responder
+                          </button>
+                        </div>
+                      </div>
                     </div>
+                    {c.replies && c.replies.length > 0 && (
+                      <div className="ml-10 mt-2 space-y-2 border-l-2 border-gray-100 pl-3">
+                        {c.replies.map(r => (
+                          <div key={r.id} className="flex space-x-2">
+                            <img
+                              src={r.userAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(r.userName)}&background=0F4C5C&color=fff`}
+                              className="w-6 h-6 rounded-full object-cover flex-shrink-0"
+                              alt={r.userName}
+                            />
+                            <div>
+                              <p className="text-sm">
+                                <span className="font-bold text-gray-800 mr-1">{r.userName}</span>
+                                <span className="text-gray-600">{r.content}</span>
+                              </p>
+                              <span className="text-[10px] text-gray-400">
+                                {new Date(r.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))
               )}
             </div>
 
-            <div className="p-4 border-t border-gray-100 flex items-center space-x-3">
-              <img
-                src={user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=0F4C5C&color=fff`}
-                className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-                alt="You"
-              />
-              <div className="flex-1 flex items-center bg-gray-100 rounded-full px-4 py-2">
-                <input
-                  type="text"
-                  value={commentInput}
-                  onChange={e => setCommentInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleSendComment()}
-                  placeholder="Añade un comentario..."
-                  className="flex-1 bg-transparent text-sm outline-none"
+            <div className="p-4 border-t border-gray-100">
+              {replyToComment && (
+                <div className="flex items-center justify-between bg-primary/5 rounded-lg px-3 py-1.5 mb-2">
+                  <p className="text-xs text-gray-600">Respondiendo a <span className="font-semibold">{replyToComment.name}</span></p>
+                  <button onClick={() => setReplyToComment(null)}><X size={14} className="text-gray-400" /></button>
+                </div>
+              )}
+              <div className="flex items-center space-x-3">
+                <img
+                  src={user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=0F4C5C&color=fff`}
+                  className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                  alt="You"
                 />
-                <button
-                  onClick={handleSendComment}
-                  disabled={!commentInput.trim()}
-                  className="text-primary disabled:text-gray-300 ml-2"
-                >
-                  <Send size={18} />
-                </button>
+                <div className="flex-1 flex items-center bg-gray-100 rounded-full px-4 py-2">
+                  <input
+                    type="text"
+                    value={commentInput}
+                    onChange={e => setCommentInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleSendComment()}
+                    placeholder={replyToComment ? `Responde a ${replyToComment.name}...` : "Añade un comentario..."}
+                    className="flex-1 bg-transparent text-sm outline-none"
+                  />
+                  <button
+                    onClick={handleSendComment}
+                    disabled={!commentInput.trim()}
+                    className="text-primary disabled:text-gray-300 ml-2"
+                  >
+                    <Send size={18} />
+                  </button>
+                </div>
               </div>
             </div>
           </div>

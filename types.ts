@@ -39,12 +39,14 @@ export interface Look {
 }
 
 export interface Comment {
-  id: string;
-  content: string;
-  userId: string;
-  userName: string;
-  userAvatar?: string;
-  createdAt: string;
+    id: string;
+    content: string;
+    userId: string;
+    userName: string;
+    userAvatar?: string;
+    parentId?: string | null;
+    replies?: Comment[];
+    createdAt: string;
 }
 
 export interface PlannerEntry {
@@ -132,13 +134,14 @@ export interface ChatParticipant {
 }
 
 export interface ChatMessage {
-  id: string;
-  conversationId: string;
-  senderId: string;
-  content: string;
-  createdAt: string;
-  imageUrl?: string;
-  sender?: ChatParticipant;
+    id: string;
+    conversationId: string;
+    senderId: string;
+    content: string;
+    createdAt: string;
+    imageUrl?: string;
+    productId?: string;
+    sender?: ChatParticipant;
 }
 
 export interface StoryEntry {

@@ -625,11 +625,11 @@ export const api = {
         return handleResponse(res);
     },
 
-    addComment: async (lookId: string, content: string): Promise<Comment> => {
+    addComment: async (lookId: string, content: string, parentId?: string): Promise<Comment> => {
         const res = await fetch(`${API_BASE}/social/comment`, {
             credentials: 'include', method: 'POST',
             headers: getHeaders(),
-            body: JSON.stringify({ lookId, content })
+            body: JSON.stringify({ lookId, content, parentId })
         });
         const c = await handleResponse(res);
         return {
@@ -638,6 +638,15 @@ export const api = {
             userId: c.user?.id || c.userId,
             userName: c.user?.name || 'Usuario',
             userAvatar: resolveAssetUrl(c.user?.avatar),
+            parentId: c.parentId,
+            replies: (c.replies || []).map((r: any) => ({
+                id: r.id,
+                content: r.content,
+                userId: r.user?.id || r.userId,
+                userName: r.user?.name || 'Usuario',
+                userAvatar: resolveAssetUrl(r.user?.avatar),
+                createdAt: r.createdAt,
+            })),
             createdAt: c.createdAt,
         };
     },
@@ -651,6 +660,15 @@ export const api = {
             userId: c.user?.id || c.userId,
             userName: c.user?.name || 'Usuario',
             userAvatar: resolveAssetUrl(c.user?.avatar),
+            parentId: c.parentId,
+            replies: (c.replies || []).map((r: any) => ({
+                id: r.id,
+                content: r.content,
+                userId: r.user?.id || r.userId,
+                userName: r.user?.name || 'Usuario',
+                userAvatar: resolveAssetUrl(r.user?.avatar),
+                createdAt: r.createdAt,
+            })),
             createdAt: c.createdAt,
         }));
     },
@@ -722,11 +740,22 @@ export const api = {
         return normalizeAssetsDeep(data);
     },
 
-    sendConversationMessage: async (conversationId: string, content: string): Promise<ChatMessage> => {
+    sendConversationMessage: async (conversationId: string, content: string, imageUrl?: string, productId?: string): Promise<ChatMessage> => {
         const res = await fetch(`${API_BASE}/chat/conversations/${conversationId}/messages`, {
             credentials: 'include', method: 'POST',
             headers: getHeaders(),
-            body: JSON.stringify({ content })
+            body: JSON.stringify({ content, imageUrl, productId })
+        });
+        return handleResponse(res);
+    },
+
+    uploadChatImage: async (file: File): Promise<{ imageUrl: string }> => {
+        const formData = new FormData();
+        formData.append('image', file);
+        const res = await fetch(`${API_BASE}/chat/upload`, {
+            credentials: 'include', method: 'POST',
+            headers: { ...getAuthHeader() },
+            body: formData
         });
         return handleResponse(res);
     },

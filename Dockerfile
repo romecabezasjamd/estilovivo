@@ -19,6 +19,7 @@ WORKDIR /app
 COPY package*.json ./
 COPY server/package*.json ./server/
 COPY server/prisma ./server/prisma
+COPY server/prisma.config.ts ./server/prisma.config.ts
 
 # Instalar frontend deps (including devDependencies needed for build)
 RUN npm install --prefer-offline --no-audit
