@@ -3,24 +3,9 @@ import path from 'path';
 import { mkdirSync, existsSync } from 'fs';
 import logger from './logger.js';
 
-// Lazy import: @imgly/background-removal-node downloads WASM models at first call.
-// We import dynamically so server startup doesn't fail if the model isn't available.
-let removeBackground: any = null;
-let imglyReady = false;
-
-const getRemoveBackground = async () => {
-  if (imglyReady) return removeBackground;
-  try {
-    const imgly = await import('@imgly/background-removal-node');
-    removeBackground = imgly.removeBackground;
-    imglyReady = true;
-    logger.info('AI background removal model loaded successfully');
-  } catch (err) {
-    logger.warn('AI background removal model unavailable:', String(err));
-    removeBackground = null;
-  }
-  return removeBackground;
-};
+// Note: AI background removal (via @imgly/background-removal-node) removed because
+// the WASM/ONNX model is incompatible with this server's architecture.
+// The smart fallback below (white/grey trim with sharp) works reliably instead.
 
 // Stabilization: Simple semaphore to ensure only one heavy AI task runs at a time
 let isProcessingAI = false;
@@ -90,68 +75,17 @@ export async function processImage(
     let sourceInput: string | Buffer = inputPath;
     
     if (removeBg) {
-      await acquireAILock();
       try {
-        const memBefore = process.memoryUsage().rss / 1024 / 1024;
-        logger.info(`Starting AI removal (Model: small). Memory: ${memBefore.toFixed(2)} MB`, { filename });
-        
-        // Longer timeout for slower servers
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('AI Processing Timeout (45s)')), 45000)
-        );
-
-        const config = {
-          model: 'small',
-          debug: false,
-        };
-
-        let bgRemoval = await getRemoveBackground();
-        if (!bgRemoval) throw new Error('AI model not loaded');
-        const removalPromise = bgRemoval(inputPath, config);
-        
-        const blob = await Promise.race([removalPromise, timeoutPromise]) as Blob;
-        sourceInput = Buffer.from(await blob.arrayBuffer());
-        
-        const memAfter = process.memoryUsage().rss / 1024 / 1024;
-        logger.info(`AI removal successful. Memory: ${memAfter.toFixed(2)} MB`, { filename });
-      } catch (aiError) {
-        logger.warn('AI background removal failed or timed out, applying smart fallback...', { error: aiError, filename });
-        // Smart fallback: trim near-white/grey backgrounds and ensure transparency
-        try {
-          const metadata = await sharp(inputPath).metadata();
-          const { width = 800, height = 800 } = metadata;
-          
-          // Strategy: trim white/grey borders, then convert near-white pixels to transparent
-          const { data, info } = await sharp(inputPath)
-            .rotate()
-            .ensureAlpha()
-            .raw()
-            .toBuffer({ resolveWithObject: true });
-          
-          // Make near-white pixels transparent (threshold approach)
-          const pixels = new Uint8Array(data);
-          const threshold = 240; // pixels brighter than this become transparent
-          for (let i = 0; i < pixels.length; i += 4) {
-            const r = pixels[i], g = pixels[i + 1], b = pixels[i + 2];
-            if (r > threshold && g > threshold && b > threshold) {
-              pixels[i + 3] = 0; // Set alpha to 0 (transparent)
-            }
-          }
-          
-          sourceInput = await sharp(Buffer.from(pixels), {
-            raw: { width: info.width, height: info.height, channels: 4 }
-          })
-            .trim({ threshold: 5 })
-            .png()
-            .toBuffer();
-          
-          logger.info('Smart fallback removal applied (white-to-transparent)', { filename });
-        } catch (fallbackError) {
-          logger.error('Background removal fallback failed as well', { error: fallbackError, filename });
-          sourceInput = inputPath; // Fallback to original if everything fails
+        const { data, info } = await sharp(inputPath).rotate().ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+        const pixels = new Uint8Array(data);
+        for (let i = 0; i < pixels.length; i += 4) {
+          if (pixels[i] > 240 && pixels[i + 1] > 240 && pixels[i + 2] > 240) pixels[i + 3] = 0;
         }
-      } finally {
-        releaseAILock();
+        sourceInput = await sharp(Buffer.from(pixels), { raw: { width: info.width, height: info.height, channels: 4 } }).trim({ threshold: 5 }).png().toBuffer();
+        logger.info('Smart background removal applied (white-to-transparent)', { filename });
+      } catch (fallbackError) {
+        logger.error('Background removal fallback failed', { error: fallbackError, filename });
+        sourceInput = inputPath;
       }
     }
 
