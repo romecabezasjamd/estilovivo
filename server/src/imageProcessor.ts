@@ -2,7 +2,25 @@ import sharp from 'sharp';
 import path from 'path';
 import { mkdirSync, existsSync } from 'fs';
 import logger from './logger.js';
-import { removeBackground, Config } from '@imgly/background-removal-node';
+
+// Lazy import: @imgly/background-removal-node downloads WASM models at first call.
+// We import dynamically so server startup doesn't fail if the model isn't available.
+let removeBackground: any = null;
+let imglyReady = false;
+
+const getRemoveBackground = async () => {
+  if (imglyReady) return removeBackground;
+  try {
+    const imgly = await import('@imgly/background-removal-node');
+    removeBackground = imgly.removeBackground;
+    imglyReady = true;
+    logger.info('AI background removal model loaded successfully');
+  } catch (err) {
+    logger.warn('AI background removal model unavailable:', String(err));
+    removeBackground = null;
+  }
+  return removeBackground;
+};
 
 // Stabilization: Simple semaphore to ensure only one heavy AI task runs at a time
 let isProcessingAI = false;
@@ -82,12 +100,14 @@ export async function processImage(
           setTimeout(() => reject(new Error('AI Processing Timeout (45s)')), 45000)
         );
 
-        const config: Config = {
+        const config = {
           model: 'small',
           debug: false,
         };
 
-        const removalPromise = removeBackground(inputPath, config);
+        let bgRemoval = await getRemoveBackground();
+        if (!bgRemoval) throw new Error('AI model not loaded');
+        const removalPromise = bgRemoval(inputPath, config);
         
         const blob = await Promise.race([removalPromise, timeoutPromise]) as Blob;
         sourceInput = Buffer.from(await blob.arrayBuffer());
