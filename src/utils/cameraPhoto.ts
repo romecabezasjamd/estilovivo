@@ -45,11 +45,16 @@ export const normalizeCameraPhoto = (photo: {
   dataUrl?: string;
   base64String?: string;
   format?: string;
+  webPath?: string;
+  path?: string;
 }): string => {
   if (photo.dataUrl) return photo.dataUrl;
   if (photo.base64String) {
     const mime = photo.format ? `image/${photo.format}` : 'image/jpeg';
     return `data:${mime};base64,${photo.base64String}`;
+  }
+  if (photo.webPath || photo.path) {
+    throw new Error('No se pudo leer la foto seleccionada.');
   }
   throw new Error('No se pudo leer la foto seleccionada.');
 };
@@ -158,7 +163,7 @@ export const pickPhoto = async (source: CameraSource): Promise<{ dataUrl: string
       }
     }
 
-    // Try to get photo using Capacitor Camera
+    // Try to get photo using Capacitor Camera with DataUrl (more reliable on Android WebView)
     const photo = await Camera.getPhoto({
       quality: 85,
       allowEditing: false,
@@ -168,8 +173,12 @@ export const pickPhoto = async (source: CameraSource): Promise<{ dataUrl: string
     });
 
     const dataUrl = normalizeCameraPhoto(photo);
-    const extension = photo.format || 'jpg';
-    const file = dataUrlToFile(dataUrl, `photo-${Date.now()}.${extension}`);
+    if (!dataUrl) {
+      throw new Error('No se pudo leer la foto seleccionada.');
+    }
+
+    const format = photo.format || 'jpeg';
+    const file = dataUrlToFile(dataUrl, `photo-${Date.now()}.${format}`);
     return { dataUrl, file };
   } catch (err: any) {
     const msg = String(err?.message || err || '').toLowerCase();
@@ -178,9 +187,15 @@ export const pickPhoto = async (source: CameraSource): Promise<{ dataUrl: string
     if (msg.includes('cancel') || msg.includes('user cancelled')) {
       throw new Error('Cancelado');
     }
+
+    if (msg.includes('permission')) {
+      throw new Error(source === CameraSource.Camera
+        ? 'Permiso de cámara denegado. Actívalo en los ajustes de la app.'
+        : 'Permiso de galería denegado. Actívalo en los ajustes de la app.');
+    }
     
     // Fallback to file input if Capacitor Camera fails
-    if (msg.includes('image.png') || msg.includes('does not support image') || msg.includes('unable to') || msg.includes('permission')) {
+    if (msg.includes('image.png') || msg.includes('does not support image') || msg.includes('unable to') || msg.includes('failed') || msg.includes('not supported')) {
       try {
         const result = await pickPhotoFromFileInput(source === CameraSource.Camera);
         return result;

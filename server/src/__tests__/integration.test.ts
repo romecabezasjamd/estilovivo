@@ -131,8 +131,8 @@ describe('API Integration Tests', () => {
     it('should rate limit auth endpoints', async () => {
       const requests = [];
       
-      // Make 6 requests (limit is 5)
-      for (let i = 0; i < 6; i++) {
+      // Make 11 requests (limit is 10)
+      for (let i = 0; i < 11; i++) {
         requests.push(
           request(app)
             .post('/api/auth/login')

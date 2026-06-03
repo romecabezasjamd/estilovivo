@@ -79,8 +79,19 @@ const isEmailConfigured = !!(
 );
 
 if (!isEmailConfigured) {
-  logger.warn('SMTP not configured. Email features will be disabled.');
-  logger.warn('Set SMTP_HOST, SMTP_USER, and SMTP_PASS in .env to enable email.');
+  logger.warn('SMTP not configured. Email features (forgot-password, notifications) will be disabled.');
+  logger.warn('To enable emails, set these environment variables:');
+  logger.warn('  SMTP_HOST=smtp.gmail.com  SMTP_PORT=587  SMTP_USER=tu-email@gmail.com  SMTP_PASS=tu-app-password');
+  logger.warn('For Gmail, use an App Password (not your regular password): https://support.google.com/accounts/answer/185833');
+} else {
+  logger.info('SMTP configured. Email sending is active.', { host: process.env.SMTP_HOST, port: process.env.SMTP_PORT });
+  // Verify SMTP connection at startup
+  transporter!.verify().then(() => {
+    logger.info('SMTP connection verified successfully');
+  }).catch((err) => {
+    logger.error('SMTP connection failed. Check your SMTP credentials and server firewall.', { error: String(err) });
+    logger.error('Common issues: wrong password, 2FA enabled (use App Password), port blocked by firewall');
+  });
 }
 
 // Only create transporter if SMTP is configured
@@ -88,6 +99,11 @@ const transporter = isEmailConfigured
   ? nodemailer.createTransport({
     host: process.env.SMTP_HOST!,
     port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: process.env.SMTP_PORT === '465' || process.env.SMTP_SECURE === 'true',
+    requireTLS: process.env.SMTP_PORT !== '465',
+    tls: process.env.SMTP_TLS_REJECT_UNAUTHORIZED === 'false' ? { rejectUnauthorized: false } : undefined,
+    logger: true,
+    debug: process.env.SMTP_DEBUG === 'true',
     auth: {
       user: process.env.SMTP_USER!,
       pass: process.env.SMTP_PASS!,
@@ -124,6 +140,63 @@ const sendMailWithRetry = async (mailOptions: any, retries = 2) => {
   }
 
   throw lastError;
+};
+
+if (transporter) {
+  transporter.verify()
+    .then(() => logger.info('SMTP transporter verified successfully'))
+    .catch((error) => logger.error('SMTP transporter verification failed', { error }));
+}
+
+const normalizeEmail = (email: string) => email.trim().toLowerCase();
+
+const findUsersByEmail = async (email: string) => {
+  const normalizedEmail = normalizeEmail(email);
+  const matches = await prisma.$queryRaw<Array<{ id: string }>>`
+    SELECT id
+    FROM "User"
+    WHERE LOWER(TRIM(email)) = ${normalizedEmail}
+    ORDER BY "createdAt" ASC
+  `;
+
+  if (matches.length === 0) return [];
+
+  return prisma.user.findMany({
+    where: { id: { in: matches.map(m => m.id) } },
+    orderBy: { createdAt: 'asc' },
+    include: { _count: { select: { followers: true, following: true } } }
+  });
+};
+
+const sendPreferenceEmail = async (params: {
+  userId: string;
+  subject: string;
+  html: string;
+  text?: string;
+  context?: Record<string, unknown>;
+}) => {
+  if (!transporter) return false;
+
+  const recipient = await prisma.user.findUnique({
+    where: { id: params.userId },
+    select: { email: true, emailNotifications: true, name: true }
+  });
+
+  if (!recipient?.email || !recipient.emailNotifications) return false;
+
+  try {
+    await sendMailWithRetry({
+      to: recipient.email,
+      subject: params.subject,
+      html: params.html,
+      text: params.text,
+    });
+    logger.info('Notification email sent', { userId: params.userId, subject: params.subject, ...params.context });
+    return true;
+  } catch (error) {
+    logger.warn('Could not send notification email', { userId: params.userId, subject: params.subject, error, ...params.context });
+    return false;
+  }
 };
 
 // Crear directorio de uploads si no existe
@@ -218,11 +291,20 @@ app.use('/api/uploads', express.static(UPLOADS_DIR));
 
 // ============= RATE LIMITING =============
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 5, // Máximo 5 intentos
+  windowMs: 15 * 60 * 1000,
+  max: 5,
   message: { error: 'Demasiados intentos. Por favor, espera 15 minutos.' },
   standardHeaders: true,
   legacyHeaders: false,
+});
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: 'Demasiados intentos. Por favor, espera 15 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => `${req.ip}-${(req.body?.email || '').toLowerCase().trim()}`,
 });
 
 const generalLimiter = rateLimit({
@@ -369,13 +451,11 @@ app.get('/api/health/detailed', authenticateToken, async (req: any, res: Respons
 
 app.post('/api/auth/register', authLimiter, validate(registerSchema), async (req: Request, res: Response) => {
   try {
-    const normalizedEmail = req.body.email.toLowerCase().trim();
+    const normalizedEmail = normalizeEmail(req.body.email);
     const { password, name, gender, birthDate } = req.body;
 
     // Case-insensitive check to prevent duplicate emails with different casing
-    const existingUser = await prisma.user.findFirst({
-      where: { email: { equals: normalizedEmail } }
-    });
+    const existingUser = (await findUsersByEmail(normalizedEmail))[0];
 
     if (existingUser) return res.status(400).json({ error: 'Email already registered' });
 
@@ -463,21 +543,16 @@ app.post('/api/auth/register', authLimiter, validate(registerSchema), async (req
   }
 });
 
-app.post('/api/auth/login', authLimiter, validate(loginSchema), async (req: Request, res: Response) => {
+app.post('/api/auth/login', loginLimiter, validate(loginSchema), async (req: Request, res: Response) => {
   try {
-    const normalizedEmail = req.body.email.toLowerCase().trim();
+    const normalizedEmail = normalizeEmail(req.body.email);
     const { password } = req.body;
 
-    // Use findMany to get all potential accounts (case-insensitive)
-    const candidates = await prisma.user.findMany({
-      where: { email: { equals: normalizedEmail } },
-      orderBy: { createdAt: 'asc' }, // Prioritize original account
-      include: { _count: { select: { followers: true, following: true } } }
-    });
+    const candidates = await findUsersByEmail(normalizedEmail);
 
     if (candidates.length === 0) {
       logger.warn('Login failed: User not found', { email: normalizedEmail });
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(404).json({ error: 'User not found' });
     }
 
     // Check password for each candidate until one matches
@@ -495,18 +570,16 @@ app.post('/api/auth/login', authLimiter, validate(loginSchema), async (req: Requ
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    if (!user.isVerified) {
-      if (!transporter) {
-        logger.warn('Login: Auto-verifying unverified user because SMTP is not configured', { userId: user.id });
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { isVerified: true, verificationToken: null }
-        });
-        user.isVerified = true;
-      } else {
-        logger.warn('Login blocked: Email not verified', { userId: user.id });
-        return res.status(403).json({ error: 'emailNotVerified' });
-      }
+    const requiresVerification = !user.isVerified;
+    if (requiresVerification && transporter) {
+      logger.warn('Login for unverified account allowed, verification still pending', { userId: user.id });
+    } else if (requiresVerification) {
+      logger.warn('Login for unverified account allowed because SMTP is unavailable', { userId: user.id });
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { isVerified: true, verificationToken: null }
+      });
+      user.isVerified = true;
     }
 
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
@@ -523,7 +596,8 @@ app.post('/api/auth/login', authLimiter, validate(loginSchema), async (req: Requ
     logger.info('User logged in', { userId: user.id });
     res.json({
       user: { ...safe, followersCount: _count.followers, followingCount: _count.following },
-      token
+      token,
+      requiresVerification
     });
   } catch (error: any) {
     logger.error('Login error', { error });
@@ -534,22 +608,16 @@ app.post('/api/auth/login', authLimiter, validate(loginSchema), async (req: Requ
 app.post('/api/auth/resend-verification', authLimiter, async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
-    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedEmail = normalizeEmail(email);
 
-    const user = await prisma.user.findFirst({
-      where: { email: { equals: normalizedEmail } }
-    });
+    const user = (await findUsersByEmail(normalizedEmail))[0];
 
     if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
     if (user.isVerified) return res.status(400).json({ error: 'La cuenta ya está verificada' });
 
     if (!transporter) {
-      logger.warn('Resend verification: Auto-verifying since SMTP is offline', { userId: user.id });
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { isVerified: true, verificationToken: null }
-      });
-      return res.json({ success: true, autoVerified: true });
+      logger.error('Resend verification blocked: SMTP not configured', { userId: user.id, email: user.email });
+      return res.status(503).json({ error: 'SMTP not configured' });
     }
 
     const verificationToken = crypto.randomBytes(32).toString('hex');
@@ -613,12 +681,27 @@ app.post('/api/auth/change-password', authenticateToken, async (req: any, res: R
   }
 });
 
+app.post('/api/auth/test-email', async (req: Request, res: Response) => {
+  if (!transporter) return res.status(503).json({ error: 'SMTP not configured. Set SMTP_HOST, SMTP_USER, SMTP_PASS.' });
+  try {
+    await transporter.verify();
+    const info = await transporter.sendMail({
+      to: req.body.email || process.env.SMTP_USER,
+      subject: 'Test Email - Estilo Vivo',
+      text: 'Si recibes este correo, la configuración SMTP funciona correctamente.',
+    });
+    logger.info('Test email sent', { messageId: info.messageId, response: info.response });
+    res.json({ success: true, messageId: info.messageId });
+  } catch (err: any) {
+    logger.error('Test email failed', { error: String(err) });
+    res.status(500).json({ error: `SMTP Error: ${err.message || err.code || 'Unknown'}` });
+  }
+});
+
 app.post('/api/auth/forgot-password', authLimiter, validate(forgotPasswordSchema), async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
-    const user = await prisma.user.findUnique({
-      where: { email }
-    });
+    const user = (await findUsersByEmail(email))[0];
 
     if (!user) {
       // Don't reveal if user exists for security, just send success
@@ -638,24 +721,25 @@ app.post('/api/auth/forgot-password', authLimiter, validate(forgotPasswordSchema
 
     const resetUrl = `${getFrontendUrl()}/auth?token=${token}`;
 
-    if (transporter) {
-      await sendMailWithRetry({
-        to: user.email,
-        subject: 'Recuperar contraseña - Estilo Vivo',
-        html: `
-          <div style="font-family: sans-serif; padding: 20px;">
-            <h2>Hola ${user.name}</h2>
-            <p>Has solicitado restablecer tu contraseña en Estilo Vivo.</p>
-            <p>Haz clic en el siguiente botón para continuar:</p>
-            <a href="${resetUrl}" style="background: #ff4d94; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Restablecer Contraseña</a>
-            <p>Este enlace caducará en 1 hora.</p>
-            <p>Si no has solicitado esto, puedes ignorar este correo.</p>
-          </div>
-        `
-      });
-    } else {
-      logger.warn('SMTP not configured. Reset URL:', resetUrl);
+    if (!transporter) {
+      logger.error('Forgot password blocked: SMTP not configured', { userId: user.id, email: user.email });
+      return res.status(503).json({ error: 'SMTP not configured' });
     }
+
+    await sendMailWithRetry({
+      to: user.email,
+      subject: 'Recuperar contraseña - Estilo Vivo',
+      html: `
+        <div style="font-family: sans-serif; padding: 20px;">
+          <h2>Hola ${user.name}</h2>
+          <p>Has solicitado restablecer tu contraseña en Estilo Vivo.</p>
+          <p>Haz clic en el siguiente botón para continuar:</p>
+          <a href="${resetUrl}" style="background: #ff4d94; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Restablecer Contraseña</a>
+          <p>Este enlace caducará en 1 hora.</p>
+          <p>Si no has solicitado esto, puedes ignorar este correo.</p>
+        </div>
+      `
+    });
 
     res.json({ success: true, message: 'recoveryEmailSent' });
   } catch (error) {
@@ -974,6 +1058,13 @@ app.put('/api/products/:id', authenticateToken, upload.array('images', 5), valid
         }
       });
       io.to(`user_${req.user.userId}`).emit('notification', notification);
+      await sendPreferenceEmail({
+        userId: req.user.userId,
+        subject: 'Tu prenda está en la lavadora - Estilo Vivo',
+        text: `La prenda "${product.name}" está ahora en la lavadora`,
+        html: `<p>La prenda <strong>${product.name}</strong> está ahora en la lavadora.</p>`,
+        context: { type: 'WASHING', productId: product.id }
+      });
     }
 
     res.json(product);
@@ -1218,6 +1309,13 @@ app.post('/api/social/like', authenticateToken, async (req: any, res: Response) 
           data: { type: 'LIKE', content: `${me?.name || 'Alguien'} le gustó tu publicación`, userId: look.userId, relatedId: lookId }
         });
         io.to(`user_${look.userId}`).emit('notification', notif);
+        await sendPreferenceEmail({
+          userId: look.userId,
+          subject: 'A alguien le gustó tu publicación - Estilo Vivo',
+          text: `${me?.name || 'Alguien'} le gustó tu publicación`,
+          html: `<p><strong>${me?.name || 'Alguien'}</strong> le gustó tu publicación.</p>`,
+          context: { type: 'LIKE', relatedId: lookId }
+        });
       }
       res.json({ liked: true, likesCount: await prisma.like.count({ where: { lookId } }) });
     }
@@ -1241,6 +1339,13 @@ app.post('/api/social/comment', authenticateToken, validate(commentSchema), asyn
         data: { type: 'COMMENT', content: `${me?.name || 'Alguien'} comentó tu publicación`, userId: look.userId, relatedId: lookId }
       });
       io.to(`user_${look.userId}`).emit('notification', notif);
+      await sendPreferenceEmail({
+        userId: look.userId,
+        subject: 'Nuevo comentario en tu publicación - Estilo Vivo',
+        text: `${me?.name || 'Alguien'} comentó tu publicación`,
+        html: `<p><strong>${me?.name || 'Alguien'}</strong> comentó tu publicación.</p>`,
+        context: { type: 'COMMENT', relatedId: lookId }
+      });
     }
     if (parentId) {
       const parent = await prisma.comment.findUnique({ where: { id: parentId }, select: { userId: true } });
@@ -1250,6 +1355,13 @@ app.post('/api/social/comment', authenticateToken, validate(commentSchema), asyn
           data: { type: 'COMMENT', content: `${me?.name || 'Alguien'} respondió a tu comentario`, userId: parent.userId, relatedId: lookId }
         });
         io.to(`user_${parent.userId}`).emit('notification', notif);
+        await sendPreferenceEmail({
+          userId: parent.userId,
+          subject: 'Respuesta a tu comentario - Estilo Vivo',
+          text: `${me?.name || 'Alguien'} respondió a tu comentario`,
+          html: `<p><strong>${me?.name || 'Alguien'}</strong> respondió a tu comentario.</p>`,
+          context: { type: 'COMMENT_REPLY', relatedId: lookId }
+        });
       }
     }
     res.status(201).json(comment);
@@ -1337,6 +1449,13 @@ app.post('/api/social/follow', authenticateToken, validate(followSchema), async 
         data: { type: 'FOLLOW', content: `${me?.name || 'Alguien'} te siguió`, userId: targetUserId }
       });
       io.to(`user_${targetUserId}`).emit('notification', notif);
+      await sendPreferenceEmail({
+        userId: targetUserId,
+        subject: 'Nuevo seguidor en Estilo Vivo',
+        text: `${me?.name || 'Alguien'} te siguió`,
+        html: `<p><strong>${me?.name || 'Alguien'}</strong> te siguió.</p>`,
+        context: { type: 'FOLLOW' }
+      });
       res.json({ following: true });
     }
   } catch (error) {
