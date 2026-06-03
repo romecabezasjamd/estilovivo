@@ -83,15 +83,6 @@ if (!isEmailConfigured) {
   logger.warn('To enable emails, set these environment variables:');
   logger.warn('  SMTP_HOST=smtp.gmail.com  SMTP_PORT=587  SMTP_USER=tu-email@gmail.com  SMTP_PASS=tu-app-password');
   logger.warn('For Gmail, use an App Password (not your regular password): https://support.google.com/accounts/answer/185833');
-} else {
-  logger.info('SMTP configured. Email sending is active.', { host: process.env.SMTP_HOST, port: process.env.SMTP_PORT });
-  // Verify SMTP connection at startup
-  transporter!.verify().then(() => {
-    logger.info('SMTP connection verified successfully');
-  }).catch((err) => {
-    logger.error('SMTP connection failed. Check your SMTP credentials and server firewall.', { error: String(err) });
-    logger.error('Common issues: wrong password, 2FA enabled (use App Password), port blocked by firewall');
-  });
 }
 
 // Only create transporter if SMTP is configured
@@ -110,6 +101,16 @@ const transporter = isEmailConfigured
     },
   })
   : null;
+
+if (transporter) {
+  logger.info('SMTP configured. Email sending is active.', { host: process.env.SMTP_HOST, port: process.env.SMTP_PORT });
+  transporter.verify().then(() => {
+    logger.info('SMTP connection verified successfully');
+  }).catch((err) => {
+    logger.error('SMTP connection failed. Check your SMTP credentials and server firewall.', { error: String(err) });
+    logger.error('Common issues: wrong password, 2FA enabled (use App Password), port blocked by firewall');
+  });
+}
 
 const getFrontendUrl = () => (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/+$/, '');
 
