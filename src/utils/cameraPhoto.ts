@@ -194,18 +194,14 @@ export const pickPhoto = async (source: CameraSource): Promise<{ dataUrl: string
         : 'Permiso de galería denegado. Actívalo en los ajustes de la app.');
     }
     
-    // Fallback to file input if Capacitor Camera fails
-    if (msg.includes('image.png') || msg.includes('does not support image') || msg.includes('unable to') || msg.includes('failed') || msg.includes('not supported')) {
-      try {
-        const result = await pickPhotoFromFileInput(source === CameraSource.Camera);
-        return result;
-      } catch (fbErr: any) {
-        const fbMsg = String(fbErr?.message || '').toLowerCase();
-        if (fbMsg.includes('cancel')) throw new Error('Cancelado');
-        throw new Error(`${CAMERA_PERMISSION_ERROR} ${STORAGE_PERMISSION_HINT}`);
-      }
+    // Fallback to file input if Capacitor Camera fails (handles image format errors, permission issues, etc.)
+    try {
+      const result = await pickPhotoFromFileInput(source === CameraSource.Camera);
+      return result;
+    } catch (fbErr: any) {
+      const fbMsg = String(fbErr?.message || '').toLowerCase();
+      if (fbMsg.includes('cancel')) throw new Error('Cancelado');
+      throw new Error('No se pudo acceder a la cámara o galería. Revisa los permisos en los ajustes e intenta de nuevo.');
     }
-    
-    throw new Error(`${CAMERA_PERMISSION_ERROR} ${STORAGE_PERMISSION_HINT}`);
   }
 };
