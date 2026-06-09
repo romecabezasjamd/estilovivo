@@ -84,10 +84,11 @@ ENV NODE_ENV=production
 ARG DATABASE_URL
 ENV DATABASE_URL=$DATABASE_URL
 
-# Copy Prisma schema BEFORE installing dependencies (needed for postinstall script)
+# Copiar Prisma schema + config para prisma generate + migrate
 COPY --from=backend-build /app/server/prisma ./prisma
+COPY server/prisma.config.ts ./prisma.config.ts
 
-# Instalar solo runtime deps
+# Instalar solo runtime deps (prisma CLI ahora está en dependencies)
 COPY server/package*.json ./
 RUN npm install --omit=dev --prefer-offline --no-audit
 
