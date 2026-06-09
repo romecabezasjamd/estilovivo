@@ -12,11 +12,7 @@ const config: CapacitorConfig = {
     allowMixedContent: true,
     backgroundColor: '#F8F9FA',
   },
-  plugins: {
-    Camera: {
-      permissions: true,
-    },
-  },
+  plugins: {},
 };
 
 export default config;
