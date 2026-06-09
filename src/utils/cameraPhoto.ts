@@ -1,21 +1,6 @@
-import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
-import { Capacitor } from '@capacitor/core';
-
-let isNative: boolean | null = null;
-
-export const getIsNativePlatform = (): boolean => {
-  if (isNative !== null) return isNative;
-  try {
-    isNative = Capacitor.isNativePlatform();
-  } catch {
-    isNative = false;
-  }
-  return isNative;
-};
-
-const CAMERA_PERMISSION_ERROR = 'No se pudo acceder a la cámara. Revisa los permisos.';
-const GALLERY_PERMISSION_ERROR = 'No se pudo acceder a la galería. Revisa los permisos.';
-const STORAGE_PERMISSION_HINT = 'Activa los permisos de cámara y almacenamiento en ajustes.';
+export type CameraSourceType = 'camera' | 'gallery';
+export const CameraSource = { Camera: 'camera' as const, Photos: 'gallery' as const };
+export type CameraSource = (typeof CameraSource)[keyof typeof CameraSource];
 
 export const createFileInput = (accept: string = 'image/*'): HTMLInputElement => {
   const existing = document.getElementById('__ev_file_input') as HTMLInputElement;
@@ -39,66 +24,6 @@ export const dataUrlToFile = (dataUrl: string, filename: string): File => {
     array[i] = binary.charCodeAt(i);
   }
   return new File([array], filename, { type: mime });
-};
-
-export const normalizeCameraPhoto = (photo: {
-  dataUrl?: string;
-  base64String?: string;
-  format?: string;
-  webPath?: string;
-  path?: string;
-}): string => {
-  if (photo.dataUrl) return photo.dataUrl;
-  if (photo.base64String) {
-    const mime = photo.format ? `image/${photo.format}` : 'image/jpeg';
-    return `data:${mime};base64,${photo.base64String}`;
-  }
-  if (photo.webPath || photo.path) {
-    throw new Error('No se pudo leer la foto seleccionada.');
-  }
-  throw new Error('No se pudo leer la foto seleccionada.');
-};
-
-export const ensureCameraPermissions = async (): Promise<boolean> => {
-  if (!getIsNativePlatform()) return true;
-  try {
-    const status = await Camera.checkPermissions();
-    if (status.camera === 'granted' || status.camera === 'limited') return true;
-    
-    // Request permissions with better error handling
-    const request = await Camera.requestPermissions();
-    
-    // Check if permissions were granted
-    if (request.camera === 'granted' || request.camera === 'limited') return true;
-    
-    // If not granted, throw a descriptive error
-    throw new Error('Camera permission denied. Please enable camera permissions in app settings.');
-  } catch (error: any) {
-    console.error('Camera permission error:', error);
-    throw error;
-  }
-};
-
-export const ensureGalleryPermissions = async (): Promise<boolean> => {
-  if (!getIsNativePlatform()) return true;
-  try {
-    const status = await Camera.checkPermissions();
-    const photosStatus = status.photos ?? status.camera;
-    if (photosStatus === 'granted' || photosStatus === 'limited') return true;
-    
-    // Request permissions with better error handling
-    const request = await Camera.requestPermissions();
-    const requested = request.photos ?? request.camera;
-    
-    // Check if permissions were granted
-    if (requested === 'granted' || requested === 'limited') return true;
-    
-    // If not granted, throw a descriptive error
-    throw new Error('Gallery permission denied. Please enable gallery/storage permissions in app settings.');
-  } catch (error: any) {
-    console.error('Gallery permission error:', error);
-    throw error;
-  }
 };
 
 export const readFileAsDataUrl = (file: File): Promise<string> => {
@@ -140,68 +65,6 @@ export const pickPhotoFromFileInput = (capture?: boolean): Promise<{ dataUrl: st
   });
 };
 
-export const pickPhoto = async (source: CameraSource): Promise<{ dataUrl: string; file: File }> => {
-  const isNative = getIsNativePlatform();
-
-  // Web platform - use file input
-  if (!isNative) {
-    const useCapture = source === CameraSource.Camera;
-    return pickPhotoFromFileInput(useCapture);
-  }
-
-  // Native platform - request permissions first
-  try {
-    if (source === CameraSource.Camera) {
-      const granted = await ensureCameraPermissions();
-      if (!granted) {
-        throw new Error(`${CAMERA_PERMISSION_ERROR} ${STORAGE_PERMISSION_HINT}`);
-      }
-    } else {
-      const granted = await ensureGalleryPermissions();
-      if (!granted) {
-        throw new Error(`${GALLERY_PERMISSION_ERROR} ${STORAGE_PERMISSION_HINT}`);
-      }
-    }
-
-    // Try to get photo using Capacitor Camera with DataUrl (more reliable on Android WebView)
-    const photo = await Camera.getPhoto({
-      quality: 85,
-      allowEditing: false,
-      resultType: CameraResultType.DataUrl,
-      source,
-      saveToGallery: false,
-    });
-
-    const dataUrl = normalizeCameraPhoto(photo);
-    if (!dataUrl) {
-      throw new Error('No se pudo leer la foto seleccionada.');
-    }
-
-    const format = photo.format || 'jpeg';
-    const file = dataUrlToFile(dataUrl, `photo-${Date.now()}.${format}`);
-    return { dataUrl, file };
-  } catch (err: any) {
-    const msg = String(err?.message || err || '').toLowerCase();
-    
-    // Handle user cancellation
-    if (msg.includes('cancel') || msg.includes('user cancelled')) {
-      throw new Error('Cancelado');
-    }
-
-    if (msg.includes('permission')) {
-      throw new Error(source === CameraSource.Camera
-        ? 'Permiso de cámara denegado. Actívalo en los ajustes de la app.'
-        : 'Permiso de galería denegado. Actívalo en los ajustes de la app.');
-    }
-    
-    // Fallback to file input if Capacitor Camera fails (handles image format errors, permission issues, etc.)
-    try {
-      const result = await pickPhotoFromFileInput(source === CameraSource.Camera);
-      return result;
-    } catch (fbErr: any) {
-      const fbMsg = String(fbErr?.message || '').toLowerCase();
-      if (fbMsg.includes('cancel')) throw new Error('Cancelado');
-      throw new Error('No se pudo acceder a la cámara o galería. Revisa los permisos en los ajustes e intenta de nuevo.');
-    }
-  }
+export const pickPhoto = async (source: 'camera' | 'gallery'): Promise<{ dataUrl: string; file: File }> => {
+  return pickPhotoFromFileInput(source === 'camera');
 };

@@ -6,9 +6,8 @@ import {
   Filter, Plus, Search, Trash2, X, Camera, Tag, DollarSign,
   Info, ExternalLink, RefreshCcw, Check, ShoppingBag as SellIcon, ShoppingBag, ChevronRight, Shirt, SlidersHorizontal, ArrowLeft, Sparkles, ImagePlus
 } from 'lucide-react';
-import { CameraSource } from '@capacitor/camera';
 import { useLanguage } from '../src/context/LanguageContext';
-import { dataUrlToFile, pickPhoto } from '../src/utils/cameraPhoto';
+import { dataUrlToFile, pickPhoto, CameraSource } from '../src/utils/cameraPhoto';
 import ProductDetailModal, { ProductDisplayItem } from '../components/ProductDetailModal';
 
 interface WardrobeProps {
@@ -125,10 +124,11 @@ const Wardrobe: React.FC<WardrobeProps> = ({
       const { dataUrl, file } = await pickPhoto(source);
       applyPickedPhoto(dataUrl, file);
     } catch (err: any) {
-      const message = String(err?.message || err || '').toLowerCase();
+      const rawMessage = String(err?.message || err || '');
+      const message = rawMessage.toLowerCase();
       if (message.includes('cancel') || message.includes('cancelado')) return;
       console.warn('Photo pick failed:', err);
-      setAddPhotoError('No se pudo obtener la foto. Revisa los permisos de cámara y galería e inténtalo de nuevo.');
+      setAddPhotoError(rawMessage || 'No se pudo obtener la foto. Revisa los permisos de cámara y galería e inténtalo de nuevo.');
     } finally {
       setIsPickingPhoto(false);
     }

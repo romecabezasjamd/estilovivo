@@ -2,13 +2,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Garment, UserState } from '../types';
 import { X, Camera as CameraIcon, RotateCw, ZoomIn, ZoomOut, Check, Plus, Layers, FlipHorizontal, RefreshCcw, ImageIcon } from 'lucide-react';
-import { CameraSource } from '@capacitor/camera';
 import { Capacitor } from '@capacitor/core';
 import { useLanguage } from '../src/context/LanguageContext';
 import { useGlobalState } from '../src/context/GlobalStateContext';
 import html2canvas from 'html2canvas';
 import { api } from '../services/api';
-import { pickPhoto } from '../src/utils/cameraPhoto';
+import { pickPhoto, CameraSource } from '../src/utils/cameraPhoto';
 
 interface FittingRoomModalProps {
   garment: Garment;
@@ -107,7 +106,7 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
     } catch (err: any) {
       const message = String(err?.message || err || '');
       if (!message.toLowerCase().includes('cancel')) {
-        setModelError('No se pudo obtener la foto. Revisa permisos de cámara y galería.');
+        setModelError(message || 'No se pudo obtener la foto. Revisa permisos de cámara y galería.');
       }
     } finally {
       setIsTakingPhoto(false);

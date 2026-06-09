@@ -6,8 +6,7 @@ import { Look, UserState, ShopItem, Comment, Garment, ChatConversation, ChatMess
 import { useLanguage } from '../src/context/LanguageContext';
 import { useGlobalState } from '../src/context/GlobalStateContext';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { pickPhoto, dataUrlToFile } from '../src/utils/cameraPhoto';
-import { CameraSource } from '@capacitor/camera';
+import { pickPhoto, dataUrlToFile, CameraSource } from '../src/utils/cameraPhoto';
 
 interface StoryForm {
   type: 'image' | 'text';
@@ -275,11 +274,12 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
       const { dataUrl, file } = await pickPhoto(source);
       setStoryForm({ type: 'image', text: '', imageUrl: dataUrl, selectedGarmentId: null, imageFile: file });
     } catch (err: any) {
-      const message = String(err?.message || err || '').toLowerCase();
+      const rawMessage = String(err?.message || err || '');
+      const message = rawMessage.toLowerCase();
       if (message.includes('cancel') || message.includes('cancelado')) return;
       setStoryUploadError(
         message.includes('permiso')
-          ? message
+          ? rawMessage
           : 'No se pudo obtener la imagen. Revisa los permisos de cámara y galería.'
       );
     }
@@ -452,9 +452,10 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
       setPublishPhoto(dataUrl);
       setPublishPhotoFile(file);
     } catch (err: any) {
-      const msg = String(err?.message || '').toLowerCase();
+      const rawMessage = String(err?.message || err || '');
+      const msg = rawMessage.toLowerCase();
       if (msg.includes('cancel') || msg.includes('cancelado')) return;
-      setPublishError('No se pudo seleccionar la foto.');
+      setPublishError(rawMessage || 'No se pudo seleccionar la foto.');
     }
   };
 
