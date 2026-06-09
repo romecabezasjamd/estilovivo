@@ -8,12 +8,10 @@ services:
       dockerfile: Dockerfile
       target: production
     restart: unless-stopped
-    ports:
-      - "3000:3000"
     environment:
       # Server Configuration
       NODE_ENV: ${NODE_ENV:-production}
-      PORT: 3000
+      PORT: 
 
       # Database (SQLite file)
       DATABASE_URL: ${DATABASE_URL:-file:./data/dev.db}
