@@ -11,26 +11,29 @@ services:
     environment:
       # Server Configuration
       NODE_ENV: ${NODE_ENV:-production}
-      PORT: 
+      PORT: ${PORT:-3000}
 
       # Database (SQLite file)
       DATABASE_URL: ${DATABASE_URL:-file:./data/dev.db}
 
       # Authentication
-      JWT_SECRET: ${JWT_SECRET}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       JWT_EXPIRES_IN: 7d
+
+      # Frontend URL (must match the public domain)
+      FRONTEND_URL: ${FRONTEND_URL:-https://estilovivo.xyoncloud.win}
 
       # Uploads
       UPLOADS_DIR: /app/uploads
 
-      # Optional: SMTP (para recuperación de contraseña)
+      # SMTP (opcional - quitar defaults si no se usa)
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
-
-      # AI Features
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_TLS_REJECT_UNAUTHORIZED: ${SMTP_TLS_REJECT_UNAUTHORIZED:-false}
     volumes:
       # Almacenamiento persistente
       - uploads_data:/app/uploads

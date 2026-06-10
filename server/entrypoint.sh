@@ -15,5 +15,11 @@ ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "fullBodyAvatar" TEXT;
 ALTER TABLE "Notification" ADD COLUMN IF NOT EXISTS "relatedId" TEXT;
 SQL
 
+echo "=== [entrypoint] Checking build ==="
+if [ ! -f dist/index.js ]; then
+  echo "ERROR: dist/index.js not found. Build may have failed."
+  exit 1
+fi
+
 echo "=== [entrypoint] Starting server ==="
 exec node dist/index.js

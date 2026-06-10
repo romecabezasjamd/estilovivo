@@ -20,14 +20,14 @@ export const productSchema = z.object({
   name: z.string().min(1, 'Nombre requerido'),
   category: z.string().min(1, 'Categoría requerida'),
   color: z.string().optional(),
-  season: z.enum(['summer', 'winter', 'all', 'transition']).optional(),
+  season: z.enum(['summer', 'winter', 'spring', 'autumn', 'all', 'transition']).optional(),
   brand: z.string().optional(),
   size: z.string().optional(),
   price: z.union([z.number(), z.string()]).optional(),
   forSale: z.union([z.boolean(), z.string()]).optional(),
   isWashing: z.union([z.boolean(), z.string()]).optional(),
   description: z.string().optional(),
-  condition: z.string().optional(),
+  condition: z.enum(['new', 'good', 'fair', 'worn']).optional(),
   usageCount: z.union([z.number(), z.string()]).optional(),
 });
 
@@ -89,6 +89,49 @@ export const verifyEmailSchema = z.object({
   token: z.string().min(1, 'Token requerido'),
 });
 
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Contraseña actual requerida'),
+  newPassword: z.string().min(8, 'Nueva contraseña debe tener al menos 8 caracteres'),
+});
+
+export const updateProfileSchema = z.object({
+  name: z.string().min(2, 'Nombre debe tener al menos 2 caracteres').optional(),
+  bio: z.string().max(500, 'Bio muy larga').optional(),
+  gender: z.enum(['male', 'female', 'other']).optional(),
+  birthDate: z.string().optional(),
+  mood: z.string().optional(),
+  emailNotifications: z.union([z.boolean(), z.string()]).optional(),
+  cycleTracking: z.union([z.boolean(), z.string()]).optional(),
+  musicSync: z.union([z.boolean(), z.string()]).optional(),
+});
+
+export const conversationSchema = z.object({
+  targetUserId: z.string().min(1, 'Usuario destino requerido'),
+  otherUserId: z.string().optional(),
+  itemId: z.string().optional(),
+  itemTitle: z.string().optional(),
+  itemImage: z.string().optional(),
+  initialMessage: z.string().max(1000).optional(),
+});
+
+export const messageSchema = z.object({
+  content: z.string().max(2000).optional(),
+  imageUrl: z.string().optional(),
+  productId: z.string().optional(),
+  conversationId: z.string().min(1, 'Conversación ID requerida').optional(),
+  otherUserId: z.string().optional(),
+}).refine(data => data.content || data.imageUrl, {
+  message: 'Debe proporcionar contenido o imagen',
+});
+
+export const resendVerificationSchema = z.object({
+  email: z.string().trim().toLowerCase().email('Email inválido'),
+});
+
+export const testEmailSchema = z.object({
+  email: z.string().email('Email inválido').optional(),
+});
+
 export const validate = (schema: z.ZodSchema) => {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -112,9 +155,10 @@ export const validate = (schema: z.ZodSchema) => {
 // ============= HELPER FUNCTIONS =============
 
 export const sanitizeProduct = (body: any) => {
+  const parsedPrice = body.price ? parseFloat(body.price) : null;
   return {
     ...body,
-    price: body.price ? parseFloat(body.price) : null,
+    price: (parsedPrice !== null && !isNaN(parsedPrice)) ? parsedPrice : null,
     forSale: body.forSale === 'true' || body.forSale === true,
     usageCount: body.usageCount ? parseInt(body.usageCount) : undefined,
   };

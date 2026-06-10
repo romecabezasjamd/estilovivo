@@ -1,8 +1,9 @@
+import { Capacitor } from '@capacitor/core';
 import { Garment, Look, PlannerEntry, UserState, Trip, Comment, CommunityPost, ShopItem, ChatConversation, ChatMessage } from '../types';
 import { getSecureItem, setSecureItem, removeSecureItem } from '../src/utils/secureStorage';
 
 const normalizeApiBase = (value?: string) => {
-    const base = value.trim().replace(/\/+$/, '');
+    const base = (value || '').trim().replace(/\/+$/, '');
     return base.endsWith('/api') ? base : `${base}/api`;
 };
 
@@ -11,11 +12,13 @@ const resolveDefaultApiBase = (): string => {
     if (fromEnv?.trim()) return normalizeApiBase(fromEnv);
 
     if (typeof window !== 'undefined') {
-        const isNative =
-            (window as any).Capacitor?.isNativePlatform?.() === true ||
-            window.location.protocol === 'capacitor:';
+        const platform = Capacitor?.getPlatform?.() || '';
+        const isNative = platform !== 'web' && platform !== '';
         if (isNative) {
-            return normalizeApiBase('https://estilovivo.xyoncloud.win/api');
+            if (platform === 'android' || /Android/i.test(navigator.userAgent)) {
+                return normalizeApiBase('http://10.0.2.2:3000/api');
+            }
+            return normalizeApiBase('http://localhost:3000/api');
         }
         return '/api';
     }
@@ -24,6 +27,115 @@ const resolveDefaultApiBase = (): string => {
 
 export const API_BASE = resolveDefaultApiBase();
 export const API_ORIGIN = API_BASE.replace(/\/api\/?$/, '');
+
+// Retry logic for Android network calls
+const ANDROID_API_FALLBACKS = [
+    'http://10.0.2.2:3000/api',      // Default Android emulator gateway
+    'http://192.168.1.141:3000/api',  // Local network IP
+    'http://127.0.0.1:3000/api',      // Localhost as last resort
+];
+
+let resolvedAndroidApiBase: string | null = null;
+
+export const getApiBase = async (): Promise<string> => {
+    // Already resolved, return cached version
+    if (resolvedAndroidApiBase) return resolvedAndroidApiBase;
+
+    // For Android, try each fallback URL
+    const platform = Capacitor?.getPlatform?.() || '';
+    if (platform === 'android' || (typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent))) {
+        for (const baseUrl of ANDROID_API_FALLBACKS) {
+            try {
+                // Quick health check with 2s timeout
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 2000);
+        
+                const response = await fetch(`${baseUrl.replace('/api', '')}/api/health`, {
+                    method: 'GET',
+                    signal: controller.signal,
+                });
+        
+                clearTimeout(timeoutId);
+        
+                if (response.ok) {
+                    resolvedAndroidApiBase = baseUrl;
+                    console.log(`[API] Connected to Android backend at: ${baseUrl}`);
+                    return baseUrl;
+                }
+            } catch (e) {
+                // Try next URL
+                console.log(`[API] Failed to reach ${baseUrl}, trying next...`);
+            }
+        }
+    }
+
+    // Fallback to default
+    return API_BASE;
+};
+
+// Initialize Android API base on app start
+if (typeof window !== 'undefined') {
+    getApiBase().catch(err => console.error('[API] Failed to resolve Android base:', err));
+}
+
+// Wrap fetch to add Android retry logic
+const originalFetch = globalThis.fetch;
+const fetchWithTimeout = async (input: RequestInfo | URL, init: RequestInit | undefined, timeoutMs: number): Promise<Response> => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    const combinedInit = { ...init, signal: controller.signal };
+    try {
+        return await originalFetch(input, combinedInit);
+    } finally {
+        clearTimeout(timeoutId);
+    }
+};
+
+const fetchWithAndroidRetry = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const url = typeof input === 'string' ? input : input.toString();
+  
+    // Only apply retry logic for API calls on Android
+    const platform = Capacitor?.getPlatform?.() || '';
+    const isAndroid = platform === 'android' || (typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent));
+  
+    if (!isAndroid || !url.includes('/api')) {
+        return originalFetch(input, init);
+    }
+
+    // Try current URL first
+    try {
+        return await fetchWithTimeout(input, init, 8000);
+    } catch (error) {
+        // If failed and it's an API call, try fallbacks
+        console.log(`[API] Primary URL failed, trying fallbacks: ${url}`);
+    
+        for (const baseUrl of ANDROID_API_FALLBACKS) {
+            try {
+                const fallbackUrl = url.replace(/http:\/\/[^/]+\/api/, baseUrl);
+                if (fallbackUrl !== url) {
+                    console.log(`[API] Trying fallback: ${fallbackUrl}`);
+                    const fallbackInit = { ...init };
+                    const res = await fetchWithTimeout(fallbackUrl, fallbackInit, 5000);
+                    if (res.ok || res.status < 500) {
+                        resolvedAndroidApiBase = baseUrl;
+                        console.log(`[API] Successfully connected to: ${baseUrl}`);
+                        return res;
+                    }
+                }
+            } catch (e) {
+                console.log(`[API] Fallback failed, trying next...`);
+            }
+        }
+    
+        // All failed, throw original error
+        throw error;
+    }
+};
+
+// Replace global fetch
+if (typeof window !== 'undefined') {
+    (globalThis as any).fetch = fetchWithAndroidRetry;
+}
 
 const AUTH_TOKEN_KEY = 'beyour_token';
 const REMEMBER_ME_KEY = 'beyour_remember_me';
@@ -226,11 +338,7 @@ export const api = {
             body: JSON.stringify(credentials),
         });
 
-        if (!res.ok) {
-            throw new Error(await parseApiErrorMessage(res));
-        }
-
-        const data = await res.json();
+        const data = await handleResponse(res);
         if (data.token) {
             await cacheAuthToken(data.token, remember);
         }

@@ -74,19 +74,22 @@ RUN npm run build
 # ============= STAGE 4: Production Runtime =============
 FROM node:20-bookworm-slim AS production
 
-RUN apt-get update && apt-get install -y openssl curl python3 build-essential libgomp1 ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y openssl curl ca-certificates && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 ENV NODE_ENV=production
 
+# Expose the backend port so platforms like Coolify can detect it
+EXPOSE 3000
+
 # Prisma schema needs DATABASE_URL at build+install time
-ARG DATABASE_URL
+ARG DATABASE_URL=file:./data/dev.db
 ENV DATABASE_URL=$DATABASE_URL
 
-# Copiar Prisma schema + config para prisma generate + migrate
+# Copiar Prisma schema + migraciones
 COPY --from=backend-build /app/server/prisma ./prisma
-COPY server/prisma.config.ts ./prisma.config.ts
+COPY --from=backend-build /app/server/prisma.config.ts ./prisma.config.ts
 
 # Instalar solo runtime deps (prisma CLI ahora está en dependencies)
 COPY server/package*.json ./

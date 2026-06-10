@@ -24,6 +24,12 @@ import {
   forgotPasswordSchema,
   resetPasswordSchema,
   verifyEmailSchema,
+  changePasswordSchema,
+  updateProfileSchema,
+  conversationSchema,
+  messageSchema,
+  resendVerificationSchema,
+  testEmailSchema,
   productSchema,
   lookSchema,
   commentSchema,
@@ -749,7 +755,7 @@ app.post('/api/auth/login', loginLimiter, validate(loginSchema), async (req: Req
   }
 });
 
-app.post('/api/auth/resend-verification', authLimiter, async (req: Request, res: Response) => {
+app.post('/api/auth/resend-verification', authLimiter, validate(resendVerificationSchema), async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
     const normalizedEmail = normalizeEmail(email);
@@ -811,7 +817,7 @@ app.post('/api/auth/logout', (req: Request, res: Response) => {
 
 // ============= ACCOUNT MANAGEMENT =============
 
-app.post('/api/auth/change-password', authenticateToken, async (req: any, res: Response) => {
+app.post('/api/auth/change-password', authenticateToken, validate(changePasswordSchema), async (req: any, res: Response) => {
   try {
     const userId = req.user.userId;
     const { currentPassword, newPassword } = req.body;
@@ -834,7 +840,7 @@ app.post('/api/auth/change-password', authenticateToken, async (req: any, res: R
   }
 });
 
-app.post('/api/auth/test-email', async (req: Request, res: Response) => {
+app.post('/api/auth/test-email', validate(testEmailSchema), async (req: Request, res: Response) => {
   if (!transporter) return res.status(503).json({ error: 'SMTP not configured. Set SMTP_HOST, SMTP_USER, SMTP_PASS.' });
   try {
     await transporter.verify();
@@ -1073,7 +1079,7 @@ app.get('/api/auth/me', authenticateToken, async (req: any, res: Response) => {
   }
 });
 
-app.put('/api/auth/profile', authenticateToken, upload.fields([{ name: 'avatar', maxCount: 1 }, { name: 'fullBodyAvatar', maxCount: 1 }]), async (req: any, res: Response) => {
+app.put('/api/auth/profile', authenticateToken, validate(updateProfileSchema), upload.fields([{ name: 'avatar', maxCount: 1 }, { name: 'fullBodyAvatar', maxCount: 1 }]), async (req: any, res: Response) => {
   try {
     const { name, bio, mood, cycleTracking, musicSync, emailNotifications, gender, birthDate } = req.body;
     const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
@@ -1181,7 +1187,7 @@ app.post('/api/products', authenticateToken, upload.array('images', 5), validate
           unlinkSync(file.path);
         } catch (imgError) {
           logger.error('Image processing failed', { error: imgError, filename: file.filename });
-          // Fallback to original if processing fails
+          try { unlinkSync(file.path); } catch { /* file may not exist */ }
           processedImages.push({
             filename: file.filename,
             url: `/api/uploads/${file.filename}`,
@@ -1262,6 +1268,7 @@ app.put('/api/products/:id', authenticateToken, upload.array('images', 5), valid
           unlinkSync(file.path);
         } catch (imgError) {
           logger.error('Image processing failed in PUT', { error: imgError, filename: file.filename });
+          try { unlinkSync(file.path); } catch { /* file may not exist */ }
           processedImages.push({
             filename: file.filename,
             url: `/api/uploads/${file.filename}`,
@@ -1445,7 +1452,7 @@ app.post('/api/looks', authenticateToken, upload.array('images', 10), validate(l
           unlinkSync(file.path);
         } catch (imgError) {
           logger.error('Image processing failed', { error: imgError, filename: file.filename });
-          // Fallback to original if processing fails
+          try { unlinkSync(file.path); } catch { /* file may not exist */ }
           processedImages.push({
             filename: file.filename,
             url: `/api/uploads/${file.filename}`,
@@ -1528,12 +1535,18 @@ app.post('/api/social/like', authenticateToken, async (req: any, res: Response) 
   try {
     const { lookId } = req.body;
     const userId = req.user.userId;
-    const existing = await prisma.like.findUnique({ where: { userId_lookId: { userId, lookId } } });
-    if (existing) {
-      await prisma.like.delete({ where: { id: existing.id } });
-      res.json({ liked: false, likesCount: await prisma.like.count({ where: { lookId } }) });
-    } else {
-      const like = await prisma.like.create({ data: { userId, lookId } });
+    let liked = false;
+    try {
+      await prisma.like.create({ data: { userId, lookId } });
+      liked = true;
+    } catch (e: any) {
+      if (e.code === 'P2002') {
+        await prisma.like.delete({ where: { userId_lookId: { userId, lookId } } });
+      } else {
+        throw e;
+      }
+    }
+    if (liked) {
       const look = await prisma.look.findUnique({ where: { id: lookId }, select: { userId: true } });
       if (look && look.userId !== userId) {
         const me = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
@@ -1549,8 +1562,8 @@ app.post('/api/social/like', authenticateToken, async (req: any, res: Response) 
           context: { type: 'LIKE', relatedId: lookId }
         });
       }
-      res.json({ liked: true, likesCount: await prisma.like.count({ where: { lookId } }) });
     }
+    res.json({ liked, likesCount: await prisma.like.count({ where: { lookId } }) });
   } catch (error) {
     logger.error('Error occurred', { error });
     res.status(500).json({ error: 'Error toggling like' });
@@ -1634,13 +1647,27 @@ app.post('/api/social/favorite', authenticateToken, validate(favoriteSchema), as
     const { lookId, productId } = req.body;
     const userId = req.user.userId;
     if (lookId) {
-      const existing = await prisma.favorite.findUnique({ where: { userId_lookId: { userId, lookId } } });
-      if (existing) { await prisma.favorite.delete({ where: { id: existing.id } }); res.json({ favorited: false }); }
-      else { await prisma.favorite.create({ data: { userId, lookId } }); res.json({ favorited: true }); }
+      let favorited = false;
+      try {
+        await prisma.favorite.create({ data: { userId, lookId } });
+        favorited = true;
+      } catch (e: any) {
+        if (e.code === 'P2002') {
+          await prisma.favorite.delete({ where: { userId_lookId: { userId, lookId } } });
+        } else { throw e; }
+      }
+      res.json({ favorited });
     } else if (productId) {
-      const existing = await prisma.favorite.findUnique({ where: { userId_productId: { userId, productId } } });
-      if (existing) { await prisma.favorite.delete({ where: { id: existing.id } }); res.json({ favorited: false }); }
-      else { await prisma.favorite.create({ data: { userId, productId } }); res.json({ favorited: true }); }
+      let favorited = false;
+      try {
+        await prisma.favorite.create({ data: { userId, productId } });
+        favorited = true;
+      } catch (e: any) {
+        if (e.code === 'P2002') {
+          await prisma.favorite.delete({ where: { userId_productId: { userId, productId } } });
+        } else { throw e; }
+      }
+      res.json({ favorited });
     } else {
       res.status(400).json({ error: 'lookId or productId required' });
     }
@@ -1672,10 +1699,16 @@ app.post('/api/social/follow', authenticateToken, validate(followSchema), async 
     const { targetUserId } = req.body;
     const userId = req.user.userId;
     if (userId === targetUserId) return res.status(400).json({ error: 'Cannot follow yourself' });
-    const existing = await prisma.follow.findUnique({ where: { followerId_followingId: { followerId: userId, followingId: targetUserId } } });
-    if (existing) { await prisma.follow.delete({ where: { id: existing.id } }); res.json({ following: false }); }
-    else {
-      const follow = await prisma.follow.create({ data: { followerId: userId, followingId: targetUserId } });
+    let following = false;
+    try {
+      await prisma.follow.create({ data: { followerId: userId, followingId: targetUserId } });
+      following = true;
+    } catch (e: any) {
+      if (e.code === 'P2002') {
+        await prisma.follow.delete({ where: { followerId_followingId: { followerId: userId, followingId: targetUserId } } });
+      } else { throw e; }
+    }
+    if (following) {
       const me = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
       const notif = await prisma.notification.create({
         data: { type: 'FOLLOW', content: `${me?.name || 'Alguien'} te siguió`, userId: targetUserId }
@@ -1688,8 +1721,8 @@ app.post('/api/social/follow', authenticateToken, validate(followSchema), async 
         html: `<p><strong>${me?.name || 'Alguien'}</strong> te siguió.</p>`,
         context: { type: 'FOLLOW' }
       });
-      res.json({ following: true });
     }
+    res.json({ following });
   } catch (error) {
     logger.error('Error occurred', { error });
     res.status(500).json({ error: 'Error toggling follow' });
@@ -1980,7 +2013,7 @@ app.get('/api/chat/conversations', authenticateToken, async (req: any, res: Resp
   }
 });
 
-app.post('/api/chat/conversations', authenticateToken, async (req: any, res: Response) => {
+app.post('/api/chat/conversations', authenticateToken, validate(conversationSchema), async (req: any, res: Response) => {
   try {
     // Accept both targetUserId (frontend) and otherUserId (legacy)
     const { targetUserId, otherUserId, itemId, itemTitle, itemImage, initialMessage } = req.body;
@@ -2055,7 +2088,7 @@ app.post('/api/chat/upload', authenticateToken, upload.single('image'), async (r
   }
 });
 
-app.post('/api/chat/conversations/:id/messages', authenticateToken, async (req: any, res: Response) => {
+app.post('/api/chat/conversations/:id/messages', authenticateToken, validate(messageSchema), async (req: any, res: Response) => {
   try {
     const conversationId = req.params.id;
     const { content, imageUrl, productId } = req.body;
@@ -2121,7 +2154,7 @@ app.post('/api/chat/conversations/:id/messages', authenticateToken, async (req: 
   }
 });
 
-app.post('/api/chat/messages', authenticateToken, async (req: any, res: Response) => {
+app.post('/api/chat/messages', authenticateToken, validate(messageSchema), async (req: any, res: Response) => {
   try {
     const { conversationId, content, otherUserId, imageUrl, productId } = req.body;
     if (!content && !imageUrl) return res.status(400).json({ error: 'content or imageUrl required' });
@@ -2222,8 +2255,8 @@ if (NODE_ENV === 'production') {
 }
 
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
-  console.error(err);
-  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
+  logger.error('Unhandled error', { error: err.message, path: req.path });
+  res.status(err.status || 500).json({ error: 'Internal server error' });
 });
 
 // Inicialización del servidor
@@ -2272,7 +2305,23 @@ if (isMain) {
   startServer();
 }
 
-process.on('SIGINT', async () => {
+const shutdown = async (signal: string) => {
+  logger.info(`Received ${signal}, shutting down gracefully...`);
   await prisma.$disconnect();
-  process.exit(0);
+  httpServer.close(() => {
+    logger.info('HTTP server closed');
+    process.exit(0);
+  });
+};
+
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Rejection at:', { promise, reason: String(reason) });
+});
+
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught Exception', { error: err.message, stack: err.stack });
+  shutdown('uncaughtException');
 });

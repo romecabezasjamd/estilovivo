@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Mail, Lock, User, ArrowRight, Sparkles, AlertCircle, Calendar, Languages, Globe, Eye, EyeOff } from 'lucide-react';
 import { api } from '../services/api';
 import { useLanguage } from '../src/context/LanguageContext';
@@ -30,7 +30,10 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
     const { t, language, setLanguage, dialect, setDialect } = useLanguage();
     const [showLangMenu, setShowLangMenu] = useState(false);
 
+    const mountedRef = useRef(true);
     useEffect(() => {
+        mountedRef.current = true;
+
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
         const type = urlParams.get('type');
@@ -51,13 +54,17 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
             (async () => {
                 try {
                     await api.verifyEmail(t);
-                    setSuccessMessage('Tu correo ha sido verificado correctamente.');
-                    setTimeout(() => {
-                        setView('auth');
-                        window.history.replaceState({}, '', window.location.pathname);
-                    }, 1800);
+                    if (mountedRef.current) {
+                        setSuccessMessage('Tu correo ha sido verificado correctamente.');
+                        setTimeout(() => {
+                            if (mountedRef.current) {
+                                setView('auth');
+                                window.history.replaceState({}, '', window.location.pathname);
+                            }
+                        }, 1800);
+                    }
                 } catch (err: any) {
-                    setError(err.message || 'Error verificando el correo');
+                    if (mountedRef.current) setError(err.message || 'Error verificando el correo');
                 }
             })();
         }
@@ -70,6 +77,8 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
 
         const storedRemember = localStorage.getItem('beyour_remember_me');
         setRememberMe(storedRemember !== 'false');
+
+        return () => { mountedRef.current = false; };
     }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -122,12 +131,12 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
             }
         } catch (err: any) {
             const msg = err?.message || '';
-            if (msg === 'emailNotVerified' || msg.includes('emailNotVerified')) {
+            if (msg === 'emailNotVerified') {
                 setIsUnverified(true);
                 setError(t('emailNotVerifiedError'));
-            } else if (msg.includes('User not found') || msg.includes('Usuario no encontrado')) {
+            } else if (msg === 'User not found') {
                 setError(t('emailNotFound'));
-            } else if (msg.includes('Invalid credentials')) {
+            } else if (msg === 'Invalid credentials') {
                 setError('Contraseña incorrecta.');
             } else if (err?.name === 'TypeError' && msg.includes('fetch')) {
                 setError('No se pudo conectar con el servidor. Comprueba tu conexión.');
