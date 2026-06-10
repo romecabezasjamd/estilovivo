@@ -35,6 +35,13 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
         const token = urlParams.get('token');
         const type = urlParams.get('type');
         const verifyToken = urlParams.get('verifyToken');
+        const errorParam = urlParams.get('error');
+
+        if (errorParam === 'invalid_token') {
+            setError('El enlace de recuperación ha expirado o no es válido. Solicita uno nuevo.');
+        } else if (errorParam === 'server_error') {
+            setError('Error del servidor. Intenta de nuevo más tarde.');
+        }
 
         if (token && (type === 'reset' || (!type && urlParams.has('reset')))) {
             setResetToken(token);
@@ -118,6 +125,10 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
             if (msg === 'emailNotVerified' || msg.includes('emailNotVerified')) {
                 setIsUnverified(true);
                 setError(t('emailNotVerifiedError'));
+            } else if (msg.includes('User not found') || msg.includes('Usuario no encontrado')) {
+                setError(t('emailNotFound'));
+            } else if (msg.includes('Invalid credentials')) {
+                setError('Contraseña incorrecta.');
             } else if (err?.name === 'TypeError' && msg.includes('fetch')) {
                 setError('No se pudo conectar con el servidor. Comprueba tu conexión.');
             } else {

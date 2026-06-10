@@ -53,6 +53,48 @@ Una vez levantado, comprueba la salud:
 curl -f http://localhost:3000/api/health
 ```
 
+## Despliegue en Coolify
+
+Para Coolify usa el mismo repositorio y el `Dockerfile` del proyecto.
+
+- Build type: `Dockerfile`
+- Build context: raíz del repositorio
+- Container port: `3000`
+- Healthcheck: `http://localhost:3000/api/health`
+- Start command: no es necesario, el `Dockerfile` ya define `CMD ["/app/entrypoint.sh"]`
+
+### Variables de entorno necesarias en Coolify
+
+Define al menos estas variables en la configuración de tu servicio en Coolify:
+
+```env
+PORT=3000
+NODE_ENV=production
+DATABASE_URL="file:./data/dev.db"
+JWT_SECRET="tu_secreto_super_seguro"
+UPLOADS_DIR="/app/uploads"
+FRONTEND_URL="https://estilovivo.xyoncloud.win"
+```
+
+Opcionalmente, si necesitas correo o IA, añade:
+
+```env
+GEMINI_API_KEY=
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASS=
+```
+
+> En producción no es necesario establecer `VITE_API_BASE` si el frontend y la API se sirven desde el mismo contenedor. La aplicación usará `/api` en el mismo origen.
+
+### Notas importantes para Coolify
+
+- El puerto del contenedor debe ser `3000`.
+- `UPLOADS_DIR` debe apuntar a `/app/uploads` dentro del contenedor.
+- El backend ya está configurado para escuchar en `0.0.0.0:3000`.
+- La comprobación de salud debe apuntar a `/api/health`.
+
 ## Notas sobre producción
 
 - El backend actual usa SQLite para el deploy actual.

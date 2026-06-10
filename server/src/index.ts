@@ -112,7 +112,142 @@ if (transporter) {
   });
 }
 
-const getFrontendUrl = () => (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/+$/, '');
+const getFrontendUrl = () => {
+  const defaultUrl = NODE_ENV === 'production' ? 'https://estilovivo.xyoncloud.win' : 'http://localhost:5173';
+  const rawUrl = process.env.FRONTEND_URL || '';
+  const baseUrl = (NODE_ENV === 'production' && (rawUrl.includes('localhost') || rawUrl.includes('127.0.0.1') || !rawUrl))
+    ? defaultUrl
+    : (rawUrl || defaultUrl);
+  return baseUrl.replace(/\/+$/, '');
+};
+
+// Generate email-friendly URLs that work on Android emulator and web
+const getEmailFriendlyUrl = (path: string = '') => {
+  const defaultUrl = NODE_ENV === 'production' ? 'https://estilovivo.xyoncloud.win' : 'http://localhost:5173';
+  const rawUrl = process.env.FRONTEND_URL || '';
+  const baseUrl = (NODE_ENV === 'production' && (rawUrl.includes('localhost') || rawUrl.includes('127.0.0.1') || !rawUrl))
+    ? defaultUrl
+    : (rawUrl || defaultUrl);
+  const cleanBase = baseUrl.replace(/\/+$/, '');
+  // Replace localhost with 10.0.2.2 ONLY in development for Android emulator compatibility
+  const androidFriendly = NODE_ENV !== 'production'
+    ? cleanBase.replace('localhost', '10.0.2.2')
+    : cleanBase;
+  return `${androidFriendly}${path}`;
+};
+
+// Email template helper with logo and styling
+const getEmailTemplate = (content: string, title: string = 'Estilo Vivo') => `
+  <!DOCTYPE html>
+  <html>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${title}</title>
+      <style>
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+          background-color: #f8f9fa;
+          margin: 0;
+          padding: 0;
+          color: #333;
+        }
+        .container {
+          max-width: 600px;
+          margin: 0 auto;
+          background-color: #ffffff;
+          border-radius: 12px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          overflow: hidden;
+        }
+        .header {
+          background: linear-gradient(135deg, #ff4d94 0%, #00b4d8 100%);
+          padding: 30px 20px;
+          text-align: center;
+          color: white;
+        }
+        .logo {
+          font-size: 28px;
+          font-weight: 900;
+          margin-bottom: 5px;
+          letter-spacing: -1px;
+        }
+        .tagline {
+          font-size: 13px;
+          opacity: 0.9;
+          font-weight: 500;
+        }
+        .content {
+          padding: 40px 30px;
+        }
+        .greeting {
+          font-size: 18px;
+          font-weight: 600;
+          color: #1a1a1a;
+          margin-bottom: 15px;
+        }
+        .message {
+          font-size: 14px;
+          line-height: 1.6;
+          color: #555;
+          margin-bottom: 25px;
+        }
+        .button {
+          display: inline-block;
+          background: linear-gradient(135deg, #ff4d94 0%, #ff6bb3 100%);
+          color: white;
+          padding: 14px 32px;
+          text-decoration: none;
+          border-radius: 8px;
+          font-weight: 600;
+          font-size: 15px;
+          margin: 20px 0;
+          transition: transform 0.2s;
+        }
+        .button:hover {
+          transform: translateY(-2px);
+        }
+        .info-box {
+          background-color: #f0f7ff;
+          border-left: 4px solid #00b4d8;
+          padding: 15px;
+          margin: 20px 0;
+          border-radius: 4px;
+          font-size: 13px;
+          color: #0066b3;
+        }
+        .footer {
+          border-top: 1px solid #eee;
+          padding: 20px 30px;
+          font-size: 12px;
+          color: #999;
+          text-align: center;
+          background-color: #fafafa;
+        }
+        .divider {
+          height: 1px;
+          background-color: #eee;
+          margin: 20px 0;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <div class="logo">✨ ESTILO VIVO</div>
+          <div class="tagline">Tu armario, Tu comunidad, Tu estilo</div>
+        </div>
+        <div class="content">
+          ${content}
+        </div>
+        <div class="footer">
+          <p>© 2026 Estilo Vivo. Todos los derechos reservados.</p>
+          <p>Este correo fue enviado porque registraste una cuenta en nuestra plataforma.</p>
+        </div>
+      </div>
+    </body>
+  </html>
+`;
 
 const sendMailWithRetry = async (mailOptions: any, retries = 2) => {
   if (!transporter) {
@@ -220,6 +355,7 @@ const allowedOrigins = [
   process.env.SERVICE_FQDN_APP ? `https://${process.env.SERVICE_FQDN_APP}` : null,
   process.env.SERVICE_URL_APP,
   process.env.FRONTEND_URL,
+  'https://estilovivo.xyoncloud.win',
   'http://localhost:5173',
   'http://localhost:3000',
   'capacitor://localhost', // Potential Capacitor/Mobile origin
@@ -477,25 +613,32 @@ app.post('/api/auth/register', authLimiter, validate(registerSchema), async (req
     // Send verification email
     let emailSent = false;
     if (transporter) {
-      const verifyUrl = `${getFrontendUrl()}/auth?verifyToken=${verificationToken}`;
+      const verifyUrl = `${getEmailFriendlyUrl('/auth?verifyToken=' + verificationToken)}`;
+      const emailContent = `
+        <p class="greeting">¡Bienvenida a Estilo Vivo, ${user.name}! 🎉</p>
+        <p class="message">
+          Gracias por unirte a nuestra comunidad. Para empezar a usar tu cuenta y acceder a todas nuestras funciones, 
+          verifica tu correo electrónico haciendo clic en el botón de abajo.
+        </p>
+        <div style="text-align: center;">
+          <a href="${verifyUrl}" class="button">✓ Verificar mi Cuenta</a>
+        </div>
+        <div class="info-box">
+          <strong>👇 Si el botón no funciona:</strong><br>
+          Copia y pega este enlace en tu navegador:<br>
+          <code style="background: #e8f4f8; padding: 4px 8px; border-radius: 3px; word-break: break-all; display: block; margin-top: 8px;">${verifyUrl}</code>
+        </div>
+        <p class="message" style="font-size: 12px; color: #999;">
+          Este es un correo automático. Por favor, no respondas a este mensaje. Si tienes preguntas, 
+          contacta con nuestro equipo de soporte.
+        </p>
+      `;
+
       try {
         await sendMailWithRetry({
           to: user.email,
-          subject: 'Verifica tu cuenta - Estilo Vivo',
-          html: `
-            <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px; max-width: 500px; margin: auto;">
-              <h2 style="color: #ff4d94; text-align: center;">¡Bienvenida a Estilo Vivo!</h2>
-              <p>Hola <strong>${user.name}</strong>,</p>
-              <p>Gracias por unirte a nuestra comunidad. Para empezar a usar tu cuenta, por favor confirma tu correo electrónico haciendo clic en el botón de abajo:</p>
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${verifyUrl}" style="background: #ff4d94; color: white; padding: 12px 25px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">Verificar mi cuenta</a>
-              </div>
-              <p style="font-size: 12px; color: #666;">Si el botón no funciona, puedes copiar y pegar este enlace en tu navegador:</p>
-              <p style="font-size: 12px; color: #666; word-break: break-all;">${verifyUrl}</p>
-              <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-              <p style="font-size: 10px; color: #999; text-align: center;">Estilo Vivo - Tu armario inteligente</p>
-            </div>
-          `
+          subject: '✓ Verifica tu cuenta - Estilo Vivo',
+          html: getEmailTemplate(emailContent, 'Bienvenida a Estilo Vivo')
         });
         logger.info('Verification email sent', { userId: user.id });
         emailSent = true;
@@ -627,22 +770,31 @@ app.post('/api/auth/resend-verification', authLimiter, async (req: Request, res:
       data: { verificationToken }
     });
 
-    const verifyUrl = `${getFrontendUrl()}/auth?verifyToken=${verificationToken}`;
+    const verifyUrl = `${getEmailFriendlyUrl('/auth?verifyToken=' + verificationToken)}`;
+    const emailContent = `
+      <p class="greeting">Hola ${user.name},</p>
+      <p class="message">
+        Hemos recibido tu solicitud para reenviar el enlace de verificación de correo. 
+        Por favor, confirma tu dirección de correo electrónico haciendo clic en el botón de abajo para activar todas las funciones de tu cuenta.
+      </p>
+      <div style="text-align: center;">
+        <a href="${verifyUrl}" class="button">✓ Verificar mi Correo</a>
+      </div>
+      <div class="info-box">
+        <strong>⏱️ Este enlace expira en 24 horas</strong><br>
+        Una vez verificado, podrás acceder a todas nuestras funciones: crear looks, compartir, chat y más.
+      </div>
+      <div class="divider"></div>
+      <p class="message" style="font-size: 12px;">
+        Si el botón no funciona, copia y pega este enlace en tu navegador:<br>
+        <code style="background: #f5f5f5; padding: 4px 8px; border-radius: 3px; word-break: break-all; display: block; margin-top: 8px;">${verifyUrl}</code>
+      </p>
+    `;
+
     await sendMailWithRetry({
       to: user.email,
-      subject: 'Verifica tu cuenta - Estilo Vivo',
-      html: `
-        <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px; max-width: 500px; margin: auto;">
-          <h2 style="color: #ff4d94; text-align: center;">Vuelve a verificar tu correo en Estilo Vivo</h2>
-          <p>Hola <strong>${user.name}</strong>,</p>
-          <p>Hemos recibido una solicitud para reenviar el enlace de verificación de tu cuenta. Por favor confirma tu correo electrónico haciendo clic en el botón de abajo:</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${verifyUrl}" style="background: #ff4d94; color: white; padding: 12px 25px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">Verificar mi cuenta</a>
-          </div>
-          <p style="font-size: 12px; color: #666;">Si el botón no funciona, puedes copiar y pegar este enlace en tu navegador:</p>
-          <p style="font-size: 12px; color: #666; word-break: break-all;">${verifyUrl}</p>
-        </div>
-      `
+      subject: '✓ Verifica tu correo - Estilo Vivo',
+      html: getEmailTemplate(emailContent, 'Verificar Correo')
     });
 
     res.json({ success: true });
@@ -720,26 +872,37 @@ app.post('/api/auth/forgot-password', authLimiter, validate(forgotPasswordSchema
       }
     });
 
-    const resetUrl = `${getFrontendUrl()}/auth?token=${token}`;
+    const resetUrl = `${getEmailFriendlyUrl('/api/reset-password/' + token)}`;
 
     if (!transporter) {
       logger.error('Forgot password blocked: SMTP not configured', { userId: user.id, email: user.email });
       return res.status(503).json({ error: 'SMTP not configured' });
     }
 
+    const emailContent = `
+      <p class="greeting">Hola ${user.name},</p>
+      <p class="message">
+        Hemos recibido una solicitud para restablecer tu contraseña en Estilo Vivo. 
+        Si no fuiste tú, puedes ignorar este correo.
+      </p>
+      <div style="text-align: center;">
+        <a href="${resetUrl}" class="button">Restablecer Contraseña</a>
+      </div>
+      <div class="info-box">
+        <strong>⏱️ Este enlace expira en 1 hora</strong><br>
+        Por razones de seguridad, los enlaces de recuperación tienen validez limitada.
+      </div>
+      <div class="divider"></div>
+      <p class="message">
+        Si tienes problemas para acceder al botón, copia y pega este enlace en tu navegador:<br>
+        <code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px; word-break: break-all;">${resetUrl}</code>
+      </p>
+    `;
+
     await sendMailWithRetry({
       to: user.email,
-      subject: 'Recuperar contraseña - Estilo Vivo',
-      html: `
-        <div style="font-family: sans-serif; padding: 20px;">
-          <h2>Hola ${user.name}</h2>
-          <p>Has solicitado restablecer tu contraseña en Estilo Vivo.</p>
-          <p>Haz clic en el siguiente botón para continuar:</p>
-          <a href="${resetUrl}" style="background: #ff4d94; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Restablecer Contraseña</a>
-          <p>Este enlace caducará en 1 hora.</p>
-          <p>Si no has solicitado esto, puedes ignorar este correo.</p>
-        </div>
-      `
+      subject: '🔐 Recuperar contraseña - Estilo Vivo',
+      html: getEmailTemplate(emailContent, 'Recuperar Contraseña')
     });
 
     res.json({ success: true, message: 'recoveryEmailSent' });
@@ -773,6 +936,74 @@ app.post('/api/auth/reset-password', authLimiter, validate(resetPasswordSchema),
 
     res.json({ success: true });
   } catch (error) {
+    res.status(500).json({ error: 'Error resetting password' });
+  }
+});
+
+// Root-level recovery routes
+const handleResetTokenRedirect = async (req: Request, res: Response) => {
+  try {
+    const { token } = req.params;
+    const user = await prisma.user.findFirst({
+      where: {
+        resetToken: token,
+        resetTokenExpiry: { gt: new Date() }
+      }
+    });
+
+    if (!user) {
+      logger.warn('GET /reset-password/:token: Invalid or expired token attempt', { token });
+      return res.redirect(`${getFrontendUrl()}/auth?error=invalid_token`);
+    }
+
+    logger.info('GET /reset-password/:token: Valid token redirection', { userId: user.id });
+    res.redirect(`${getFrontendUrl()}/auth?token=${token}&type=reset`);
+  } catch (error) {
+    logger.error('Error in GET /reset-password/:token', { error });
+    res.redirect(`${getFrontendUrl()}/auth?error=server_error`);
+  }
+};
+
+app.get('/reset-password/:token', handleResetTokenRedirect);
+app.get('/api/reset-password/:token', handleResetTokenRedirect);
+
+app.post('/reset-password', authLimiter, async (req: Request, res: Response) => {
+  try {
+    const { token, newPassword, password } = req.body;
+    const actualNewPassword = newPassword || password;
+
+    if (!token) {
+      return res.status(400).json({ error: 'Token requerido' });
+    }
+    if (!actualNewPassword || actualNewPassword.length < 8) {
+      return res.status(400).json({ error: 'Contraseña debe tener al menos 8 caracteres' });
+    }
+
+    const user = await prisma.user.findFirst({
+      where: {
+        resetToken: token,
+        resetTokenExpiry: { gt: new Date() }
+      }
+    });
+
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid or expired token' });
+    }
+
+    const hashedPassword = await bcrypt.hash(actualNewPassword, 10);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        resetToken: null,
+        resetTokenExpiry: null
+      }
+    });
+
+    logger.info('POST /reset-password: Password reset successfully', { userId: user.id });
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Error resetting password on root endpoint', { error });
     res.status(500).json({ error: 'Error resetting password' });
   }
 });
@@ -1865,11 +2096,17 @@ app.post('/api/chat/conversations/:id/messages', authenticateToken, async (req: 
       const otherUser = await prisma.user.findUnique({ where: { id: otherParticipant.userId } });
       if (transporter && otherUser?.email && otherUser.emailNotifications) {
         try {
+          const emailContent = `
+            <p class="greeting">Nuevo mensaje de ${message.sender.name} 💬</p>
+            <p class="message">"${message.content}"</p>
+            <div style="text-align: center;">
+              <a href="${getEmailFriendlyUrl('/social?tab=chat')}" class="button">Ver Conversación</a>
+            </div>
+          `;
           await sendMailWithRetry({
             to: otherUser.email,
-            subject: `Nuevo mensaje de ${message.sender.name}`,
-            text: `Has recibido un nuevo mensaje de ${message.sender.name}: ${message.content}`,
-            html: `<p>Has recibido un nuevo mensaje de <strong>${message.sender.name}</strong></p><p>${message.content}</p><p><a href="${getFrontendUrl()}/social?tab=chat">Ver conversación</a></p>`
+            subject: `💬 Nuevo mensaje de ${message.sender.name} - Estilo Vivo`,
+            html: getEmailTemplate(emailContent, 'Nuevo Mensaje')
           });
         } catch (mailErr) {
           logger.warn('Could not send chat email notification', { error: mailErr, userId: otherParticipant.userId });
@@ -1914,11 +2151,17 @@ app.post('/api/chat/messages', authenticateToken, async (req: any, res: Response
       const otherUser = await prisma.user.findUnique({ where: { id: otherUserId } });
       if (transporter && otherUser?.email && otherUser.emailNotifications) {
         try {
+          const emailContent = `
+            <p class="greeting">Nuevo mensaje de ${message.sender.name} 💬</p>
+            <p class="message">"${message.content}"</p>
+            <div style="text-align: center;">
+              <a href="${getEmailFriendlyUrl('/social?tab=chat')}" class="button">Ver Conversación</a>
+            </div>
+          `;
           await sendMailWithRetry({
             to: otherUser.email,
-            subject: `Nuevo mensaje de ${message.sender.name}`,
-            text: `Has recibido un nuevo mensaje de ${message.sender.name}: ${message.content}`,
-            html: `<p>Has recibido un nuevo mensaje de <strong>${message.sender.name}</strong></p><p>${message.content}</p><p><a href="${getFrontendUrl()}/social?tab=chat">Ver conversación</a></p>`
+            subject: `💬 Nuevo mensaje de ${message.sender.name} - Estilo Vivo`,
+            html: getEmailTemplate(emailContent, 'Nuevo Mensaje')
           });
         } catch (mailErr) {
           logger.warn('Could not send chat email notification', { error: mailErr, userId: otherUserId });
