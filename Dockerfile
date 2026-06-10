@@ -1,32 +1,38 @@
+# syntax=docker/dockerfile:1.4
 # Dockerfile - Builder único para Frontend + Backend
-# Soporta dev y production automáticamente
+# Optimizado: cache mounts, prisma split, sin python3 en build
 
 # ============= STAGE 1: Dependencies =============
 FROM node:20-bookworm-slim AS dependencies
 
-RUN apt-get update && apt-get install -y openssl curl python3 build-essential && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y openssl curl && rm -rf /var/lib/apt/lists/*
 
 # Ensure we install ALL dependencies (including devDependencies) for building
 ENV NODE_ENV=development
 
 # Prisma schema needs DATABASE_URL at build time
-ARG DATABASE_URL
+ARG DATABASE_URL=file:./data/dev.db
 ENV DATABASE_URL=$DATABASE_URL
 
 WORKDIR /app
 
-# Copiar package.json de ambos lados
+# Copiar solo package.json y schema.prisma (migrations después del install)
 COPY package*.json ./
 COPY server/package*.json ./server/
-COPY server/prisma ./server/prisma
+COPY server/prisma/schema.prisma ./server/prisma/schema.prisma
 COPY server/prisma.config.ts ./server/prisma.config.ts
 
-# Instalar frontend deps (including devDependencies needed for build)
-RUN npm install --prefer-offline --no-audit
+# Instalar frontend deps con cache mount
+RUN --mount=type=cache,target=/root/.npm \
+    npm install --prefer-offline --no-audit
 
-# Instalar backend deps (including devDependencies needed for build)
+# Instalar backend deps con cache mount
 WORKDIR /app/server
-RUN npm install --prefer-offline --no-audit
+RUN --mount=type=cache,target=/root/.npm \
+    npm install --prefer-offline --no-audit
+
+# Copiar migrations después del install (no invalidan caché)
+COPY server/prisma/migrations ./prisma/migrations
 
 WORKDIR /app
 
@@ -36,14 +42,7 @@ FROM dependencies AS frontend-build
 WORKDIR /app
 
 # Copiar todo lo necesario para el frontend
-COPY tsconfig.json ./
-COPY vite.config.ts ./
-COPY postcss.config.js ./
-COPY tailwind.config.js ./
-COPY index.html ./
-COPY index.tsx ./
-COPY App.tsx ./
-COPY types.ts ./
+COPY tsconfig.json vite.config.ts postcss.config.js tailwind.config.js index.html index.tsx App.tsx types.ts ./
 COPY components ./components
 COPY pages ./pages
 COPY services ./services
@@ -66,7 +65,6 @@ WORKDIR /app/server
 # Copiar código backend
 COPY server/src ./src
 COPY server/tsconfig.json ./
-COPY server/prisma ./prisma
 
 # Build TypeScript
 RUN npm run build
@@ -87,13 +85,14 @@ EXPOSE 3000
 ARG DATABASE_URL=file:./data/dev.db
 ENV DATABASE_URL=$DATABASE_URL
 
-# Copiar Prisma schema + migraciones
+# Copiar Prisma schema + migraciones desde backend-build
 COPY --from=backend-build /app/server/prisma ./prisma
 COPY --from=backend-build /app/server/prisma.config.ts ./prisma.config.ts
 
-# Instalar solo runtime deps (prisma CLI ahora está en dependencies)
+# Instalar solo runtime deps con cache mount
 COPY server/package*.json ./
-RUN npm install --omit=dev --prefer-offline --no-audit
+RUN --mount=type=cache,target=/root/.npm \
+    npm install --omit=dev --prefer-offline --no-audit
 
 # Copiar backend compilado
 COPY --from=backend-build /app/server/dist ./dist
@@ -116,10 +115,6 @@ FROM dependencies AS development
 WORKDIR /app
 
 ENV NODE_ENV=development
-
-# Para desarrollo con hot reload
-# Instalar herramienta para watch
-RUN npm install -g concurrently
 
 EXPOSE 3000
 EXPOSE 5173
