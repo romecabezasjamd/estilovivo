@@ -5,7 +5,7 @@
 # ============= STAGE 1: Dependencies =============
 FROM node:20-bookworm-slim AS dependencies
 
-RUN apt-get update && apt-get install -y openssl curl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y openssl curl python3 build-essential && rm -rf /var/lib/apt/lists/*
 
 # Ensure we install ALL dependencies (including devDependencies) for building
 ENV NODE_ENV=development
