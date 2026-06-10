@@ -2,7 +2,7 @@
 set -e
 
 # Handle SIGTERM gracefully for fast Docker shutdown
-trap 'echo "=== [entrypoint] Shutting down ==="; exit 0' SIGTERM SIGINT
+trap 'echo "=== [entrypoint] Shutting down ==="; exit 0' TERM INT
 
 echo "=== [entrypoint] Running prisma migrate deploy ==="
 timeout 30 npx prisma migrate deploy || true
