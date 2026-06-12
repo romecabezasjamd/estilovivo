@@ -94,6 +94,11 @@ COPY server/package*.json ./
 RUN --mount=type=cache,target=/root/.npm \
     npm install --omit=dev --prefer-offline --no-audit
 
+# Copiar prisma CLI desde build y generar Prisma Client
+# (npm install --omit=dev omite prisma, pero necesitamos generate)
+COPY --from=backend-build /app/server/node_modules/prisma ./node_modules/prisma
+RUN ./node_modules/.bin/prisma generate
+
 # Copiar backend compilado
 COPY --from=backend-build /app/server/dist ./dist
 
