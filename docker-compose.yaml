@@ -26,14 +26,14 @@ services:
       # Uploads
       UPLOADS_DIR: /app/uploads
 
-      # SMTP (opcional - quitar defaults si no se usa)
-      SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASS: ${SMTP_PASS:-}
-      EMAIL_FROM: ${EMAIL_FROM:-}
-      SMTP_SECURE: ${SMTP_SECURE:-false}
-      SMTP_TLS_REJECT_UNAUTHORIZED: ${SMTP_TLS_REJECT_UNAUTHORIZED:-false}
+      # SMTP - Configuración de correo
+      SMTP_HOST: smtp.gmail.com
+      SMTP_PORT: '587'
+      SMTP_USER: appestilovivo@gmail.com
+      SMTP_PASS: wlvo avac rbqf xqik
+      EMAIL_FROM: appestilovivo@gmail.com
+      SMTP_SECURE: 'false'
+      SMTP_TLS_REJECT_UNAUTHORIZED: 'false'
     volumes:
       # Almacenamiento persistente
       - uploads_data:/app/uploads
