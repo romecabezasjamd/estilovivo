@@ -144,7 +144,7 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
     <div className="p-6 space-y-8 animate-fade-in pb-28">
       {/* Header & Welcome */}
       <header className="space-y-6 mt-4">
-        <Logo variant="horizontal" />
+        <Logo variant="icon" className="w-16 h-16 mx-auto" />
         <h1 className="text-3xl font-bold text-gray-800 tracking-tight">
           Hola, <span className="text-primary">{user.name}</span>
         </h1>

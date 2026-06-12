@@ -99,10 +99,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
 
   return (
     <div className="flex flex-col h-screen w-full bg-gray-50 overflow-hidden relative font-sans">
-      {/* Logo EV minimal header */}
-      <div className="fixed top-0 left-0 right-0 z-40 flex items-center justify-center h-12 bg-white/80 backdrop-blur-md border-b border-gray-100/50">
-        <span className="text-lg font-bold tracking-[0.2em] text-gray-800 select-none">EV</span>
-      </div>
+
 
       <NotificationBell />
 

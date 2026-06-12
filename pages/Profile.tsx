@@ -64,6 +64,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
   const [cycleStartDate, setCycleStartDate] = useState('');
   const [cycleEndDate, setCycleEndDate] = useState('');
   const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [cycleSaveSuccess, setCycleSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -249,6 +250,8 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
     }
     saveCyclePeriod(user.id, { startDate: cycleStartDate, endDate: cycleEndDate });
     setSettingsError(null);
+    setCycleSaveSuccess(true);
+    setTimeout(() => setCycleSaveSuccess(false), 3000);
   };
 
   const handleLogout = async () => {
@@ -935,6 +938,11 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                         >
                           Guardar fechas del ciclo
                         </button>
+                        {cycleSaveSuccess && (
+                          <p className="text-xs text-green-600 font-semibold text-center animate-fade-in">
+                            Fechas guardadas correctamente
+                          </p>
+                        )}
                       </div>
                     )}
                   </>

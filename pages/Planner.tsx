@@ -3,6 +3,9 @@ import React, { useState, useMemo } from 'react';
 import { Look, PlannerEntry } from '../types';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, MoreVertical, Plus, X, Shirt, Trash2, CalendarDays } from 'lucide-react';
 import { useLanguage } from '../src/context/LanguageContext';
+import { useGlobalState } from '../src/context/GlobalStateContext';
+import { getCyclePeriod, isDateInCycle } from '../src/utils/cycleTracking';
+import CycleDayMarker from '../src/components/CycleDayMarker';
 
 interface PlannerProps {
     looks: Look[];
@@ -76,6 +79,14 @@ const Planner: React.FC<PlannerProps> = ({ looks, plannerEntries, onUpdateEntry 
         const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
         return `${months[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`;
     }, [currentMonth]);
+
+    const { user } = useGlobalState();
+    const showCycleFeatures = user?.gender === 'female' && user?.cycleTracking;
+    const cyclePeriod = useMemo(
+        () => (showCycleFeatures ? getCyclePeriod(user?.id) : null),
+        [user?.id, showCycleFeatures]
+    );
+    const isActiveCycle = showCycleFeatures && cyclePeriod !== null;
 
     const getEntry = (date: string) => plannerEntries.find(p => p.date === date);
     const getLook = (id: string | null) => looks.find(l => l.id === id);
@@ -204,17 +215,19 @@ const Planner: React.FC<PlannerProps> = ({ looks, plannerEntries, onUpdateEntry 
                                 const isToday = dateStr === todayStr;
                                 const hasEntry = !!entry;
                                 const isClicked = dateStr === monthlyClickedDay;
+                                const _isCycleDay = isActiveCycle && isDateInCycle(dateStr, cyclePeriod!);
                                 return (
                                     <button
                                         key={dateStr}
                                         onClick={() => setMonthlyClickedDay(dateStr === monthlyClickedDay ? null : dateStr)}
-                                        className={`aspect-square flex flex-col items-center justify-center rounded-xl text-sm transition-all relative
-                                            ${isToday ? 'bg-primary/10 text-primary font-bold' : 'hover:bg-gray-50 text-gray-700'}
-                                            ${isClicked ? 'ring-2 ring-primary' : ''}
+                                        className={`aspect-square flex flex-col items-center justify-center rounded-xl text-sm transition-all relative overflow-hidden
+                                            ${isToday ? 'bg-primary/10 text-primary font-bold' : _isCycleDay ? 'bg-rose-50/80 hover:bg-rose-100/80 text-gray-700' : 'hover:bg-gray-50 text-gray-700'}
+                                            ${isClicked ? 'ring-2 ring-primary' : _isCycleDay && !isToday ? 'cycle-day-cell--active' : ''}
                                         `}
                                     >
-                                        <span className={isToday ? '' : ''}>{dayNum}</span>
-                                        {hasEntry && <span className="w-1.5 h-1.5 rounded-full bg-primary mt-0.5" />}
+                                        <span className="relative z-10">{dayNum}</span>
+                                        {hasEntry && <span className="w-1.5 h-1.5 rounded-full bg-primary mt-0.5 relative z-10" />}
+                                        {_isCycleDay && <CycleDayMarker />}
                                     </button>
                                 );
                             })}
@@ -328,14 +341,16 @@ const Planner: React.FC<PlannerProps> = ({ looks, plannerEntries, onUpdateEntry 
                             const isToday = date === todayStr;
                             const isPast = date < todayStr;
                             const lookImg = getLookImage(look || undefined);
+                            const _isCycleDay = isActiveCycle && isDateInCycle(date, cyclePeriod!);
 
                             return (
                                 <div key={date} className="flex group">
-                                    <div className="flex flex-col items-center mr-4 w-12 pt-2">
+                                    <div className="flex flex-col items-center mr-4 w-12 pt-2 relative">
                                         <span className={`text-xs font-semibold uppercase ${isToday ? 'text-primary' : 'text-gray-400'}`}>{weekDays[idx]}</span>
-                                        <span className={`text-lg font-bold ${isToday ? 'text-white bg-primary w-8 h-8 rounded-full flex items-center justify-center' : isPast ? 'text-gray-400' : 'text-gray-800'}`}>
+                                        <span className={`text-lg font-bold relative ${isToday ? 'text-white bg-primary w-8 h-8 rounded-full flex items-center justify-center' : _isCycleDay ? 'text-gray-800 bg-rose-50/80 w-8 h-8 rounded-full flex items-center justify-center' : isPast ? 'text-gray-400' : 'text-gray-800'}`}>
                                             {dayNum}
                                         </span>
+                                        {_isCycleDay && !isToday && <div className="absolute -bottom-0.5 right-0"><CycleDayMarker /></div>}
                                         {idx !== 6 && <div className="w-px h-full bg-gray-200 my-2" />}
                                     </div>
 
