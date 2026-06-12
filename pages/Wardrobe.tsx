@@ -36,6 +36,7 @@ const CATEGORIES = [
   { id: 'outerwear', label: 'Abrigos' },
   { id: 'accessories', label: 'Accesorios' },
   { id: 'dress', label: 'Vestidos' },
+  { id: 'set', label: 'Conjuntos' },
 ];
 
 const SEASONS = [
@@ -139,7 +140,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
   const [selectedForSale, setSelectedForSale] = useState<Garment | null>(null);
   const [salePrice, setSalePrice] = useState('');
   const [saleDescription, setSaleDescription] = useState('');
-  const [saleCondition, setSaleCondition] = useState('bueno');
+  const [saleCondition, setSaleCondition] = useState('good');
   const [saleSize, setSaleSize] = useState('');
   const [saleImage, setSaleImage] = useState<string | null>(null);
   const [saleFile, setSaleFile] = useState<File | null>(null);
@@ -1129,10 +1130,10 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                     onChange={e => setSaleCondition(e.target.value)}
                     className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm font-medium outline-none appearance-none"
                   >
-                    <option value="nuevo">Nuevo</option>
-                    <option value="como nuevo">Como nuevo</option>
-                    <option value="bueno">Buen estado</option>
-                    <option value="usado">Usado</option>
+                    <option value="new">Nuevo</option>
+                    <option value="fair">Como nuevo</option>
+                    <option value="good">Buen estado</option>
+                    <option value="worn">Usado</option>
                   </select>
                 </div>
                 <div>

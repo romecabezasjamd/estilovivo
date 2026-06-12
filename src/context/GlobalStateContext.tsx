@@ -239,6 +239,12 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 category: garment.type,
                 color: garment.color,
                 season: garment.season,
+                forSale: garment.forSale,
+                price: garment.price,
+                condition: garment.condition,
+                description: garment.description,
+                size: garment.size,
+                brand: garment.brand,
             });
 
             setGarments(prev => {

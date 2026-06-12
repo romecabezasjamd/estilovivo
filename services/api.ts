@@ -470,7 +470,7 @@ export const api = {
         return items.map(mapProductToGarment).filter((g: any) => !!g);
     },
 
-    addGarment: async (garment: { file?: File; name?: string; category: string; color?: string; season?: string; brand?: string; size?: string }): Promise<Garment> => {
+    addGarment: async (garment: { file?: File; name?: string; category: string; color?: string; season?: string; brand?: string; size?: string; forSale?: boolean; price?: number; condition?: string; description?: string }): Promise<Garment> => {
         const formData = new FormData();
         formData.append('name', garment.name || garment.category);
         formData.append('category', garment.category);
@@ -478,6 +478,10 @@ export const api = {
         if (garment.season) formData.append('season', garment.season);
         if (garment.brand) formData.append('brand', garment.brand);
         if (garment.size) formData.append('size', garment.size);
+        if (garment.forSale !== undefined) formData.append('forSale', String(garment.forSale));
+        if (garment.price !== undefined) formData.append('price', String(garment.price));
+        if (garment.condition) formData.append('condition', garment.condition);
+        if (garment.description) formData.append('description', garment.description);
         if (garment.file) formData.append('images', garment.file);
 
         const res = await fetch(`${API_BASE}/products`, {
