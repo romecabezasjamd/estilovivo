@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Look, PlannerEntry } from '../types';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, MoreVertical, Plus, X, Shirt, Trash2 } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, MoreVertical, Plus, X, Shirt, Trash2, CalendarDays } from 'lucide-react';
 import { useLanguage } from '../src/context/LanguageContext';
 
 interface PlannerProps {
@@ -13,18 +13,21 @@ interface PlannerProps {
 const Planner: React.FC<PlannerProps> = ({ looks, plannerEntries, onUpdateEntry }) => {
     const { t } = useLanguage();
     const [weekOffset, setWeekOffset] = useState(0);
+    const [monthOffset, setMonthOffset] = useState(0);
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
     const [eventNoteInput, setEventNoteInput] = useState('');
     const [editingNote, setEditingNote] = useState<string | null>(null);
+    const [viewMode, setViewMode] = useState<'monthly' | 'weekly' | 'daily'>('weekly');
+    const [dailyViewDate, setDailyViewDate] = useState('');
+    const [monthlyClickedDay, setMonthlyClickedDay] = useState<string | null>(null);
 
     const weekDays = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
-    // Generate dynamic dates for the current week offset
+    // Weekly dates
     const weekDates = useMemo(() => {
         const today = new Date();
-        const dayOfWeek = today.getDay(); // 0=Sun
+        const dayOfWeek = today.getDay();
         const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-
         return Array.from({ length: 7 }).map((_, i) => {
             const d = new Date(today);
             d.setDate(today.getDate() + mondayOffset + i + (weekOffset * 7));
@@ -34,7 +37,7 @@ const Planner: React.FC<PlannerProps> = ({ looks, plannerEntries, onUpdateEntry 
 
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // Month/year label for header
+    // Weekly header label
     const headerLabel = useMemo(() => {
         const first = new Date(weekDates[0]);
         const last = new Date(weekDates[6]);
@@ -44,6 +47,35 @@ const Planner: React.FC<PlannerProps> = ({ looks, plannerEntries, onUpdateEntry 
         }
         return `${months[first.getMonth()].slice(0, 3)} - ${months[last.getMonth()].slice(0, 3)} ${last.getFullYear()}`;
     }, [weekDates]);
+
+    // Monthly calendar grid
+    const baseToday = useMemo(() => new Date(), []);
+    const currentMonth = useMemo(() => {
+        const d = new Date(baseToday.getFullYear(), baseToday.getMonth() + monthOffset, 1);
+        return d;
+    }, [monthOffset]);
+
+    const calendarGrid = useMemo(() => {
+        const year = currentMonth.getFullYear();
+        const month = currentMonth.getMonth();
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const startOffset = firstDay === 0 ? 6 : firstDay - 1;
+        const grid: (string | null)[] = [];
+        for (let i = 0; i < startOffset; i++) {
+            grid.push(null);
+        }
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            grid.push(dateStr);
+        }
+        return grid;
+    }, [currentMonth]);
+
+    const monthLabel = useMemo(() => {
+        const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+        return `${months[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`;
+    }, [currentMonth]);
 
     const getEntry = (date: string) => plannerEntries.find(p => p.date === date);
     const getLook = (id: string | null) => looks.find(l => l.id === id);
@@ -86,51 +118,134 @@ const Planner: React.FC<PlannerProps> = ({ looks, plannerEntries, onUpdateEntry 
         });
     };
 
+    const navigateDaily = (dir: number) => {
+        const d = new Date((dailyViewDate || todayStr) + 'T12:00:00');
+        d.setDate(d.getDate() + dir);
+        setDailyViewDate(d.toISOString().split('T')[0]);
+    };
+
+    const goToDailyView = (date: string) => {
+        setDailyViewDate(date);
+        setViewMode('daily');
+    };
+
+    const effectiveDailyDate = useMemo(() => {
+        return dailyViewDate || todayStr;
+    }, [dailyViewDate]);
+
+    const dailyEntry = useMemo(() => getEntry(effectiveDailyDate), [effectiveDailyDate, plannerEntries]);
+    const dailyLook = useMemo(() => dailyEntry ? getLook(dailyEntry.lookId) : null, [dailyEntry]);
+
     return (
         <div className="p-6 pb-24 relative h-full">
-            <header className="flex justify-between items-center mb-8 mt-4">
+            <header className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 mt-4 gap-3">
                 <h1 className="text-2xl font-bold text-gray-800">{t('planner')}</h1>
-                <div className="flex items-center space-x-2">
-                    <button onClick={() => setWeekOffset(w => w - 1)} className="p-1 text-gray-400 hover:text-primary">
-                        <ChevronLeft size={20} />
+                <div className="flex items-center space-x-1 bg-gray-100 rounded-xl p-1 self-start">
+                    <button
+                        onClick={() => setViewMode('monthly')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${viewMode === 'monthly' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                        <CalendarDays size={14} className="inline mr-1.5 -mt-0.5" />
+                        Mensual
                     </button>
-                    <div className="flex items-center space-x-2 text-gray-600 text-sm font-medium bg-white px-3 py-1.5 rounded-full border border-gray-200">
-                        <CalendarIcon size={14} />
-                        <span>{headerLabel}</span>
-                    </div>
-                    <button onClick={() => setWeekOffset(w => w + 1)} className="p-1 text-gray-400 hover:text-primary">
-                        <ChevronRight size={20} />
+                    <button
+                        onClick={() => setViewMode('weekly')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${viewMode === 'weekly' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                        <CalendarIcon size={14} className="inline mr-1.5 -mt-0.5" />
+                        Semanal
                     </button>
-                    {weekOffset !== 0 && (
-                        <button onClick={() => setWeekOffset(0)} className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-1 rounded-full">
-                            {t('today')}
-                        </button>
-                    )}
+                    <button
+                        onClick={() => { setDailyViewDate(todayStr); setViewMode('daily'); }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${viewMode === 'daily' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                        <CalendarIcon size={14} className="inline mr-1.5 -mt-0.5" />
+                        Diario
+                    </button>
                 </div>
             </header>
 
-            <div className="space-y-4">
-                {weekDates.map((date, idx) => {
-                    const entry = getEntry(date);
-                    const look = entry ? getLook(entry.lookId) : null;
-                    const dayNum = date.split('-')[2];
-                    const isToday = date === todayStr;
-                    const isPast = date < todayStr;
-                    const lookImg = getLookImage(look || undefined);
+            {/* ---- MONTHLY VIEW ---- */}
+            {viewMode === 'monthly' && (
+                <div>
+                    <div className="flex items-center justify-between mb-6">
+                        <button onClick={() => setMonthOffset(m => m - 1)} className="p-1 text-gray-400 hover:text-primary">
+                            <ChevronLeft size={20} />
+                        </button>
+                        <div className="flex items-center space-x-2 text-gray-600 text-sm font-medium bg-white px-3 py-1.5 rounded-full border border-gray-200">
+                            <CalendarIcon size={14} />
+                            <span>{monthLabel}</span>
+                        </div>
+                        <button onClick={() => setMonthOffset(m => m + 1)} className="p-1 text-gray-400 hover:text-primary">
+                            <ChevronRight size={20} />
+                        </button>
+                        {monthOffset !== 0 && (
+                            <button onClick={() => setMonthOffset(0)} className="ml-2 text-[10px] font-bold text-primary bg-primary/10 px-2 py-1 rounded-full">
+                                {t('today')}
+                            </button>
+                        )}
+                    </div>
 
-                    return (
-                        <div key={date} className="flex group">
-                            {/* Date Col */}
-                            <div className="flex flex-col items-center mr-4 w-12 pt-2">
-                                <span className={`text-xs font-semibold uppercase ${isToday ? 'text-primary' : 'text-gray-400'}`}>{weekDays[idx]}</span>
-                                <span className={`text-lg font-bold ${isToday ? 'text-white bg-primary w-8 h-8 rounded-full flex items-center justify-center' : isPast ? 'text-gray-400' : 'text-gray-800'}`}>
-                                    {dayNum}
-                                </span>
-                                {idx !== 6 && <div className="w-px h-full bg-gray-200 my-2" />}
-                            </div>
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 sm:p-4">
+                        <div className="grid grid-cols-7 mb-2">
+                            {weekDays.map(day => (
+                                <div key={day} className="text-center text-[10px] font-semibold text-gray-400 uppercase pb-2">
+                                    {day}
+                                </div>
+                            ))}
+                        </div>
+                        <div className="grid grid-cols-7">
+                            {calendarGrid.map((dateStr, idx) => {
+                                if (!dateStr) {
+                                    return <div key={`e-${idx}`} className="aspect-square" />;
+                                }
+                                const dayNum = parseInt(dateStr.split('-')[2], 10);
+                                const entry = getEntry(dateStr);
+                                const isToday = dateStr === todayStr;
+                                const hasEntry = !!entry;
+                                const isClicked = dateStr === monthlyClickedDay;
+                                return (
+                                    <button
+                                        key={dateStr}
+                                        onClick={() => setMonthlyClickedDay(dateStr === monthlyClickedDay ? null : dateStr)}
+                                        className={`aspect-square flex flex-col items-center justify-center rounded-xl text-sm transition-all relative
+                                            ${isToday ? 'bg-primary/10 text-primary font-bold' : 'hover:bg-gray-50 text-gray-700'}
+                                            ${isClicked ? 'ring-2 ring-primary' : ''}
+                                        `}
+                                    >
+                                        <span className={isToday ? '' : ''}>{dayNum}</span>
+                                        {hasEntry && <span className="w-1.5 h-1.5 rounded-full bg-primary mt-0.5" />}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
 
-                            {/* Card */}
-                            <div className={`flex-1 bg-white rounded-2xl p-3 shadow-sm border min-h-[5rem] transition-all ${isToday ? 'border-primary/30 shadow-md' : 'border-gray-100'}`}>
+                    {monthlyClickedDay && (() => {
+                        const entry = getEntry(monthlyClickedDay);
+                        const look = entry ? getLook(entry.lookId) : null;
+                        const lookImg = getLookImage(look || undefined);
+                        const dayDate = new Date(monthlyClickedDay + 'T12:00:00');
+                        const dayName = dayDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+                        return (
+                            <div className="mt-4 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+                                <div className="flex items-center justify-between mb-3">
+                                    <h3 className="text-sm font-bold text-gray-700 capitalize">{dayName}</h3>
+                                    <div className="flex items-center space-x-2">
+                                        <button
+                                            onClick={() => goToDailyView(monthlyClickedDay)}
+                                            className="text-[10px] font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full hover:bg-primary/20"
+                                        >
+                                            Ver día completo
+                                        </button>
+                                        <button
+                                            onClick={() => setMonthlyClickedDay(null)}
+                                            className="text-gray-400 hover:text-gray-600"
+                                        >
+                                            <X size={16} />
+                                        </button>
+                                    </div>
+                                </div>
                                 {look ? (
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center space-x-3">
@@ -153,58 +268,257 @@ const Planner: React.FC<PlannerProps> = ({ looks, plannerEntries, onUpdateEntry 
                                                 )}
                                             </div>
                                         </div>
-                                        <div className="flex items-center space-x-1">
-                                            <button onClick={() => handleClearLook(date)} className="text-gray-300 hover:text-red-400 p-1">
-                                                <Trash2 size={14} />
-                                            </button>
-                                            <button onClick={() => setSelectedDate(date)} className="text-gray-300 hover:text-gray-500 p-1">
-                                                <MoreVertical size={18} />
-                                            </button>
-                                        </div>
+                                        <button
+                                            onClick={() => handleClearLook(monthlyClickedDay)}
+                                            className="text-gray-300 hover:text-red-400 p-1"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
                                     </div>
                                 ) : (
-                                    <div className="flex items-center space-x-4 w-full">
-                                        <div className="w-14 h-14 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center bg-gray-50 flex-shrink-0">
-                                            <Plus size={20} className="text-gray-400" />
-                                        </div>
-                                        <div className="flex flex-col flex-1">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center space-x-3">
+                                            <div className="w-14 h-14 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center bg-gray-50">
+                                                <Plus size={20} className="text-gray-400" />
+                                            </div>
                                             <span className="text-sm font-medium text-gray-400">Sin planificar</span>
-                                            {editingNote === date ? (
-                                                <div className="flex items-center space-x-1 mt-1">
-                                                    <input
-                                                        type="text"
-                                                        value={eventNoteInput}
-                                                        onChange={e => setEventNoteInput(e.target.value)}
-                                                        onKeyDown={e => e.key === 'Enter' && handleSaveNote(date)}
-                                                        className="text-xs border border-gray-200 rounded-lg px-2 py-1 flex-1 outline-none focus:border-primary"
-                                                        placeholder="Nota del evento..."
-                                                        autoFocus
-                                                    />
-                                                    <button onClick={() => handleSaveNote(date)} className="text-[10px] font-bold text-primary">OK</button>
-                                                    <button onClick={() => setEditingNote(null)} className="text-gray-400"><X size={12} /></button>
-                                                </div>
-                                            ) : (
-                                                <button
-                                                    onClick={() => { setEditingNote(date); setEventNoteInput(entry?.eventNote || ''); }}
-                                                    className="text-[10px] text-gray-400 text-left hover:text-primary"
-                                                >
-                                                    {entry?.eventNote || '+ Añadir nota'}
-                                                </button>
-                                            )}
                                         </div>
                                         <button
-                                            onClick={() => setSelectedDate(date)}
-                                            className="ml-auto text-xs font-bold text-primary border border-primary/30 px-3 py-1.5 rounded-full hover:bg-primary/5 flex-shrink-0"
+                                            onClick={() => { setSelectedDate(monthlyClickedDay); setMonthlyClickedDay(null); }}
+                                            className="text-xs font-bold text-primary border border-primary/30 px-3 py-1.5 rounded-full hover:bg-primary/5"
                                         >
                                             {t('assign')}
                                         </button>
                                     </div>
                                 )}
                             </div>
+                        );
+                    })()}
+                </div>
+            )}
+
+            {/* ---- WEEKLY VIEW ---- */}
+            {viewMode === 'weekly' && (
+                <>
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center space-x-2">
+                            <button onClick={() => setWeekOffset(w => w - 1)} className="p-1 text-gray-400 hover:text-primary">
+                                <ChevronLeft size={20} />
+                            </button>
+                            <div className="flex items-center space-x-2 text-gray-600 text-sm font-medium bg-white px-3 py-1.5 rounded-full border border-gray-200">
+                                <CalendarIcon size={14} />
+                                <span>{headerLabel}</span>
+                            </div>
+                            <button onClick={() => setWeekOffset(w => w + 1)} className="p-1 text-gray-400 hover:text-primary">
+                                <ChevronRight size={20} />
+                            </button>
+                            {weekOffset !== 0 && (
+                                <button onClick={() => setWeekOffset(0)} className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-1 rounded-full">
+                                    {t('today')}
+                                </button>
+                            )}
                         </div>
-                    );
-                })}
-            </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        {weekDates.map((date, idx) => {
+                            const entry = getEntry(date);
+                            const look = entry ? getLook(entry.lookId) : null;
+                            const dayNum = date.split('-')[2];
+                            const isToday = date === todayStr;
+                            const isPast = date < todayStr;
+                            const lookImg = getLookImage(look || undefined);
+
+                            return (
+                                <div key={date} className="flex group">
+                                    <div className="flex flex-col items-center mr-4 w-12 pt-2">
+                                        <span className={`text-xs font-semibold uppercase ${isToday ? 'text-primary' : 'text-gray-400'}`}>{weekDays[idx]}</span>
+                                        <span className={`text-lg font-bold ${isToday ? 'text-white bg-primary w-8 h-8 rounded-full flex items-center justify-center' : isPast ? 'text-gray-400' : 'text-gray-800'}`}>
+                                            {dayNum}
+                                        </span>
+                                        {idx !== 6 && <div className="w-px h-full bg-gray-200 my-2" />}
+                                    </div>
+
+                                    <div className={`flex-1 bg-white rounded-2xl p-3 shadow-sm border min-h-[5rem] transition-all ${isToday ? 'border-primary/30 shadow-md' : 'border-gray-100'}`}>
+                                        {look ? (
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center space-x-3">
+                                                    {lookImg ? (
+                                                        <img src={lookImg} className="w-14 h-14 rounded-xl object-cover" alt={look.name} />
+                                                    ) : (
+                                                        <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                                                            <Shirt size={22} />
+                                                        </div>
+                                                    )}
+                                                    <div>
+                                                        <h4 className="font-bold text-gray-800 text-sm">{look.name}</h4>
+                                                        {look.garments && look.garments.filter(g => !!g).length > 0 && (
+                                                            <p className="text-[10px] text-gray-400">{look.garments.filter(g => !!g).length} prendas</p>
+                                                        )}
+                                                        {entry?.eventNote && (
+                                                            <span className="text-xs text-accent font-medium bg-orange-50 px-2 py-0.5 rounded-md mt-1 inline-block">
+                                                                {entry.eventNote}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center space-x-1">
+                                                    <button onClick={() => handleClearLook(date)} className="text-gray-300 hover:text-red-400 p-1">
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                    <button onClick={() => setSelectedDate(date)} className="text-gray-300 hover:text-gray-500 p-1">
+                                                        <MoreVertical size={18} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center space-x-4 w-full">
+                                                <div className="w-14 h-14 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center bg-gray-50 flex-shrink-0">
+                                                    <Plus size={20} className="text-gray-400" />
+                                                </div>
+                                                <div className="flex flex-col flex-1">
+                                                    <span className="text-sm font-medium text-gray-400">Sin planificar</span>
+                                                    {editingNote === date ? (
+                                                        <div className="flex items-center space-x-1 mt-1">
+                                                            <input
+                                                                type="text"
+                                                                value={eventNoteInput}
+                                                                onChange={e => setEventNoteInput(e.target.value)}
+                                                                onKeyDown={e => e.key === 'Enter' && handleSaveNote(date)}
+                                                                className="text-xs border border-gray-200 rounded-lg px-2 py-1 flex-1 outline-none focus:border-primary"
+                                                                placeholder="Nota del evento..."
+                                                                autoFocus
+                                                            />
+                                                            <button onClick={() => handleSaveNote(date)} className="text-[10px] font-bold text-primary">OK</button>
+                                                            <button onClick={() => setEditingNote(null)} className="text-gray-400"><X size={12} /></button>
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => { setEditingNote(date); setEventNoteInput(entry?.eventNote || ''); }}
+                                                            className="text-[10px] text-gray-400 text-left hover:text-primary"
+                                                        >
+                                                            {entry?.eventNote || '+ Añadir nota'}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <button
+                                                    onClick={() => setSelectedDate(date)}
+                                                    className="ml-auto text-xs font-bold text-primary border border-primary/30 px-3 py-1.5 rounded-full hover:bg-primary/5 flex-shrink-0"
+                                                >
+                                                    {t('assign')}
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </>
+            )}
+
+            {/* ---- DAILY VIEW ---- */}
+            {viewMode === 'daily' && (
+                <div>
+                    <div className="flex items-center justify-between mb-6">
+                        <button onClick={() => navigateDaily(-1)} className="p-1 text-gray-400 hover:text-primary">
+                            <ChevronLeft size={20} />
+                        </button>
+                        <div className="flex items-center space-x-2 text-gray-600 text-sm font-medium bg-white px-3 py-1.5 rounded-full border border-gray-200">
+                            <CalendarIcon size={14} />
+                            <span className="capitalize">
+                                {new Date(effectiveDailyDate + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                            </span>
+                        </div>
+                        <button onClick={() => navigateDaily(1)} className="p-1 text-gray-400 hover:text-primary">
+                            <ChevronRight size={20} />
+                        </button>
+                        {effectiveDailyDate !== todayStr && (
+                            <button onClick={() => setDailyViewDate(todayStr)} className="ml-2 text-[10px] font-bold text-primary bg-primary/10 px-2 py-1 rounded-full">
+                                {t('today')}
+                            </button>
+                        )}
+                    </div>
+
+                    <div className={`bg-white rounded-2xl p-4 shadow-sm border min-h-[8rem] transition-all ${effectiveDailyDate === todayStr ? 'border-primary/30 shadow-md' : 'border-gray-100'}`}>
+                        {dailyLook ? (
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <div className="flex items-center space-x-4">
+                                    {(dailyLook && getLookImage(dailyLook)) ? (
+                                        <img src={getLookImage(dailyLook)!} className="w-20 h-20 rounded-xl object-cover" alt={dailyLook.name} />
+                                    ) : (
+                                        <div className="w-20 h-20 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                                            <Shirt size={32} />
+                                        </div>
+                                    )}
+                                    <div>
+                                        <h3 className="font-bold text-gray-800 text-lg">{dailyLook!.name}</h3>
+                                        {dailyLook!.garments && dailyLook!.garments.filter(g => !!g).length > 0 && (
+                                            <p className="text-xs text-gray-400 mt-0.5">{dailyLook!.garments.filter(g => !!g).length} prendas</p>
+                                        )}
+                                        {dailyEntry?.eventNote && (
+                                            <span className="text-xs text-accent font-medium bg-orange-50 px-2 py-0.5 rounded-md mt-2 inline-block">
+                                                {dailyEntry.eventNote}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <button
+                                        onClick={() => setSelectedDate(effectiveDailyDate)}
+                                        className="text-xs font-bold text-primary border border-primary/30 px-3 py-1.5 rounded-full hover:bg-primary/5"
+                                    >
+                                        Cambiar look
+                                    </button>
+                                    <button onClick={() => handleClearLook(effectiveDailyDate)} className="text-gray-300 hover:text-red-400 p-1.5">
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center py-8">
+                                <div className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center bg-gray-50 mb-4">
+                                    <Plus size={28} className="text-gray-400" />
+                                </div>
+                                <span className="text-base font-medium text-gray-400 mb-4">Sin planificar</span>
+                                <button
+                                    onClick={() => setSelectedDate(effectiveDailyDate)}
+                                    className="text-xs font-bold text-primary border border-primary/30 px-4 py-2 rounded-full hover:bg-primary/5"
+                                >
+                                    {t('assign')}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Event note in daily view */}
+                    <div className="mt-4 bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+                        <h4 className="text-sm font-bold text-gray-700 mb-3">Nota del evento</h4>
+                        {editingNote === effectiveDailyDate ? (
+                            <div className="flex items-center space-x-2">
+                                <input
+                                    type="text"
+                                    value={eventNoteInput}
+                                    onChange={e => setEventNoteInput(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && handleSaveNote(effectiveDailyDate)}
+                                    className="text-sm border border-gray-200 rounded-lg px-3 py-2 flex-1 outline-none focus:border-primary"
+                                    placeholder="Nota del evento..."
+                                    autoFocus
+                                />
+                                <button onClick={() => handleSaveNote(effectiveDailyDate)} className="text-xs font-bold text-primary bg-primary/10 px-3 py-2 rounded-lg">OK</button>
+                                <button onClick={() => setEditingNote(null)} className="text-gray-400"><X size={16} /></button>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={() => { setEditingNote(effectiveDailyDate); setEventNoteInput(dailyEntry?.eventNote || ''); }}
+                                className="w-full text-sm text-gray-400 text-left hover:text-primary py-2 px-3 rounded-lg border border-dashed border-gray-200 hover:border-primary/30"
+                            >
+                                {dailyEntry?.eventNote || '+ Añadir nota del evento'}
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* Selection Modal */}
             {selectedDate && (

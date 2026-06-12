@@ -1,5 +1,5 @@
 import { Capacitor } from '@capacitor/core';
-import { Garment, Look, PlannerEntry, UserState, Trip, Comment, CommunityPost, ShopItem, ChatConversation, ChatMessage } from '../types';
+import { Garment, Look, PlannerEntry, UserState, Trip, Comment, CommunityPost, ShopItem, ChatConversation, ChatMessage, StoryEntry } from '../types';
 import { getSecureItem, setSecureItem, removeSecureItem } from '../src/utils/secureStorage';
 
 const normalizeApiBase = (value?: string) => {
@@ -824,6 +824,75 @@ export const api = {
         const res = await fetch(`${API_BASE}/users/top`, { headers: getHeaders(), credentials: 'include' });
         const data = await handleResponse(res);
         return normalizeAssetsDeep(data);
+    },
+
+    // ============= STORIES =============
+    getStories: async (): Promise<StoryEntry[]> => {
+        const res = await fetch(`${API_BASE}/stories`, { headers: getHeaders(), credentials: 'include' });
+        const data = await handleResponse(res);
+        const currentUserId = (() => {
+            try {
+                const raw = localStorage.getItem('beyour_user');
+                return raw ? JSON.parse(raw).id : null;
+            } catch { return null; }
+        })();
+        return (data || []).map((s: any) => ({
+            id: s.id,
+            userId: s.userId,
+            userName: s.user?.name || 'Usuario',
+            userAvatar: resolveAssetUrl(s.user?.avatar),
+            type: s.type,
+            text: s.text || undefined,
+            imageUrl: resolveAssetUrl(s.imageUrl),
+            views: s.views,
+            createdAt: s.createdAt,
+            expiresAt: s.expiresAt,
+            isOwn: s.userId === currentUserId,
+        }));
+    },
+
+    createStory: async (data: { type: string; text?: string; imageUrl?: string; imageFile?: File | null }): Promise<StoryEntry> => {
+        const formData = new FormData();
+        formData.append('type', data.type);
+        if (data.text) formData.append('text', data.text);
+        if (data.imageFile) {
+            formData.append('image', data.imageFile);
+        } else if (data.imageUrl) {
+            formData.append('imageUrl', data.imageUrl);
+        }
+        const res = await fetch(`${API_BASE}/stories`, {
+            credentials: 'include', method: 'POST',
+            headers: getAuthHeader() as any,
+            body: formData,
+        });
+        const s = await handleResponse(res);
+        const currentUserId = (() => {
+            try {
+                const raw = localStorage.getItem('beyour_user');
+                return raw ? JSON.parse(raw).id : null;
+            } catch { return null; }
+        })();
+        return {
+            id: s.id,
+            userId: s.userId,
+            userName: s.user?.name || 'Usuario',
+            userAvatar: resolveAssetUrl(s.user?.avatar),
+            type: s.type,
+            text: s.text || undefined,
+            imageUrl: resolveAssetUrl(s.imageUrl),
+            views: s.views,
+            createdAt: s.createdAt,
+            expiresAt: s.expiresAt,
+            isOwn: s.userId === currentUserId,
+        };
+    },
+
+    viewStory: async (storyId: string): Promise<void> => {
+        const res = await fetch(`${API_BASE}/stories/${storyId}/view`, {
+            credentials: 'include', method: 'POST',
+            headers: getHeaders(),
+        });
+        await handleResponse(res);
     },
 
     // ============= CHAT =============

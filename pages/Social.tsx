@@ -107,18 +107,29 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
   useLocalStorage<StoryEntry[]>('ev_social_stories', stories);
 
   useEffect(() => {
-    try {
-      const savedStories = localStorage.getItem('ev_social_stories');
-      const rawStories: StoryEntry[] = savedStories ? JSON.parse(savedStories) : [];
-      const validStories = rawStories.filter(item => new Date(item.expiresAt) > new Date());
-      if (validStories.length !== rawStories.length) {
-        localStorage.setItem('ev_social_stories', JSON.stringify(validStories));
+    const loadStories = async () => {
+      try {
+        const localRaw = localStorage.getItem('ev_social_stories');
+        const localStories: StoryEntry[] = localRaw ? JSON.parse(localRaw) : [];
+        const validLocal = localStories.filter(item => new Date(item.expiresAt) > new Date());
+
+        let merged = [...validLocal];
+        try {
+          const apiStories = await api.getStories();
+          const apiIds = new Set(apiStories.map(s => s.id));
+          merged = [...apiStories, ...validLocal.filter(s => !apiIds.has(s.id))];
+        } catch (err) {
+          console.warn('Could not load stories from API, using local cache:', err);
+        }
+
+        localStorage.setItem('ev_social_stories', JSON.stringify(merged));
+        setStories(merged);
+      } catch (error) {
+        console.warn('No se pudieron cargar las historias guardadas:', error);
+        setStories([]);
       }
-      setStories(validStories);
-    } catch (error) {
-      console.warn('No se pudieron cargar las historias guardadas:', error);
-      setStories([]);
-    }
+    };
+    loadStories();
 
     try {
       const savedFollowing = localStorage.getItem('ev_social_followed');
@@ -285,7 +296,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
     }
   };
 
-  const handlePublishStory = () => {
+  const handlePublishStory = async () => {
     if (storyForm.type === 'text' && !storyForm.text.trim()) {
       setStoryUploadError('Escribe una frase o reflexión para tu historia.');
       return;
@@ -295,13 +306,15 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
       return;
     }
 
+    const overlayText = storyForm.type === 'image' ? storyForm.text.trim() || undefined : undefined;
+
     const newStory: StoryEntry = {
       id: `story-${Date.now()}`,
       userId: activeUser?.id || 'me',
       userName: activeUser?.name || 'Tú',
       userAvatar: activeUser?.avatar,
       type: storyForm.type,
-      text: storyForm.type === 'text' ? storyForm.text.trim() : undefined,
+      text: storyForm.type === 'text' ? storyForm.text.trim() : overlayText,
       imageUrl: storyForm.type === 'image' ? storyForm.imageUrl : undefined,
       views: 0,
       createdAt: new Date().toISOString(),
@@ -314,6 +327,19 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
     setIsCreateStoryOpen(false);
     setStoryForm({ type: 'image', text: '', imageUrl: '', selectedGarmentId: null, imageFile: null });
     setStoryUploadError(null);
+
+    try {
+      const saved = await api.createStory({
+        type: storyForm.type,
+        text: storyForm.type === 'image' ? overlayText : storyForm.text.trim() || undefined,
+        imageUrl: storyForm.type === 'image' ? storyForm.imageUrl : undefined,
+        imageFile: storyForm.imageFile,
+      });
+      setStories(prev => prev.map(s => s.id === newStory.id ? { ...s, id: saved.id } : s));
+    } catch (err) {
+      console.warn('Could not save story to server, using local:', err);
+    }
+
     addXp(15, 'subir una historia');
     setStoryToast(hadStories ? 'Tu historia se publicó con éxito.' : '¡Bienvenida a tu primera historia!');
     window.setTimeout(() => setStoryToast(null), 3200);
@@ -322,6 +348,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
   const handleStoryView = (storyId: string) => {
     setSelectedStoryId(storyId);
     setStories(prev => prev.map(story => story.id === storyId ? { ...story, views: story.views + 1 } : story));
+    api.viewStory(storyId).catch(err => console.warn('Could not track story view on server:', err));
   };
 
   const handleChatAttach = async () => {
@@ -1077,32 +1104,34 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                         </div>
                       </div>
 
-                      {/* Bottom Info Layer */}
+                      {/* Bottom Info Layer - Instagram style */}
                       <div className="absolute bottom-0 left-0 right-0 p-3 pointer-events-auto w-full">
-                        <div className="flex justify-between items-end w-full mb-1">
+                        <div className="flex justify-between items-end w-full">
                           <div className="flex-1 overflow-hidden pr-2">
-                            <h4 className="font-bold text-white text-xs leading-tight mb-1 truncate">{post.name}</h4>
-                            {post.mood && (
-                              <div className="inline-flex items-center space-x-1 bg-white/20 backdrop-blur-md px-2 py-0.5 rounded-full">
-                                <span className="text-[9px] text-white font-medium">{post.mood}</span>
-                              </div>
-                            )}
+                            <h4 className="font-bold text-white text-xs leading-tight truncate">{post.name}</h4>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              {post.mood && (
+                                <span className="text-[9px] text-white/80 font-medium">#{post.mood}</span>
+                              )}
+                              <span className="text-[9px] text-white/50">
+                                {new Date(post.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                              </span>
+                            </div>
                           </div>
-
-                          <div className="flex flex-col gap-2">
+                          <div className="flex items-center gap-2">
                             <button
                               onClick={() => handleToggleLike(post.id)}
-                              className={`flex flex-col items-center bg-black/20 backdrop-blur-md p-1.5 rounded-2xl transition-colors ${post.isLiked ? 'text-rose-500' : 'text-white'}`}
+                              className={`flex items-center gap-1 bg-black/20 backdrop-blur-md px-2.5 py-1.5 rounded-full transition-colors ${post.isLiked ? 'text-rose-400' : 'text-white'}`}
                             >
-                              <Heart size={16} fill={post.isLiked ? "currentColor" : "none"} />
-                              {post.likesCount > 0 && <span className="text-[9px] font-bold mt-0.5">{post.likesCount}</span>}
+                              <Heart size={13} fill={post.isLiked ? "currentColor" : "none"} />
+                              <span className="text-[10px] font-bold">{post.likesCount || 0}</span>
                             </button>
                             <button
                               onClick={() => openComments(post.id)}
-                              className="flex flex-col items-center text-white bg-black/20 backdrop-blur-md p-1.5 rounded-2xl"
+                              className="flex items-center gap-1 text-white bg-black/20 backdrop-blur-md px-2.5 py-1.5 rounded-full"
                             >
-                              <MessageCircle size={16} />
-                              {post.commentsCount > 0 && <span className="text-[9px] font-bold mt-0.5">{post.commentsCount}</span>}
+                              <MessageCircle size={13} />
+                              <span className="text-[10px] font-bold">{post.commentsCount || 0}</span>
                             </button>
                           </div>
                         </div>
@@ -1776,6 +1805,15 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                       <p className="text-sm text-gray-400">Selecciona una foto para tu historia.</p>
                     )}
                   </div>
+                  {storyForm.imageUrl && (
+                    <input
+                      type="text"
+                      value={storyForm.text}
+                      onChange={e => setStoryForm(prev => ({ ...prev, text: e.target.value }))}
+                      placeholder="Añade texto sobre la imagen (opcional)..."
+                      className="w-full rounded-3xl border border-gray-200 px-4 py-3 text-sm text-gray-700 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                    />
+                  )}
                 </div>
               ) : (
                 <textarea

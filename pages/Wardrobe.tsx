@@ -141,6 +141,13 @@ const Wardrobe: React.FC<WardrobeProps> = ({
   const [saleDescription, setSaleDescription] = useState('');
   const [saleCondition, setSaleCondition] = useState('bueno');
   const [saleSize, setSaleSize] = useState('');
+  const [saleImage, setSaleImage] = useState<string | null>(null);
+  const [saleFile, setSaleFile] = useState<File | null>(null);
+  const [saleName, setSaleName] = useState('');
+  const [saleCategory, setSaleCategory] = useState('top');
+  const [saleUploadError, setSaleUploadError] = useState<string | null>(null);
+  const [isPickingSalePhoto, setIsPickingSalePhoto] = useState(false);
+  const saleFileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Detail Modal
   const [detailItem, setDetailItem] = useState<ProductDisplayItem | null>(null);
@@ -247,8 +254,99 @@ const Wardrobe: React.FC<WardrobeProps> = ({
     setNewBrand('');
   };
 
+  const validateImage = (file: File): string | null => {
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) return 'La imagen es demasiado grande. El tamaño máximo es 10MB.';
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) return 'Formato no válido. Usa JPEG, PNG o WebP.';
+    return null;
+  };
+
+  const applySalePhoto = (dataUrl: string, file: File) => {
+    setSaleImage(dataUrl);
+    setSaleFile(file);
+    setSaleUploadError(null);
+  };
+
+  const pickSalePhoto = async (source: CameraSource) => {
+    setIsPickingSalePhoto(true);
+    setSaleUploadError(null);
+    try {
+      const { dataUrl, file } = await pickPhoto(source);
+      const error = validateImage(file);
+      if (error) {
+        setSaleUploadError(error);
+        return;
+      }
+      applySalePhoto(dataUrl, file);
+    } catch (err: any) {
+      const rawMessage = String(err?.message || err || '');
+      const message = rawMessage.toLowerCase();
+      if (message.includes('cancel') || message.includes('cancelado')) return;
+      console.warn('Sale photo pick failed:', err);
+      setSaleUploadError(rawMessage || 'No se pudo obtener la foto. Revisa los permisos de cámara y galería e inténtalo de nuevo.');
+    } finally {
+      setIsPickingSalePhoto(false);
+    }
+  };
+
+  const handleSaleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const error = validateImage(file);
+    if (error) {
+      setSaleUploadError(error);
+      return;
+    }
+    setSaleFile(file);
+    setSaleUploadError(null);
+    const reader = new FileReader();
+    reader.onloadend = () => setSaleImage(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const resetSellModal = () => {
+    setIsSelling(false);
+    setSelectedForSale(null);
+    setSalePrice('');
+    setSaleDescription('');
+    setSaleCondition('bueno');
+    setSaleSize('');
+    setSaleImage(null);
+    setSaleFile(null);
+    setSaleName('');
+    setSaleCategory('top');
+    setSaleUploadError(null);
+  };
+
+  const confirmNewSale = () => {
+    if (!saleImage || !saleName.trim() || !salePrice) return;
+    let fileToUpload = saleFile;
+    if (!fileToUpload && saleImage.startsWith('data:')) {
+      fileToUpload = dataUrlToFile(saleImage, `garment-sale-${Date.now()}.jpg`);
+    }
+    const garment: Garment = {
+      id: `g-${Date.now()}`,
+      imageUrl: saleImage,
+      name: saleName.trim(),
+      type: saleCategory,
+      color: 'sin color',
+      season: 'all',
+      usageCount: 0,
+      forSale: true,
+      price: parseFloat(salePrice),
+      description: saleDescription || undefined,
+      condition: saleCondition,
+      size: saleSize || undefined,
+    };
+    onAddGarment(garment, fileToUpload);
+    resetSellModal();
+    setActiveView('sales');
+  };
+
   const confirmSale = () => {
-    if (selectedForSale && salePrice) {
+    if (!salePrice) return;
+    if (selectedForSale) {
       onUpdateGarment({
         ...selectedForSale,
         forSale: true,
@@ -257,13 +355,10 @@ const Wardrobe: React.FC<WardrobeProps> = ({
         condition: saleCondition,
         size: saleSize || undefined,
       });
-      setIsSelling(false);
-      setSelectedForSale(null);
-      setSalePrice('');
-      setSaleDescription('');
-      setSaleCondition('bueno');
-      setSaleSize('');
+      resetSellModal();
       setActiveView('sales');
+    } else {
+      confirmNewSale();
     }
   };
 
@@ -670,15 +765,15 @@ const Wardrobe: React.FC<WardrobeProps> = ({
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
               {looks.map((look) => {
                 const lookImg = getLookImage(look);
                 return (
                   <div
                     key={look.id}
-                    className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100"
+                    className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
                   >
-                    <div className="aspect-[3/4] bg-gray-50 relative">
+                    <div className="aspect-[4/5] bg-gray-50 relative">
                       {lookImg ? (
                         <img src={lookImg} alt={look.name} className="w-full h-full object-cover" />
                       ) : (
@@ -729,7 +824,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
           <div className="flex justify-between items-center mb-4">
             <h3 className="font-bold text-gray-800">En tu escaparate</h3>
             <button
-              onClick={() => { setIsSelling(true); setSelectedForSale(null); setSalePrice(''); }}
+              onClick={() => { setIsSelling(true); setSelectedForSale(null); setSalePrice(''); setSaleName(''); setSaleImage(null); setSaleFile(null); setSaleUploadError(null); setSaleCategory('top'); }}
               className="text-primary text-xs font-bold bg-primary/10 px-3 py-1.5 rounded-full"
             >
               + Nueva Venta
@@ -919,8 +1014,8 @@ const Wardrobe: React.FC<WardrobeProps> = ({
       {/* SELL MODAL */}
       {isSelling && (
         <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl animate-pop-in overflow-hidden">
-            <div className="p-6 border-b border-gray-50 text-center">
+          <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl animate-pop-in flex flex-col max-h-[90vh]">
+            <div className="flex-shrink-0 p-6 border-b border-gray-50 text-center">
               <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3">
                 <SellIcon size={32} />
               </div>
@@ -928,8 +1023,8 @@ const Wardrobe: React.FC<WardrobeProps> = ({
               <p className="text-xs text-gray-400 mt-1">Convierte tu armario en ingresos</p>
             </div>
 
-            <div className="p-6 space-y-4">
-              {selectedForSale && (
+            <div className="overflow-y-auto flex-1 p-6 space-y-4">
+              {selectedForSale ? (
                 <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl">
                   <img src={selectedForSale.imageUrl} className="w-12 h-12 rounded-xl object-cover" alt="" />
                   <div>
@@ -937,6 +1032,79 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                     <p className="text-[10px] text-gray-400 capitalize">{selectedForSale.color} · {selectedForSale.brand || 'Marca no especif.'}</p>
                   </div>
                 </div>
+              ) : (
+                <div>
+                  {!saleImage ? (
+                    <div className="w-full aspect-[4/3] bg-gray-50 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center p-4 gap-3">
+                      <Camera size={36} className="text-gray-300" />
+                      <span className="text-sm text-gray-500 font-medium">Foto de la prenda</span>
+                      <div className="flex gap-2 w-full max-w-xs">
+                        <button
+                          type="button"
+                          disabled={isPickingSalePhoto}
+                          onClick={() => pickSalePhoto(CameraSource.Camera)}
+                          className="flex-1 py-2.5 rounded-xl bg-primary text-white text-xs font-bold disabled:opacity-50 hover:opacity-80 transition-opacity"
+                        >
+                          Cámara
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isPickingSalePhoto}
+                          onClick={() => pickSalePhoto(CameraSource.Photos)}
+                          className="flex-1 py-2.5 rounded-xl bg-gray-800 text-white text-xs font-bold disabled:opacity-50 hover:opacity-80 transition-opacity"
+                        >
+                          Galería
+                        </button>
+                      </div>
+                      <label className="flex items-center gap-1 text-xs text-gray-400 cursor-pointer hover:text-primary transition-colors">
+                        <ImagePlus size={14} />
+                        <span>O subir desde el dispositivo</span>
+                        <input type="file" accept="image/*" className="hidden" onChange={handleSaleFileUpload} />
+                      </label>
+                      {saleUploadError && (
+                        <p className="text-xs text-red-500 font-medium text-center">{saleUploadError}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden">
+                      <img src={saleImage} className="w-full h-full object-cover" />
+                      <button
+                        onClick={() => { setSaleImage(null); setSaleFile(null); setSaleUploadError(null); }}
+                        className="absolute top-2 right-2 bg-black/50 text-white p-2 rounded-full"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!selectedForSale && (
+                <>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">Nombre</label>
+                    <input
+                      value={saleName}
+                      onChange={e => setSaleName(e.target.value)}
+                      placeholder="Ej: Vestido floral verano"
+                      className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">Categoría</label>
+                    <div className="flex gap-2 flex-wrap">
+                      {CATEGORIES.filter(c => c.id !== 'all').map(cat => (
+                        <button
+                          key={cat.id}
+                          onClick={() => setSaleCategory(cat.id)}
+                          className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${saleCategory === cat.id ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500'}`}
+                        >
+                          {cat.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
               )}
 
               <div>
@@ -990,9 +1158,9 @@ const Wardrobe: React.FC<WardrobeProps> = ({
               </div>
             </div>
 
-            <div className="p-6 bg-gray-50 flex gap-3">
+            <div className="flex-shrink-0 p-6 bg-gray-50 flex gap-3">
               <button
-                onClick={() => setIsSelling(false)}
+                onClick={() => resetSellModal()}
                 className="flex-1 py-3 text-sm font-bold text-gray-400"
               >
                 Cancelar
@@ -1000,7 +1168,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
               <button
                 onClick={confirmSale}
                 className="flex-[2] bg-emerald-500 text-white py-3 rounded-xl text-sm font-bold shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-colors"
-                disabled={!salePrice}
+                disabled={!salePrice || (!selectedForSale && (!saleImage || !saleName.trim()))}
               >
                 Publicar ahora
               </button>

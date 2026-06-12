@@ -2239,6 +2239,81 @@ app.get('/api/stats', authenticateToken, async (req: any, res: Response) => {
   }
 });
 
+// ============= STORIES =============
+
+const STORIES_DIR = path.join(UPLOADS_DIR, 'stories');
+if (!existsSync(STORIES_DIR)) {
+  mkdirSync(STORIES_DIR, { recursive: true });
+}
+
+const storyStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, STORIES_DIR),
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'story-' + uniqueSuffix + path.extname(file.originalname));
+  },
+});
+const storyUpload = multer({ storage: storyStorage, limits: { fileSize: 10 * 1024 * 1024 } });
+
+app.get('/api/stories', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const stories = await prisma.story.findMany({
+      where: { expiresAt: { gt: new Date() } },
+      include: { user: { select: { id: true, name: true, avatar: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json(stories);
+  } catch (error) {
+    logger.error('Error fetching stories', { error });
+    res.status(500).json({ error: 'Error fetching stories' });
+  }
+});
+
+app.post('/api/stories', authenticateToken, storyUpload.single('image'), async (req: any, res: Response) => {
+  try {
+    const { type, text } = req.body;
+    const file = req.file;
+    let imageUrl: string | null = null;
+
+    if (type === 'image' && file) {
+      imageUrl = `/api/uploads/stories/${file.filename}`;
+    } else if (type === 'image' && req.body.imageUrl) {
+      imageUrl = req.body.imageUrl;
+    }
+
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
+
+    const story = await prisma.story.create({
+      data: {
+        userId: req.user.userId,
+        type,
+        text: text || null,
+        imageUrl,
+        expiresAt,
+      },
+      include: { user: { select: { id: true, name: true, avatar: true } } },
+    });
+
+    res.status(201).json(story);
+  } catch (error) {
+    logger.error('Error creating story', { error });
+    res.status(500).json({ error: 'Error creating story' });
+  }
+});
+
+app.post('/api/stories/:id/view', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const story = await prisma.story.update({
+      where: { id: req.params.id },
+      data: { views: { increment: 1 } },
+    });
+    res.json(story);
+  } catch (error) {
+    logger.error('Error incrementing story views', { error });
+    res.status(500).json({ error: 'Error incrementing story views' });
+  }
+});
+
 // ============= FRONTEND SPA =============
 
 const frontendPath = NODE_ENV === 'production'
