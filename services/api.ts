@@ -18,11 +18,7 @@ const isNativeApp = () => {
 const isDevMode = () => {
     const fromEnv = (import.meta as any).env?.VITE_API_BASE || (import.meta as any).env?.VITE_API_URL;
     if (fromEnv?.trim()) return true;
-    // In native dev (emulator) the host is local
-    if (!isNativeApp()) return false;
-    return typeof location !== 'undefined' && (
-        location.hostname === 'localhost' || location.hostname === '10.0.2.2' || location.hostname === '127.0.0.1'
-    );
+    return import.meta.env.DEV === true;
 };
 
 const resolveDefaultApiBase = (): string => {
