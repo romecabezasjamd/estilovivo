@@ -38,6 +38,7 @@ const CATEGORIES = [
   { id: 'dress', label: 'Vestidos' },
   { id: 'set', label: 'Conjuntos' },
   { id: 'swimwear', label: 'Traje de baño' },
+  { id: 'activewear', label: 'Ropa deportiva' },
 ];
 
 const SEASONS = [

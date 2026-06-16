@@ -9,7 +9,7 @@ interface CreateLookProps {
   onClose?: () => void;
 }
 
-const CATEGORY_ORDER = ['top', 'outerwear', 'bottom', 'dress', 'shoes', 'accessories', 'swimwear'];
+const CATEGORY_ORDER = ['top', 'outerwear', 'bottom', 'dress', 'shoes', 'accessories', 'swimwear', 'activewear'];
 
 const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook, onClose }) => {
   const { t } = useLanguage();
@@ -153,6 +153,7 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook, onClose }
     accessories: t('accessories'),
     dress: t('dresses'),
     swimwear: 'Traje de baño',
+    activewear: 'Ropa deportiva',
   };
 
   return (

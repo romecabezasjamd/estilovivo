@@ -7,6 +7,8 @@ const normalizeApiBase = (value?: string) => {
     return base.endsWith('/api') ? base : `${base}/api`;
 };
 
+const PRODUCTION_API = 'https://estilovivo.xyoncloud.win/api';
+
 const resolveDefaultApiBase = (): string => {
     const fromEnv = (import.meta as any).env?.VITE_API_BASE || (import.meta as any).env?.VITE_API_URL;
     if (fromEnv?.trim()) return normalizeApiBase(fromEnv);
@@ -22,17 +24,18 @@ const resolveDefaultApiBase = (): string => {
         }
         return '/api';
     }
-    return normalizeApiBase('https://estilovivo.xyoncloud.win/api');
+    return normalizeApiBase(PRODUCTION_API);
 };
 
-export const API_BASE = resolveDefaultApiBase();
-export const API_ORIGIN = API_BASE.replace(/\/api\/?$/, '');
+export let API_BASE = resolveDefaultApiBase();
+export let API_ORIGIN = API_BASE.replace(/\/api\/?$/, '');
 
-// Retry logic for Android network calls
+// Retry logic for Android network calls — includes production as final fallback
 const ANDROID_API_FALLBACKS = [
     'http://10.0.2.2:3000/api',      // Default Android emulator gateway
     'http://192.168.1.141:3000/api',  // Local network IP
-    'http://127.0.0.1:3000/api',      // Localhost as last resort
+    'http://127.0.0.1:3000/api',      // Localhost
+    PRODUCTION_API,                     // Production as last resort
 ];
 
 let resolvedAndroidApiBase: string | null = null;
@@ -73,9 +76,15 @@ export const getApiBase = async (): Promise<string> => {
     return API_BASE;
 };
 
-// Initialize Android API base on app start
+// Initialize Android API base on app start and update API_BASE if a fallback is found
 if (typeof window !== 'undefined') {
-    getApiBase().catch(err => console.error('[API] Failed to resolve Android base:', err));
+    getApiBase().then(resolved => {
+        if (resolved !== API_BASE) {
+            (API_BASE as string) = resolved;
+            (API_ORIGIN as string) = resolved.replace(/\/api\/?$/, '');
+            console.log(`[API] Updated base to: ${resolved}`);
+        }
+    }).catch(err => console.error('[API] Failed to resolve Android base:', err));
 }
 
 // Wrap fetch to add Android retry logic
