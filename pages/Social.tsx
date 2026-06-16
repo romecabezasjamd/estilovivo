@@ -1156,7 +1156,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
             <div className="px-4 pb-4 animate-fade-in">
               {/* Category Filters */}
               <div className="flex gap-2 overflow-x-auto no-scrollbar mb-4 pb-1">
-                {['all', 'top', 'bottom', 'shoes', 'outerwear', 'accessories', 'dress'].map(cat => (
+                {['all', 'top', 'bottom', 'shoes', 'outerwear', 'accessories', 'dress', 'swimwear'].map(cat => (
                   <button
                     key={cat}
                     onClick={() => setShopFilter(cat)}

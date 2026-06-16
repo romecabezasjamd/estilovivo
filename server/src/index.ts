@@ -1079,7 +1079,7 @@ app.get('/api/auth/me', authenticateToken, async (req: any, res: Response) => {
   }
 });
 
-app.put('/api/auth/profile', authenticateToken, validate(updateProfileSchema), upload.fields([{ name: 'avatar', maxCount: 1 }, { name: 'fullBodyAvatar', maxCount: 1 }]), async (req: any, res: Response) => {
+app.put('/api/auth/profile', authenticateToken, upload.fields([{ name: 'avatar', maxCount: 1 }, { name: 'fullBodyAvatar', maxCount: 1 }]), validate(updateProfileSchema), async (req: any, res: Response) => {
   try {
     const { name, bio, mood, cycleTracking, musicSync, emailNotifications, gender, birthDate } = req.body;
     const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;

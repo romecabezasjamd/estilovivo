@@ -37,6 +37,7 @@ const CATEGORIES = [
   { id: 'accessories', label: 'Accesorios' },
   { id: 'dress', label: 'Vestidos' },
   { id: 'set', label: 'Conjuntos' },
+  { id: 'swimwear', label: 'Traje de baño' },
 ];
 
 const SEASONS = [

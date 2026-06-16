@@ -95,14 +95,14 @@ export const changePasswordSchema = z.object({
 });
 
 export const updateProfileSchema = z.object({
-  name: z.string().min(2, 'Nombre debe tener al menos 2 caracteres').optional(),
-  bio: z.string().max(500, 'Bio muy larga').optional(),
-  gender: z.enum(['male', 'female', 'other']).optional(),
-  birthDate: z.string().optional(),
-  mood: z.string().optional(),
-  emailNotifications: z.union([z.boolean(), z.string()]).optional(),
-  cycleTracking: z.union([z.boolean(), z.string()]).optional(),
-  musicSync: z.union([z.boolean(), z.string()]).optional(),
+  name: z.string().min(2, 'Nombre debe tener al menos 2 caracteres').optional().nullable(),
+  bio: z.string().max(500, 'Bio muy larga').optional().nullable(),
+  gender: z.enum(['male', 'female', 'other']).optional().nullable(),
+  birthDate: z.string().optional().nullable(),
+  mood: z.string().optional().nullable(),
+  emailNotifications: z.union([z.boolean(), z.string()]).optional().nullable(),
+  cycleTracking: z.union([z.boolean(), z.string()]).optional().nullable(),
+  musicSync: z.union([z.boolean(), z.string()]).optional().nullable(),
 });
 
 export const conversationSchema = z.object({
