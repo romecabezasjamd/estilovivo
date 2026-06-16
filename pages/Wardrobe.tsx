@@ -152,6 +152,18 @@ const Wardrobe: React.FC<WardrobeProps> = ({
   const [isPickingSalePhoto, setIsPickingSalePhoto] = useState(false);
   const saleFileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Edit Flow
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editCategory, setEditCategory] = useState('');
+  const [editColor, setEditColor] = useState('');
+  const [editBrand, setEditBrand] = useState('');
+  const [editSize, setEditSize] = useState('');
+  const [editCondition, setEditCondition] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editPrice, setEditPrice] = useState('');
+  const [editForSale, setEditForSale] = useState(false);
+
   // Detail Modal
   const [detailItem, setDetailItem] = useState<ProductDisplayItem | null>(null);
   const [selectedGarmentForDetail, setSelectedGarmentForDetail] = useState<Garment | null>(null);
@@ -306,6 +318,50 @@ const Wardrobe: React.FC<WardrobeProps> = ({
     const reader = new FileReader();
     reader.onloadend = () => setSaleImage(reader.result as string);
     reader.readAsDataURL(file);
+  };
+
+  const resetEditModal = () => {
+    setIsEditing(false);
+    setEditName('');
+    setEditCategory('');
+    setEditColor('');
+    setEditBrand('');
+    setEditSize('');
+    setEditCondition('');
+    setEditDescription('');
+    setEditPrice('');
+    setEditForSale(false);
+  };
+
+  const openEditModal = (item: Garment) => {
+    setEditName(item.name || '');
+    setEditCategory(item.type || 'top');
+    setEditColor(item.color || '');
+    setEditBrand(item.brand || '');
+    setEditSize(item.size || '');
+    setEditCondition(item.condition || 'good');
+    setEditDescription(item.description || '');
+    setEditPrice(item.price ? String(item.price) : '');
+    setEditForSale(item.forSale || false);
+    setIsEditing(true);
+  };
+
+  const confirmEdit = () => {
+    if (!selectedGarmentForDetail) return;
+    onUpdateGarment({
+      ...selectedGarmentForDetail,
+      name: editName,
+      type: editCategory,
+      color: editColor,
+      brand: editBrand || undefined,
+      size: editSize || undefined,
+      condition: editCondition || undefined,
+      description: editDescription || undefined,
+      price: editPrice ? parseFloat(editPrice) : undefined,
+      forSale: editForSale,
+    });
+    resetEditModal();
+    setDetailItem(null);
   };
 
   const resetSellModal = () => {
@@ -1180,6 +1236,85 @@ const Wardrobe: React.FC<WardrobeProps> = ({
         </div>
       )}
 
+      {/* EDIT MODAL */}
+      {isEditing && selectedGarmentForDetail && (
+        <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl animate-pop-in flex flex-col max-h-[90vh]">
+            <div className="flex-shrink-0 p-6 border-b border-gray-50 text-center">
+              <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              </div>
+              <h2 className="text-xl font-bold text-gray-800">Editar prenda</h2>
+            </div>
+            <div className="overflow-y-auto flex-1 p-6 space-y-4">
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl">
+                <img src={selectedGarmentForDetail.imageUrl} className="w-12 h-12 rounded-xl object-cover" alt="" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-gray-700 truncate">{selectedGarmentForDetail.name || selectedGarmentForDetail.type}</p>
+                  <p className="text-[10px] text-gray-400 capitalize">{selectedGarmentForDetail.color}</p>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Nombre</label>
+                <input value={editName} onChange={e => setEditName(e.target.value)} className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500/20" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Categoría</label>
+                <div className="flex gap-2 flex-wrap">
+                  {CATEGORIES.filter(c => c.id !== 'all').map(cat => (
+                    <button key={cat.id} onClick={() => setEditCategory(cat.id)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${editCategory === cat.id ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500'}`}>{cat.label}</button>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">Color</label>
+                  <input value={editColor} onChange={e => setEditColor(e.target.value)} placeholder="Ej: rojo" className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">Marca</label>
+                  <input value={editBrand} onChange={e => setEditBrand(e.target.value)} placeholder="Ej: Zara" className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm outline-none" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">Talla</label>
+                  <input value={editSize} onChange={e => setEditSize(e.target.value)} placeholder="M, 42..." className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm outline-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">Estado</label>
+                  <select value={editCondition} onChange={e => setEditCondition(e.target.value)} className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm outline-none appearance-none">
+                    <option value="new">Nuevo</option>
+                    <option value="good">Buen estado</option>
+                    <option value="fair">Como nuevo</option>
+                    <option value="worn">Usado</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Descripción</label>
+                <textarea value={editDescription} onChange={e => setEditDescription(e.target.value)} rows={2} className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm outline-none resize-none" />
+              </div>
+              {editForSale && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">Precio (€)</label>
+                  <input type="number" value={editPrice} onChange={e => setEditPrice(e.target.value)} className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm outline-none" />
+                </div>
+              )}
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={editForSale} onChange={e => setEditForSale(e.target.checked)} className="rounded" />
+                <span className="text-sm font-medium text-gray-600">En venta</span>
+              </label>
+            </div>
+            <div className="flex-shrink-0 p-6 bg-gray-50 flex gap-3">
+              <button onClick={resetEditModal} className="flex-1 py-3 text-sm font-bold text-gray-400">Cancelar</button>
+              <button onClick={confirmEdit} className="flex-[2] bg-blue-500 text-white py-3 rounded-xl text-sm font-bold shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-colors">Guardar cambios</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* DETAIL MODAL */}
       {detailItem && (
         <ProductDetailModal
@@ -1200,6 +1335,11 @@ const Wardrobe: React.FC<WardrobeProps> = ({
             if (selectedGarmentForDetail) {
               setSelectedForSale(selectedGarmentForDetail);
               setIsSelling(true);
+            }
+          }}
+          onEdit={() => {
+            if (selectedGarmentForDetail) {
+              openEditModal(selectedGarmentForDetail);
             }
           }}
           onDelete={() => {

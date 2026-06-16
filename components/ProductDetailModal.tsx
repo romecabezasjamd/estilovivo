@@ -17,6 +17,8 @@ export interface ProductDisplayItem {
   isOwnItem?: boolean;
 }
 
+const SHARE_BASE = 'https://estilovivo.xyoncloud.win';
+
 interface ProductDetailModalProps {
   product: ProductDisplayItem;
   onClose: () => void;
@@ -59,10 +61,23 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
     setShowShareOptions(true);
   };
 
+  const shareUrl = `${SHARE_BASE}/?product=${product.id}`;
+  const shareText = `Mira este ${product.title} en Estilovivo`;
+
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(window.location.href);
+    navigator.clipboard.writeText(shareUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleWhatsApp = () => {
+    window.open(`https://wa.me/?text=${encodeURIComponent(shareText + ' ' + shareUrl)}`, '_blank');
+    setShowShareOptions(false);
+  };
+
+  const handleNativeShare = () => {
+    navigator.share({ title: product.title, text: shareText, url: shareUrl }).catch(console.error);
+    setShowShareOptions(false);
   };
 
   const handleLike = async () => {
@@ -357,16 +372,23 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                 <span className="text-2xl">📋</span>
               </button>
 
+              <button
+                onClick={handleWhatsApp}
+                className="w-full flex items-center gap-4 p-4 border-2 border-gray-200 rounded-2xl hover:border-green-400 hover:bg-green-50 active:scale-[0.98] transition-all group text-left"
+              >
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform flex-shrink-0">
+                  <MessageCircle size={28} className="text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-gray-900 text-base">WhatsApp</p>
+                  <p className="text-sm text-gray-600 mt-0.5">Compartir por WhatsApp</p>
+                </div>
+                <span className="text-2xl">💬</span>
+              </button>
+
               {navigator.share && (
                 <button
-                  onClick={() => {
-                    navigator.share({
-                      title: product.title,
-                      text: `Mira este ${product.title} en Estilovivo`,
-                      url: window.location.href,
-                    }).catch(console.error);
-                    setShowShareOptions(false);
-                  }}
+                  onClick={handleNativeShare}
                   className="w-full flex items-center gap-4 p-4 border-2 border-gray-200 rounded-2xl hover:border-primary hover:bg-primary/5 active:scale-[0.98] transition-all group text-left"
                 >
                   <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform flex-shrink-0">
