@@ -9,18 +9,29 @@ const normalizeApiBase = (value?: string) => {
 
 const PRODUCTION_API = 'https://estilovivo.xyoncloud.win/api';
 
+const isNativeApp = () => {
+    if (typeof window === 'undefined') return false;
+    const platform = Capacitor?.getPlatform?.() || '';
+    return platform !== 'web' && platform !== '';
+};
+
+const isDevMode = () => {
+    const fromEnv = (import.meta as any).env?.VITE_API_BASE || (import.meta as any).env?.VITE_API_URL;
+    if (fromEnv?.trim()) return true;
+    // In native dev (emulator) the host is local
+    if (!isNativeApp()) return false;
+    return typeof location !== 'undefined' && (
+        location.hostname === 'localhost' || location.hostname === '10.0.2.2' || location.hostname === '127.0.0.1'
+    );
+};
+
 const resolveDefaultApiBase = (): string => {
     const fromEnv = (import.meta as any).env?.VITE_API_BASE || (import.meta as any).env?.VITE_API_URL;
     if (fromEnv?.trim()) return normalizeApiBase(fromEnv);
 
     if (typeof window !== 'undefined') {
-        const platform = Capacitor?.getPlatform?.() || '';
-        const isNative = platform !== 'web' && platform !== '';
-        if (isNative) {
-            if (platform === 'android' || /Android/i.test(navigator.userAgent)) {
-                return normalizeApiBase('http://10.0.2.2:3000/api');
-            }
-            return normalizeApiBase('http://localhost:3000/api');
+        if (isNativeApp()) {
+            return normalizeApiBase(PRODUCTION_API);
         }
         return '/api';
     }
@@ -30,120 +41,31 @@ const resolveDefaultApiBase = (): string => {
 export let API_BASE = resolveDefaultApiBase();
 export let API_ORIGIN = API_BASE.replace(/\/api\/?$/, '');
 
-// Retry logic for Android network calls — includes production as final fallback
-const ANDROID_API_FALLBACKS = [
-    'http://10.0.2.2:3000/api',      // Default Android emulator gateway
-    'http://192.168.1.141:3000/api',  // Local network IP
-    'http://127.0.0.1:3000/api',      // Localhost
-    PRODUCTION_API,                     // Production as last resort
+// Fallback URLs for dev/testing on Android emulator
+const DEV_FALLBACKS = [
+    'http://10.0.2.2:3000/api',
+    'http://127.0.0.1:3000/api',
+    PRODUCTION_API,
 ];
 
-let resolvedAndroidApiBase: string | null = null;
-
-export const getApiBase = async (): Promise<string> => {
-    // Already resolved, return cached version
-    if (resolvedAndroidApiBase) return resolvedAndroidApiBase;
-
-    // For Android, try each fallback URL
-    const platform = Capacitor?.getPlatform?.() || '';
-    if (platform === 'android' || (typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent))) {
-        for (const baseUrl of ANDROID_API_FALLBACKS) {
+// In dev mode, try fallbacks to find a local server (emulator dev only)
+if (typeof window !== 'undefined' && isDevMode()) {
+    (async () => {
+        for (const url of DEV_FALLBACKS) {
             try {
-                // Quick health check with 2s timeout
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 2000);
-        
-                const response = await fetch(`${baseUrl.replace('/api', '')}/api/health`, {
-                    method: 'GET',
-                    signal: controller.signal,
-                });
-        
-                clearTimeout(timeoutId);
-        
-                if (response.ok) {
-                    resolvedAndroidApiBase = baseUrl;
-                    console.log(`[API] Connected to Android backend at: ${baseUrl}`);
-                    return baseUrl;
+                const id = setTimeout(() => controller.abort(), 3000);
+                const res = await fetch(`${url.replace('/api', '')}/api/health`, { signal: controller.signal });
+                clearTimeout(id);
+                if (res.ok) {
+                    API_BASE = url;
+                    API_ORIGIN = url.replace(/\/api\/?$/, '');
+                    console.log(`[API] Dev mode connected to: ${url}`);
+                    return;
                 }
-            } catch (e) {
-                // Try next URL
-                console.log(`[API] Failed to reach ${baseUrl}, trying next...`);
-            }
+            } catch { /* try next */ }
         }
-    }
-
-    // Fallback to default
-    return API_BASE;
-};
-
-// Initialize Android API base on app start and update API_BASE if a fallback is found
-if (typeof window !== 'undefined') {
-    getApiBase().then(resolved => {
-        if (resolved !== API_BASE) {
-            (API_BASE as string) = resolved;
-            (API_ORIGIN as string) = resolved.replace(/\/api\/?$/, '');
-            console.log(`[API] Updated base to: ${resolved}`);
-        }
-    }).catch(err => console.error('[API] Failed to resolve Android base:', err));
-}
-
-// Wrap fetch to add Android retry logic
-const originalFetch = globalThis.fetch;
-const fetchWithTimeout = async (input: RequestInfo | URL, init: RequestInit | undefined, timeoutMs: number): Promise<Response> => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    const combinedInit = { ...init, signal: controller.signal };
-    try {
-        return await originalFetch(input, combinedInit);
-    } finally {
-        clearTimeout(timeoutId);
-    }
-};
-
-const fetchWithAndroidRetry = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    const url = typeof input === 'string' ? input : input.toString();
-  
-    // Only apply retry logic for API calls on Android
-    const platform = Capacitor?.getPlatform?.() || '';
-    const isAndroid = platform === 'android' || (typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent));
-  
-    if (!isAndroid || !url.includes('/api')) {
-        return originalFetch(input, init);
-    }
-
-    // Try current URL first
-    try {
-        return await fetchWithTimeout(input, init, 8000);
-    } catch (error) {
-        // If failed and it's an API call, try fallbacks
-        console.log(`[API] Primary URL failed, trying fallbacks: ${url}`);
-    
-        for (const baseUrl of ANDROID_API_FALLBACKS) {
-            try {
-                const fallbackUrl = url.replace(/http:\/\/[^/]+\/api/, baseUrl);
-                if (fallbackUrl !== url) {
-                    console.log(`[API] Trying fallback: ${fallbackUrl}`);
-                    const fallbackInit = { ...init };
-                    const res = await fetchWithTimeout(fallbackUrl, fallbackInit, 5000);
-                    if (res.ok || res.status < 500) {
-                        resolvedAndroidApiBase = baseUrl;
-                        console.log(`[API] Successfully connected to: ${baseUrl}`);
-                        return res;
-                    }
-                }
-            } catch (e) {
-                console.log(`[API] Fallback failed, trying next...`);
-            }
-        }
-    
-        // All failed, throw original error
-        throw error;
-    }
-};
-
-// Replace global fetch
-if (typeof window !== 'undefined') {
-    (globalThis as any).fetch = fetchWithAndroidRetry;
+    })();
 }
 
 const AUTH_TOKEN_KEY = 'beyour_token';
