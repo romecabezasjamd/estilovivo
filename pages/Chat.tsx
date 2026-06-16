@@ -74,6 +74,7 @@ const Chat: React.FC<ChatProps> = ({ onNavigate }) => {
   useEffect(() => {
     const newSocket = io(getSocketOrigin(), {
       withCredentials: true,
+      transports: ['polling']
     });
 
     setSocket(newSocket);
