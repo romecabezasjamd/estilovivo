@@ -41,11 +41,17 @@ FROM dependencies AS frontend-build
 
 WORKDIR /app
 
-# Cache buster: set this build arg to force rebuild
+# Cache buster: cambia este valor para forzar rebuild
 ARG CACHEBUST
 
-# Copiar todo el código fuente del frontend en una sola capa
-COPY tsconfig.json vite.config.ts postcss.config.js tailwind.config.js index.html index.tsx App.tsx types.ts components pages services hooks src public ./
+# Copiar todo lo necesario para el frontend
+COPY tsconfig.json vite.config.ts postcss.config.js tailwind.config.js index.html index.tsx App.tsx types.ts ./
+COPY components ./components
+COPY pages ./pages
+COPY services ./services
+COPY hooks ./hooks
+COPY src ./src
+COPY public ./public
 
 # Build-time environment variables for Vite
 ARG GEMINI_API_KEY
