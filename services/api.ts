@@ -167,6 +167,31 @@ export const getAuthHeader = () => {
     };
 };
 
+// Simple in-memory cache for GET requests
+const cache = new Map<string, { data: any; expiry: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+const getCached = (key: string) => {
+  const entry = cache.get(key);
+  if (entry && Date.now() < entry.expiry) return entry.data;
+  cache.delete(key);
+  return null;
+};
+
+const setCache = (key: string, data: any) => {
+  cache.set(key, { data, expiry: Date.now() + CACHE_TTL });
+};
+
+const invalidateCache = (prefix?: string) => {
+  if (prefix) {
+    for (const key of cache.keys()) {
+      if (key.startsWith(prefix)) cache.delete(key);
+    }
+  } else {
+    cache.clear();
+  }
+};
+
 export const getSocketOrigin = () => API_ORIGIN;
 
 export const parseApiErrorMessage = async (res: Response): Promise<string> => {
@@ -187,6 +212,22 @@ export const parseApiErrorMessage = async (res: Response): Promise<string> => {
         return text.length > 200 ? `Error ${res.status}` : text;
     }
     return `Error ${res.status}: no se pudo procesar la respuesta del servidor`;
+};
+
+const fetchWithRetry = async (url: string, options: RequestInit = {}, retries = 1): Promise<Response> => {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 15000);
+            const res = await fetch(url, { ...options, signal: controller.signal });
+            clearTimeout(timeout);
+            return res;
+        } catch (err: any) {
+            if (attempt === retries || err?.name === 'AbortError') throw err;
+            await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+        }
+    }
+    throw new Error('Request failed');
 };
 
 const handleResponse = async (res: Response) => {
@@ -490,12 +531,12 @@ export const api = {
         return items.map(mapLook).filter((l: any) => !!l);
     },
 
-    getCommunityFeed: async (): Promise<Look[]> => {
-        const res = await fetch(`${API_BASE}/looks/feed`, { headers: getHeaders(), credentials: 'include' });
+    getCommunityFeed: async (cursor?: string): Promise<{ items: Look[]; nextCursor?: string | null; hasMore?: boolean }> => {
+        const params = cursor ? `?cursor=${encodeURIComponent(cursor)}` : '';
+        const res = await fetchWithRetry(`${API_BASE}/looks/feed${params}`, { headers: getHeaders(), credentials: 'include' });
         const data = await handleResponse(res);
-        // Backend now returns { items, nextCursor, hasMore } for pagination
-        const items = data.items || data; // Fallback for backwards compatibility
-        return items.map(mapLook).filter((l: any) => !!l);
+        const items = (data.items || data).map(mapLook).filter((l: any) => !!l);
+        return { items, nextCursor: data.nextCursor, hasMore: data.hasMore };
     },
 
     saveLook: async (look: Look): Promise<Look> => {
@@ -751,10 +792,16 @@ export const api = {
         return normalizeAssetsDeep(data);
     },
 
-    getTopUsers: async () => {
-        const res = await fetch(`${API_BASE}/users/top`, { headers: getHeaders(), credentials: 'include' });
+    getTopUsers: async (forceRefresh = false) => {
+        if (!forceRefresh) {
+            const cached = getCached('topUsers');
+            if (cached) return cached;
+        }
+        const res = await fetchWithRetry(`${API_BASE}/users/top`, { headers: getHeaders(), credentials: 'include' });
         const data = await handleResponse(res);
-        return normalizeAssetsDeep(data);
+        const normalized = normalizeAssetsDeep(data);
+        setCache('topUsers', normalized);
+        return normalized;
     },
 
     // ============= STORIES =============
@@ -868,10 +915,18 @@ export const api = {
         return handleResponse(res);
     },
 
-    getTrends: async () => {
-        const res = await fetch(`${API_BASE}/trends`, { headers: getHeaders(), credentials: 'include' });
-        return handleResponse(res);
+    getTrends: async (forceRefresh = false) => {
+        if (!forceRefresh) {
+            const cached = getCached('trends');
+            if (cached) return cached;
+        }
+        const res = await fetchWithRetry(`${API_BASE}/trends`, { headers: getHeaders(), credentials: 'include' });
+        const data = await handleResponse(res);
+        setCache('trends', data);
+        return data;
     },
+
+    invalidateCache: (prefix?: string) => invalidateCache(prefix),
 
     // ============= CHALLENGES =============
     getCurrentChallenge: async () => {

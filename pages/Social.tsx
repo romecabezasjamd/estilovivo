@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Heart, MessageCircle, Bookmark, MoreHorizontal, ShoppingBag, Search, Tag, Send, X, Shirt, Sparkles, CheckCircle2, ArrowRight, ExternalLink, Plus, Camera } from 'lucide-react';
+import { Heart, MessageCircle, Bookmark, MoreHorizontal, ShoppingBag, Search, Tag, Send, X, Shirt, Sparkles, CheckCircle2, ArrowRight, ExternalLink, Plus, Camera, Share2 } from 'lucide-react';
 import ProductDetailModal, { ProductDisplayItem } from '../components/ProductDetailModal';
 import { api } from '../services/api';
 import { Look, UserState, ShopItem, Comment, Garment, ChatConversation, ChatMessage, StoryEntry } from '../types';
@@ -39,6 +39,9 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
   // Community Feed & Shop
   const [selectedItem, setSelectedItem] = useState<ProductDisplayItem | null>(null);
   const [feedLooks, setFeedLooks] = useState<Look[]>([]);
+  const [feedCursor, setFeedCursor] = useState<string | null>(null);
+  const [feedHasMore, setFeedHasMore] = useState(false);
+  const [feedLoadingMore, setFeedLoadingMore] = useState(false);
   const [shopItems, setShopItems] = useState<ShopItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -74,6 +77,16 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
   const [storyToast, setStoryToast] = useState<string | null>(null);
   const [currentChallenge, setCurrentChallenge] = useState<any>(null);
   const [challengeSubmission, setChallengeSubmission] = useState<any>(null);
+  const [showChallengeModal, setShowChallengeModal] = useState(false);
+  const [challengeImage, setChallengeImage] = useState<{ dataUrl: string; file: File } | null>(null);
+  const [challengeDescription, setChallengeDescription] = useState('');
+  const [challengeSubmitting, setChallengeSubmitting] = useState(false);
+  const [challengeTips] = useState([
+    'Usa prendas de temporada para destacar',
+    'Combina colores que contrasten armoniosamente',
+    'Agrega accesorios para darle personalidad',
+    'La iluminación natural mejora tus fotos',
+  ]);
   const [loadingChallenge, setLoadingChallenge] = useState(false);
   const [followedUserIds, setFollowedUserIds] = useState<Set<string>>(new Set());
   const [chatAttachment, setChatAttachment] = useState<string | null>(null);
@@ -168,17 +181,16 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
   const loadFeed = useCallback(async () => {
     setIsLoading(true);
     try {
-      const looks = await api.getCommunityFeed();
-      // Filter out sales items from feed - only show user posts, looks, and social content
-      const socialFeed = looks.filter(look => {
-        // Exclude items that are primarily for sale (have forSale garments or price)
+      const result = await api.getCommunityFeed();
+      const socialFeed = result.items.filter(look => {
         if (look.garments && look.garments.some(g => g.forSale)) return false;
-        // Exclude items with sales-related mood/tags
         if (look.mood && look.mood.toLowerCase().includes('venta')) return false;
         if (look.tags && look.tags.some(tag => tag.toLowerCase().includes('venta'))) return false;
         return true;
       });
       setFeedLooks(socialFeed);
+      setFeedCursor(result.nextCursor || null);
+      setFeedHasMore(result.hasMore || false);
       const top = await api.getTopUsers();
       setTopUsers(top);
     } catch (error) {
@@ -187,6 +199,27 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
       setIsLoading(false);
     }
   }, []);
+
+  const loadMoreFeed = useCallback(async () => {
+    if (!feedCursor || feedLoadingMore) return;
+    setFeedLoadingMore(true);
+    try {
+      const result = await api.getCommunityFeed(feedCursor);
+      const socialFeed = result.items.filter(look => {
+        if (look.garments && look.garments.some(g => g.forSale)) return false;
+        if (look.mood && look.mood.toLowerCase().includes('venta')) return false;
+        if (look.tags && look.tags.some(tag => tag.toLowerCase().includes('venta'))) return false;
+        return true;
+      });
+      setFeedLooks(prev => [...prev, ...socialFeed]);
+      setFeedCursor(result.nextCursor || null);
+      setFeedHasMore(result.hasMore || false);
+    } catch (error) {
+      console.error("Error loading more feed:", error);
+    } finally {
+      setFeedLoadingMore(false);
+    }
+  }, [feedCursor, feedLoadingMore]);
 
   const loadShop = useCallback(async () => {
     setIsLoading(true);
@@ -269,21 +302,39 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
     loadChallenge();
   }, []);
 
-  const handleParticipateChallenge = async () => {
+  const handleParticipateChallenge = () => {
     if (!currentChallenge || challengeSubmission) return;
+    setShowChallengeModal(true);
+  };
+
+  const handleChallengePickImage = async () => {
+    try {
+      const result = await pickPhoto('gallery');
+      setChallengeImage(result);
+    } catch { }
+  };
+
+  const handleChallengeSubmit = async () => {
+    if (!currentChallenge || challengeSubmitting) return;
+    setChallengeSubmitting(true);
     try {
       const formData = new FormData();
       formData.append('challengeId', currentChallenge.id);
-      formData.append('description', 'Participación en el reto semanal');
+      formData.append('description', challengeDescription || 'Participación en el reto semanal');
+      if (challengeImage?.file) formData.append('image', challengeImage.file);
       const result = await api.submitChallenge(formData);
       setChallengeSubmission(result);
+      setShowChallengeModal(false);
       if (activeUser && result.experiencePoints !== undefined) {
         handleUpdateUser({ ...activeUser, experiencePoints: result.experiencePoints, level: result.level || Math.floor(result.experiencePoints / 100) + 1 });
       }
       setStoryToast(`+${currentChallenge.reward} XP por participar en el reto semanal`);
       window.setTimeout(() => setStoryToast(null), 3200);
     } catch (e: any) {
-      console.warn('Could not participate:', e);
+      setStoryToast(e?.message || 'Error al participar');
+      window.setTimeout(() => setStoryToast(null), 3200);
+    } finally {
+      setChallengeSubmitting(false);
     }
   };
 
@@ -610,6 +661,22 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
       console.log('✓ Producto compartido en el feed');
     } catch (error) {
       console.error('Error sharing product to feed:', error);
+    }
+  };
+
+  const handleShareNative = (post: Look) => {
+    const url = `${window.location.origin}/look/${post.id}`;
+    if (navigator.share) {
+      navigator.share({
+        title: post.name || 'Look en Estilo Vivo',
+        text: post.description || 'Mira este look en Estilo Vivo',
+        url,
+      }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(url).then(() => {
+        setStoryToast('Enlace copiado al portapapeles');
+        window.setTimeout(() => setStoryToast(null), 2500);
+      }).catch(() => {});
     }
   };
 
@@ -997,7 +1064,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                 </div>
               )}
 
-              {/* Stories Carousel */}
+              {/* Stories Carousel - Instagram-style bubbles */}
               <div className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 mb-6 overflow-hidden">
                 <div className="flex items-center justify-between gap-3 mb-4">
                   <div>
@@ -1012,18 +1079,20 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                   </button>
                 </div>
 
-                <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
+                <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2 px-1">
                   <button
                     type="button"
                     onClick={() => setIsCreateStoryOpen(true)}
-                    className="min-w-[90px] h-28 rounded-3xl border border-dashed border-primary/30 bg-primary/5 text-primary flex flex-col items-center justify-center gap-2 text-xs font-semibold"
+                    className="flex flex-col items-center gap-1.5 flex-shrink-0"
                   >
-                    <Plus size={20} />
-                    Nueva
+                    <div className="w-16 h-16 rounded-full border-2 border-dashed border-primary/40 bg-primary/5 flex items-center justify-center text-primary hover:bg-primary/10 transition-colors">
+                      <Plus size={22} />
+                    </div>
+                    <span className="text-[10px] text-gray-500 font-medium">Nueva</span>
                   </button>
 
                   {stories.length === 0 ? (
-                    <div className="min-w-[220px] h-28 rounded-3xl border border-gray-200 bg-gray-50 flex items-center justify-center text-sm text-gray-400">
+                    <div className="flex items-center justify-center text-sm text-gray-400 h-20 px-4">
                       Publica tu primera historia y gana visibilidad.
                     </div>
                   ) : prioritizedStories.map(story => (
@@ -1031,19 +1100,20 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                       key={story.id}
                       type="button"
                       onClick={() => handleStoryView(story.id)}
-                      className="relative min-w-[90px] h-28 rounded-3xl overflow-hidden bg-gray-100 ring-1 ring-gray-200 hover:ring-primary transition-all flex flex-col items-center justify-center text-left"
+                      className="flex flex-col items-center gap-1.5 flex-shrink-0 group"
                     >
-                      {story.imageUrl ? (
-                        <img src={story.imageUrl} alt={story.text || 'Historia'} className="w-full h-full object-cover opacity-90" />
-                      ) : (
-                        <div className="w-full h-full bg-primary/5 flex items-center justify-center text-primary text-xs font-bold px-2 text-center">
-                          {story.text?.slice(0, 40) || 'Texto'}
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary via-accent to-amber-400 p-[2px] shadow-sm group-hover:shadow-md transition-shadow">
+                        <div className="w-full h-full rounded-full bg-white p-[2px]">
+                          {story.imageUrl ? (
+                            <img src={story.imageUrl} alt={story.text || 'Historia'} className="w-full h-full rounded-full object-cover" loading="lazy" />
+                          ) : (
+                            <div className="w-full h-full rounded-full bg-gradient-to-br from-primary/10 to-accent/10 flex items-center justify-center text-primary text-[10px] font-bold px-1 text-center leading-tight">
+                              {story.text?.slice(0, 20) || 'Texto'}
+                            </div>
+                          )}
                         </div>
-                      )}
-                      <div className="absolute bottom-2 left-2 right-2 text-white text-[10px] font-semibold flex justify-between items-center">
-                        <span className="bg-black/40 px-2 py-1 rounded-full">{story.userName}</span>
-                        <span className="bg-black/40 px-2 py-1 rounded-full">{story.views} vistas</span>
                       </div>
+                      <span className="text-[10px] text-gray-600 font-medium max-w-[68px] truncate">{story.userName}</span>
                     </button>
                   ))}
                 </div>
@@ -1060,10 +1130,10 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                     {topUsers.map((tu, idx) => (
                       <div key={tu.id} className="flex flex-col items-center flex-shrink-0 snap-center w-16">
                         <div className="relative">
-                          <img
+                           <img
                             src={tu.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(tu.name)}&background=0F4C5C&color=fff`}
                             className={`w-14 h-14 rounded-full object-cover border-2 shadow-sm ${idx === 0 ? 'border-amber-400' : idx === 1 ? 'border-gray-300' : idx === 2 ? 'border-amber-700' : 'border-primary/20'}`}
-                            alt={tu.name}
+                            alt={tu.name} loading="lazy"
                           />
                           <div className="absolute -bottom-1 -right-1 bg-primary text-white text-[9px] font-bold w-5 h-5 flex items-center justify-center rounded-full border border-white">
                             {tu.level || 1}
@@ -1086,77 +1156,72 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                 </div>
               )}
 
-              {/* Masonry Grid Feed */}
-              <div className="columns-2 gap-4 space-y-4">
+              {/* Feed Grid */}
+              <div className="grid grid-cols-2 gap-4">
                 {feedLooks.map((post, idx) => {
                   const postImage = getLookImage(post);
-                  const isFeatured = idx % 5 === 0;
+                  const isFeatured = idx % 5 === 0 && feedLooks.length > 3;
 
                   return (
-                    <div key={post.id} className="break-inside-avoid fallback-height relative bg-white rounded-[2rem] overflow-hidden shadow-sm border border-gray-100 group">
+                    <div key={post.id} className="bg-white rounded-[1.25rem] overflow-hidden shadow-sm border border-gray-100 group">
 
-                      {/* Image Layer */}
+                      {/* Creator Header */}
+                      <div className="flex items-center gap-2 px-2.5 py-2">
+                        <img
+                          src={post.userAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.userName || 'U')}&background=0F4C5C&color=fff`}
+                          className="w-6 h-6 rounded-full object-cover border border-gray-200"
+                          alt={post.userName} loading="lazy"
+                        />
+                        <span className="text-xs font-semibold text-gray-800 truncate">{post.userName || 'Usuario'}</span>
+                        <span className="text-[9px] text-gray-400 ml-auto font-medium">Lv.{getPostUserLevel(post)}</span>
+                      </div>
+
+                      {/* Image */}
                       {postImage ? (
-                        <div className={`relative bg-gray-100 ${isFeatured ? 'aspect-[3/4]' : 'aspect-square'}`}>
-                          <img src={postImage} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" alt={post.name} />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+                        <div className={`relative bg-gray-100 ${isFeatured ? 'aspect-[4/5]' : 'aspect-square'}`}>
+                          <img src={postImage} className="w-full h-full object-cover" loading="lazy" alt={post.name} />
                         </div>
                       ) : (
-                        <div className={`relative bg-gray-50 flex items-center justify-center ${isFeatured ? 'aspect-[3/4]' : 'aspect-square'}`}>
+                        <div className={`relative bg-gray-50 flex items-center justify-center ${isFeatured ? 'aspect-[4/5]' : 'aspect-square'}`}>
                           <div className="text-center opacity-40">
-                            <Shirt size={48} className="mx-auto mb-2 text-gray-400" />
+                            <Shirt size={36} className="mx-auto mb-1 text-gray-400" />
                           </div>
-                          <div className="absolute inset-0 bg-gradient-to-t from-gray-900/40 to-transparent pointer-events-none" />
                         </div>
                       )}
 
-                      {/* Overlays */}
-                      <div className="absolute top-0 left-0 right-0 p-3 flex justify-between items-start pointer-events-none">
-                        {/* Creator */}
-                        <div className="flex items-center space-x-2 bg-black/20 backdrop-blur-md pl-1 pr-3 py-1 rounded-full pointer-events-auto">
-                          <img
-                            src={post.userAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.userName || 'U')}&background=0F4C5C&color=fff`}
-                            className="w-5 h-5 rounded-full object-cover border border-white/20"
-                            alt={post.userName}
-                          />
-                          <div className="flex items-center gap-1">
-                            <span className="text-[10px] font-medium text-white shadow-sm">{post.userName || 'Usuario'}</span>
-                            <span className="text-[9px] px-2 py-0.5 rounded-full bg-white/20 text-white">Lv. {getPostUserLevel(post)}</span>
-                          </div>
+                      {/* Post Footer */}
+                      <div className="px-2.5 py-2">
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => handleToggleLike(post.id)}
+                            className={`flex items-center gap-1 text-xs transition-colors ${post.isLiked ? 'text-rose-500' : 'text-gray-500 hover:text-rose-400'}`}
+                          >
+                            <Heart size={14} fill={post.isLiked ? "currentColor" : "none"} />
+                            <span className="font-semibold">{post.likesCount || 0}</span>
+                          </button>
+                          <button
+                            onClick={() => openComments(post.id)}
+                            className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+                          >
+                            <MessageCircle size={14} />
+                            <span className="font-semibold">{post.commentsCount || 0}</span>
+                          </button>
+                          <button
+                            onClick={() => handleShareNative(post)}
+                            className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors ml-auto"
+                          >
+                            <Share2 size={13} />
+                          </button>
                         </div>
-                      </div>
-
-                      {/* Bottom Info Layer - Instagram style */}
-                      <div className="absolute bottom-0 left-0 right-0 p-3 pointer-events-auto w-full">
-                        <div className="flex justify-between items-end w-full">
-                          <div className="flex-1 overflow-hidden pr-2">
-                            <h4 className="font-bold text-white text-xs leading-tight truncate">{post.name}</h4>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              {post.mood && (
-                                <span className="text-[9px] text-white/80 font-medium">#{post.mood}</span>
-                              )}
-                              <span className="text-[9px] text-white/50">
-                                {new Date(post.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleToggleLike(post.id)}
-                              className={`flex items-center gap-1 bg-black/20 backdrop-blur-md px-2.5 py-1.5 rounded-full transition-colors ${post.isLiked ? 'text-rose-400' : 'text-white'}`}
-                            >
-                              <Heart size={13} fill={post.isLiked ? "currentColor" : "none"} />
-                              <span className="text-[10px] font-bold">{post.likesCount || 0}</span>
-                            </button>
-                            <button
-                              onClick={() => openComments(post.id)}
-                              className="flex items-center gap-1 text-white bg-black/20 backdrop-blur-md px-2.5 py-1.5 rounded-full"
-                            >
-                              <MessageCircle size={13} />
-                              <span className="text-[10px] font-bold">{post.commentsCount || 0}</span>
-                            </button>
-                          </div>
-                        </div>
+                        {post.name && (
+                          <p className="text-xs text-gray-800 font-medium mt-1.5 leading-snug truncate">{post.name}</p>
+                        )}
+                        {post.description && (
+                          <p className="text-[11px] text-gray-500 mt-0.5 leading-snug line-clamp-2">{post.description}</p>
+                        )}
+                        <p className="text-[9px] text-gray-400 mt-1">
+                          {new Date(post.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                        </p>
                       </div>
                     </div>
                   );
@@ -1168,6 +1233,18 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                   <Shirt size={48} className="mx-auto mb-3 text-gray-300" />
                   <p className="font-medium">Aún no hay looks compartidos</p>
                   <p className="text-sm mt-1">Sé el primero en publicar.</p>
+                </div>
+              )}
+
+              {feedHasMore && feedLooks.length > 0 && (
+                <div className="col-span-2 text-center pt-2">
+                  <button
+                    onClick={loadMoreFeed}
+                    disabled={feedLoadingMore}
+                    className="bg-gray-100 text-gray-600 text-xs font-bold px-6 py-2.5 rounded-full hover:bg-gray-200 transition-all disabled:opacity-40"
+                  >
+                    {feedLoadingMore ? 'Cargando...' : 'Cargar más'}
+                  </button>
                 </div>
               )}
             </div>
@@ -1895,6 +1972,88 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
           }}
           onShareFeed={handleShareFeed}
         />
+      )}
+
+      {/* Challenge Submission Modal */}
+      {showChallengeModal && currentChallenge && (
+        <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowChallengeModal(false)}>
+          <div className="bg-white w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden animate-pop-in" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+              <h3 className="font-bold text-gray-800 text-lg">Participar en el reto</h3>
+              <button onClick={() => { setShowChallengeModal(false); setChallengeImage(null); setChallengeDescription(''); }} className="p-1.5 rounded-full text-gray-400 hover:bg-gray-100 transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="bg-gradient-to-r from-primary/5 to-accent/5 rounded-2xl p-4 border border-primary/10">
+                <h4 className="font-bold text-primary text-sm">{currentChallenge.title}</h4>
+                <p className="text-xs text-gray-600 mt-1">{currentChallenge.description}</p>
+                <span className="inline-block mt-2 text-[10px] font-bold bg-primary/10 text-primary px-2 py-1 rounded-full">
+                  +{currentChallenge.reward} XP
+                </span>
+              </div>
+
+              {/* Tips */}
+              <div className="space-y-1.5">
+                <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Consejos</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {challengeTips.map((tip, i) => (
+                    <span key={i} className="text-[10px] bg-gray-100 text-gray-600 px-2 py-1 rounded-full">{tip}</span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Image picker */}
+              <div>
+                <p className="text-xs font-semibold text-gray-700 mb-2">Foto (opcional)</p>
+                {challengeImage ? (
+                  <div className="relative aspect-square rounded-2xl overflow-hidden bg-gray-100">
+                    <img src={challengeImage.dataUrl} alt="Preview" className="w-full h-full object-cover" />
+                    <button
+                      onClick={() => setChallengeImage(null)}
+                      className="absolute top-2 right-2 bg-black/50 text-white p-1.5 rounded-full"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleChallengePickImage}
+                    className="w-full aspect-video rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 flex flex-col items-center justify-center gap-1 text-gray-400 hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                  >
+                    <Camera size={24} />
+                    <span className="text-xs">Seleccionar imagen</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Description */}
+              <div>
+                <p className="text-xs font-semibold text-gray-700 mb-2">Descripción (opcional)</p>
+                <textarea
+                  value={challengeDescription}
+                  onChange={e => setChallengeDescription(e.target.value)}
+                  placeholder="Cuéntanos cómo creaste este look..."
+                  rows={3}
+                  className="w-full bg-gray-50 rounded-2xl px-4 py-3 text-sm text-gray-700 border border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none transition"
+                />
+              </div>
+
+              <button
+                onClick={handleChallengeSubmit}
+                disabled={challengeSubmitting}
+                className="w-full rounded-2xl bg-primary text-white py-3 text-sm font-bold hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+              >
+                {challengeSubmitting ? (
+                  <>Enviando...</>
+                ) : (
+                  <><Sparkles size={16} /> Participar</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Floating Action Button for Publishing */}

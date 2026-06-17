@@ -265,7 +265,7 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
                   }`}
                 >
                   {day.lookImage ? (
-                    <img src={day.lookImage} className="w-full h-full object-cover" alt={day.lookName || 'Look'} />
+                    <img src={day.lookImage} className="w-full h-full object-cover" alt={day.lookName || 'Look'} loading="lazy" />
                   ) : day.isToday ? (
                     <button
                       type="button"
