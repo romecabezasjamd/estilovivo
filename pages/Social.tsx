@@ -759,7 +759,24 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
     // Prevent chatting with yourself
     const targetUserId = targetItem.userId || targetItem.user?.id;
     if (targetUserId === currentUserId) {
-      // It's your own item — no need to chat
+      return;
+    }
+
+    // If just a user (no product), start a simple conversation
+    if (!targetItem.id && targetItem.user) {
+      try {
+        const res = await api.createConversation({
+          targetUserId,
+          itemId: undefined,
+          itemTitle: undefined,
+          itemImage: undefined,
+          initialMessage: undefined,
+        });
+        localStorage.setItem('ev_chat_open', res.id);
+      } catch (e) {
+        console.warn('Could not create conversation:', e);
+      }
+      setActiveTab('chat');
       return;
     }
 
@@ -1827,8 +1844,13 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                           {['❤️', '🔥', '💯', '😍', '👏'].map((emoji) => (
                             <button
                               key={emoji}
-                              onClick={() => {
+                              onClick={async () => {
                                 addXp(1, 'reaccionar a historia');
+                                try {
+                                  await api.reactToStory(story.id, emoji);
+                                } catch (e) {
+                                  console.warn('Could not send reaction message:', e);
+                                }
                                 setSelectedStoryId(null);
                               }}
                               className="text-lg hover:scale-125 transition-transform active:scale-150"
@@ -1839,6 +1861,18 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                         </div>
                       </div>
                     </div>
+                    {!story.isOwn && (
+                      <button
+                        onClick={() => {
+                          setSelectedStoryId(null);
+                          handleStartChat(undefined, { user: { id: story.userId, name: story.userName, avatar: story.userAvatar } });
+                          setActiveTab('chat');
+                        }}
+                        className="w-full mt-2 text-xs font-semibold text-primary border border-primary/30 rounded-full py-2 hover:bg-primary hover:text-white transition-all active:scale-[0.98]"
+                      >
+                        Enviar mensaje
+                      </button>
+                    )}
                   </div>
                 );
               })()}

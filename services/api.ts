@@ -873,6 +873,15 @@ export const api = {
         await handleResponse(res);
     },
 
+    reactToStory: async (storyId: string, emoji: string): Promise<any> => {
+        const res = await fetchWithRetry(`${API_BASE}/stories/${storyId}/reaction`, {
+            credentials: 'include', method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify({ emoji }),
+        });
+        return handleResponse(res);
+    },
+
     // ============= CHAT =============
     getConversations: async (): Promise<ChatConversation[]> => {
         const res = await fetch(`${API_BASE}/chat/conversations`, { headers: getHeaders(), credentials: 'include' });

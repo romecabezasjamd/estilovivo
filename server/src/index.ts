@@ -2421,6 +2421,85 @@ app.post('/api/stories/:id/view', authenticateToken, async (req: any, res: Respo
   }
 });
 
+app.post('/api/stories/:id/reaction', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const { emoji } = req.body;
+    if (!emoji) return res.status(400).json({ error: 'Emoji requerido' });
+
+    const story = await prisma.story.findUnique({
+      where: { id: req.params.id },
+      include: { user: { select: { id: true, name: true, avatar: true } } },
+    });
+    if (!story) return res.status(404).json({ error: 'Historia no encontrada' });
+
+    const reactor = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      select: { id: true, name: true, avatar: true },
+    });
+    if (!reactor) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+    // Find or create conversation
+    let conversation = await prisma.conversation.findFirst({
+      where: {
+        AND: [
+          { participants: { some: { userId: req.user.userId } } },
+          { participants: { some: { userId: story.userId } } },
+        ],
+        itemId: null,
+      },
+      include: { participants: { include: { user: { select: { id: true, name: true, avatar: true } } } } },
+    });
+
+    if (!conversation) {
+      conversation = await prisma.conversation.create({
+        data: {
+          participants: { create: [{ userId: req.user.userId }, { userId: story.userId }] },
+        },
+        include: { participants: { include: { user: { select: { id: true, name: true, avatar: true } } } } },
+      });
+    }
+
+    // Send message with reaction
+    const reactionText = `${emoji} Reaccionó a tu historia`;
+    const storyLink = story.imageUrl || (story.text ? `"${story.text.slice(0, 60)}"` : 'tu historia');
+    const messageContent = `${reactionText}: ${storyLink}`;
+
+    const message = await prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        senderId: req.user.userId,
+        content: messageContent,
+      },
+      include: { sender: { select: { id: true, name: true, avatar: true } } },
+    });
+
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data: { updatedAt: new Date() },
+    });
+
+    io.to(conversation.id).emit('new_message', message);
+
+    // Notify story author
+    if (story.userId !== req.user.userId) {
+      const notification = await prisma.notification.create({
+        data: {
+          type: 'STORY_REACTION',
+          content: `${reactor.name} reaccionó ${emoji} a tu historia`,
+          userId: story.userId,
+          relatedId: conversation.id,
+        }
+      });
+      io.to(`user_${story.userId}`).emit('notification', notification);
+    }
+
+    res.status(201).json({ message, conversationId: conversation.id });
+  } catch (error) {
+    logger.error('Error reacting to story', { error });
+    res.status(500).json({ error: 'Error al reaccionar a la historia' });
+  }
+});
+
 // ============= FRONTEND SPA =============
 
 const frontendPath = NODE_ENV === 'production'
