@@ -101,6 +101,10 @@ export const updateProfileSchema = z.object({
   birthDate: z.string().optional().nullable(),
   mood: z.string().optional().nullable(),
   emailNotifications: z.union([z.boolean(), z.string()]).optional().nullable(),
+  emailChat: z.union([z.boolean(), z.string()]).optional().nullable(),
+  emailFollows: z.union([z.boolean(), z.string()]).optional().nullable(),
+  emailWashing: z.union([z.boolean(), z.string()]).optional().nullable(),
+  emailChallenges: z.union([z.boolean(), z.string()]).optional().nullable(),
   cycleTracking: z.union([z.boolean(), z.string()]).optional().nullable(),
   musicSync: z.union([z.boolean(), z.string()]).optional().nullable(),
 });

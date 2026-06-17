@@ -72,7 +72,9 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
   const [storyForm, setStoryForm] = useState<StoryForm>({ type: 'image', text: '', imageUrl: '', selectedGarmentId: null, imageFile: null });
   const [storyUploadError, setStoryUploadError] = useState<string | null>(null);
   const [storyToast, setStoryToast] = useState<string | null>(null);
-  const [hasParticipatedInChallenge, setHasParticipatedInChallenge] = useState(false);
+  const [currentChallenge, setCurrentChallenge] = useState<any>(null);
+  const [challengeSubmission, setChallengeSubmission] = useState<any>(null);
+  const [loadingChallenge, setLoadingChallenge] = useState(false);
   const [followedUserIds, setFollowedUserIds] = useState<Set<string>>(new Set());
   const [chatAttachment, setChatAttachment] = useState<string | null>(null);
   const chatFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -249,20 +251,40 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
     window.setTimeout(() => setStoryToast(null), 3200);
   };
 
-  const weeklyChallenges = [
-    { title: 'Color Block', description: 'Combina colores vibrantes.', reward: 50, tag: 'Color Block' },
-    { title: 'Look Monocromático', description: 'Crea un outfit con una sola familia de color.', reward: 60, tag: 'Monocromo' },
-    { title: 'Street Style', description: 'Combina urbano con chic.', reward: 50, tag: 'Street' },
-    { title: 'Retro Vibes', description: 'Busca inspiración vintage.', reward: 55, tag: 'Retro' },
-  ];
+  useEffect(() => {
+    const loadChallenge = async () => {
+      setLoadingChallenge(true);
+      try {
+        const challenge = await api.getCurrentChallenge();
+        setCurrentChallenge(challenge);
+        const subs = await api.getMySubmissions();
+        const existing = subs.find((s: any) => s.challengeId === challenge.id);
+        setChallengeSubmission(existing || null);
+      } catch (e) {
+        console.warn('Could not load challenge:', e);
+      } finally {
+        setLoadingChallenge(false);
+      }
+    };
+    loadChallenge();
+  }, []);
 
-  const weekIndex = Math.floor(Date.now() / 1000 / 60 / 60 / 24 / 7);
-  const weeklyChallenge = weeklyChallenges[weekIndex % weeklyChallenges.length];
-
-  const handleParticipateChallenge = () => {
-    if (hasParticipatedInChallenge) return;
-    setHasParticipatedInChallenge(true);
-    addXp(weeklyChallenge.reward, 'participar en el reto semanal');
+  const handleParticipateChallenge = async () => {
+    if (!currentChallenge || challengeSubmission) return;
+    try {
+      const formData = new FormData();
+      formData.append('challengeId', currentChallenge.id);
+      formData.append('description', 'Participación en el reto semanal');
+      const result = await api.submitChallenge(formData);
+      setChallengeSubmission(result);
+      if (activeUser && result.experiencePoints !== undefined) {
+        handleUpdateUser({ ...activeUser, experiencePoints: result.experiencePoints, level: result.level || Math.floor(result.experiencePoints / 100) + 1 });
+      }
+      setStoryToast(`+${currentChallenge.reward} XP por participar en el reto semanal`);
+      window.setTimeout(() => setStoryToast(null), 3200);
+    } catch (e: any) {
+      console.warn('Could not participate:', e);
+    }
   };
 
   const toggleFollowUser = async (userId: string) => {
@@ -909,29 +931,29 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
         </div>
 
         {/* Sub-headers per tab */}
-        {activeTab === 'feed' && (
+        {activeTab === 'feed' && currentChallenge && !loadingChallenge && (
           <div className="bg-gradient-to-r from-primary to-accent rounded-2xl p-4 text-white relative overflow-hidden animate-fade-in mt-4">
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10" />
             <div className="relative z-10">
               <span className="inline-flex items-center gap-1 px-2 py-1 bg-accent text-[10px] font-bold uppercase tracking-wider rounded-md mb-2">
                 <Sparkles size={12} /> Reto Semanal
               </span>
-              <h3 className="font-bold text-lg mb-1">{weeklyChallenge.title}</h3>
-              <p className="text-sm text-teal-100 opacity-90 mb-3">{weeklyChallenge.description}</p>
+              <h3 className="font-bold text-lg mb-1">{currentChallenge.title}</h3>
+              <p className="text-sm text-teal-100 opacity-90 mb-3">{currentChallenge.description}</p>
               <div className="flex items-center space-x-2">
                 <button
                   onClick={handleParticipateChallenge}
-                  disabled={hasParticipatedInChallenge}
+                  disabled={!!challengeSubmission}
                   className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-all ${
-                    hasParticipatedInChallenge
+                    challengeSubmission
                       ? 'bg-emerald-400 text-white cursor-default'
                       : 'bg-white text-primary hover:bg-primary hover:text-white'
                   }`}
                 >
-                  {hasParticipatedInChallenge ? '¡Completado!' : 'Participar'}
+                  {challengeSubmission ? '¡Completado!' : 'Participar'}
                 </button>
                 <span className="text-xs font-bold text-teal-100 bg-black/20 px-2 py-1 rounded-full">
-                  +{weeklyChallenge.reward} XP
+                  +{currentChallenge.reward} XP
                 </span>
               </div>
             </div>

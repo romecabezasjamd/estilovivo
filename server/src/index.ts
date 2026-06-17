@@ -316,15 +316,17 @@ const sendPreferenceEmail = async (params: {
   html: string;
   text?: string;
   context?: Record<string, unknown>;
+  preference?: 'emailChat' | 'emailFollows' | 'emailWashing' | 'emailChallenges';
 }) => {
   if (!transporter) return false;
 
   const recipient = await prisma.user.findUnique({
     where: { id: params.userId },
-    select: { email: true, emailNotifications: true, name: true }
+    select: { email: true, emailNotifications: true, name: true, emailChat: true, emailFollows: true, emailWashing: true, emailChallenges: true }
   });
 
   if (!recipient?.email || !recipient.emailNotifications) return false;
+  if (params.preference && !(recipient as any)[params.preference]) return false;
 
   try {
     await sendMailWithRetry({
@@ -1081,7 +1083,7 @@ app.get('/api/auth/me', authenticateToken, async (req: any, res: Response) => {
 
 app.put('/api/auth/profile', authenticateToken, upload.fields([{ name: 'avatar', maxCount: 1 }, { name: 'fullBodyAvatar', maxCount: 1 }]), validate(updateProfileSchema), async (req: any, res: Response) => {
   try {
-    const { name, bio, mood, cycleTracking, musicSync, emailNotifications, gender, birthDate } = req.body;
+    const { name, bio, mood, cycleTracking, musicSync, emailNotifications, emailChat, emailFollows, emailWashing, emailChallenges, gender, birthDate } = req.body;
     const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
     const avatarFile = files?.['avatar']?.[0];
     const fullBodyFile = files?.['fullBodyAvatar']?.[0];
@@ -1093,6 +1095,10 @@ app.put('/api/auth/profile', authenticateToken, upload.fields([{ name: 'avatar',
     if (cycleTracking !== undefined) updateData.cycleTracking = cycleTracking === 'true' || cycleTracking === true;
     if (musicSync !== undefined) updateData.musicSync = musicSync === 'true' || musicSync === true;
     if (emailNotifications !== undefined) updateData.emailNotifications = emailNotifications === 'true' || emailNotifications === true;
+    if (emailChat !== undefined) updateData.emailChat = emailChat === 'true' || emailChat === true;
+    if (emailFollows !== undefined) updateData.emailFollows = emailFollows === 'true' || emailFollows === true;
+    if (emailWashing !== undefined) updateData.emailWashing = emailWashing === 'true' || emailWashing === true;
+    if (emailChallenges !== undefined) updateData.emailChallenges = emailChallenges === 'true' || emailChallenges === true;
     if (gender !== undefined) updateData.gender = gender;
     if (birthDate !== undefined) updateData.birthDate = birthDate ? new Date(birthDate) : null;
     if (avatarFile) updateData.avatar = `/api/uploads/${avatarFile.filename}`;
@@ -1302,7 +1308,8 @@ app.put('/api/products/:id', authenticateToken, upload.array('images', 5), valid
         subject: 'Tu prenda está en la lavadora - Estilo Vivo',
         text: `La prenda "${product.name}" está ahora en la lavadora`,
         html: `<p>La prenda <strong>${product.name}</strong> está ahora en la lavadora.</p>`,
-        context: { type: 'WASHING', productId: product.id }
+        context: { type: 'WASHING', productId: product.id },
+        preference: 'emailWashing'
       });
     }
 
@@ -1719,7 +1726,8 @@ app.post('/api/social/follow', authenticateToken, validate(followSchema), async 
         subject: 'Nuevo seguidor en Estilo Vivo',
         text: `${me?.name || 'Alguien'} te siguió`,
         html: `<p><strong>${me?.name || 'Alguien'}</strong> te siguió.</p>`,
-        context: { type: 'FOLLOW' }
+        context: { type: 'FOLLOW' },
+        preference: 'emailFollows'
       });
     }
     res.json({ following });
@@ -1746,6 +1754,105 @@ app.get('/api/users/top', async (req: Request, res: Response) => {
   } catch (error) {
     logger.error('Error fetching top users', { error });
     res.status(500).json({ error: 'Error fetching top users' });
+  }
+});
+
+// ============= RETOS SEMANALES =============
+
+app.get('/api/challenges/current', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const now = new Date();
+    let challenge = await prisma.weeklyChallenge.findFirst({
+      where: { startDate: { lte: now }, endDate: { gte: now }, active: true },
+      orderBy: { startDate: 'desc' }
+    });
+    if (!challenge) {
+      const challenges = [
+        { title: 'Color Block', description: 'Combina colores vibrantes en un solo look.', reward: 50, tag: 'Color Block' },
+        { title: 'Look Monocromático', description: 'Crea un outfit con una sola familia de color.', reward: 60, tag: 'Monocromo' },
+        { title: 'Street Style', description: 'Combina urbano con chic.', reward: 50, tag: 'Street' },
+        { title: 'Retro Vibes', description: 'Busca inspiración vintage.', reward: 55, tag: 'Retro' },
+        { title: 'Eco Friendly', description: 'Usa prendas sostenibles o recicladas.', reward: 55, tag: 'Eco' },
+        { title: 'Noche de Gala', description: 'Un look elegante para una ocasión especial.', reward: 60, tag: 'Gala' },
+      ];
+      const weekIndex = Math.floor(now.getTime() / 1000 / 60 / 60 / 24 / 7);
+      const fallback = challenges[weekIndex % challenges.length];
+      challenge = await prisma.weeklyChallenge.create({
+        data: {
+          title: fallback.title,
+          description: fallback.description,
+          reward: fallback.reward,
+          tag: fallback.tag,
+          startDate: new Date(now.getTime() - 86400000),
+          endDate: new Date(now.getTime() + 6 * 86400000),
+          active: true,
+        }
+      });
+    }
+    res.json(challenge);
+  } catch (error) {
+    logger.error('Error fetching current challenge', { error });
+    res.status(500).json({ error: 'Error fetching current challenge' });
+  }
+});
+
+app.get('/api/challenges/my-submissions', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const submissions = await prisma.challengeSubmission.findMany({
+      where: { userId: req.user.userId },
+      include: { challenge: true },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(submissions);
+  } catch (error) {
+    logger.error('Error fetching my submissions', { error });
+    res.status(500).json({ error: 'Error fetching submissions' });
+  }
+});
+
+app.post('/api/challenges/submit', authenticateToken, upload.fields([{ name: 'image', maxCount: 1 }]), async (req: any, res: Response) => {
+  try {
+    const { challengeId, description } = req.body;
+    if (!challengeId) return res.status(400).json({ error: 'Falta el ID del reto' });
+
+    const challenge = await prisma.weeklyChallenge.findUnique({ where: { id: challengeId } });
+    if (!challenge) return res.status(404).json({ error: 'Reto no encontrado' });
+    if (!challenge.active) return res.status(400).json({ error: 'Este reto ya no está activo' });
+
+    const existing = await prisma.challengeSubmission.findUnique({
+      where: { userId_challengeId: { userId: req.user.userId, challengeId } }
+    });
+    if (existing) return res.status(400).json({ error: 'Ya participaste en este reto' });
+
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+    const imageFile = files?.['image']?.[0];
+
+    const submission = await prisma.challengeSubmission.create({
+      data: {
+        userId: req.user.userId,
+        challengeId,
+        imageUrl: imageFile ? `/api/uploads/${imageFile.filename}` : null,
+        description: description || null,
+        verified: false,
+        awarded: true,
+      }
+    });
+
+    const updated = await prisma.user.update({
+      where: { id: req.user.userId },
+      data: { experiencePoints: { increment: challenge.reward } },
+      select: { experiencePoints: true },
+    });
+    const newLevel = Math.floor(updated.experiencePoints / 100) + 1;
+    await prisma.user.update({
+      where: { id: req.user.userId },
+      data: { level: newLevel },
+    });
+
+    res.status(201).json({ ...submission, experiencePoints: updated.experiencePoints, level: newLevel });
+  } catch (error) {
+    logger.error('Error submitting challenge', { error });
+    res.status(500).json({ error: 'Error al participar en el reto' });
   }
 });
 
@@ -2127,7 +2234,7 @@ app.post('/api/chat/conversations/:id/messages', authenticateToken, validate(mes
       io.to(`user_${otherParticipant.userId}`).emit('notification', notification);
 
       const otherUser = await prisma.user.findUnique({ where: { id: otherParticipant.userId } });
-      if (transporter && otherUser?.email && otherUser.emailNotifications) {
+      if (transporter && otherUser?.email && otherUser.emailNotifications && otherUser.emailChat) {
         try {
           const emailContent = `
             <p class="greeting">Nuevo mensaje de ${message.sender.name} 💬</p>
@@ -2182,7 +2289,7 @@ app.post('/api/chat/messages', authenticateToken, validate(messageSchema), async
       io.to(`user_${otherUserId}`).emit('notification', notification);
 
       const otherUser = await prisma.user.findUnique({ where: { id: otherUserId } });
-      if (transporter && otherUser?.email && otherUser.emailNotifications) {
+      if (transporter && otherUser?.email && otherUser.emailNotifications && otherUser.emailChat) {
         try {
           const emailContent = `
             <p class="greeting">Nuevo mensaje de ${message.sender.name} 💬</p>

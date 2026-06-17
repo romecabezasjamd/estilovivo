@@ -65,6 +65,10 @@ export interface UserState {
   cycleTracking: boolean;
   musicSync: boolean;
   emailNotifications?: boolean;
+  emailChat?: boolean;
+  emailFollows?: boolean;
+  emailWashing?: boolean;
+  emailChallenges?: boolean;
   bio: string;
   avatar?: string;
   fullBodyAvatar?: string;

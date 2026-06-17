@@ -21,6 +21,10 @@ model User {
   cycleTracking      Boolean    @default(false)
   musicSync          Boolean    @default(false)
   emailNotifications Boolean    @default(true)
+  emailChat          Boolean    @default(true)
+  emailFollows       Boolean    @default(true)
+  emailWashing       Boolean    @default(true)
+  emailChallenges    Boolean    @default(true)
   gender             String?    @default("other")
   birthDate         DateTime?
   resetToken        String?
@@ -45,6 +49,7 @@ model User {
   messages          Message[]
   notifications     Notification[]
   stories           Story[]
+  challengeSubmissions ChallengeSubmission[]
 }
 
 model Product {
@@ -279,4 +284,38 @@ model Story {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+model WeeklyChallenge {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  reward      Int      @default(50)
+  tag         String
+  startDate   DateTime @default(now())
+  endDate     DateTime
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  submissions ChallengeSubmission[]
+  @@index([active])
+  @@index([startDate, endDate])
+}
+
+model ChallengeSubmission {
+  id          String   @id @default(cuid())
+  userId      String
+  challengeId String
+  imageUrl    String?
+  description String?
+  verified    Boolean  @default(false)
+  awarded     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challenge WeeklyChallenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, challengeId])
+  @@index([challengeId])
+  @@index([userId])
 }

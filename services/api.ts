@@ -872,5 +872,25 @@ export const api = {
         const res = await fetch(`${API_BASE}/trends`, { headers: getHeaders(), credentials: 'include' });
         return handleResponse(res);
     },
+
+    // ============= CHALLENGES =============
+    getCurrentChallenge: async () => {
+        const res = await fetch(`${API_BASE}/challenges/current`, { headers: getHeaders(), credentials: 'include' });
+        return handleResponse(res);
+    },
+
+    getMySubmissions: async () => {
+        const res = await fetch(`${API_BASE}/challenges/my-submissions`, { headers: getHeaders(), credentials: 'include' });
+        return handleResponse(res);
+    },
+
+    submitChallenge: async (formData: FormData) => {
+        const res = await fetch(`${API_BASE}/challenges/submit`, {
+            credentials: 'include', method: 'POST',
+            headers: { ...getAuthHeader() },
+            body: formData
+        });
+        return handleResponse(res);
+    },
 };
 

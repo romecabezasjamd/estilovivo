@@ -61,6 +61,10 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
   // Settings state
   const [cycleTracking, setCycleTracking] = useState(user.cycleTracking || false);
   const [emailNotifications, setEmailNotifications] = useState(user.emailNotifications ?? true);
+  const [emailChat, setEmailChat] = useState(user.emailChat ?? true);
+  const [emailFollows, setEmailFollows] = useState(user.emailFollows ?? true);
+  const [emailWashing, setEmailWashing] = useState(user.emailWashing ?? true);
+  const [emailChallenges, setEmailChallenges] = useState(user.emailChallenges ?? true);
   const [cycleStartDate, setCycleStartDate] = useState('');
   const [cycleEndDate, setCycleEndDate] = useState('');
   const [settingsError, setSettingsError] = useState<string | null>(null);
@@ -209,10 +213,9 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
   };
 
   // Save settings
-  const handleToggleSetting = async (setting: 'cycleTracking' | 'emailNotifications', value: boolean) => {
-    const prev = {
-      cycleTracking,
-      emailNotifications,
+  const handleToggleSetting = async (setting: string, value: boolean) => {
+    const prev: any = {
+      cycleTracking, emailNotifications, emailChat, emailFollows, emailWashing, emailChallenges,
     };
 
     if (setting === 'cycleTracking') {
@@ -224,15 +227,29 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
       }
     } else if (setting === 'emailNotifications') {
       setEmailNotifications(value);
-    }
+      // When master toggle changes, sync all sub-toggles
+      setEmailChat(value); setEmailFollows(value); setEmailWashing(value); setEmailChallenges(value);
+    } else if (setting === 'emailChat') setEmailChat(value);
+    else if (setting === 'emailFollows') setEmailFollows(value);
+    else if (setting === 'emailWashing') setEmailWashing(value);
+    else if (setting === 'emailChallenges') setEmailChallenges(value);
 
     setSettingsError(null);
     try {
-      const updated = await api.updateProfile({ [setting]: value });
-      onUpdateUser({ ...user, ...updated, [setting]: value });
+      const data: any = { [setting]: value };
+      if (setting === 'emailNotifications') {
+        data.emailChat = value; data.emailFollows = value; data.emailWashing = value; data.emailChallenges = value;
+      }
+      const updated = await api.updateProfile(data);
+      onUpdateUser({ ...user, ...updated, ...data });
     } catch (e: any) {
-      if (setting === 'cycleTracking') setCycleTracking(prev.cycleTracking);
-      else setEmailNotifications(prev.emailNotifications);
+      const prevVal = prev[setting];
+      if (setting === 'cycleTracking') setCycleTracking(prevVal);
+      else if (setting === 'emailNotifications') { setEmailNotifications(prevVal); setEmailChat(prev.emailChat); setEmailFollows(prev.emailFollows); setEmailWashing(prev.emailWashing); setEmailChallenges(prev.emailChallenges); }
+      else if (setting === 'emailChat') setEmailChat(prevVal);
+      else if (setting === 'emailFollows') setEmailFollows(prevVal);
+      else if (setting === 'emailWashing') setEmailWashing(prevVal);
+      else if (setting === 'emailChallenges') setEmailChallenges(prevVal);
       setSettingsError(e?.message || 'No se pudo guardar la preferencia');
       console.warn('Error saving setting:', e);
     }
@@ -947,23 +964,54 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                     )}
                   </>
                 )}
-                <div id="email-notifications-setting" className="flex items-center justify-between p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-sky-100 to-blue-100 rounded-lg flex items-center justify-center">
-                      <Bell size={18} className="text-blue-500" />
+                <div id="email-notifications-setting" className="p-4 border-b border-gray-50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-sky-100 to-blue-100 rounded-lg flex items-center justify-center">
+                        <Bell size={18} className="text-blue-500" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-gray-800">Notificaciones por correo</p>
+                        <p className="text-xs text-gray-500">Activar o desactivar tipos de aviso</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-bold text-gray-800">Notificaciones por correo</p>
-                      <p className="text-xs text-gray-500">Avisos por email cuando recibes mensajes en el chat</p>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSetting('emailNotifications', !emailNotifications)}
+                      className={`w-11 h-6 rounded-full transition-colors ${emailNotifications ? 'bg-gradient-to-r from-sky-400 to-blue-500' : 'bg-gray-200'}`}
+                    >
+                      <div className={`w-5 h-5 rounded-full bg-white shadow transform transition-transform ${emailNotifications ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleToggleSetting('emailNotifications', !emailNotifications)}
-                    className={`w-11 h-6 rounded-full transition-colors ${emailNotifications ? 'bg-gradient-to-r from-sky-400 to-blue-500' : 'bg-gray-200'}`}
-                  >
-                    <div className={`w-5 h-5 rounded-full bg-white shadow transform transition-transform ${emailNotifications ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                  </button>
+                </div>
+                <div className="px-4 pb-4 space-y-3 pt-3">
+                  {[
+                    { key: 'emailChat', label: 'Mensajes del chat', desc: 'Cuando recibes un mensaje nuevo', icon: '💬' },
+                    { key: 'emailFollows', label: 'Usuarios seguidos', desc: 'Cuando alguien a quien sigues publica', icon: '👤' },
+                    { key: 'emailWashing', label: 'Alertas de lavado', desc: 'Recordatorios de prendas en lavado', icon: '🧺' },
+                    { key: 'emailChallenges', label: 'Retos semanales', desc: 'Nuevos retos y recordatorios', icon: '🏆' },
+                  ].map(item => {
+                    const val = item.key === 'emailChat' ? emailChat : item.key === 'emailFollows' ? emailFollows : item.key === 'emailWashing' ? emailWashing : emailChallenges;
+                    return (
+                      <div key={item.key} className="flex items-center justify-between pl-1">
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-sm">{item.icon}</span>
+                          <div>
+                            <p className="text-xs font-semibold text-gray-700">{item.label}</p>
+                            <p className="text-[10px] text-gray-400">{item.desc}</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleSetting(item.key as any, !val)}
+                          disabled={!emailNotifications}
+                          className={`w-9 h-5 rounded-full transition-colors ${!emailNotifications ? 'bg-gray-100' : val ? 'bg-gradient-to-r from-sky-400 to-blue-500' : 'bg-gray-200'}`}
+                        >
+                          <div className={`w-4 h-4 rounded-full bg-white shadow transform transition-transform ${val ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
                 {settingsError && (
                   <p className="px-4 pb-3 text-xs text-red-600 font-medium">{settingsError}</p>
@@ -1348,7 +1396,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                   <button
                     type="button"
                     onClick={() => {
-                      window.location.href = 'mailto:soporte@estilovivo.app?subject=Soporte%20Estilo%20Vivo';
+                      window.location.href = 'mailto:appestilovivo@gmail.com?subject=Soporte%20Estilo%20Vivo';
                     }}
                     className="px-4 py-2 bg-red-500 text-white text-xs font-bold rounded-lg hover:bg-red-600 transition-colors"
                   >
