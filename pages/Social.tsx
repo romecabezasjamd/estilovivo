@@ -108,6 +108,12 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
   // Click-to-Shop Modal
   const [shopModalLook, setShopModalLook] = useState<Look | null>(null);
 
+  // Delete menu state
+  const [postMenuOpenId, setPostMenuOpenId] = useState<string | null>(null);
+  const [storyMenuOpenId, setStoryMenuOpenId] = useState<string | null>(null);
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+  const [deletingStoryId, setDeletingStoryId] = useState<string | null>(null);
+
   const currentUserId = useMemo(() => {
     const raw = localStorage.getItem('beyour_user');
     if (!raw) return null;
@@ -692,6 +698,37 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
     }
   };
 
+  const handleDeletePost = async (postId: string) => {
+    setDeletingPostId(postId);
+    try {
+      await api.deleteLook(postId);
+      setFeedLooks(prev => prev.filter(l => l.id !== postId));
+    } catch (error) {
+      console.error("Error deleting post:", error);
+      setStoryToast('Error al eliminar la publicación');
+      window.setTimeout(() => setStoryToast(null), 3200);
+    } finally {
+      setDeletingPostId(null);
+      setPostMenuOpenId(null);
+    }
+  };
+
+  const handleDeleteStory = async (storyId: string) => {
+    setDeletingStoryId(storyId);
+    try {
+      await api.deleteStory(storyId);
+      setStories(prev => prev.filter(s => s.id !== storyId));
+      if (selectedStoryId === storyId) setSelectedStoryId(null);
+    } catch (error) {
+      console.error("Error deleting story:", error);
+      setStoryToast('Error al eliminar la historia');
+      window.setTimeout(() => setStoryToast(null), 3200);
+    } finally {
+      setDeletingStoryId(null);
+      setStoryMenuOpenId(null);
+    }
+  };
+
   const handleShareNative = (post: Look) => {
     const url = `${window.location.origin}/look/${post.id}`;
     if (navigator.share) {
@@ -1204,12 +1241,11 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
 
               {/* Feed Grid */}
               <div className="grid grid-cols-2 gap-4">
-                {feedLooks.map((post, idx) => {
+                {feedLooks.map((post) => {
                   const postImage = getLookImage(post);
-                  const isFeatured = idx % 5 === 0 && feedLooks.length > 3;
 
                   return (
-                    <div key={post.id} className="bg-white rounded-[1.25rem] overflow-hidden shadow-sm border border-gray-100 group">
+                    <div key={post.id} className="bg-white rounded-[1.25rem] overflow-hidden shadow-sm border border-gray-100 group relative">
 
                       {/* Creator Header */}
                       <div className="flex items-center gap-2 px-2.5 py-2">
@@ -1220,15 +1256,43 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                         />
                         <span className="text-xs font-semibold text-gray-800 truncate">{post.userName || 'Usuario'}</span>
                         <span className="text-[9px] text-gray-400 ml-auto font-medium">Lv.{getPostUserLevel(post)}</span>
+                        {/* Three-dot menu for own posts */}
+                        {post.userId === currentUserId && (
+                          <div className="relative">
+                            <button
+                              onClick={() => setPostMenuOpenId(postMenuOpenId === post.id ? null : post.id)}
+                              className="p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                            >
+                              <MoreHorizontal size={14} />
+                            </button>
+                            {postMenuOpenId === post.id && (
+                              <div className="absolute right-0 top-6 z-50 bg-white rounded-xl shadow-xl border border-gray-100 py-1 min-w-[160px] animate-fade-in">
+                                <button
+                                  onClick={() => handleDeletePost(post.id)}
+                                  disabled={deletingPostId === post.id}
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 font-medium hover:bg-red-50 transition-colors disabled:opacity-50"
+                                >
+                                  {deletingPostId === post.id ? 'Eliminando...' : 'Eliminar publicación'}
+                                </button>
+                                <button
+                                  onClick={() => setPostMenuOpenId(null)}
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 font-medium hover:bg-gray-50 transition-colors"
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       {/* Image */}
                       {postImage ? (
-                        <div className={`relative bg-gray-100 ${isFeatured ? 'aspect-[4/5]' : 'aspect-square'}`}>
+                        <div className="aspect-square bg-gray-100">
                           <img src={postImage} className="w-full h-full object-cover" loading="lazy" alt={post.name} />
                         </div>
                       ) : (
-                        <div className={`relative bg-gray-50 flex items-center justify-center ${isFeatured ? 'aspect-[4/5]' : 'aspect-square'}`}>
+                        <div className="aspect-square bg-gray-50 flex items-center justify-center">
                           <div className="text-center opacity-40">
                             <Shirt size={36} className="mx-auto mb-1 text-gray-400" />
                           </div>
@@ -1841,9 +1905,45 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                   <p className="text-[10px] text-gray-500">{getStoryOwnerBadge(stories.find(s => s.id === selectedStoryId)!)} · {stories.find(s => s.id === selectedStoryId)?.views} vistas</p>
                 </div>
               </div>
-              <button onClick={() => setSelectedStoryId(null)} className="text-gray-400 p-2 rounded-full hover:bg-gray-100 transition-colors">
-                <X size={20} />
-              </button>
+              <div className="flex items-center gap-1">
+                {/* Delete story button (own stories only) */}
+                {(() => {
+                  const st = stories.find(s => s.id === selectedStoryId);
+                  if (st?.isOwn) {
+                    return (
+                      <div className="relative">
+                        <button
+                          onClick={() => setStoryMenuOpenId(storyMenuOpenId === st.id ? null : st.id)}
+                          className="text-gray-400 p-2 rounded-full hover:bg-gray-100 transition-colors"
+                        >
+                          <MoreHorizontal size={18} />
+                        </button>
+                        {storyMenuOpenId === st.id && (
+                          <div className="absolute right-0 top-10 z-50 bg-white rounded-xl shadow-xl border border-gray-100 py-1 min-w-[160px] animate-fade-in">
+                            <button
+                              onClick={() => handleDeleteStory(st.id)}
+                              disabled={deletingStoryId === st.id}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 font-medium hover:bg-red-50 transition-colors disabled:opacity-50"
+                            >
+                              {deletingStoryId === st.id ? 'Eliminando...' : 'Eliminar historia'}
+                            </button>
+                            <button
+                              onClick={() => setStoryMenuOpenId(null)}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 font-medium hover:bg-gray-50 transition-colors"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+                <button onClick={() => setSelectedStoryId(null)} className="text-gray-400 p-2 rounded-full hover:bg-gray-100 transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto bg-gradient-to-b from-primary/[0.02] to-transparent p-4">
               {(() => {

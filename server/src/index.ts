@@ -2468,10 +2468,9 @@ app.post('/api/stories/:id/reaction', authenticateToken, async (req: any, res: R
       });
     }
 
-    // Send message with reaction
-    const reactionText = `${emoji} Reaccionó a tu historia`;
-    const storyLink = story.imageUrl || (story.text ? `"${story.text.slice(0, 60)}"` : 'tu historia');
-    const messageContent = `${reactionText}: ${storyLink}`;
+    // Send message with reaction including reactor name
+    const storyRef = story.imageUrl ? 'una foto' : (story.text ? `"${story.text.slice(0, 60)}"` : 'tu historia');
+    const messageContent = `${reactor.name} reaccionó ${emoji} a tu historia: ${storyRef}`;
 
     const message = await prisma.message.create({
       data: {
@@ -2506,6 +2505,20 @@ app.post('/api/stories/:id/reaction', authenticateToken, async (req: any, res: R
   } catch (error) {
     logger.error('Error reacting to story', { error });
     res.status(500).json({ error: 'Error al reaccionar a la historia' });
+  }
+});
+
+app.delete('/api/stories/:id', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const { id } = req.params;
+    const story = await prisma.story.findUnique({ where: { id } });
+    if (!story) return res.status(404).json({ error: 'Historia no encontrada' });
+    if (story.userId !== req.user.userId) return res.status(403).json({ error: 'No autorizado' });
+    await prisma.story.delete({ where: { id } });
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Error deleting story', { error });
+    res.status(500).json({ error: 'Error al eliminar la historia' });
   }
 });
 

@@ -884,6 +884,14 @@ export const api = {
         await handleResponse(res);
     },
 
+    deleteStory: async (storyId: string): Promise<void> => {
+        const res = await fetch(`${API_BASE}/stories/${storyId}`, {
+            credentials: 'include', method: 'DELETE',
+            headers: getHeaders(),
+        });
+        await handleResponse(res);
+    },
+
     reactToStory: async (storyId: string, emoji: string): Promise<any> => {
         const res = await fetchWithRetry(`${API_BASE}/stories/${storyId}/reaction`, {
             credentials: 'include', method: 'POST',
