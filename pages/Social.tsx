@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Heart, MessageCircle, Bookmark, MoreHorizontal, ShoppingBag, Search, Tag, Send, X, Shirt, Sparkles, CheckCircle2, ArrowRight, ExternalLink, Plus, Camera, Share2 } from 'lucide-react';
+import { io, Socket } from 'socket.io-client';
 import ProductDetailModal, { ProductDisplayItem } from '../components/ProductDetailModal';
-import { api } from '../services/api';
+import { api, getSocketOrigin } from '../services/api';
 import { Look, UserState, ShopItem, Comment, Garment, ChatConversation, ChatMessage, StoryEntry } from '../types';
 import { useLanguage } from '../src/context/LanguageContext';
 import { useGlobalState } from '../src/context/GlobalStateContext';
@@ -14,6 +15,8 @@ interface StoryForm {
   imageUrl: string;
   selectedGarmentId: string | null;
   imageFile: File | null;
+  textPosition: 'top' | 'center' | 'bottom';
+  textSize: 'sm' | 'md' | 'lg';
 }
 
 interface SocialProps {
@@ -72,7 +75,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
   const [stories, setStories] = useState<StoryEntry[]>([]);
   const [selectedStoryId, setSelectedStoryId] = useState<string | null>(null);
   const [isCreateStoryOpen, setIsCreateStoryOpen] = useState(false);
-  const [storyForm, setStoryForm] = useState<StoryForm>({ type: 'image', text: '', imageUrl: '', selectedGarmentId: null, imageFile: null });
+  const [storyForm, setStoryForm] = useState<StoryForm>({ type: 'image', text: '', imageUrl: '', selectedGarmentId: null, imageFile: null, textPosition: 'bottom', textSize: 'md' });
   const [storyUploadError, setStoryUploadError] = useState<string | null>(null);
   const [storyToast, setStoryToast] = useState<string | null>(null);
   const [currentChallenge, setCurrentChallenge] = useState<any>(null);
@@ -92,6 +95,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
   const [chatAttachment, setChatAttachment] = useState<string | null>(null);
   const chatFileInputRef = useRef<HTMLInputElement | null>(null);
   const [messageReactions, setMessageReactions] = useState<Record<string, string[]>>({});
+  const [chatSocket, setChatSocket] = useState<Socket | null>(null);
 
   // Publish Post Modal (Instagram-style)
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
@@ -356,7 +360,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
     setStoryUploadError(null);
     try {
       const { dataUrl, file } = await pickPhoto(source);
-      setStoryForm({ type: 'image', text: '', imageUrl: dataUrl, selectedGarmentId: null, imageFile: file });
+      setStoryForm(prev => ({ ...prev, type: 'image', text: '', imageUrl: dataUrl, imageFile: file, selectedGarmentId: null }));
     } catch (err: any) {
       const rawMessage = String(err?.message || err || '');
       const message = rawMessage.toLowerCase();
@@ -398,7 +402,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
     const hadStories = stories.length > 0;
     setStories(prev => [newStory, ...prev]);
     setIsCreateStoryOpen(false);
-    setStoryForm({ type: 'image', text: '', imageUrl: '', selectedGarmentId: null, imageFile: null });
+    setStoryForm({ type: 'image', text: '', imageUrl: '', selectedGarmentId: null, imageFile: null, textPosition: 'bottom', textSize: 'md' });
     setStoryUploadError(null);
 
     try {
@@ -537,6 +541,37 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
     else if (activeTab === 'trends') loadTrends();
   }, [activeTab, loadFeed, loadShop, loadFavorites, loadConversations, loadTrends]);
 
+  // Socket connection for real-time chat
+  useEffect(() => {
+    if (activeTab !== 'chat') {
+      if (chatSocket) { chatSocket.disconnect(); setChatSocket(null); }
+      return;
+    }
+    const newSocket = io(getSocketOrigin(), { withCredentials: true, transports: ['polling'] });
+    setChatSocket(newSocket);
+
+    newSocket.on('new_message', (message: ChatMessage) => {
+      setMessagesById(prev => {
+        const threadMessages = prev[message.conversationId] || [];
+        if (threadMessages.some(m => m.id === message.id)) return prev;
+        return { ...prev, [message.conversationId]: [...threadMessages, message] };
+      });
+      setConversations(prev => prev.map(c => c.id === message.conversationId
+        ? { ...c, updatedAt: message.createdAt, lastMessage: { id: message.id, content: message.content, createdAt: message.createdAt, sender: message.sender } }
+        : c
+      ).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
+    });
+
+    return () => { newSocket.disconnect(); setChatSocket(null); };
+  }, [activeTab]);
+
+  // Join conversation rooms when loaded
+  useEffect(() => {
+    if (chatSocket && conversations.length > 0) {
+      conversations.forEach(c => chatSocket.emit('join_room', c.id));
+    }
+  }, [chatSocket, conversations]);
+
   // Reload shop when category filter changes
   useEffect(() => {
     if (activeTab === 'shop') {
@@ -565,26 +600,19 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
     setPublishError(null);
 
     try {
-      let imageUrl = publishPhoto;
+      const imageBlob = publishPhotoFile || await fetch(publishPhoto).then(r => r.blob()).catch(() => null);
 
-      if (publishPhotoFile) {
-        imageUrl = publishPhoto;
+      if (!imageBlob) {
+        setPublishError('No se pudo procesar la imagen. Inténtalo de nuevo.');
+        setIsPublishing(false);
+        return;
       }
 
-      const newLook: Look = {
-        id: `look-${Date.now()}`,
-        name: publishDescription.trim() || 'Publicación',
-        garmentIds: [],
-        isPublic: true,
-        mood: '',
-        tags: [],
-        imageUrl,
-        createdAt: new Date().toISOString(),
-        userName: activeUser?.name || 'Tú',
-        userAvatar: activeUser?.avatar,
-      };
-
-      const saved = await api.saveLook(newLook);
+      const saved = await api.saveLookWithImage(
+        publishDescription.trim() || 'Publicación',
+        [],
+        imageBlob
+      );
       setFeedLooks(prev => [saved, ...prev]);
       setIsPublishModalOpen(false);
       setPublishPhoto(null);
@@ -669,7 +697,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
     if (navigator.share) {
       navigator.share({
         title: post.name || 'Look en Estilo Vivo',
-        text: post.description || 'Mira este look en Estilo Vivo',
+        text: post.mood || 'Mira este look en Estilo Vivo',
         url,
       }).catch(() => {});
     } else {
@@ -969,6 +997,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
   const getLookImage = (look: Look) => {
     if (look.imageUrl) return look.imageUrl;
     if (look.garments && look.garments.length > 0) return look.garments[0].imageUrl;
+    if ((look as any).images?.length > 0) return (look as any).images[0].url || (look as any).images[0];
     return null;
   };
 
@@ -1233,8 +1262,8 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                         {post.name && (
                           <p className="text-xs text-gray-800 font-medium mt-1.5 leading-snug truncate">{post.name}</p>
                         )}
-                        {post.description && (
-                          <p className="text-[11px] text-gray-500 mt-0.5 leading-snug line-clamp-2">{post.description}</p>
+                        {post.mood && (
+                          <p className="text-[11px] text-gray-500 mt-0.5 leading-snug line-clamp-2">{post.mood}</p>
                         )}
                         <p className="text-[9px] text-gray-400 mt-1">
                           {new Date(post.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
@@ -1931,21 +1960,72 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                       Galería
                     </button>
                   </div>
-                  <div className="rounded-3xl border border-dashed border-gray-200 bg-gray-50 p-4 text-center min-h-[160px] flex items-center justify-center transition-all duration-300">
+                  <div className="rounded-3xl border border-dashed border-gray-200 bg-gray-50 overflow-hidden transition-all duration-300 relative">
                     {storyForm.imageUrl ? (
-                      <img src={storyForm.imageUrl} alt="Vista previa" className="mx-auto max-h-40 rounded-3xl object-cover shadow-sm animate-pop-in" />
+                      <div className="relative">
+                        <img src={storyForm.imageUrl} alt="Vista previa" className="w-full object-cover animate-pop-in" style={{ maxHeight: '320px' }} />
+                        {storyForm.text && (
+                          <div className={`absolute left-0 right-0 px-4 py-3 pointer-events-none ${storyForm.textPosition === 'top' ? 'top-0' : storyForm.textPosition === 'center' ? 'top-1/2 -translate-y-1/2' : 'bottom-0'}`}>
+                            <p className={`text-white font-bold drop-shadow-lg text-center break-words ${
+                              storyForm.textSize === 'sm' ? 'text-sm' : storyForm.textSize === 'lg' ? 'text-2xl' : 'text-lg'
+                            }`}
+                              style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6)' }}
+                            >
+                              {storyForm.text}
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     ) : (
-                      <p className="text-sm text-gray-400">Selecciona una foto para tu historia.</p>
+                      <p className="text-sm text-gray-400 py-16 text-center">Selecciona una foto para tu historia.</p>
                     )}
                   </div>
                   {storyForm.imageUrl && (
-                    <input
-                      type="text"
-                      value={storyForm.text}
-                      onChange={e => setStoryForm(prev => ({ ...prev, text: e.target.value }))}
-                      placeholder="Añade texto sobre la imagen (opcional)..."
-                      className="w-full rounded-3xl border border-gray-200 px-4 py-3 text-sm text-gray-700 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
-                    />
+                    <div className="space-y-3 animate-fade-in-up">
+                      <input
+                        type="text"
+                        value={storyForm.text}
+                        onChange={e => setStoryForm(prev => ({ ...prev, text: e.target.value }))}
+                        placeholder="Añade texto sobre la imagen..."
+                        className="w-full rounded-3xl border border-gray-200 px-4 py-3 text-sm text-gray-700 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                      />
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <p className="text-[10px] text-gray-400 font-semibold mb-1.5 uppercase tracking-wider">Posición</p>
+                          <div className="flex gap-1">
+                            {(['top', 'center', 'bottom'] as const).map(pos => (
+                              <button
+                                key={pos}
+                                type="button"
+                                onClick={() => setStoryForm(prev => ({ ...prev, textPosition: pos }))}
+                                className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all ${
+                                  storyForm.textPosition === pos ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                }`}
+                              >
+                                {pos === 'top' ? 'Arriba' : pos === 'center' ? 'Centro' : 'Abajo'}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-[10px] text-gray-400 font-semibold mb-1.5 uppercase tracking-wider">Tamaño</p>
+                          <div className="flex gap-1">
+                            {(['sm', 'md', 'lg'] as const).map(size => (
+                              <button
+                                key={size}
+                                type="button"
+                                onClick={() => setStoryForm(prev => ({ ...prev, textSize: size }))}
+                                className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all ${
+                                  storyForm.textSize === size ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                }`}
+                              >
+                                {size === 'sm' ? 'Peq' : size === 'md' ? 'Med' : 'Gde'}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   )}
                 </div>
               ) : (
@@ -1964,7 +2044,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                     <button
                       key={g.id}
                       type="button"
-                      onClick={() => setStoryForm({ type: 'image', text: g.name, imageUrl: g.imageUrl, selectedGarmentId: g.id, imageFile: null })}
+                      onClick={() => setStoryForm(prev => ({ ...prev, type: 'image', text: g.name, imageUrl: g.imageUrl, selectedGarmentId: g.id, imageFile: null }))}
                       className={`h-24 rounded-3xl overflow-hidden border-2 transition-all duration-200 ${storyForm.selectedGarmentId === g.id ? 'border-primary shadow-md scale-105' : 'border-gray-200 hover:border-primary/30'} bg-white`}
                     >
                       <img src={g.imageUrl} alt={g.name} className="w-full h-full object-cover" />

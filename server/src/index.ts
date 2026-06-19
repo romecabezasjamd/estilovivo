@@ -1827,6 +1827,15 @@ app.post('/api/challenges/submit', authenticateToken, upload.fields([{ name: 'im
     const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
     const imageFile = files?.['image']?.[0];
 
+    // Basic validation: description minimum length
+    const desc = (description || '').trim();
+    if (desc.length > 0 && desc.length < 10) {
+      return res.status(400).json({ error: 'La descripción debe tener al menos 10 caracteres' });
+    }
+    if (desc.length > 500) {
+      return res.status(400).json({ error: 'La descripción no puede superar los 500 caracteres' });
+    }
+
     const submission = await prisma.challengeSubmission.create({
       data: {
         userId: req.user.userId,
