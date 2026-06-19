@@ -39,29 +39,40 @@ export let API_ORIGIN = API_BASE.replace(/\/api\/?$/, '');
 
 // Fallback URLs for dev/testing on Android emulator
 const DEV_FALLBACKS = [
-    'http://10.0.2.2:3000/api',
     'http://127.0.0.1:3000/api',
     PRODUCTION_API,
 ];
 
-// In dev mode, try fallbacks to find a local server (emulator dev only)
+// Add 10.0.2.2 only when on a native Android device (emulator)
+if (isNativeApp()) {
+    DEV_FALLBACKS.unshift('http://10.0.2.2:3000/api');
+}
+
+// In dev mode, try fallbacks to find a local server (emulator dev only).
+// Skip entirely if we're already on the production origin to avoid mixed content warnings.
 if (typeof window !== 'undefined' && isDevMode()) {
-    (async () => {
-        for (const url of DEV_FALLBACKS) {
-            try {
-                const controller = new AbortController();
-                const id = setTimeout(() => controller.abort(), 3000);
-                const res = await fetch(`${url.replace('/api', '')}/api/health`, { signal: controller.signal });
-                clearTimeout(id);
-                if (res.ok) {
-                    API_BASE = url;
-                    API_ORIGIN = url.replace(/\/api\/?$/, '');
-                    console.log(`[API] Dev mode connected to: ${url}`);
-                    return;
-                }
-            } catch { /* try next */ }
-        }
-    })();
+    const currentOrigin = window.location.origin;
+    if (currentOrigin === 'https://estilovivo.xyoncloud.win') {
+        // Already on production — no need to probe fallbacks
+        console.log('[API] Production origin detected, skipping dev fallback loop');
+    } else {
+        (async () => {
+            for (const url of DEV_FALLBACKS) {
+                try {
+                    const controller = new AbortController();
+                    const id = setTimeout(() => controller.abort(), 3000);
+                    const res = await fetch(`${url.replace('/api', '')}/api/health`, { signal: controller.signal });
+                    clearTimeout(id);
+                    if (res.ok) {
+                        API_BASE = url;
+                        API_ORIGIN = url.replace(/\/api\/?$/, '');
+                        console.log(`[API] Dev mode connected to: ${url}`);
+                        return;
+                    }
+                } catch { /* try next */ }
+            }
+        })();
+    }
 }
 
 const AUTH_TOKEN_KEY = 'beyour_token';

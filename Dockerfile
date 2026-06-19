@@ -41,6 +41,9 @@ FROM dependencies AS frontend-build
 
 WORKDIR /app
 
+# Force production mode so import.meta.env.DEV is false in built output
+ENV NODE_ENV=production
+
 # Cache buster: cambia este valor para forzar rebuild
 ARG CACHEBUST
 
