@@ -40,6 +40,11 @@ import {
 } from './validators.js';
 import { fashionTrendsService } from './fashionTrends.js';
 import { awardPoints } from './gamification.js';
+import {
+  awardXp, removeXp, levelFromXp, xpProgress,
+  checkAndUnlockAchievements, checkAndUnlockBadges,
+  updateStreak, ACHIEVEMENTS, BADGES, XP_VALUES
+} from './gamificationSystem.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1554,6 +1559,7 @@ app.post('/api/social/like', authenticateToken, async (req: any, res: Response) 
       }
     }
     if (liked) {
+      awardXp(prisma, userId, XP_VALUES.receiveLike).catch(() => {});
       const look = await prisma.look.findUnique({ where: { id: lookId }, select: { userId: true } });
       if (look && look.userId !== userId) {
         const me = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
@@ -1759,36 +1765,101 @@ app.get('/api/users/top', async (req: Request, res: Response) => {
 
 // ============= RETOS SEMANALES =============
 
+const CHALLENGES_ROTATION = [
+  { title: 'Color Block', description: 'Combina colores vibrantes en un solo look. Usa al menos 3 colores diferentes que contrasten entre sí de forma armoniosa.', reward: 50, tag: 'Color Block', tips: ['Usa 3 colores como máximo', 'Busca contraste entre prendas', 'Añade un accesorio neutro', 'La luz natural resalta los tonos'] },
+  { title: 'Look Monocromático', description: 'Crea un outfit con una sola familia de color. Usa tonos similares y buena iluminación para que se aprecien los matices.', reward: 60, tag: 'Monocromo', tips: ['Usa tonos similares y buena iluminación', 'Varía texturas para evitar monotonía', 'Añade un accesorio en tono metalizado', 'Juega con claroscuros'] },
+  { title: 'Street Style', description: 'Combina lo urbano con lo chic. Mezcla prendas casual con elegantes para un look de calle con personalidad.', reward: 50, tag: 'Street', tips: ['Mezcla prendas casual con elegantes', 'Las zapatillas blancas funcionan siempre', 'Añade una chaqueta estructurada', 'Busca fondos urbanos para la foto'] },
+  { title: 'Retro Vibes', description: 'Busca inspiración vintage. Prendas de segunda mano, estampados clásicos y complementos que evoquen décadas pasadas.', reward: 55, tag: 'Retro', tips: ['Prendas de segunda mano o herencia', 'Estampados de los 70s u 80s', 'Complementos retro', 'Tono sepia en la foto'] },
+  { title: 'Eco Friendly', description: 'Usa prendas sostenibles o recicladas. Materiales naturales, colores tierra y un enfoque consciente de la moda.', reward: 55, tag: 'Eco', tips: ['Materiales naturales o reciclados', 'Colores tierra y verdes', 'Muestra el entorno natural', 'Menos es más'] },
+  { title: 'Noche de Gala', description: 'Un look elegante para una ocasión especial. Tejidos nobles, joyería sutil y un acabado impecable.', reward: 60, tag: 'Gala', tips: ['Tejidos nobles como seda o terciopelo', 'Joyas o bisutería elegante', 'Maquillaje acorde', 'Fondo oscuro para destacar'] },
+  { title: 'Verano Tropical', description: 'Un look fresco y colorido para el verano. Estampados tropicales, colores vibrantes y tejidos ligeros.', reward: 55, tag: 'Verano', tips: ['Tejidos ligeros como lino o algodón', 'Colores vibrantes y estampados', 'Complementos de playa', 'Luz natural y fondo verde'] },
+  { title: 'Otoño Boho', description: 'Looks bohemios con tonos tierra, capas y texturas naturales. Combina prendas holgadas con accesorios artesanales.', reward: 55, tag: 'Boho', tips: ['Capas y texturas naturales', 'Tonos tierra y naranjas', 'Accesorios artesanales', 'Fondo con hojas otoñales'] },
+  { title: 'Minimalista Chic', description: 'Menos es más. Un look monocromático con líneas limpias y cortes precisos. La calidad sobre la cantidad.', reward: 60, tag: 'Minimalista', tips: ['Líneas limpias y cortes precisos', 'Paleta de colores neutros', 'Tejidos de calidad', 'Fondo minimalista'] },
+  { title: 'Deportivo Elegante', description: 'Athleisure: combina prendas deportivas con toques elegantes para un look versátil y moderno.', reward: 50, tag: 'Sporty', tips: ['Mezcla deportivo con formal', 'Zapatillas blancas o clean', 'Tejidos técnicos', 'Energía y movimiento en la foto'] },
+];
+
+async function getChallengeWeekBounds(now: Date): Promise<{ monday: Date; sunday: Date }> {
+  const dayOfWeek = now.getDay();
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + mondayOffset);
+  monday.setHours(0, 0, 0, 0);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+  return { monday, sunday };
+}
+
+async function analyzeChallengeImage(filePath: string): Promise<{ uniform: boolean; score: number }> {
+  try {
+    const sharp = (await import('sharp')).default;
+    const { data, info } = await sharp(filePath)
+      .resize(32, 32, { fit: 'cover' })
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const pixels = data;
+    const totalPixels = info.width * info.height;
+    let totalR = 0, totalG = 0, totalB = 0;
+    for (let i = 0; i < totalPixels; i++) {
+      totalR += pixels[i * 3];
+      totalG += pixels[i * 3 + 1];
+      totalB += pixels[i * 3 + 2];
+    }
+    const avgR = totalR / totalPixels;
+    const avgG = totalG / totalPixels;
+    const avgB = totalB / totalPixels;
+    let variance = 0;
+    for (let i = 0; i < totalPixels; i++) {
+      const dr = pixels[i * 3] - avgR;
+      const dg = pixels[i * 3 + 1] - avgG;
+      const db = pixels[i * 3 + 2] - avgB;
+      variance += dr * dr + dg * dg + db * db;
+    }
+    variance /= totalPixels * 3;
+    const maxVariance = 16384;
+    const score = Math.max(0, Math.min(100, 100 - (variance / maxVariance) * 100));
+    return { uniform: score >= 30, score };
+  } catch {
+    return { uniform: true, score: 50 };
+  }
+}
+
 app.get('/api/challenges/current', authenticateToken, async (req: Request, res: Response) => {
   try {
     const now = new Date();
+    const { monday, sunday } = await getChallengeWeekBounds(now);
+
     let challenge = await prisma.weeklyChallenge.findFirst({
-      where: { startDate: { lte: now }, endDate: { gte: now }, active: true },
+      where: {
+        startDate: { gte: monday, lte: sunday },
+        active: true
+      },
       orderBy: { startDate: 'desc' }
     });
+
     if (!challenge) {
-      const challenges = [
-        { title: 'Color Block', description: 'Combina colores vibrantes en un solo look.', reward: 50, tag: 'Color Block' },
-        { title: 'Look Monocromático', description: 'Crea un outfit con una sola familia de color.', reward: 60, tag: 'Monocromo' },
-        { title: 'Street Style', description: 'Combina urbano con chic.', reward: 50, tag: 'Street' },
-        { title: 'Retro Vibes', description: 'Busca inspiración vintage.', reward: 55, tag: 'Retro' },
-        { title: 'Eco Friendly', description: 'Usa prendas sostenibles o recicladas.', reward: 55, tag: 'Eco' },
-        { title: 'Noche de Gala', description: 'Un look elegante para una ocasión especial.', reward: 60, tag: 'Gala' },
-      ];
+      challenge = await prisma.weeklyChallenge.findFirst({
+        where: { startDate: { lte: now }, endDate: { gte: now }, active: true },
+        orderBy: { startDate: 'desc' }
+      });
+    }
+
+    if (!challenge) {
       const weekIndex = Math.floor(now.getTime() / 1000 / 60 / 60 / 24 / 7);
-      const fallback = challenges[weekIndex % challenges.length];
+      const fallback = CHALLENGES_ROTATION[weekIndex % CHALLENGES_ROTATION.length];
       challenge = await prisma.weeklyChallenge.create({
         data: {
           title: fallback.title,
           description: fallback.description,
           reward: fallback.reward,
           tag: fallback.tag,
-          startDate: new Date(now.getTime() - 86400000),
-          endDate: new Date(now.getTime() + 6 * 86400000),
+          startDate: monday,
+          endDate: sunday,
           active: true,
         }
       });
     }
+
     res.json(challenge);
   } catch (error) {
     logger.error('Error fetching current challenge', { error });
@@ -1810,6 +1881,31 @@ app.get('/api/challenges/my-submissions', authenticateToken, async (req: any, re
   }
 });
 
+app.get('/api/challenges/history', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const now = new Date();
+    const pastChallenges = await prisma.weeklyChallenge.findMany({
+      where: { endDate: { lt: now } },
+      include: {
+        submissions: {
+          where: { userId: req.user.userId },
+          select: { id: true, imageUrl: true, description: true, verified: true, awarded: true, createdAt: true }
+        }
+      },
+      orderBy: { endDate: 'desc' },
+      take: 50
+    });
+    const totalXp = pastChallenges.reduce((sum, c) => {
+      const s = c.submissions[0];
+      return sum + (s?.awarded ? c.reward : 0);
+    }, 0);
+    res.json({ challenges: pastChallenges, totalXp });
+  } catch (error) {
+    logger.error('Error fetching challenge history', { error });
+    res.status(500).json({ error: 'Error fetching challenge history' });
+  }
+});
+
 app.post('/api/challenges/submit', authenticateToken, upload.fields([{ name: 'image', maxCount: 1 }]), async (req: any, res: Response) => {
   try {
     const { challengeId, description } = req.body;
@@ -1827,41 +1923,235 @@ app.post('/api/challenges/submit', authenticateToken, upload.fields([{ name: 'im
     const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
     const imageFile = files?.['image']?.[0];
 
-    // Basic validation: description minimum length
+    if (!imageFile) {
+      return res.status(400).json({ error: 'Debes subir una imagen para participar en el reto' });
+    }
+
     const desc = (description || '').trim();
-    if (desc.length > 0 && desc.length < 10) {
+    if (!desc) {
+      return res.status(400).json({ error: 'Debes añadir una descripción de al menos 10 caracteres' });
+    }
+    if (desc.length < 10) {
       return res.status(400).json({ error: 'La descripción debe tener al menos 10 caracteres' });
     }
     if (desc.length > 500) {
       return res.status(400).json({ error: 'La descripción no puede superar los 500 caracteres' });
     }
 
+    const analysis = await analyzeChallengeImage(imageFile.path);
+
+    const challengeTag = (challenge.tag || '').toLowerCase();
+    const needsUniformColor = challengeTag.includes('monocromo') || challengeTag.includes('color');
+    const verified = needsUniformColor ? analysis.uniform : true;
+
     const submission = await prisma.challengeSubmission.create({
       data: {
         userId: req.user.userId,
         challengeId,
-        imageUrl: imageFile ? `/api/uploads/${imageFile.filename}` : null,
-        description: description || null,
-        verified: false,
+        imageUrl: `/api/uploads/${imageFile.filename}`,
+        description: description,
+        verified,
         awarded: true,
       }
     });
 
-    const updated = await prisma.user.update({
-      where: { id: req.user.userId },
-      data: { experiencePoints: { increment: challenge.reward } },
-      select: { experiencePoints: true },
-    });
-    const newLevel = Math.floor(updated.experiencePoints / 100) + 1;
-    await prisma.user.update({
-      where: { id: req.user.userId },
-      data: { level: newLevel },
-    });
+    const xpResult = await awardXp(prisma, req.user.userId, challenge.reward);
 
-    res.status(201).json({ ...submission, experiencePoints: updated.experiencePoints, level: newLevel });
+    checkAndUnlockAchievements(prisma, req.user.userId, io).catch(e =>
+      logger.warn('Failed to check achievements after challenge submit', { e })
+    );
+
+    res.status(201).json({
+      ...submission,
+      experiencePoints: xpResult.experiencePoints,
+      level: xpResult.level,
+      leveledUp: xpResult.leveledUp,
+      validationMessage: verified ? null : 'La imagen no parece tener una gama de color uniforme. Aún así, has ganado tus puntos.'
+    });
   } catch (error) {
     logger.error('Error submitting challenge', { error });
     res.status(500).json({ error: 'Error al participar en el reto' });
+  }
+});
+
+app.delete('/api/challenges/submissions/:id', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const submission = await prisma.challengeSubmission.findUnique({
+      where: { id: req.params.id },
+      include: { challenge: true }
+    });
+    if (!submission) return res.status(404).json({ error: 'Participación no encontrada' });
+    if (submission.userId !== req.user.userId) return res.status(403).json({ error: 'No autorizado' });
+
+    if (submission.awarded) {
+      await removeXp(prisma, req.user.userId, submission.challenge.reward);
+    }
+
+    await prisma.challengeSubmission.delete({ where: { id: req.params.id } });
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Error deleting challenge submission', { error });
+    res.status(500).json({ error: 'Error al eliminar la participación' });
+  }
+});
+
+app.post('/api/challenges/force-rotate', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const now = new Date();
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfWeek = new Date(startOfToday);
+    endOfWeek.setDate(startOfToday.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    await prisma.weeklyChallenge.updateMany({
+      where: { active: true },
+      data: { active: false },
+    });
+
+    const challengeCount = await prisma.weeklyChallenge.count();
+    const rotationIndex = challengeCount % CHALLENGES_ROTATION.length;
+    const next = CHALLENGES_ROTATION[rotationIndex];
+
+    const challenge = await prisma.weeklyChallenge.create({
+      data: {
+        title: next.title,
+        description: next.description,
+        reward: next.reward,
+        tag: next.tag,
+        startDate: startOfToday,
+        endDate: endOfWeek,
+        active: true,
+      }
+    });
+
+    await prisma.challengeSubmission.deleteMany({
+      where: { challengeId: { notIn: [challenge.id] } },
+    });
+
+    res.json({ success: true, challenge });
+  } catch (error) {
+    logger.error('Error force-rotating challenge', { error });
+    res.status(500).json({ error: 'Error al cambiar el reto' });
+  }
+});
+
+// ============= GAMIFICACIÓN =============
+
+app.get('/api/gamification/progress', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      include: {
+        achievements: { orderBy: { unlockedAt: 'desc' } },
+        badges: { orderBy: { unlockedAt: 'desc' } },
+        streak: true,
+        _count: { select: { challengeSubmissions: true } },
+      },
+    });
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+    const xp = user.experiencePoints || 0;
+    const level = user.level || 1;
+    const progress = xpProgress(xp, level);
+    res.json({
+      experiencePoints: xp,
+      level,
+      xpCurrent: progress.current,
+      xpNeeded: progress.needed,
+      xpPercentage: Math.round(progress.percentage),
+      streak: user.streak ? { loginCount: user.streak.loginCount, lastDate: user.streak.lastDate } : { loginCount: 0, lastDate: null },
+      achievements: user.achievements || [],
+      badges: user.badges || [],
+      challengeCount: user._count.challengeSubmissions || 0,
+    });
+  } catch (error) {
+    logger.error('Error fetching gamification progress', { error });
+    res.status(500).json({ error: 'Error al cargar progreso' });
+  }
+});
+
+app.get('/api/gamification/achievements', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const userAchs = await prisma.userAchievement.findMany({
+      where: { userId: req.user.userId },
+      select: { achievementKey: true, unlockedAt: true },
+    });
+    const unlockedMap = new Map(userAchs.map(a => [a.achievementKey, a.unlockedAt]));
+    const all = ACHIEVEMENTS.map(a => ({
+      ...a,
+      unlocked: unlockedMap.has(a.key),
+      unlockedAt: unlockedMap.get(a.key) || null,
+    }));
+    res.json(all);
+  } catch (error) {
+    logger.error('Error fetching achievements', { error });
+    res.status(500).json({ error: 'Error al cargar logros' });
+  }
+});
+
+app.get('/api/gamification/badges', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const userBgs = await prisma.userBadge.findMany({
+      where: { userId: req.user.userId },
+      select: { badgeKey: true, unlockedAt: true },
+    });
+    const unlockedMap = new Map(userBgs.map(b => [b.badgeKey, b.unlockedAt]));
+    const all = BADGES.map(b => ({
+      ...b,
+      unlocked: unlockedMap.has(b.key),
+      unlockedAt: unlockedMap.get(b.key) || null,
+    }));
+    res.json(all);
+  } catch (error) {
+    logger.error('Error fetching badges', { error });
+    res.status(500).json({ error: 'Error al cargar insignias' });
+  }
+});
+
+app.post('/api/gamification/check-achievements', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const newlyUnlocked = await checkAndUnlockAchievements(prisma, req.user.userId, io);
+    for (const ach of newlyUnlocked) {
+      if (ach.xpReward > 0) {
+        const result = await awardXp(prisma, req.user.userId, ach.xpReward);
+        if (result.leveledUp) {
+          const progress = xpProgress(result.experiencePoints, result.level);
+          const user = await prisma.user.findUnique({
+            where: { id: req.user.userId },
+            include: { streak: true },
+          });
+          io?.to(`user_${req.user.userId}`).emit('level_up', {
+            level: result.level,
+            xp: result.experiencePoints,
+            xpCurrent: progress.current,
+            xpNeeded: progress.needed,
+            xpPercentage: Math.round(progress.percentage),
+            streak: user?.streak ? { loginCount: user.streak.loginCount, lastDate: user.streak.lastDate } : null,
+          });
+        }
+      }
+      io?.to(`user_${req.user.userId}`).emit('achievement_unlocked', ach);
+    }
+    res.json({ newlyUnlocked });
+  } catch (error) {
+    logger.error('Error checking achievements', { error });
+    res.status(500).json({ error: 'Error al verificar logros' });
+  }
+});
+
+app.post('/api/gamification/login', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const streakResult = await updateStreak(prisma, req.user.userId);
+    let xpAwarded = 0;
+    if (streakResult.updated) {
+      await awardXp(prisma, req.user.userId, XP_VALUES.dailyLogin);
+      xpAwarded = XP_VALUES.dailyLogin;
+    }
+    const badges = await checkAndUnlockBadges(prisma, req.user.userId, streakResult.count);
+    res.json({ streakCount: streakResult.count, xpAwarded, newBadges: badges });
+  } catch (error) {
+    logger.error('Error processing login', { error });
+    res.status(500).json({ error: 'Error al procesar inicio de sesión' });
   }
 });
 
@@ -2501,6 +2791,8 @@ app.post('/api/stories/:id/reaction', authenticateToken, async (req: any, res: R
       io.to(`user_${story.userId}`).emit('notification', notification);
     }
 
+    awardXp(prisma, req.user.userId, XP_VALUES.storyReaction).catch(() => {});
+
     res.status(201).json({ message, conversationId: conversation.id });
   } catch (error) {
     logger.error('Error reacting to story', { error });
@@ -2562,6 +2854,18 @@ const startServer = async () => {
         if (!String(e.message).toLowerCase().includes('duplicate column')) {
           throw e;
         }
+      }
+      const tableChecks = [
+        `CREATE TABLE IF NOT EXISTS "UserAchievement" ("id" TEXT NOT NULL PRIMARY KEY, "userId" TEXT NOT NULL, "achievementKey" TEXT NOT NULL, "title" TEXT NOT NULL, "description" TEXT NOT NULL, "icon" TEXT NOT NULL, "xpReward" INTEGER NOT NULL DEFAULT 0, "unlockedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "UserAchievement_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE);`,
+        `CREATE TABLE IF NOT EXISTS "UserBadge" ("id" TEXT NOT NULL PRIMARY KEY, "userId" TEXT NOT NULL, "badgeKey" TEXT NOT NULL, "title" TEXT NOT NULL, "description" TEXT NOT NULL, "icon" TEXT NOT NULL, "unlockedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT "UserBadge_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE);`,
+        `CREATE TABLE IF NOT EXISTS "UserStreak" ("id" TEXT NOT NULL PRIMARY KEY, "userId" TEXT NOT NULL UNIQUE, "loginCount" INTEGER NOT NULL DEFAULT 0, "lastDate" DATETIME, CONSTRAINT "UserStreak_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE);`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS "UserAchievement_userId_achievementKey_key" ON "UserAchievement" ("userId", "achievementKey");`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS "UserBadge_userId_badgeKey_key" ON "UserBadge" ("userId", "badgeKey");`,
+        `CREATE INDEX IF NOT EXISTS "UserAchievement_userId_idx" ON "UserAchievement" ("userId");`,
+        `CREATE INDEX IF NOT EXISTS "UserBadge_userId_idx" ON "UserBadge" ("userId");`,
+      ];
+      for (const sql of tableChecks) {
+        try { await prisma.$executeRawUnsafe(sql); } catch (e: any) { logger.warn('Table creation warning', { error: e.message }); }
       }
       logger.info('Database gamification schema checks passed.');
     } catch (schemaError: any) {

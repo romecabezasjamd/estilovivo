@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Heart, MessageCircle, Bookmark, MoreHorizontal, ShoppingBag, Search, Tag, Send, X, Shirt, Sparkles, CheckCircle2, ArrowRight, ExternalLink, Plus, Camera, Share2 } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 import ProductDetailModal, { ProductDisplayItem } from '../components/ProductDetailModal';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { api, getSocketOrigin } from '../services/api';
 import { Look, UserState, ShopItem, Comment, Garment, ChatConversation, ChatMessage, StoryEntry } from '../types';
 import { useLanguage } from '../src/context/LanguageContext';
@@ -84,13 +85,15 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
   const [challengeImage, setChallengeImage] = useState<{ dataUrl: string; file: File } | null>(null);
   const [challengeDescription, setChallengeDescription] = useState('');
   const [challengeSubmitting, setChallengeSubmitting] = useState(false);
-  const [challengeTips] = useState([
-    'Usa prendas de temporada para destacar',
-    'Combina colores que contrasten armoniosamente',
-    'Agrega accesorios para darle personalidad',
-    'La iluminación natural mejora tus fotos',
-  ]);
   const [loadingChallenge, setLoadingChallenge] = useState(false);
+  const [challengeHistory, setChallengeHistory] = useState<any[]>([]);
+  const [challengeHistoryXp, setChallengeHistoryXp] = useState(0);
+  const [showChallengeHistory, setShowChallengeHistory] = useState(false);
+  const [loadingChallengeHistory, setLoadingChallengeHistory] = useState(false);
+  const [challengeMenuOpen, setChallengeMenuOpen] = useState(false);
+  const [challengeDeletingId, setChallengeDeletingId] = useState<string | null>(null);
+  const [challengeValidationMsg, setChallengeValidationMsg] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ type: 'post' | 'story' | 'challenge'; id?: string } | null>(null);
   const [followedUserIds, setFollowedUserIds] = useState<Set<string>>(new Set());
   const [chatAttachment, setChatAttachment] = useState<string | null>(null);
   const chatFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -312,39 +315,89 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
     loadChallenge();
   }, []);
 
+  const loadChallengeHistory = async () => {
+    if (challengeHistory.length > 0) { setShowChallengeHistory(true); return; }
+    setLoadingChallengeHistory(true);
+    try {
+      const result = await api.getChallengeHistory();
+      setChallengeHistory(result.challenges || []);
+      setChallengeHistoryXp(result.totalXp || 0);
+      setShowChallengeHistory(true);
+    } catch (e) {
+      console.warn('Could not load challenge history:', e);
+    } finally {
+      setLoadingChallengeHistory(false);
+    }
+  };
+
   const handleParticipateChallenge = () => {
     if (!currentChallenge || challengeSubmission) return;
     setShowChallengeModal(true);
+    setChallengeValidationMsg(null);
   };
 
-  const handleChallengePickImage = async () => {
+  const handleChallengePickImage = async (source?: 'camera' | 'gallery') => {
     try {
-      const result = await pickPhoto('gallery');
+      const result = await pickPhoto(source || 'gallery');
       setChallengeImage(result);
     } catch { }
   };
 
   const handleChallengeSubmit = async () => {
     if (!currentChallenge || challengeSubmitting) return;
+    if (!challengeImage) {
+      setChallengeValidationMsg('Debes seleccionar una imagen para participar');
+      return;
+    }
+    if (!challengeDescription.trim() || challengeDescription.trim().length < 10) {
+      setChallengeValidationMsg('La descripción debe tener al menos 10 caracteres');
+      return;
+    }
     setChallengeSubmitting(true);
+    setChallengeValidationMsg(null);
     try {
       const formData = new FormData();
       formData.append('challengeId', currentChallenge.id);
-      formData.append('description', challengeDescription || 'Participación en el reto semanal');
+      formData.append('description', challengeDescription.trim());
       if (challengeImage?.file) formData.append('image', challengeImage.file);
       const result = await api.submitChallenge(formData);
       setChallengeSubmission(result);
       setShowChallengeModal(false);
+      setChallengeImage(null);
+      setChallengeDescription('');
       if (activeUser && result.experiencePoints !== undefined) {
         handleUpdateUser({ ...activeUser, experiencePoints: result.experiencePoints, level: result.level || Math.floor(result.experiencePoints / 100) + 1 });
       }
-      setStoryToast(`+${currentChallenge.reward} XP por participar en el reto semanal`);
-      window.setTimeout(() => setStoryToast(null), 3200);
+      setStoryToast(result.validationMessage || `+${currentChallenge.reward} XP por participar en el reto semanal`);
+      window.setTimeout(() => setStoryToast(null), 4000);
     } catch (e: any) {
-      setStoryToast(e?.message || 'Error al participar');
-      window.setTimeout(() => setStoryToast(null), 3200);
+      setChallengeValidationMsg(e?.message || 'Error al participar');
     } finally {
       setChallengeSubmitting(false);
+    }
+  };
+
+  const handleDeleteChallengeSubmission = async () => {
+    if (!challengeSubmission || challengeDeletingId) return;
+    setChallengeDeletingId(challengeSubmission.id);
+    setChallengeMenuOpen(false);
+    setConfirmDelete(null);
+    try {
+      await api.deleteChallengeSubmission(challengeSubmission.id);
+      if (activeUser) {
+        const reward = currentChallenge?.reward || 0;
+        const newXp = Math.max(0, (activeUser.experiencePoints || 0) - reward);
+        const newLevel = Math.floor(newXp / 100) + 1;
+        handleUpdateUser({ ...activeUser, experiencePoints: newXp, level: newLevel });
+      }
+      setChallengeSubmission(null);
+      setStoryToast('Participación eliminada. Puedes volver a participar.');
+      window.setTimeout(() => setStoryToast(null), 3200);
+    } catch (e: any) {
+      setStoryToast(e?.message || 'Error al eliminar');
+      window.setTimeout(() => setStoryToast(null), 3200);
+    } finally {
+      setChallengeDeletingId(null);
     }
   };
 
@@ -700,6 +753,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
 
   const handleDeletePost = async (postId: string) => {
     setDeletingPostId(postId);
+    setConfirmDelete(null);
     try {
       await api.deleteLook(postId);
       setFeedLooks(prev => prev.filter(l => l.id !== postId));
@@ -715,6 +769,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
 
   const handleDeleteStory = async (storyId: string) => {
     setDeletingStoryId(storyId);
+    setConfirmDelete(null);
     try {
       await api.deleteStory(storyId);
       setStories(prev => prev.filter(s => s.id !== storyId));
@@ -1082,29 +1137,94 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
 
         {/* Sub-headers per tab */}
         {activeTab === 'feed' && currentChallenge && !loadingChallenge && (
-          <div className="bg-gradient-to-r from-primary to-accent rounded-2xl p-4 text-white relative overflow-hidden animate-fade-in mt-4">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10" />
+          <div
+            onClick={() => {
+              if (!challengeSubmission) handleParticipateChallenge();
+            }}
+            className="bg-gradient-to-r from-primary to-accent rounded-2xl p-4 text-white relative animate-fade-in mt-4 cursor-pointer transition-transform hover:scale-[1.01] active:scale-[0.99]"
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 overflow-hidden">
+              <div className="w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10" />
+            </div>
             <div className="relative z-10">
               <span className="inline-flex items-center gap-1 px-2 py-1 bg-accent text-[10px] font-bold uppercase tracking-wider rounded-md mb-2">
                 <Sparkles size={12} /> Reto Semanal
               </span>
               <h3 className="font-bold text-lg mb-1">{currentChallenge.title}</h3>
-              <p className="text-sm text-teal-100 opacity-90 mb-3">{currentChallenge.description}</p>
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={handleParticipateChallenge}
-                  disabled={!!challengeSubmission}
-                  className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-all ${
-                    challengeSubmission
-                      ? 'bg-emerald-400 text-white cursor-default'
-                      : 'bg-white text-primary hover:bg-primary hover:text-white'
-                  }`}
-                >
-                  {challengeSubmission ? '¡Completado!' : 'Participar'}
-                </button>
-                <span className="text-xs font-bold text-teal-100 bg-black/20 px-2 py-1 rounded-full">
-                  +{currentChallenge.reward} XP
-                </span>
+              <p className="text-sm text-teal-100 opacity-90 mb-3 line-clamp-2">{currentChallenge.description}</p>
+
+              {/* XP Progress bar */}
+              {activeUser && (
+                <div className="mb-3">
+                  <div className="flex justify-between text-[10px] text-teal-100 mb-1">
+                    <span>Nivel {activeUser.level || 1}</span>
+                    <span>{(activeUser.experiencePoints || 0) % 100} / 100 XP</span>
+                  </div>
+                  <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-white rounded-full transition-all duration-500"
+                      style={{ width: `${(activeUser.experiencePoints || 0) % 100}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 flex-wrap">
+                {challengeSubmission ? (
+                  <>
+                    <span className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-full bg-emerald-400 text-white">
+                      <CheckCircle2 size={12} /> Completado
+                    </span>
+                    <div className="relative">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setChallengeMenuOpen(!challengeMenuOpen); }}
+                        className="p-1.5 rounded-full text-white/80 hover:bg-white/20 transition-colors"
+                      >
+                        <MoreHorizontal size={14} />
+                      </button>
+                      {challengeMenuOpen && (
+                        <div className="absolute left-0 top-8 z-50 bg-white rounded-xl shadow-xl border border-gray-100 py-1 min-w-[180px] animate-fade-in">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setChallengeMenuOpen(false); setConfirmDelete({ type: 'challenge' }); }}
+                            disabled={!!challengeDeletingId}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 font-medium hover:bg-red-50 transition-colors disabled:opacity-50"
+                          >
+                            {challengeDeletingId ? 'Eliminando...' : 'Eliminar participación'}
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setChallengeMenuOpen(false); }}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 font-medium hover:bg-gray-50 transition-colors"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-xs font-bold text-teal-100 bg-black/20 px-2 py-1 rounded-full">
+                      +{currentChallenge.reward} XP
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleParticipateChallenge(); }}
+                      className="text-xs font-semibold px-3 py-1.5 rounded-full bg-white text-primary hover:bg-primary hover:text-white transition-all"
+                    >
+                      Participar
+                    </button>
+                    <span className="text-xs font-bold text-teal-100 bg-black/20 px-2 py-1 rounded-full">
+                      +{currentChallenge.reward} XP
+                    </span>
+                  </>
+                )}
+                {!challengeSubmission && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); loadChallengeHistory(); }}
+                    className="text-[10px] font-medium text-white/70 hover:text-white underline ml-auto"
+                  >
+                    Ver historial
+                  </button>
+                )}
               </div>
             </div>
             <Sparkles className="text-white/20 absolute right-4 bottom-4 w-12 h-12" />
@@ -1239,44 +1359,42 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                 </div>
               )}
 
-              {/* Feed Grid */}
-              <div className="grid grid-cols-2 gap-4">
+              {/* Feed Grid - Instagram-style single column */}
+              <div className="space-y-5">
                 {feedLooks.map((post) => {
                   const postImage = getLookImage(post);
 
                   return (
-                    <div key={post.id} className="bg-white rounded-[1.25rem] overflow-hidden shadow-sm border border-gray-100 group relative">
+                    <div key={post.id} className="bg-white rounded-[1.5rem] overflow-hidden shadow-sm border border-gray-100">
 
                       {/* Creator Header */}
-                      <div className="flex items-center gap-2 px-2.5 py-2">
+                      <div className="flex items-center gap-3 px-4 py-3">
                         <img
                           src={post.userAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.userName || 'U')}&background=0F4C5C&color=fff`}
-                          className="w-6 h-6 rounded-full object-cover border border-gray-200"
+                          className="w-8 h-8 rounded-full object-cover border border-gray-200"
                           alt={post.userName} loading="lazy"
                         />
-                        <span className="text-xs font-semibold text-gray-800 truncate">{post.userName || 'Usuario'}</span>
-                        <span className="text-[9px] text-gray-400 ml-auto font-medium">Lv.{getPostUserLevel(post)}</span>
-                        {/* Three-dot menu for own posts */}
+                        <span className="text-sm font-semibold text-gray-800">{post.userName || 'Usuario'}</span>
+                        <span className="text-[10px] text-gray-400 ml-auto font-medium">Lv.{getPostUserLevel(post)}</span>
                         {post.userId === currentUserId && (
                           <div className="relative">
                             <button
                               onClick={() => setPostMenuOpenId(postMenuOpenId === post.id ? null : post.id)}
-                              className="p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                              className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                             >
-                              <MoreHorizontal size={14} />
+                              <MoreHorizontal size={16} />
                             </button>
                             {postMenuOpenId === post.id && (
-                              <div className="absolute right-0 top-6 z-50 bg-white rounded-xl shadow-xl border border-gray-100 py-1 min-w-[160px] animate-fade-in">
+                              <div className="absolute right-0 top-8 z-50 bg-white rounded-xl shadow-xl border border-gray-100 py-1 min-w-[170px] animate-fade-in">
                                 <button
-                                  onClick={() => handleDeletePost(post.id)}
-                                  disabled={deletingPostId === post.id}
-                                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 font-medium hover:bg-red-50 transition-colors disabled:opacity-50"
+                                  onClick={() => { setConfirmDelete({ type: 'post', id: post.id }); setPostMenuOpenId(null); }}
+                                  className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-red-600 font-medium hover:bg-red-50 transition-colors"
                                 >
-                                  {deletingPostId === post.id ? 'Eliminando...' : 'Eliminar publicación'}
+                                  Eliminar publicación
                                 </button>
                                 <button
                                   onClick={() => setPostMenuOpenId(null)}
-                                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 font-medium hover:bg-gray-50 transition-colors"
+                                  className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-gray-600 font-medium hover:bg-gray-50 transition-colors"
                                 >
                                   Cancelar
                                 </button>
@@ -1288,49 +1406,47 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
 
                       {/* Image */}
                       {postImage ? (
-                        <div className="aspect-square bg-gray-100">
-                          <img src={postImage} className="w-full h-full object-cover" loading="lazy" alt={post.name} />
+                        <div className="bg-gray-100">
+                          <img src={postImage} className="w-full aspect-square object-cover" loading="lazy" alt={post.name} />
                         </div>
                       ) : (
                         <div className="aspect-square bg-gray-50 flex items-center justify-center">
-                          <div className="text-center opacity-40">
-                            <Shirt size={36} className="mx-auto mb-1 text-gray-400" />
-                          </div>
+                          <Shirt size={40} className="text-gray-300" />
                         </div>
                       )}
 
                       {/* Post Footer */}
-                      <div className="px-2.5 py-2">
-                        <div className="flex items-center gap-3">
+                      <div className="px-4 py-3">
+                        <div className="flex items-center gap-4">
                           <button
                             onClick={() => handleToggleLike(post.id)}
-                            className={`flex items-center gap-1 text-xs transition-colors ${post.isLiked ? 'text-rose-500' : 'text-gray-500 hover:text-rose-400'}`}
+                            className={`flex items-center gap-1.5 text-sm transition-colors ${post.isLiked ? 'text-rose-500' : 'text-gray-500 hover:text-rose-400'}`}
                           >
-                            <Heart size={14} fill={post.isLiked ? "currentColor" : "none"} />
+                            <Heart size={18} fill={post.isLiked ? "currentColor" : "none"} />
                             <span className="font-semibold">{post.likesCount || 0}</span>
                           </button>
                           <button
                             onClick={() => openComments(post.id)}
-                            className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+                            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
                           >
-                            <MessageCircle size={14} />
+                            <MessageCircle size={18} />
                             <span className="font-semibold">{post.commentsCount || 0}</span>
                           </button>
                           <button
                             onClick={() => handleShareNative(post)}
-                            className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors ml-auto"
+                            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors ml-auto"
                           >
-                            <Share2 size={13} />
+                            <Share2 size={16} />
                           </button>
                         </div>
                         {post.name && (
-                          <p className="text-xs text-gray-800 font-medium mt-1.5 leading-snug truncate">{post.name}</p>
+                          <p className="text-sm text-gray-800 font-medium mt-2 leading-snug">{post.name}</p>
                         )}
                         {post.mood && (
-                          <p className="text-[11px] text-gray-500 mt-0.5 leading-snug line-clamp-2">{post.mood}</p>
+                          <p className="text-sm text-gray-500 mt-1 leading-relaxed">{post.mood}</p>
                         )}
-                        <p className="text-[9px] text-gray-400 mt-1">
-                          {new Date(post.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                        <p className="text-[11px] text-gray-400 mt-2">
+                          {new Date(post.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </p>
                       </div>
                     </div>
@@ -1339,7 +1455,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
               </div>
 
               {feedLooks.length === 0 && (
-                <div className="text-center py-20 text-gray-400 w-full col-span-2">
+                <div className="text-center py-20 text-gray-400">
                   <Shirt size={48} className="mx-auto mb-3 text-gray-300" />
                   <p className="font-medium">Aún no hay looks compartidos</p>
                   <p className="text-sm mt-1">Sé el primero en publicar.</p>
@@ -1347,7 +1463,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
               )}
 
               {feedHasMore && feedLooks.length > 0 && (
-                <div className="col-span-2 text-center pt-2">
+                <div className="text-center pt-2">
                   <button
                     onClick={loadMoreFeed}
                     disabled={feedLoadingMore}
@@ -1921,7 +2037,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                         {storyMenuOpenId === st.id && (
                           <div className="absolute right-0 top-10 z-50 bg-white rounded-xl shadow-xl border border-gray-100 py-1 min-w-[160px] animate-fade-in">
                             <button
-                              onClick={() => handleDeleteStory(st.id)}
+                              onClick={() => { setStoryMenuOpenId(null); setConfirmDelete({ type: 'story', id: st.id }); }}
                               disabled={deletingStoryId === st.id}
                               className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 font-medium hover:bg-red-50 transition-colors disabled:opacity-50"
                             >
@@ -2188,71 +2304,92 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
         />
       )}
 
-      {/* Challenge Submission Modal */}
+      {/* Challenge Detail & Submission Modal */}
       {showChallengeModal && currentChallenge && (
-        <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowChallengeModal(false)}>
-          <div className="bg-white w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden animate-pop-in" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b border-gray-100">
-              <h3 className="font-bold text-gray-800 text-lg">Participar en el reto</h3>
-              <button onClick={() => { setShowChallengeModal(false); setChallengeImage(null); setChallengeDescription(''); }} className="p-1.5 rounded-full text-gray-400 hover:bg-gray-100 transition-colors">
+        <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => { setShowChallengeModal(false); setChallengeImage(null); setChallengeDescription(''); setChallengeValidationMsg(null); }}>
+          <div className="bg-white w-full max-w-lg rounded-[2rem] shadow-2xl overflow-hidden animate-pop-in max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-gray-100 flex-shrink-0">
+              <h3 className="font-bold text-gray-800 text-lg">Subir look del reto</h3>
+              <button onClick={() => { setShowChallengeModal(false); setChallengeImage(null); setChallengeDescription(''); setChallengeValidationMsg(null); }} className="p-1.5 rounded-full text-gray-400 hover:bg-gray-100 transition-colors">
                 <X size={20} />
               </button>
             </div>
 
-            <div className="p-5 space-y-4">
+            <div className="p-5 space-y-4 overflow-y-auto flex-1">
+              {/* Challenge info */}
               <div className="bg-gradient-to-r from-primary/5 to-accent/5 rounded-2xl p-4 border border-primary/10">
-                <h4 className="font-bold text-primary text-sm">{currentChallenge.title}</h4>
-                <p className="text-xs text-gray-600 mt-1">{currentChallenge.description}</p>
-                <span className="inline-block mt-2 text-[10px] font-bold bg-primary/10 text-primary px-2 py-1 rounded-full">
-                  +{currentChallenge.reward} XP
-                </span>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-bold text-primary text-sm">{currentChallenge.title}</h4>
+                  <span className="text-[10px] font-bold bg-primary/10 text-primary px-2 py-1 rounded-full">
+                    +{currentChallenge.reward} XP
+                  </span>
+                </div>
+                <p className="text-xs text-gray-600">{currentChallenge.description}</p>
               </div>
 
-              {/* Tips */}
-              <div className="space-y-1.5">
-                <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Consejos</p>
+              {/* Tips section */}
+              <div className="bg-amber-50 rounded-2xl p-3 border border-amber-200/50">
+                <p className="text-[10px] uppercase tracking-wider text-amber-700 font-semibold mb-2">Consejos para este reto</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {challengeTips.map((tip, i) => (
-                    <span key={i} className="text-[10px] bg-gray-100 text-gray-600 px-2 py-1 rounded-full">{tip}</span>
+                  {['Usa tonos similares y buena iluminación', 'Varía texturas para evitar monotonía', 'Busca un fondo limpio', 'Asegura buena luz natural'].map((tip, i) => (
+                    <span key={i} className="text-[10px] bg-amber-100/80 text-amber-800 px-2 py-1 rounded-full">{tip}</span>
                   ))}
                 </div>
               </div>
 
-              {/* Image picker */}
+              {/* Image picker - Required */}
               <div>
-                <p className="text-xs font-semibold text-gray-700 mb-2">Foto (opcional)</p>
+                <p className="text-xs font-semibold text-gray-700 mb-2">Foto del look <span className="text-rose-500">*</span></p>
                 {challengeImage ? (
-                  <div className="relative aspect-square rounded-2xl overflow-hidden bg-gray-100">
+                  <div className="relative aspect-square rounded-2xl overflow-hidden bg-gray-100 border border-gray-200">
                     <img src={challengeImage.dataUrl} alt="Preview" className="w-full h-full object-cover" />
                     <button
                       onClick={() => setChallengeImage(null)}
-                      className="absolute top-2 right-2 bg-black/50 text-white p-1.5 rounded-full"
+                      className="absolute top-2 right-2 bg-black/50 text-white p-1.5 rounded-full hover:bg-black/70 transition-colors"
                     >
                       <X size={14} />
                     </button>
                   </div>
                 ) : (
-                  <button
-                    onClick={handleChallengePickImage}
-                    className="w-full aspect-video rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 flex flex-col items-center justify-center gap-1 text-gray-400 hover:border-primary/40 hover:bg-primary/5 transition-colors"
-                  >
-                    <Camera size={24} />
-                    <span className="text-xs">Seleccionar imagen</span>
-                  </button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => handleChallengePickImage('camera')}
+                      className="w-full aspect-video rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 flex flex-col items-center justify-center gap-1 text-gray-400 hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                    >
+                      <Camera size={22} />
+                      <span className="text-[11px]">Cámara</span>
+                    </button>
+                    <button
+                      onClick={() => handleChallengePickImage('gallery')}
+                      className="w-full aspect-video rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 flex flex-col items-center justify-center gap-1 text-gray-400 hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                    >
+                      <Sparkles size={22} />
+                      <span className="text-[11px]">Galería</span>
+                    </button>
+                  </div>
                 )}
               </div>
 
-              {/* Description */}
+              {/* Description - Required */}
               <div>
-                <p className="text-xs font-semibold text-gray-700 mb-2">Descripción (opcional)</p>
+                <p className="text-xs font-semibold text-gray-700 mb-2">Descripción <span className="text-rose-500">*</span></p>
                 <textarea
                   value={challengeDescription}
                   onChange={e => setChallengeDescription(e.target.value)}
-                  placeholder="Cuéntanos cómo creaste este look..."
+                  placeholder="Cuéntanos cómo creaste este look. Mínimo 10 caracteres."
                   rows={3}
                   className="w-full bg-gray-50 rounded-2xl px-4 py-3 text-sm text-gray-700 border border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none transition"
                 />
+                <p className="text-[10px] text-gray-400 mt-1">{challengeDescription.length}/500 {challengeDescription.length > 0 && challengeDescription.length < 10 && <span className="text-amber-500">(mínimo 10)</span>}</p>
               </div>
+
+              {/* Validation message */}
+              {challengeValidationMsg && (
+                <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3 flex items-start gap-2 animate-fade-in">
+                  <span className="text-rose-500 text-xs mt-0.5">⚠️</span>
+                  <p className="text-xs text-rose-700">{challengeValidationMsg}</p>
+                </div>
+              )}
 
               <button
                 onClick={handleChallengeSubmit}
@@ -2260,11 +2397,79 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                 className="w-full rounded-2xl bg-primary text-white py-3 text-sm font-bold hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-40 flex items-center justify-center gap-2"
               >
                 {challengeSubmitting ? (
-                  <>Enviando...</>
+                  <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Enviando...</>
                 ) : (
-                  <><Sparkles size={16} /> Participar</>
+                  <><Sparkles size={16} /> Subir look del reto</>
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Challenge History Modal */}
+      {showChallengeHistory && (
+        <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowChallengeHistory(false)}>
+          <div className="bg-white w-full max-w-lg rounded-[2rem] shadow-2xl overflow-hidden animate-pop-in max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-gray-100 flex-shrink-0">
+              <h3 className="font-bold text-gray-800 text-lg">Historial de retos</h3>
+              <button onClick={() => setShowChallengeHistory(false)} className="p-1.5 rounded-full text-gray-400 hover:bg-gray-100 transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-5 overflow-y-auto flex-1 space-y-4">
+              {loadingChallengeHistory ? (
+                <div className="flex justify-center py-10">
+                  <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                </div>
+              ) : challengeHistory.length === 0 ? (
+                <div className="text-center py-10 text-gray-400">
+                  <Sparkles size={32} className="mx-auto mb-2 text-gray-300" />
+                  <p className="text-sm font-medium">Aún no hay retos completados</p>
+                  <p className="text-xs mt-1">Participa en el reto semanal para verlo aquí</p>
+                </div>
+              ) : (
+                <>
+                  <div className="bg-primary/5 rounded-2xl p-3 text-center">
+                    <p className="text-[10px] uppercase tracking-wider text-primary font-semibold">Total XP ganado en retos</p>
+                    <p className="text-2xl font-bold text-primary">{challengeHistoryXp} XP</p>
+                  </div>
+                  {challengeHistory.filter((c: any) => c.submissions?.length > 0).map((challenge: any) => {
+                    const sub = challenge.submissions[0];
+                    return (
+                      <div key={challenge.id} className="bg-gray-50 rounded-2xl p-4 border border-gray-100 flex gap-3">
+                        {sub?.imageUrl && (
+                          <div className="w-16 h-16 rounded-xl overflow-hidden bg-gray-200 flex-shrink-0">
+                            <img src={sub.imageUrl} alt={challenge.title} className="w-full h-full object-cover" loading="lazy" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-sm font-bold text-gray-800 truncate">{challenge.title}</h4>
+                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                              +{challenge.reward} XP
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-gray-500 mt-1 line-clamp-2">{sub?.description || challenge.description}</p>
+                          <p className="text-[10px] text-gray-400 mt-1">
+                            {new Date(challenge.endDate).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {challengeHistory.filter((c: any) => c.submissions?.length === 0).length > 0 && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold mb-2">Retos sin participación</p>
+                      <div className="flex flex-wrap gap-2">
+                        {challengeHistory.filter((c: any) => c.submissions?.length === 0).map((c: any) => (
+                          <span key={c.id} className="text-[11px] bg-gray-100 text-gray-500 px-2 py-1 rounded-full">{c.title}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -2413,6 +2618,24 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
           </div>
         </div>
       )}
+
+      {/* Confirm Delete Dialog */}
+      <ConfirmDialog
+        open={!!confirmDelete}
+        title={confirmDelete?.type === 'post' ? 'Eliminar publicación' : confirmDelete?.type === 'story' ? 'Eliminar historia' : 'Eliminar participación'}
+        message="¿Seguro que quieres eliminar esto? Esta acción no se puede deshacer."
+        confirmLabel="Eliminar"
+        cancelLabel="Cancelar"
+        destructive={true}
+        onConfirm={() => {
+          if (!confirmDelete) return;
+          if (confirmDelete.type === 'post' && confirmDelete.id) handleDeletePost(confirmDelete.id);
+          else if (confirmDelete.type === 'story' && confirmDelete.id) handleDeleteStory(confirmDelete.id);
+          else if (confirmDelete.type === 'challenge') handleDeleteChallengeSubmission();
+          else setConfirmDelete(null);
+        }}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </div>
   );
 };

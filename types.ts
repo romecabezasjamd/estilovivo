@@ -173,3 +173,40 @@ export interface ChatConversation {
   participants: ChatParticipant[];
   otherUser?: ChatParticipant | null;
 }
+
+export interface UserAchievement {
+  id: string;
+  achievementKey: string;
+  title: string;
+  description: string;
+  icon: string;
+  xpReward: number;
+  unlockedAt: string;
+}
+
+export interface UserBadge {
+  id: string;
+  badgeKey: string;
+  title: string;
+  description: string;
+  icon: string;
+  unlockedAt: string;
+}
+
+export interface UserStreak {
+  loginCount: number;
+  lastDate: string | null;
+}
+
+export interface GamificationProgress {
+  experiencePoints: number;
+  level: number;
+  xpCurrent: number;
+  xpNeeded: number;
+  xpPercentage: number;
+  streak: UserStreak;
+  achievements: UserAchievement[];
+  badges: UserBadge[];
+  newlyUnlocked: any[];
+  challengeCount: number;
+}

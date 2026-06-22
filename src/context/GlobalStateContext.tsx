@@ -136,6 +136,8 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
                     }
                 }
 
+                api.gamificationLogin().catch(() => {});
+
                 const [fetchedGarments, fetchedLooks, fetchedPlanner, fetchedTrips] =
                     await Promise.allSettled([
                         api.getGarments(),

@@ -967,11 +967,64 @@ export const api = {
         return handleResponse(res);
     },
 
+    getChallengeHistory: async () => {
+        const res = await fetch(`${API_BASE}/challenges/history`, { headers: getHeaders(), credentials: 'include' });
+        return handleResponse(res);
+    },
+
     submitChallenge: async (formData: FormData) => {
         const res = await fetch(`${API_BASE}/challenges/submit`, {
             credentials: 'include', method: 'POST',
             headers: { ...getAuthHeader() },
             body: formData
+        });
+        return handleResponse(res);
+    },
+
+    deleteChallengeSubmission: async (id: string) => {
+        const res = await fetch(`${API_BASE}/challenges/submissions/${id}`, {
+            credentials: 'include', method: 'DELETE',
+            headers: { ...getAuthHeader() }
+        });
+        return handleResponse(res);
+    },
+
+    forceRotateChallenge: async () => {
+        const res = await fetch(`${API_BASE}/challenges/force-rotate`, {
+            credentials: 'include', method: 'POST',
+            headers: { ...getAuthHeader() }
+        });
+        return handleResponse(res);
+    },
+
+    // ============= GAMIFICATION =============
+    getGamificationProgress: async () => {
+        const res = await fetch(`${API_BASE}/gamification/progress`, { headers: getHeaders(), credentials: 'include' });
+        return handleResponse(res);
+    },
+
+    getAchievements: async () => {
+        const res = await fetch(`${API_BASE}/gamification/achievements`, { headers: getHeaders(), credentials: 'include' });
+        return handleResponse(res);
+    },
+
+    getBadges: async () => {
+        const res = await fetch(`${API_BASE}/gamification/badges`, { headers: getHeaders(), credentials: 'include' });
+        return handleResponse(res);
+    },
+
+    checkAchievements: async () => {
+        const res = await fetch(`${API_BASE}/gamification/check-achievements`, {
+            credentials: 'include', method: 'POST',
+            headers: { ...getAuthHeader() }
+        });
+        return handleResponse(res);
+    },
+
+    gamificationLogin: async () => {
+        const res = await fetch(`${API_BASE}/gamification/login`, {
+            credentials: 'include', method: 'POST',
+            headers: { ...getAuthHeader() }
         });
         return handleResponse(res);
     },

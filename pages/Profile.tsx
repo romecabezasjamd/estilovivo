@@ -5,7 +5,8 @@ import {
   User, Settings, LogOut, Heart, Camera, Edit3, Save, X,
   ShoppingBag, Shirt, Calendar, Star, TrendingUp, ChevronRight,
   Eye, Bookmark, Bell, Shield, Moon, BarChart3, Download,
-  HelpCircle, Lock, Palette, Languages, Globe, AlertCircle, FileText
+  HelpCircle, Lock, Palette, Languages, Globe, AlertCircle, FileText,
+  Award, Flame, Trophy, Gem
 } from 'lucide-react';
 import { ThemeColor, THEMES } from '../src/utils/theme';
 import { useTheme } from '../src/context/ThemeContext';
@@ -25,7 +26,7 @@ interface ProfileProps {
 }
 
 const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdateUser, garments, onNavigate }) => {
-  const [activeSection, setActiveSection] = useState<'stats' | 'favorites' | 'settings'>('stats');
+  const [activeSection, setActiveSection] = useState<'stats' | 'favorites' | 'settings' | 'progress'>('stats');
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(user.name);
   const [editBio, setEditBio] = useState(user.bio || '');
@@ -47,6 +48,12 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
+
+  // Gamification progress
+  const [gameProgress, setGameProgress] = useState<any>(null);
+  const [gameAchievements, setGameAchievements] = useState<any[]>([]);
+  const [gameBadges, setGameBadges] = useState<any[]>([]);
+  const [loadingGame, setLoadingGame] = useState(false);
 
   // Password change state
   const [currentPassword, setCurrentPassword] = useState('');
@@ -115,6 +122,24 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
         .then(data => setFavorites(data))
         .catch(e => console.warn('Could not load favorites:', e))
         .finally(() => setLoadingFavs(false));
+    }
+  }, [activeSection]);
+
+  useEffect(() => {
+    if (activeSection === 'progress' && !gameProgress) {
+      setLoadingGame(true);
+      Promise.all([
+        api.getGamificationProgress(),
+        api.getAchievements(),
+        api.getBadges(),
+      ])
+        .then(([progress, achievements, badges]) => {
+          setGameProgress(progress);
+          setGameAchievements(achievements);
+          setGameBadges(badges);
+        })
+        .catch(e => console.warn('Could not load gamification:', e))
+        .finally(() => setLoadingGame(false));
     }
   }, [activeSection]);
 
@@ -527,6 +552,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
         <div className="flex gap-1">
           {[
             { id: 'stats' as const, icon: <BarChart3 size={18} />, label: 'Stats' },
+            { id: 'progress' as const, icon: <Award size={18} />, label: 'Progreso' },
             { id: 'favorites' as const, icon: <Bookmark size={18} />, label: 'Favoritos' },
             { id: 'settings' as const, icon: <Settings size={18} />, label: 'Ajustes' },
           ].map(tab => (
@@ -735,6 +761,137 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
               <ChevronRight size={20} className="text-gray-300 group-hover:text-primary transition-colors" />
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Progress Section */}
+      {activeSection === 'progress' && (
+        <div className="px-6 mt-6 space-y-4 animate-fade-in-up">
+          {loadingGame || !gameProgress ? (
+            <div className="flex justify-center py-16">
+              <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+            </div>
+          ) : (
+            <>
+              {/* Level & XP Card */}
+              <div className="bg-gradient-to-br from-primary to-accent rounded-2xl p-5 text-white relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8" />
+                <div className="relative z-10">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] uppercase tracking-wider bg-white/20 px-2 py-1 rounded-full font-semibold">
+                      Nivel {gameProgress.level}
+                    </span>
+                    <Award size={24} className="text-white/60" />
+                  </div>
+                  <div className="flex items-baseline gap-1 mb-1">
+                    <span className="text-3xl font-bold">{gameProgress.level}</span>
+                    <span className="text-sm text-white/70">— {gameProgress.experiencePoints} XP total</span>
+                  </div>
+                  <div className="mt-3">
+                    <div className="flex justify-between text-xs text-white/80 mb-1">
+                      <span>{gameProgress.xpCurrent} XP</span>
+                      <span>{gameProgress.xpNeeded} XP para nivel {gameProgress.level + 1}</span>
+                    </div>
+                    <div className="h-2.5 bg-white/20 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-white rounded-full transition-all duration-700 ease-out"
+                        style={{ width: `${gameProgress.xpPercentage}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-[10px] text-white/60 mt-1">
+                      <span>Nivel {gameProgress.level}</span>
+                      <span>{Math.round(gameProgress.xpPercentage)}%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Streak Card */}
+              <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-4 border border-amber-100 flex items-center gap-4">
+                <div className="w-14 h-14 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center shadow-md flex-shrink-0">
+                  <Flame size={28} className="text-white" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-gray-800">{gameProgress.streak?.loginCount || 0} días</p>
+                  <p className="text-xs text-gray-500">Racha actual</p>
+                  {gameProgress.streak?.loginCount > 0 && gameProgress.streak?.loginCount < 3 && (
+                    <p className="text-[10px] text-amber-600 mt-1">¡Sigue así! {3 - gameProgress.streak.loginCount} días más para lograr una racha</p>
+                  )}
+                  {gameProgress.streak?.loginCount >= 3 && gameProgress.streak?.loginCount < 7 && (
+                    <p className="text-[10px] text-amber-600 mt-1">🔥 Racha de 3 días conseguida</p>
+                  )}
+                  {gameProgress.streak?.loginCount >= 7 && gameProgress.streak?.loginCount < 30 && (
+                    <p className="text-[10px] text-amber-600 mt-1">🔥 Racha de 7 días conseguida</p>
+                  )}
+                  {gameProgress.streak?.loginCount >= 30 && (
+                    <p className="text-[10px] text-amber-600 mt-1">💪 ¡Racha de 30 días!</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Challenge count */}
+              <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl p-4 border border-purple-100 flex items-center gap-4">
+                <div className="w-14 h-14 bg-gradient-to-br from-purple-400 to-indigo-500 rounded-2xl flex items-center justify-center shadow-md flex-shrink-0">
+                  <Trophy size={28} className="text-white" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-gray-800">{gameProgress.challengeCount || 0}</p>
+                  <p className="text-xs text-gray-500">Retos completados</p>
+                </div>
+              </div>
+
+              {/* Badges */}
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                <div className="flex items-center gap-2 mb-4">
+                  <Gem size={18} className="text-primary" />
+                  <h3 className="text-sm font-bold text-gray-800">Insignias</h3>
+                </div>
+                {gameBadges.filter((b: any) => b.unlocked).length === 0 ? (
+                  <p className="text-xs text-gray-400 text-center py-4">Aún no tienes insignias. ¡Sigue participando!</p>
+                ) : (
+                  <div className="grid grid-cols-3 gap-3">
+                    {gameBadges.filter((b: any) => b.unlocked).map((badge: any) => (
+                      <div key={badge.badgeKey} className="flex flex-col items-center gap-1 p-2 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border border-gray-100">
+                        <span className="text-2xl">{badge.icon}</span>
+                        <span className="text-[9px] font-semibold text-gray-700 text-center leading-tight">{badge.title}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Achievements */}
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                <div className="flex items-center gap-2 mb-4">
+                  <Award size={18} className="text-primary" />
+                  <h3 className="text-sm font-bold text-gray-800">Logros</h3>
+                </div>
+                {gameAchievements.length === 0 ? (
+                  <p className="text-xs text-gray-400 text-center py-4">No hay logros disponibles</p>
+                ) : (
+                  <div className="space-y-2">
+                    {gameAchievements.map((ach: any) => (
+                      <div key={ach.key} className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${ach.unlocked ? 'bg-primary/5 border border-primary/10' : 'bg-gray-50 border border-gray-100 opacity-60'}`}>
+                        <span className={`text-xl ${ach.unlocked ? '' : 'grayscale'}`}>{ach.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className={`text-xs font-bold ${ach.unlocked ? 'text-gray-800' : 'text-gray-500'}`}>{ach.title}</p>
+                            {ach.unlocked && <span className="text-[9px] text-emerald-600 font-semibold">+{ach.xpReward} XP</span>}
+                          </div>
+                          <p className="text-[10px] text-gray-500 truncate">{ach.description}</p>
+                        </div>
+                        {ach.unlocked ? (
+                          <span className="text-emerald-500 text-xs">✓</span>
+                        ) : (
+                          <span className="text-gray-300 text-xs">—</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
 

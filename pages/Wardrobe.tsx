@@ -9,6 +9,7 @@ import {
 import { useLanguage } from '../src/context/LanguageContext';
 import { dataUrlToFile, pickPhoto, CameraSource } from '../src/utils/cameraPhoto';
 import ProductDetailModal, { ProductDisplayItem } from '../components/ProductDetailModal';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 interface WardrobeProps {
   garments: Garment[];
@@ -65,6 +66,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
 }) => {
   const { t } = useLanguage();
   const [activeView, setActiveView] = useState<ViewType>('closet');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [showCreateLook, setShowCreateLook] = useState(false);
 
   useEffect(() => {
@@ -741,7 +743,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                   {!garment.forSale && (
                     <div className="absolute top-2 w-full px-2 flex justify-between">
                       <button
-                        onClick={(e) => { e.stopPropagation(); onRemoveGarment(garment.id); }}
+                        onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(garment.id); }}
                         className="bg-white/90 backdrop-blur-sm p-1.5 rounded-full text-red-500 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shadow-sm"
                         title="Eliminar"
                       >
@@ -1344,7 +1346,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
           }}
           onDelete={() => {
             if (selectedGarmentForDetail) {
-              onRemoveGarment(selectedGarmentForDetail.id);
+              setConfirmDeleteId(selectedGarmentForDetail.id);
             }
           }}
         />
@@ -1422,6 +1424,23 @@ const Wardrobe: React.FC<WardrobeProps> = ({
           </Suspense>
         </div>
       )}
+
+      {/* Confirm Delete Dialog */}
+      <ConfirmDialog
+        open={!!confirmDeleteId}
+        title="Eliminar prenda"
+        message="¿Seguro que quieres eliminar esta prenda? Esta acción no se puede deshacer."
+        confirmLabel="Eliminar"
+        cancelLabel="Cancelar"
+        destructive={true}
+        onConfirm={() => {
+          if (confirmDeleteId) {
+            onRemoveGarment(confirmDeleteId);
+            setConfirmDeleteId(null);
+          }
+        }}
+        onCancel={() => setConfirmDeleteId(null)}
+      />
     </div>
   );
 };
