@@ -1224,6 +1224,22 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                     Ver historial
                   </button>
                 )}
+                <div className="flex gap-2 w-full justify-end mt-1">
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      try {
+                        await api.forceRotateChallenge();
+                        setStoryToast('🔄 Reto cambiado');
+                        window.setTimeout(() => setStoryToast(null), 2000);
+                        window.location.reload();
+                      } catch { setStoryToast('Error al cambiar reto'); window.setTimeout(() => setStoryToast(null), 2000); }
+                    }}
+                    className="text-[9px] font-medium text-white/50 hover:text-white underline"
+                  >
+                    Forzar cambio
+                  </button>
+                </div>
               </div>
             </div>
             <Sparkles className="text-white/20 absolute right-4 bottom-4 w-12 h-12" />
