@@ -1447,6 +1447,15 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                         />
                         <span className="text-sm font-semibold text-gray-800">{post.userName || 'Usuario'}</span>
                         <span className="text-[10px] text-gray-400 ml-auto font-medium">Lv.{getPostUserLevel(post)}</span>
+                        {post.userId !== currentUserId && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleStartChat(undefined, { user: { id: post.userId, name: post.userName, avatar: post.userAvatar } }); }}
+                            className="p-1.5 rounded-full text-gray-400 hover:text-primary hover:bg-primary/5 transition-colors"
+                            title="Enviar mensaje"
+                          >
+                            <Send size={14} />
+                          </button>
+                        )}
                         {post.userId === currentUserId && (
                           <div className="relative">
                             <button

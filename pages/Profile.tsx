@@ -15,6 +15,7 @@ import { getCyclePeriod, saveCyclePeriod } from '../src/utils/cycleTracking';
 import { useLanguage } from '../src/context/LanguageContext';
 import { languages, dialects } from '../src/utils/translations';
 import Logo from '../components/Logo';
+import DonutChart from '../components/DonutChart';
 
 interface ProfileProps {
   user: UserState;
@@ -637,6 +638,39 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
               </div>
             </div>
           )}
+
+          {/* Donut Charts */}
+          <div className="grid grid-cols-2 gap-4">
+            {categoryBreakdown.length > 0 && (
+              <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+                <h3 className="text-xs font-bold text-gray-700 mb-3 text-center">Por categoría</h3>
+                <DonutChart
+                  slices={categoryBreakdown.map(([cat, count], i) => ({
+                    label: cat,
+                    value: count,
+                    color: i === 0 ? 'var(--color-primary)' : i === 1 ? 'var(--color-accent)' : i === 2 ? 'var(--color-secondary)' : ['#f59e0b', '#22c55e', '#3b82f6', '#ec4899'][i - 3] || '#d1d5db',
+                  }))}
+                  size={100}
+                  strokeWidth={14}
+                />
+              </div>
+            )}
+            {Object.keys(seasonBreakdown).length > 0 && (
+              <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+                <h3 className="text-xs font-bold text-gray-700 mb-3 text-center">Por temporada</h3>
+                <DonutChart
+                  slices={[
+                    { label: 'Verano', value: seasonBreakdown.summer || 0, color: 'var(--color-primary)' },
+                    { label: 'Invierno', value: seasonBreakdown.winter || 0, color: 'var(--color-accent)' },
+                    { label: 'Entretiempo', value: seasonBreakdown.transition || 0, color: 'var(--color-secondary)' },
+                    { label: 'T. año', value: (seasonBreakdown.all || 0) + (seasonBreakdown.any || 0), color: '#d1d5db' },
+                  ].filter(s => s.value > 0)}
+                  size={100}
+                  strokeWidth={14}
+                />
+              </div>
+            )}
+          </div>
 
           {/* Category Breakdown */}
           {categoryBreakdown.length > 0 && (
