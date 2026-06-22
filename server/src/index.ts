@@ -2731,6 +2731,11 @@ app.post('/api/stories/:id/reaction', authenticateToken, async (req: any, res: R
     });
     if (!story) return res.status(404).json({ error: 'Historia no encontrada' });
 
+    // Cannot react to own story
+    if (story.userId === req.user.userId) {
+      return res.status(200).json({ message: null, conversationId: null });
+    }
+
     const reactor = await prisma.user.findUnique({
       where: { id: req.user.userId },
       select: { id: true, name: true, avatar: true },
