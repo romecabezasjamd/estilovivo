@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Heart, MessageCircle, Bookmark, MoreHorizontal, ShoppingBag, Search, Tag, Send, X, Shirt, Sparkles, CheckCircle2, ArrowRight, ExternalLink, Plus, Camera, Share2 } from 'lucide-react';
+import { Heart, MessageCircle, Bookmark, MoreHorizontal, ShoppingBag, Search, Tag, Send, X, Shirt, Sparkles, CheckCircle2, ArrowRight, ExternalLink, Plus, Camera, Share2, Eye } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 import ProductDetailModal, { ProductDisplayItem } from '../components/ProductDetailModal';
 import ConfirmDialog from '../components/ConfirmDialog';
+import ConfettiOverlay from '../components/ConfettiOverlay';
 import { api, getSocketOrigin } from '../services/api';
 import { Look, UserState, ShopItem, Comment, Garment, ChatConversation, ChatMessage, StoryEntry } from '../types';
 import { useLanguage } from '../src/context/LanguageContext';
@@ -94,6 +95,10 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
   const [challengeDeletingId, setChallengeDeletingId] = useState<string | null>(null);
   const [challengeValidationMsg, setChallengeValidationMsg] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ type: 'post' | 'story' | 'challenge'; id?: string } | null>(null);
+  const [viewedStoryIds, setViewedStoryIds] = useState<Set<string>>(new Set());
+  const [showAllStories, setShowAllStories] = useState(false);
+  const [confettiActive, setConfettiActive] = useState(false);
+  const [publishedBounce, setPublishedBounce] = useState<string | null>(null);
   const [followedUserIds, setFollowedUserIds] = useState<Set<string>>(new Set());
   const [chatAttachment, setChatAttachment] = useState<string | null>(null);
   const chatFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -365,6 +370,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
       setShowChallengeModal(false);
       setChallengeImage(null);
       setChallengeDescription('');
+      setConfettiActive(true);
       if (activeUser && result.experiencePoints !== undefined) {
         handleUpdateUser({ ...activeUser, experiencePoints: result.experiencePoints, level: result.level || Math.floor(result.experiencePoints / 100) + 1 });
       }
@@ -477,12 +483,15 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
     }
 
     addXp(15, 'subir una historia');
+    setPublishedBounce('story');
+    window.setTimeout(() => setPublishedBounce(null), 800);
     setStoryToast(hadStories ? 'Tu historia se publicó con éxito.' : '¡Bienvenida a tu primera historia!');
     window.setTimeout(() => setStoryToast(null), 3200);
   };
 
   const handleStoryView = (storyId: string) => {
     setSelectedStoryId(storyId);
+    setViewedStoryIds(prev => new Set(prev).add(storyId));
     setStories(prev => prev.map(story => story.id === storyId ? { ...story, views: story.views + 1 } : story));
     api.viewStory(storyId).catch(err => console.warn('Could not track story view on server:', err));
   };
@@ -677,6 +686,8 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
       setPublishPhoto(null);
       setPublishPhotoFile(null);
       setPublishDescription('');
+      setPublishedBounce('post');
+      window.setTimeout(() => setPublishedBounce(null), 800);
       addXp(20, 'publicar en el feed');
       setStoryToast('Publicación compartida +20 XP');
       window.setTimeout(() => setStoryToast(null), 3200);
@@ -1102,37 +1113,25 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
           <h1 className="text-2xl font-bold text-gray-800">Social</h1>
         </div>
 
-        <div className="flex bg-gray-100 rounded-full p-1 overflow-x-auto">
-          <button
-            onClick={() => setActiveTab('feed')}
-            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${activeTab === 'feed' ? 'bg-white text-primary shadow-sm' : 'text-gray-500'}`}
-          >
-            Feed
-          </button>
-          <button
-            onClick={() => setActiveTab('shop')}
-            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${activeTab === 'shop' ? 'bg-white text-primary shadow-sm' : 'text-gray-500'}`}
-          >
-            Tienda
-          </button>
-          <button
-            onClick={() => setActiveTab('trends')}
-            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${activeTab === 'trends' ? 'bg-white text-primary shadow-sm' : 'text-gray-500'}`}
-          >
-            Tendencias
-          </button>
-          <button
-            onClick={() => setActiveTab('favorites')}
-            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${activeTab === 'favorites' ? 'bg-white text-primary shadow-sm' : 'text-gray-500'}`}
-          >
-            Favoritos
-          </button>
-          <button
-            onClick={() => setActiveTab('chat')}
-            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${activeTab === 'chat' ? 'bg-white text-primary shadow-sm' : 'text-gray-500'}`}
-          >
-            Chat
-          </button>
+        <div className="relative">
+          <div className="flex bg-gray-100 rounded-full p-1 overflow-x-auto scroll-smooth" style={{ maskImage: 'linear-gradient(to right, black 90%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to right, black 90%, transparent 100%)' }}>
+            {[
+              { key: 'feed', label: 'Feed', icon: '📰' },
+              { key: 'shop', label: 'Tienda', icon: '🛍️' },
+              { key: 'trends', label: 'Tendencias', icon: '📈' },
+              { key: 'favorites', label: 'Favoritos', icon: '❤️' },
+              { key: 'chat', label: 'Chat', icon: '💬' },
+            ].map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${activeTab === tab.key ? 'bg-white text-primary shadow-sm' : 'text-gray-500'}`}
+              >
+                <span className="text-sm leading-none">{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Sub-headers per tab */}
@@ -1270,16 +1269,33 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
               {/* Stories Carousel - Instagram-style bubbles */}
               <div className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 mb-6 overflow-hidden">
                 <div className="flex items-center justify-between gap-3 mb-4">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-[0.28em] text-gray-400">Historias</p>
-                    <h2 className="text-lg font-bold text-gray-800">Lo último de la comunidad</h2>
+                  <div className="flex items-center gap-2">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.28em] text-gray-400">Historias</p>
+                      <h2 className="text-lg font-bold text-gray-800">Lo último de la comunidad</h2>
+                    </div>
+                    {stories.filter(s => !s.isOwn && !viewedStoryIds.has(s.id)).length > 0 && (
+                      <span className="bg-primary text-white text-[10px] font-bold rounded-full px-2 py-0.5 leading-none mt-1">
+                        +{stories.filter(s => !s.isOwn && !viewedStoryIds.has(s.id)).length} nuevas
+                      </span>
+                    )}
                   </div>
-                  <button
-                    onClick={() => setIsCreateStoryOpen(true)}
-                    className="bg-primary text-white text-xs font-bold uppercase px-4 py-2 rounded-full shadow-sm hover:bg-teal-800 transition-colors"
-                  >
-                    Crear nueva historia
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {stories.length > 6 && (
+                      <button
+                        onClick={() => setShowAllStories(true)}
+                        className="text-[11px] font-semibold text-primary hover:underline"
+                      >
+                        <Eye size={14} className="inline mr-1" />Ver todas
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setIsCreateStoryOpen(true)}
+                      className="bg-primary text-white text-xs font-bold uppercase px-4 py-2 rounded-full shadow-sm transition-colors"
+                    >
+                      Crear nueva historia
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2 px-1">
@@ -1298,29 +1314,68 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                     <div className="flex items-center justify-center text-sm text-gray-400 h-20 px-4">
                       Publica tu primera historia y gana visibilidad.
                     </div>
-                  ) : prioritizedStories.map(story => (
-                    <button
-                      key={story.id}
-                      type="button"
-                      onClick={() => handleStoryView(story.id)}
-                      className="flex flex-col items-center gap-1.5 flex-shrink-0 group"
-                    >
-                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary via-accent to-amber-400 p-[2px] shadow-sm group-hover:shadow-md transition-shadow">
-                        <div className="w-full h-full rounded-full bg-white p-[2px]">
-                          {story.imageUrl ? (
-                            <img src={story.imageUrl} alt={story.text || 'Historia'} className="w-full h-full rounded-full object-cover" loading="lazy" />
-                          ) : (
-                            <div className="w-full h-full rounded-full bg-gradient-to-br from-primary/10 to-accent/10 flex items-center justify-center text-primary text-[10px] font-bold px-1 text-center leading-tight">
-                              {story.text?.slice(0, 20) || 'Texto'}
-                            </div>
-                          )}
+                  ) : prioritizedStories.map(story => {
+                    const isViewed = viewedStoryIds.has(story.id);
+                    return (
+                      <button
+                        key={story.id}
+                        type="button"
+                        onClick={() => handleStoryView(story.id)}
+                        className={`flex flex-col items-center gap-1.5 flex-shrink-0 group ${isViewed && !story.isOwn ? 'opacity-60' : ''}`}
+                      >
+                        <div className={`w-16 h-16 rounded-full ${isViewed && !story.isOwn ? 'bg-gray-200' : 'bg-gradient-to-br from-primary via-accent to-amber-400'} p-[2px] shadow-sm group-hover:shadow-md transition-shadow`}>
+                          <div className="w-full h-full rounded-full bg-white p-[2px]">
+                            {story.imageUrl ? (
+                              <img src={story.imageUrl} alt={story.text || 'Historia'} className="w-full h-full rounded-full object-cover" loading="lazy" />
+                            ) : (
+                              <div className="w-full h-full rounded-full bg-gradient-to-br from-primary/10 to-accent/10 flex items-center justify-center text-primary text-[10px] font-bold px-1 text-center leading-tight">
+                                {story.text?.slice(0, 20) || 'Texto'}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      <span className="text-[10px] text-gray-600 font-medium max-w-[68px] truncate">{story.userName}</span>
-                    </button>
-                  ))}
+                        <span className="text-[10px] text-gray-600 font-medium max-w-[68px] truncate">{story.userName}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
+
+              {/* Ver todas stories modal */}
+              {showAllStories && (
+                <div className="fixed inset-0 z-[60] bg-white animate-fade-in overflow-y-auto" onClick={() => setShowAllStories(false)}>
+                  <div className="sticky top-0 bg-white border-b border-gray-100 p-4 flex items-center justify-between z-10">
+                    <h3 className="font-bold text-gray-800">Todas las historias</h3>
+                    <button onClick={() => setShowAllStories(false)} className="p-1.5 rounded-full text-gray-400 hover:bg-gray-100 transition-colors">
+                      <X size={20} />
+                    </button>
+                  </div>
+                  <div className="p-4 grid grid-cols-3 gap-4" onClick={e => e.stopPropagation()}>
+                    {prioritizedStories.filter(s => !s.isOwn).length === 0 ? (
+                      <p className="col-span-3 text-center text-gray-400 py-10 text-sm">No hay historias de otros usuarios</p>
+                    ) : prioritizedStories.filter(s => !s.isOwn).map(story => (
+                      <button
+                        key={story.id}
+                        onClick={() => { setShowAllStories(false); handleStoryView(story.id); }}
+                        className="flex flex-col items-center gap-1.5"
+                      >
+                        <div className={`w-16 h-16 rounded-full ${viewedStoryIds.has(story.id) ? 'bg-gray-200' : 'bg-gradient-to-br from-primary via-accent to-amber-400'} p-[2px] shadow-sm`}>
+                          <div className="w-full h-full rounded-full bg-white p-[2px]">
+                            {story.imageUrl ? (
+                              <img src={story.imageUrl} alt={story.text || 'Historia'} className="w-full h-full rounded-full object-cover" loading="lazy" />
+                            ) : (
+                              <div className="w-full h-full rounded-full bg-gradient-to-br from-primary/10 to-accent/10 flex items-center justify-center text-primary text-[10px] font-bold px-1 text-center leading-tight">
+                                {story.text?.slice(0, 15) || 'Texto'}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <span className="text-[10px] text-gray-600 font-medium truncate max-w-[68px]">{story.userName}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Top Users (Iconos de Estilo) Widget */}
               {topUsers.length > 0 && (
@@ -1455,10 +1510,18 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
               </div>
 
               {feedLooks.length === 0 && (
-                <div className="text-center py-20 text-gray-400">
-                  <Shirt size={48} className="mx-auto mb-3 text-gray-300" />
-                  <p className="font-medium">Aún no hay looks compartidos</p>
-                  <p className="text-sm mt-1">Sé el primero en publicar.</p>
+                <div className="text-center py-16 px-6">
+                  <div className="w-20 h-20 mx-auto mb-5 rounded-3xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center animate-bounce-in">
+                    <Sparkles size={36} className="text-primary" />
+                  </div>
+                  <p className="text-lg font-bold text-gray-700 mb-2">✨ Sé la primera en inspirar a la comunidad</p>
+                  <p className="text-sm text-gray-400 mb-6">Comparte tu estilo y conecta con otras amantes de la moda</p>
+                  <button
+                    onClick={() => setIsPublishModalOpen(true)}
+                    className="inline-flex items-center gap-2 bg-primary text-white text-sm font-bold px-6 py-3 rounded-full shadow-lg shadow-primary/30 hover:opacity-90 transition-all active:scale-[0.98]"
+                  >
+                    <Camera size={16} /> Publicar look
+                  </button>
                 </div>
               )}
 
@@ -2636,6 +2699,18 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
         }}
         onCancel={() => setConfirmDelete(null)}
       />
+
+      {/* Confetti Overlay */}
+      <ConfettiOverlay active={confettiActive} onFinish={() => setConfettiActive(false)} />
+
+      {/* Published bounce animation */}
+      {publishedBounce && (
+        <div className="fixed inset-0 pointer-events-none z-[85] flex items-start justify-center pt-32" aria-hidden="true">
+          <div className="animate-bounce-in bg-primary text-white text-sm font-bold px-6 py-3 rounded-2xl shadow-2xl shadow-primary/40">
+            {publishedBounce === 'post' ? '📸 Publicado con éxito' : '✨ Historia publicada'}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

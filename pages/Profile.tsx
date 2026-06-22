@@ -441,7 +441,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
         <div className="bg-white rounded-3xl shadow-xl p-6 border border-gray-50">
           <div className="flex flex-col items-center -mt-20 mb-6">
             <div
-              className={`relative w-28 h-28 rounded-full bg-gradient-to-br from-pink-400 to-rose-500 flex items-center justify-center overflow-hidden shadow-xl border-4 border-white transition-all duration-300 ${editing ? 'cursor-pointer ring-4 ring-pink-200 scale-105' : ''}`}
+              className={`relative w-28 h-28 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center overflow-hidden shadow-xl border-4 border-white transition-all duration-300 ${editing ? 'cursor-pointer ring-4 ring-primary/30 scale-105' : ''}`}
               onClick={handleAvatarClick}
             >
               {avatarUrl ? (
@@ -578,15 +578,15 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
         <div className="px-6 mt-6 space-y-4 animate-fade-in-up">
           {/* Quick Stats Grid */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-gradient-to-br from-pink-50 to-rose-50 rounded-2xl p-5 border border-pink-100 transform hover:scale-105 transition-transform duration-300">
-              <div className="w-10 h-10 bg-gradient-to-br from-pink-400 to-rose-500 rounded-xl flex items-center justify-center mb-3 shadow-lg">
+            <div className="bg-gradient-to-br from-primary/10 to-accent/10 rounded-2xl p-5 border border-primary/20 transform hover:scale-105 transition-transform duration-300">
+              <div className="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-xl flex items-center justify-center mb-3 shadow-lg">
                 <Shirt size={20} className="text-white" />
               </div>
               <p className="text-3xl font-bold text-gray-800 mb-1">{totalGarments}</p>
               <p className="text-xs text-gray-500 uppercase tracking-wide">Prendas</p>
             </div>
-            <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl p-5 border border-purple-100 transform hover:scale-105 transition-transform duration-300">
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-indigo-500 rounded-xl flex items-center justify-center mb-3 shadow-lg">
+            <div className="bg-gradient-to-br from-secondary/10 to-primary/10 rounded-2xl p-5 border border-secondary/20 transform hover:scale-105 transition-transform duration-300">
+              <div className="w-10 h-10 bg-gradient-to-br from-secondary to-primary rounded-xl flex items-center justify-center mb-3 shadow-lg">
                 <Eye size={20} className="text-white" />
               </div>
               <p className="text-3xl font-bold text-gray-800 mb-1">{totalLooks}</p>
@@ -725,7 +725,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
               onClick={() => onNavigate('wardrobe')}
               className="w-full flex items-center gap-4 bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-md hover:scale-[1.02] transition-all group"
             >
-              <div className="w-12 h-12 bg-gradient-to-br from-pink-400 to-rose-500 rounded-xl flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
+              <div className="w-12 h-12 bg-gradient-to-br from-primary to-accent rounded-xl flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
                 <Shirt size={22} className="text-white" />
               </div>
               <div className="flex-1 text-left">
@@ -738,7 +738,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
               onClick={() => onNavigate('suitcase')}
               className="w-full flex items-center gap-4 bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-md hover:scale-[1.02] transition-all group"
             >
-              <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-indigo-500 rounded-xl flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
+              <div className="w-12 h-12 bg-gradient-to-br from-secondary to-primary rounded-xl flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
                 <ShoppingBag size={22} className="text-white" />
               </div>
               <div className="flex-1 text-left">
@@ -807,31 +807,31 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
               </div>
 
               {/* Streak Card */}
-              <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-4 border border-amber-100 flex items-center gap-4">
-                <div className="w-14 h-14 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center shadow-md flex-shrink-0">
+              <div className="bg-gradient-to-br from-primary/10 to-accent/10 rounded-2xl p-4 border border-primary/20 flex items-center gap-4">
+                <div className="w-14 h-14 bg-gradient-to-br from-primary to-accent rounded-2xl flex items-center justify-center shadow-md flex-shrink-0">
                   <Flame size={28} className="text-white" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-gray-800">{gameProgress.streak?.loginCount || 0} días</p>
                   <p className="text-xs text-gray-500">Racha actual</p>
                   {gameProgress.streak?.loginCount > 0 && gameProgress.streak?.loginCount < 3 && (
-                    <p className="text-[10px] text-amber-600 mt-1">¡Sigue así! {3 - gameProgress.streak.loginCount} días más para lograr una racha</p>
+              <p className="text-[10px] text-primary/70 mt-1">¡Sigue así! {3 - gameProgress.streak.loginCount} días más para lograr una racha</p>
+              )}
+              {gameProgress.streak?.loginCount >= 3 && gameProgress.streak?.loginCount < 7 && (
+                <p className="text-[10px] text-primary/70 mt-1">🔥 Racha de 3 días conseguida</p>
                   )}
-                  {gameProgress.streak?.loginCount >= 3 && gameProgress.streak?.loginCount < 7 && (
-                    <p className="text-[10px] text-amber-600 mt-1">🔥 Racha de 3 días conseguida</p>
+              {gameProgress.streak?.loginCount >= 7 && gameProgress.streak?.loginCount < 30 && (
+                <p className="text-[10px] text-primary/70 mt-1">🔥 Racha de 7 días conseguida</p>
                   )}
-                  {gameProgress.streak?.loginCount >= 7 && gameProgress.streak?.loginCount < 30 && (
-                    <p className="text-[10px] text-amber-600 mt-1">🔥 Racha de 7 días conseguida</p>
-                  )}
-                  {gameProgress.streak?.loginCount >= 30 && (
-                    <p className="text-[10px] text-amber-600 mt-1">💪 ¡Racha de 30 días!</p>
+              {gameProgress.streak?.loginCount >= 30 && (
+                <p className="text-[10px] text-primary/70 mt-1">💪 ¡Racha de 30 días!</p>
                   )}
                 </div>
               </div>
 
               {/* Challenge count */}
-              <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl p-4 border border-purple-100 flex items-center gap-4">
-                <div className="w-14 h-14 bg-gradient-to-br from-purple-400 to-indigo-500 rounded-2xl flex items-center justify-center shadow-md flex-shrink-0">
+              <div className="bg-gradient-to-br from-secondary/10 to-primary/10 rounded-2xl p-4 border border-secondary/20 flex items-center gap-4">
+                <div className="w-14 h-14 bg-gradient-to-br from-secondary to-primary rounded-2xl flex items-center justify-center shadow-md flex-shrink-0">
                   <Trophy size={28} className="text-white" />
                 </div>
                 <div>
@@ -1081,7 +1081,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                       <button
                         type="button"
                         onClick={() => handleToggleSetting('cycleTracking', !cycleTracking)}
-                        className={`w-11 h-6 rounded-full transition-colors ${cycleTracking ? 'bg-gradient-to-r from-purple-400 to-pink-500' : 'bg-gray-200'}`}
+                        className={`w-11 h-6 rounded-full transition-colors ${cycleTracking ? 'bg-gradient-to-r from-primary to-accent' : 'bg-gray-200'}`}
                       >
                         <div className={`w-5 h-5 rounded-full bg-white shadow transform transition-transform ${cycleTracking ? 'translate-x-5' : 'translate-x-0.5'}`} />
                       </button>
