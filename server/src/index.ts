@@ -2771,32 +2771,31 @@ app.post('/api/stories/:id/reaction', authenticateToken, async (req: any, res: R
       include: { sender: { select: { id: true, name: true, avatar: true } } },
     });
 
-    await prisma.conversation.update({
-      where: { id: conversation.id },
-      data: { updatedAt: new Date() },
-    });
+    try { await prisma.conversation.update({ where: { id: conversation.id }, data: { updatedAt: new Date() } }); } catch (e) { logger.error('Error updating conversation updatedAt', { e }); }
 
-    io.to(conversation.id).emit('new_message', message);
+    try { io.to(conversation.id).emit('new_message', message); } catch (e) { logger.error('Error emitting new_message', { e }); }
 
     // Notify story author
     if (story.userId !== req.user.userId) {
-      const notification = await prisma.notification.create({
-        data: {
-          type: 'STORY_REACTION',
-          content: `${reactor.name} reaccionó ${emoji} a tu historia`,
-          userId: story.userId,
-          relatedId: conversation.id,
-        }
-      });
-      io.to(`user_${story.userId}`).emit('notification', notification);
+      try {
+        const notification = await prisma.notification.create({
+          data: {
+            type: 'STORY_REACTION',
+            content: `${reactor.name} reaccionó ${emoji} a tu historia`,
+            userId: story.userId,
+            relatedId: conversation.id,
+          }
+        });
+        try { io.to(`user_${story.userId}`).emit('notification', notification); } catch (e) { logger.error('Error emitting notification', { e }); }
+      } catch (e) { logger.error('Error creating notification', { e }); }
     }
 
-    awardXp(prisma, req.user.userId, XP_VALUES.storyReaction).catch(() => {});
+    awardXp(prisma, req.user.userId, XP_VALUES.storyReaction).catch((e) => { logger.error('Error awarding XP for story reaction', { e }); });
 
     res.status(201).json({ message, conversationId: conversation.id });
-  } catch (error) {
-    logger.error('Error reacting to story', { error });
-    res.status(500).json({ error: 'Error al reaccionar a la historia' });
+  } catch (error: any) {
+    logger.error('Error reacting to story', { error: error?.message || error, stack: error?.stack });
+    res.status(500).json({ error: 'Error al reaccionar a la historia', detail: error?.message || '' });
   }
 });
 
