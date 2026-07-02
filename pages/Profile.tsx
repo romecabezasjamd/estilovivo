@@ -65,6 +65,8 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
   const [hasChanges, setHasChanges] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [settingsSaveError, setSettingsSaveError] = useState<string | null>(null);
+  const [showUnsavedChangesModal, setShowUnsavedChangesModal] = useState(false);
+  const pendingNavigationRef = useRef<string | null>(null);
   const initialSettingsRef = useRef({
     presetTheme,
     customColor,
@@ -397,6 +399,70 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
     }
   };
 
+  // Navigation interception when unsaved changes exist
+  const handleNavigationAttempt = (tab: string) => {
+    if (hasChanges && activeSection === 'settings') {
+      pendingNavigationRef.current = tab;
+      setShowUnsavedChangesModal(true);
+    } else {
+      onNavigate(tab);
+    }
+  };
+
+  const handleSaveAndNavigate = async () => {
+    await handleSaveSettings();
+    setShowUnsavedChangesModal(false);
+    const target = pendingNavigationRef.current;
+    pendingNavigationRef.current = null;
+    if (target) {
+      if (target.startsWith('__internal__')) {
+        setActiveSection(target.replace('__internal__', '') as any);
+      } else {
+        onNavigate(target);
+      }
+    }
+  };
+
+  const handleDiscardAndNavigate = () => {
+    // Revert to initial values
+    const init = initialSettingsRef.current;
+    setPresetTheme(init.presetTheme);
+    setCustomColor(init.customColor);
+    setDarkMode(init.darkModeSetting);
+    setFontSize(init.fontSize);
+    setHighContrast(init.highContrast);
+    setHapticEnabled(init.hapticEnabled);
+    setHapticEnabledState(init.hapticEnabled);
+    setHasChanges(false);
+    setShowUnsavedChangesModal(false);
+    const target = pendingNavigationRef.current;
+    pendingNavigationRef.current = null;
+    if (target) {
+      if (target.startsWith('__internal__')) {
+        setActiveSection(target.replace('__internal__', '') as any);
+      } else {
+        onNavigate(target);
+      }
+    }
+  };
+
+  const handleCancelNavigation = () => {
+    pendingNavigationRef.current = null;
+    setShowUnsavedChangesModal(false);
+  };
+
+  // Warn before leaving page (browser navigation)
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasChanges]);
+
   const handleConfirmDelete = async () => {
     setDeleting(true);
     try {
@@ -645,7 +711,14 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
           ].map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveSection(tab.id)}
+              onClick={() => {
+                if (tab.id === 'settings' || activeSection !== 'settings' || !hasChanges) {
+                  setActiveSection(tab.id);
+                } else {
+                  pendingNavigationRef.current = `__internal__${tab.id}`;
+                  setShowUnsavedChangesModal(true);
+                }
+              }}
               className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${activeSection === tab.id
                 ? 'bg-gradient-to-r from-primary to-primary-dark text-white shadow-lg scale-105'
                 : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
@@ -842,7 +915,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
           {/* Quick links */}
           <div className="space-y-3">
             <button
-              onClick={() => onNavigate('wardrobe')}
+              onClick={() => handleNavigationAttempt('wardrobe')}
               className="w-full flex items-center gap-4 bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-md hover:scale-[1.02] transition-all group"
             >
               <div className="w-12 h-12 bg-gradient-to-br from-primary to-accent rounded-xl flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
@@ -855,7 +928,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
               <ChevronRight size={20} className="text-gray-300 group-hover:text-primary transition-colors" />
             </button>
             <button
-              onClick={() => onNavigate('suitcase')}
+              onClick={() => handleNavigationAttempt('suitcase')}
               className="w-full flex items-center gap-4 bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-md hover:scale-[1.02] transition-all group"
             >
               <div className="w-12 h-12 bg-gradient-to-br from-secondary to-primary rounded-xl flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
@@ -868,7 +941,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
               <ChevronRight size={20} className="text-gray-300 group-hover:text-primary transition-colors" />
             </button>
             <button
-              onClick={() => onNavigate('planner')}
+              onClick={() => handleNavigationAttempt('planner')}
               className="w-full flex items-center gap-4 bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-md hover:scale-[1.02] transition-all group"
             >
               <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-xl flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
@@ -1028,7 +1101,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
               <p className="text-gray-500 font-semibold mb-2">{t('noFavorites')}</p>
               <p className="text-sm text-gray-400 mb-6">{t('exploreSocialDesc')}</p>
               <button
-                onClick={() => onNavigate('social')}
+                onClick={() => handleNavigationAttempt('social')}
                 className="px-6 py-2.5 bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl font-semibold text-sm shadow-lg hover:shadow-xl transition-all hover:scale-105"
               >
                 {t('exploreSocial')}
@@ -1859,6 +1932,39 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                     <p>Para cualquier consulta sobre estos términos, contacta a través de: <a href="mailto:appestilovivo@gmail.com" className="text-primary font-semibold">appestilovivo@gmail.com</a></p>
 
                     <p className="text-xs text-gray-400 text-center pt-4 border-t border-gray-100">Última actualización: Junio 2026</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Unsaved Changes Confirmation Modal */}
+            {showUnsavedChangesModal && (
+              <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+                <div className="bg-[var(--bg-card)] w-full max-w-sm rounded-[2rem] shadow-2xl animate-pop-in p-6 text-center" onClick={e => e.stopPropagation()}>
+                  <div className="w-14 h-14 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                    <AlertCircle size={28} className="text-white" />
+                  </div>
+                  <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">¿Desea guardar los cambios?</h3>
+                  <p className="text-sm text-[var(--text-secondary)] mb-6">Tienes cambios sin guardar en los ajustes.</p>
+                  <div className="flex flex-col gap-2.5">
+                    <button
+                      onClick={handleSaveAndNavigate}
+                      className="w-full py-3 rounded-xl bg-[var(--color-primary)] text-white font-bold text-sm shadow-lg shadow-[var(--color-primary)]/20 active:scale-[0.98] transition-all"
+                    >
+                      Guardar
+                    </button>
+                    <button
+                      onClick={handleDiscardAndNavigate}
+                      className="w-full py-3 rounded-xl bg-red-50 text-red-600 font-bold text-sm border border-red-200 active:scale-[0.98] transition-all"
+                    >
+                      Descartar
+                    </button>
+                    <button
+                      onClick={handleCancelNavigation}
+                      className="w-full py-3 rounded-xl bg-[var(--bg-card-hover)] text-[var(--text-secondary)] font-bold text-sm active:scale-[0.98] transition-all"
+                    >
+                      Cancelar
+                    </button>
                   </div>
                 </div>
               </div>
