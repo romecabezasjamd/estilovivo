@@ -12,6 +12,7 @@ const Wishlist = lazy(() => import('./pages/Wishlist'));
 import { GlobalStateProvider, useGlobalState } from './src/context/GlobalStateContext';
 import { LanguageProvider } from './src/context/LanguageContext';
 import { ThemeProvider } from './src/context/ThemeContext';
+import { DarkModeProvider } from './src/context/DarkModeContext';
 import { resolveNavigation } from './src/utils/navigation';
 
 const AppContent: React.FC = () => {
@@ -203,9 +204,11 @@ const App: React.FC = () => {
   return (
     <LanguageProvider>
       <ThemeProvider>
-        <GlobalStateProvider>
-          <AppContent />
-        </GlobalStateProvider>
+        <DarkModeProvider>
+          <GlobalStateProvider>
+            <AppContent />
+          </GlobalStateProvider>
+        </DarkModeProvider>
       </ThemeProvider>
     </LanguageProvider>
   );

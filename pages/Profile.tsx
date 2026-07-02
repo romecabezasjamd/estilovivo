@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import { ThemeColor, THEMES } from '../src/utils/theme';
 import { useTheme } from '../src/context/ThemeContext';
+import { useDarkMode } from '../src/context/DarkModeContext';
+import { isHapticEnabled, setHapticEnabled } from '../src/utils/haptic';
 import { normalizeHex } from '../src/utils/colorUtils';
 import { getCyclePeriod, saveCyclePeriod } from '../src/utils/cycleTracking';
 import { useLanguage } from '../src/context/LanguageContext';
@@ -43,6 +45,15 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const { presetTheme, customColor, isCustom, setPresetTheme, setCustomColor, resetToDefault } = useTheme();
   const [pickerValue, setPickerValue] = useState(customColor || THEMES[presetTheme].primary);
+  const { setting: darkModeSetting, setDarkMode } = useDarkMode();
+  const [fontSize, setFontSize] = useState<'small' | 'normal' | 'large'>(() => {
+    const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('ev_font_size') : null;
+    return (stored === 'small' || stored === 'large') ? stored : 'normal';
+  });
+  const [highContrast, setHighContrast] = useState(() => {
+    return typeof localStorage !== 'undefined' ? localStorage.getItem('ev_high_contrast') === 'on' : false;
+  });
+  const [hapticEnabledState, setHapticEnabledState] = useState(isHapticEnabled());
   const { t, language, setLanguage, dialect, setDialect } = useLanguage();
   const [showLanguageSettings, setShowLanguageSettings] = useState(false);
   const [showSecuritySettings, setShowSecuritySettings] = useState(false);
@@ -101,6 +112,20 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
       }
     }
   }, [user.id]);
+
+  // Font size
+  useEffect(() => {
+    const el = document.documentElement;
+    el.style.fontSize = fontSize === 'small' ? '14px' : fontSize === 'large' ? '18px' : '';
+    try { localStorage.setItem('ev_font_size', fontSize); } catch {}
+  }, [fontSize]);
+
+  // High contrast
+  useEffect(() => {
+    const el = document.documentElement;
+    el.classList.toggle('high-contrast', highContrast);
+    try { localStorage.setItem('ev_high_contrast', highContrast ? 'on' : 'off'); } catch {}
+  }, [highContrast]);
 
   // Load stats
   useEffect(() => {
@@ -1303,6 +1328,95 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                 >
                   Restablecer color por defecto (Rosa)
                 </button>
+              </div>
+            </div>
+
+            {/* Dark Mode & Accessibility Settings */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="p-4 border-b border-gray-50 flex items-center gap-2">
+                <Moon size={18} className="text-primary" />
+                <h3 className="text-sm font-bold text-gray-700">Apariencia y accesibilidad</h3>
+              </div>
+              <div className="p-5 space-y-5">
+                {/* Dark mode */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700">Modo oscuro</p>
+                    <p className="text-[11px] text-gray-400">Automático según el sistema o manual</p>
+                  </div>
+                  <select
+                    value={darkModeSetting}
+                    onChange={(e) => setDarkMode(e.target.value as any)}
+                    className="text-xs font-semibold rounded-xl border border-gray-200 px-3 py-2 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/30"
+                    aria-label="Modo oscuro"
+                  >
+                    <option value="system">Automático</option>
+                    <option value="on">Activado</option>
+                    <option value="off">Desactivado</option>
+                  </select>
+                </div>
+
+                <div className="h-px bg-gray-100" />
+
+                {/* Font size */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700">Tamaño de texto</p>
+                    <p className="text-[11px] text-gray-400">Aumenta la legibilidad</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {['Pequeño', 'Normal', 'Grande'].map((label, i) => {
+                      const val = i === 0 ? 'small' : i === 1 ? 'normal' : 'large';
+                      return (
+                        <button
+                          key={val}
+                          onClick={() => setFontSize(val as any)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${fontSize === val ? 'bg-primary text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="h-px bg-gray-100" />
+
+                {/* High contrast */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700">Alto contraste</p>
+                    <p className="text-[11px] text-gray-400">Para mejorar la legibilidad</p>
+                  </div>
+                  <button
+                    onClick={() => setHighContrast(!highContrast)}
+                    className={`relative w-11 h-6 rounded-full transition-colors ${highContrast ? 'bg-primary' : 'bg-gray-300'}`}
+                    role="switch"
+                    aria-checked={highContrast}
+                    aria-label="Alto contraste"
+                  >
+                    <div className={`w-5 h-5 bg-white rounded-full shadow-sm absolute top-0.5 transition-transform ${highContrast ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+                  </button>
+                </div>
+
+                <div className="h-px bg-gray-100" />
+
+                {/* Haptic feedback */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700">Vibración háptica</p>
+                    <p className="text-[11px] text-gray-400">Vibración al completar acciones</p>
+                  </div>
+                  <button
+                    onClick={() => { const next = !hapticEnabled; setHapticEnabled(next); setHapticEnabledState(next); }}
+                    className={`relative w-11 h-6 rounded-full transition-colors ${hapticEnabled ? 'bg-primary' : 'bg-gray-300'}`}
+                    role="switch"
+                    aria-checked={hapticEnabled}
+                    aria-label="Vibración háptica"
+                  >
+                    <div className={`w-5 h-5 bg-white rounded-full shadow-sm absolute top-0.5 transition-transform ${hapticEnabled ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+                  </button>
+                </div>
               </div>
             </div>
 

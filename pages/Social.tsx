@@ -4,6 +4,7 @@ import { io, Socket } from 'socket.io-client';
 import ProductDetailModal, { ProductDisplayItem } from '../components/ProductDetailModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import ConfettiOverlay from '../components/ConfettiOverlay';
+import { successImpact, lightImpact, errorImpact } from '../src/utils/haptic';
 import { api, getSocketOrigin } from '../services/api';
 import { Look, UserState, ShopItem, Comment, Garment, ChatConversation, ChatMessage, StoryEntry } from '../types';
 import { useLanguage } from '../src/context/LanguageContext';
@@ -371,6 +372,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
       setChallengeImage(null);
       setChallengeDescription('');
       setConfettiActive(true);
+      successImpact();
       if (activeUser && result.experiencePoints !== undefined) {
         handleUpdateUser({ ...activeUser, experiencePoints: result.experiencePoints, level: result.level || Math.floor(result.experiencePoints / 100) + 1 });
       }
@@ -485,6 +487,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
     addXp(15, 'subir una historia');
     setPublishedBounce('story');
     window.setTimeout(() => setPublishedBounce(null), 800);
+    successImpact();
     setStoryToast(hadStories ? 'Tu historia se publicó con éxito.' : '¡Bienvenida a tu primera historia!');
     window.setTimeout(() => setStoryToast(null), 3200);
   };
@@ -688,6 +691,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
       setPublishDescription('');
       setPublishedBounce('post');
       window.setTimeout(() => setPublishedBounce(null), 800);
+      successImpact();
       addXp(20, 'publicar en el feed');
       setStoryToast('Publicación compartida +20 XP');
       window.setTimeout(() => setStoryToast(null), 3200);
@@ -765,11 +769,13 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
   const handleDeletePost = async (postId: string) => {
     setDeletingPostId(postId);
     setConfirmDelete(null);
+    lightImpact();
     try {
       await api.deleteLook(postId);
       setFeedLooks(prev => prev.filter(l => l.id !== postId));
     } catch (error) {
       console.error("Error deleting post:", error);
+      errorImpact();
       setStoryToast('Error al eliminar la publicación');
       window.setTimeout(() => setStoryToast(null), 3200);
     } finally {

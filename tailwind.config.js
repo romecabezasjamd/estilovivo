@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+    darkMode: 'class',
     content: [
         "./index.html",
         "./src/**/*.{js,ts,jsx,tsx}",
@@ -18,6 +19,21 @@ export default {
                 'primary-dark': 'var(--color-primary-dark)',
                 accent: 'var(--color-accent)',
                 secondary: 'var(--color-secondary)',
+                surface: {
+                    base: 'var(--bg-base)',
+                    card: 'var(--bg-card)',
+                    hover: 'var(--bg-card-hover)',
+                    elevated: 'var(--bg-elevated)',
+                },
+                text: {
+                    primary: 'var(--text-primary)',
+                    secondary: 'var(--text-secondary)',
+                    muted: 'var(--text-muted)',
+                },
+                border: {
+                    light: 'var(--border-light)',
+                    subtle: 'var(--border-subtle)',
+                },
                 lavender: {
                     50: '#F5F3FF',
                     100: '#EDE9FE',

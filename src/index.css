@@ -8,7 +8,19 @@
     --color-primary-dark: #d6337a;
     --color-accent: #14b8a6;
     --color-secondary: #a78bfa;
-    
+
+    /* Dark mode surface colors (overridden by .dark) */
+    --bg-base: #F8F9FA;
+    --bg-card: #ffffff;
+    --bg-card-hover: #f3f4f6;
+    --bg-elevated: #ffffff;
+    --text-primary: #1f2937;
+    --text-secondary: #6b7280;
+    --text-muted: #9ca3af;
+    --border-light: #e5e7eb;
+    --border-subtle: #f3f4f6;
+    --overlay: rgba(0, 0, 0, 0.5);
+
     /* Safe Areas for mobile notch/home bar */
     --safe-top: env(safe-area-inset-top, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -16,19 +28,61 @@
     --safe-right: env(safe-area-inset-right, 0px);
 }
 
+.dark {
+    --bg-base: #0f172a;
+    --bg-card: #1e293b;
+    --bg-card-hover: #334155;
+    --bg-elevated: #1e293b;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --border-light: #334155;
+    --border-subtle: #1e293b;
+    --overlay: rgba(0, 0, 0, 0.7);
+}
+
 body {
-    background-color: #F8F9FA;
+    background-color: var(--bg-base);
+    color: var(--text-primary);
     padding-top: var(--safe-top);
     padding-bottom: var(--safe-bottom);
     padding-left: var(--safe-left);
     padding-right: var(--safe-right);
     min-height: 100vh;
-    min-height: -webkit-fill-available; /* Fix for mobile viewport height */
+    min-height: -webkit-fill-available;
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 html {
     height: -webkit-fill-available;
 }
+
+*, *::before, *::after {
+    transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; }
+}
+
+/* High contrast mode */
+.high-contrast {
+    --text-primary: #000000 !important;
+    --text-secondary: #1f2937 !important;
+    --bg-base: #ffffff !important;
+    --border-light: #9ca3af !important;
+}
+.dark.high-contrast {
+    --text-primary: #ffffff !important;
+    --text-secondary: #e2e8f0 !important;
+    --bg-base: #000000 !important;
+    --border-light: #64748b !important;
+}
+
+/* Font size */
+html { font-size: 16px; }
+html[style*="font-size: 14px"] .text-xs { font-size: 11px !important; }
+html[style*="font-size: 18px"] .text-xs { font-size: 13px !important; }
 
 .glass {
     @apply bg-white/70 backdrop-blur-md border border-white/40;
