@@ -142,9 +142,9 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+    <div className="bg-[var(--bg-card)] rounded-2xl p-6 shadow-lg border border-[var(--border-light)]">
       {/* View mode tabs */}
-      <div className="flex bg-gray-100 rounded-xl p-1 mb-4">
+      <div className="flex bg-[var(--bg-base)] rounded-xl p-1 mb-4">
         {([
           { id: 'month' as const, icon: CalendarDays, label: 'Mes' },
           { id: 'week' as const, icon: CalendarRange, label: 'Sem' },
@@ -156,7 +156,7 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
               key={v.id}
               onClick={() => { setViewMode(v.id); setWeekOffset(0); }}
               className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                viewMode === v.id ? 'bg-white text-primary shadow-sm' : 'text-gray-500'
+                viewMode === v.id ? 'bg-[var(--bg-card)] text-primary shadow-sm' : 'text-[var(--text-secondary)]'
               }`}
             >
               <Icon size={12} />
@@ -168,13 +168,13 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
 
       {/* Navigation */}
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-sm font-bold text-gray-700 capitalize">{renderHeader()}</h3>
+        <h3 className="text-sm font-bold text-[var(--text-primary)] capitalize">{renderHeader()}</h3>
         <div className="flex gap-1">
-          <button onClick={navigatePrev} className="p-1 hover:bg-gray-100 rounded-lg transition">
-            <ChevronLeft size={18} className="text-gray-400" />
+          <button onClick={navigatePrev} className="p-1 hover:bg-[var(--bg-base)] rounded-lg transition">
+            <ChevronLeft size={18} className="text-[var(--text-muted)]" />
           </button>
-          <button onClick={navigateNext} className="p-1 hover:bg-gray-100 rounded-lg transition">
-            <ChevronRight size={18} className="text-gray-400" />
+          <button onClick={navigateNext} className="p-1 hover:bg-[var(--bg-base)] rounded-lg transition">
+            <ChevronRight size={18} className="text-[var(--text-muted)]" />
           </button>
         </div>
       </div>
@@ -184,7 +184,7 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
         <>
           <div className="grid grid-cols-7 gap-2 mb-3">
             {shortDayNames.map(day => (
-              <div key={day} className="text-center text-xs font-bold text-gray-400 py-2">{day}</div>
+              <div key={day} className="text-center text-xs font-bold text-[var(--text-muted)] py-2">{day}</div>
             ))}
           </div>
           <div className="grid grid-cols-7 gap-2">
@@ -199,8 +199,8 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
                     isSelected(dateStr)
                       ? 'bg-pink-500 text-white shadow-md'
                       : isInRange(dateStr)
-                      ? 'bg-pink-100 text-gray-700'
-                      : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                      ? 'bg-pink-100 text-[var(--text-primary)]'
+                      : 'bg-[var(--bg-base)] text-[var(--text-secondary)] hover:bg-[var(--bg-base)]'
                   }`}
                 >
                   {day}
@@ -225,8 +225,8 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
                   isSelected(dateStr)
                     ? 'bg-pink-500 text-white shadow-md'
                     : isInRange(dateStr)
-                    ? 'bg-pink-100 text-gray-700'
-                    : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                    ? 'bg-pink-100 text-[var(--text-primary)]'
+                    : 'bg-[var(--bg-base)] text-[var(--text-secondary)] hover:bg-[var(--bg-base)]'
                 }`}
               >
                 <span className="text-[10px] font-bold uppercase opacity-60">{shortDayNames[idx]}</span>
@@ -241,8 +241,8 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
       {viewMode === 'day' && (
         <div className="flex flex-col items-center py-4">
           <div className="text-center mb-2">
-            <span className="text-4xl font-bold text-gray-800">{currentDate.getDate()}</span>
-            <p className="text-xs text-gray-400 mt-1 uppercase tracking-wider">
+            <span className="text-4xl font-bold text-[var(--text-primary)]">{currentDate.getDate()}</span>
+            <p className="text-xs text-[var(--text-muted)] mt-1 uppercase tracking-wider">
               {currentDate.toLocaleDateString('es-ES', { weekday: 'long', month: 'long' })}
             </p>
           </div>
@@ -260,17 +260,17 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
       )}
 
       {/* Date display */}
-      <div className="bg-gray-50 rounded-xl p-4 space-y-2 mt-4">
+      <div className="bg-[var(--bg-base)] rounded-xl p-4 space-y-2 mt-4">
         <div>
-          <p className="text-xs text-gray-400 mb-1">Inicio</p>
-          <p className="text-sm font-bold text-gray-800">
+          <p className="text-xs text-[var(--text-muted)] mb-1">Inicio</p>
+          <p className="text-sm font-bold text-[var(--text-primary)]">
             {startDate ? new Date(startDate + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Seleccionar'}
           </p>
         </div>
         <div className="h-px bg-gray-200" />
         <div>
-          <p className="text-xs text-gray-400 mb-1">Fin</p>
-          <p className="text-sm font-bold text-gray-800">
+          <p className="text-xs text-[var(--text-muted)] mb-1">Fin</p>
+          <p className="text-sm font-bold text-[var(--text-primary)]">
             {endDate ? new Date(endDate + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Seleccionar'}
           </p>
         </div>

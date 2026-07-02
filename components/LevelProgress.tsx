@@ -24,7 +24,7 @@ const LevelProgress: React.FC<LevelProgressProps> = ({ user }) => {
     const xpToNext = XP_PER_LEVEL - xpInCurrentLevel;
 
     return (
-        <div className="bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm flex items-center gap-3">
+        <div className="bg-[var(--bg-card)] border border-[var(--border-light)] rounded-2xl px-4 py-3 shadow-sm flex items-center gap-3">
             {/* Level Badge */}
             <div className="flex-shrink-0 w-11 h-11 rounded-xl bg-gradient-to-br from-primary to-teal-400 flex flex-col items-center justify-center shadow-md shadow-primary/20">
                 <span className="text-[10px] text-white/80 font-bold leading-none">Nv.</span>
@@ -34,19 +34,19 @@ const LevelProgress: React.FC<LevelProgressProps> = ({ user }) => {
             {/* Progress info */}
             <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-semibold text-gray-700">{getLevelTitle(level)}</span>
-                    <span className="text-[10px] text-gray-400">{xpInCurrentLevel} / {XP_PER_LEVEL} XP</span>
+                    <span className="text-xs font-semibold text-[var(--text-primary)]">{getLevelTitle(level)}</span>
+                    <span className="text-[10px] text-[var(--text-muted)]">{xpInCurrentLevel} / {XP_PER_LEVEL} XP</span>
                 </div>
 
                 {/* Bar */}
-                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div className="h-2 bg-[var(--bg-base)] rounded-full overflow-hidden">
                     <div
                         className="h-full rounded-full bg-gradient-to-r from-primary to-teal-400 transition-all duration-700 ease-out"
                         style={{ width: `${progressPct}%` }}
                     />
                 </div>
 
-                <p className="text-[10px] text-gray-400 mt-0.5">
+                <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
                     {xp === 0 ? '¡Sube una prenda para ganar tus primeros XP!' : `${xpToNext} XP para el siguiente nivel`}
                 </p>
             </div>

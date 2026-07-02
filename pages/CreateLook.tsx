@@ -157,12 +157,12 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook, onClose }
   };
 
   return (
-    <div className="h-full flex flex-col bg-white relative">
+    <div className="h-full flex flex-col bg-[var(--bg-card)] relative">
       {/* Header */}
-      <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-white z-20">
+      <div className="flex justify-between items-center p-4 border-b border-[var(--border-light)] bg-[var(--bg-card)] z-20">
         <button
           onClick={() => (onClose ? onClose() : setSelectedItems([]))}
-          className="text-gray-400 hover:text-red-500 transition"
+          className="text-[var(--text-muted)] hover:text-red-500 transition"
           title={onClose ? t('cancel') || 'Cerrar' : t('clear')}
         >
           <X size={24} />
@@ -170,7 +170,7 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook, onClose }
         <div className="flex items-center space-x-3">
           <button
             onClick={handleShuffle}
-            className="flex items-center gap-1 text-gray-500 hover:text-pink-500 transition bg-gray-50 px-3 py-1.5 rounded-full"
+            className="flex items-center gap-1 text-[var(--text-secondary)] hover:text-pink-500 transition bg-gray-50 px-3 py-1.5 rounded-full"
             title={t('mix')}
           >
             <Shuffle size={16} />
@@ -180,7 +180,7 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook, onClose }
             onClick={() => setIsSaving(true)}
             className={`text-sm font-semibold px-4 py-1.5 rounded-full transition-colors flex items-center gap-1 ${selectedItems.length > 0
                 ? 'bg-primary text-white shadow-md shadow-primary/20'
-                : 'bg-gray-100 text-gray-400'
+                    : 'bg-gray-100 text-[var(--text-muted)]'
               }`}
             disabled={selectedItems.length === 0}
           >
@@ -196,8 +196,8 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook, onClose }
             <div className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-2xl mx-auto mb-4 flex items-center justify-center">
               <Sparkles size={32} className="text-gray-300" />
             </div>
-            <p className="font-medium text-lg text-gray-500">{t('canvasEmpty')}</p>
-            <p className="text-sm text-gray-400 mt-1">{t('canvasEmptyDesc')}</p>
+            <p className="font-medium text-lg text-[var(--text-secondary)]">{t('canvasEmpty')}</p>
+            <p className="text-sm text-[var(--text-muted)] mt-1">{t('canvasEmptyDesc')}</p>
           </div>
         ) : (
           <div className="relative w-full h-full max-w-sm mx-auto">
@@ -208,7 +208,7 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook, onClose }
               return (
                 <div
                   key={item.id}
-                  className="absolute shadow-xl rounded-xl bg-white p-1 transition-all duration-500 hover:z-50 hover:scale-110 cursor-pointer"
+                  className="absolute shadow-xl rounded-xl bg-[var(--bg-card)] p-1 transition-all duration-500 hover:z-50 hover:scale-110 cursor-pointer"
                   style={{
                     width: `${itemHeight}px`,
                     height: `${itemHeight}px`,
@@ -233,15 +233,15 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook, onClose }
             })}
 
             {/* Item count badge */}
-            <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg shadow-sm">
-              <p className="text-xs font-bold text-gray-600">{selectedItems.length} {t('garmentCount')}</p>
+            <div className="absolute top-2 right-2 bg-[var(--bg-card)]/90 backdrop-blur-sm px-2 py-1 rounded-lg shadow-sm">
+              <p className="text-xs font-bold text-[var(--text-secondary)]">{selectedItems.length} {t('garmentCount')}</p>
             </div>
           </div>
         )}
       </div>
 
       {/* Garment Picker Drawer */}
-      <div className={`bg-white shadow-[0_-4px_20px_rgba(0,0,0,0.05)] rounded-t-3xl z-10 transition-all duration-500 ease-in-out flex flex-col ${isPickerOpen ? 'h-72' : 'h-16'}`}>
+      <div className={`bg-[var(--bg-card)] shadow-[0_-4px_20px_rgba(0,0,0,0.05)] rounded-t-3xl z-10 transition-all duration-500 ease-in-out flex flex-col ${isPickerOpen ? 'h-72' : 'h-16'}`}>
         <button
           onClick={() => setIsPickerOpen(!isPickerOpen)}
           className="w-full flex justify-center py-2"
@@ -250,8 +250,8 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook, onClose }
         </button>
 
         <div className="px-5 pb-2 flex justify-between items-center">
-          <h3 className="font-bold text-gray-800">{t('yourWardrobe')}</h3>
-          <span className="text-xs text-gray-400">{garments.length} {t('garmentCount')}</span>
+          <h3 className="font-bold text-[var(--text-primary)]">{t('yourWardrobe')}</h3>
+          <span className="text-xs text-[var(--text-muted)]">{garments.length} {t('garmentCount')}</span>
         </div>
 
         {/* Picker category filter */}
@@ -263,7 +263,7 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook, onClose }
                 onClick={() => setPickerFilter(cat)}
                 className={`px-3 py-1 rounded-full text-[10px] font-bold whitespace-nowrap transition ${pickerFilter === cat
                     ? 'bg-pink-500 text-white'
-                    : 'bg-gray-100 text-gray-400'
+                : 'bg-gray-100 text-[var(--text-muted)]'
                   }`}
               >
                 {categoryLabels[cat] || cat}
@@ -298,7 +298,7 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook, onClose }
                         </div>
                       </div>
                     ) : (
-                      <div className="absolute bottom-1 right-1 bg-white rounded-full p-1 shadow-sm opacity-0 group-hover:opacity-100 transition">
+                      <div className="absolute bottom-1 right-1 bg-[var(--bg-card)] rounded-full p-1 shadow-sm opacity-0 group-hover:opacity-100 transition">
                         <Plus size={14} className="text-primary" />
                       </div>
                     )}
@@ -316,17 +316,17 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook, onClose }
       {/* Save Modal */}
       {isSaving && (
         <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
+          <div className="bg-[var(--bg-card)] w-full max-w-md rounded-3xl p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-5">
               <h2 className="text-xl font-bold">{t('saveLook')}</h2>
               <button onClick={() => setIsSaving(false)}>
-                <X size={24} className="text-gray-400" />
+                <X size={24} className="text-[var(--text-muted)]" />
               </button>
             </div>
 
             {/* Look name */}
             <div className="mb-4">
-              <label className="block text-xs font-semibold text-gray-500 mb-1.5">{t('lookName')}</label>
+              <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">{t('lookName')}</label>
               <input
                 type="text"
                 placeholder={t('lookNamePlaceholder')}
@@ -338,7 +338,7 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook, onClose }
 
             {/* Mood */}
             <div className="mb-4">
-              <label className="block text-xs font-semibold text-gray-500 mb-1.5">{t('lookMood')}</label>
+              <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">{t('lookMood')}</label>
               <div className="flex gap-2 flex-wrap">
                 {MOOD_OPTIONS.map(m => (
                   <button
@@ -346,7 +346,7 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook, onClose }
                     onClick={() => setMood(mood === m.id ? '' : m.id)}
                     className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium transition ${mood === m.id
                         ? 'bg-pink-500 text-white'
-                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                        : 'bg-gray-100 text-[var(--text-secondary)] hover:bg-gray-200'
                       }`}
                   >
                     <span>{m.emoji}</span> {m.label}
@@ -357,7 +357,7 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook, onClose }
 
             {/* Tags */}
             <div className="mb-4">
-              <label className="block text-xs font-semibold text-gray-500 mb-1.5">{t('lookTags')}</label>
+              <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">{t('lookTags')}</label>
               <div className="flex gap-2 flex-wrap mb-2">
                 {tags.map(tTag => (
                   <span key={tTag} className="flex items-center gap-1 bg-pink-50 text-pink-600 px-2.5 py-1 rounded-full text-xs font-medium">
@@ -379,7 +379,7 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook, onClose }
                   />
                   <button
                     onClick={addTag}
-                    className="bg-gray-100 px-3 py-2 rounded-xl text-gray-500 hover:bg-gray-200 transition"
+                    className="bg-gray-100 px-3 py-2 rounded-xl text-[var(--text-secondary)] hover:bg-gray-200 transition"
                   >
                     <Tag size={16} />
                   </button>
@@ -394,11 +394,11 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook, onClose }
                   {isPublic ? (
                     <Globe size={20} className="text-pink-500" />
                   ) : (
-                    <Lock size={20} className="text-gray-400" />
+                    <Lock size={20} className="text-[var(--text-muted)]" />
                   )}
                   <div>
                     <p className="text-sm font-medium">{isPublic ? t('isPublicLabel') : t('isPrivateLabel')}</p>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-[var(--text-muted)]">
                       {isPublic ? t('publicDesc') : t('privateDesc')}
                     </p>
                   </div>
@@ -407,14 +407,14 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook, onClose }
                   onClick={() => setIsPublic(!isPublic)}
                   className={`w-11 h-6 rounded-full transition-colors ${isPublic ? 'bg-pink-500' : 'bg-gray-200'}`}
                 >
-                  <div className={`w-5 h-5 rounded-full bg-white shadow transform transition-transform ${isPublic ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                  <div className={`w-5 h-5 rounded-full bg-[var(--bg-card)] shadow transform transition-transform ${isPublic ? 'translate-x-5' : 'translate-x-0.5'}`} />
                 </button>
               </div>
             </div>
 
             {/* Preview */}
             <div className="mb-5">
-              <label className="block text-xs font-semibold text-gray-500 mb-2">{t('preview')} ({selectedItems.length} {t('garmentCount')})</label>
+              <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-2">{t('preview')} ({selectedItems.length} {t('garmentCount')})</label>
               <div className="flex gap-2 overflow-x-auto no-scrollbar">
                 {selectedItems.map(item => (
                   <div key={item.id} className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
@@ -428,7 +428,7 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook, onClose }
             <div className="flex space-x-3">
               <button
                 onClick={() => setIsSaving(false)}
-                className="flex-1 py-3.5 text-gray-500 font-medium rounded-xl bg-gray-100 hover:bg-gray-200 transition"
+                className="flex-1 py-3.5 text-[var(--text-secondary)] font-medium rounded-xl bg-gray-100 hover:bg-gray-200 transition"
               >
                 {t('cancel')}
               </button>

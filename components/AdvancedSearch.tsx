@@ -41,23 +41,23 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
   const hasFilters = selectedColor || selectedType || selectedSeason;
 
   return (
-    <div className="space-y-4 p-4 bg-white rounded-3xl border border-gray-100 shadow-lg">
+    <div className="space-y-4 p-4 bg-[var(--bg-card)] rounded-3xl border border-[var(--border-light)] shadow-lg">
       {/* Search Input */}
       <div className="flex items-center gap-2">
         <div className="flex-1 relative">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
           <input
             type="text"
             placeholder="Buscar prendas..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-            className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-primary focus:bg-white transition-colors"
+            className="w-full pl-10 pr-4 py-2.5 bg-[var(--bg-base)] border border-[var(--border-light)] rounded-xl focus:outline-none focus:border-primary focus:bg-[var(--bg-card)] transition-colors"
           />
           {query && (
             <button
               onClick={() => setQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
             >
               <X size={18} />
             </button>
@@ -68,7 +68,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
           className={`p-2.5 rounded-xl transition-colors ${
             hasFilters
               ? 'bg-primary/20 text-primary'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              : 'bg-[var(--bg-base)] text-[var(--text-secondary)] hover:bg-gray-200'
           }`}
           title="Filtros avanzados"
         >
@@ -83,7 +83,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
         {onClose && (
           <button
             onClick={onClose}
-            className="p-2.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+            className="p-2.5 rounded-xl bg-[var(--bg-base)] text-[var(--text-secondary)] hover:bg-gray-200 transition-colors"
           >
             <X size={18} />
           </button>
@@ -92,10 +92,10 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
 
       {/* Filters */}
       {showFilters && (
-        <div className="space-y-4 pt-4 border-t border-gray-100 animate-fade-in-down">
+        <div className="space-y-4 pt-4 border-t border-[var(--border-light)] animate-fade-in-down">
           {/* Color Filter */}
           <div>
-            <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block mb-2">
+            <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider block mb-2">
               Color
             </label>
             <div className="flex flex-wrap gap-2">
@@ -106,7 +106,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
                   className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
                     selectedColor === color
                       ? 'bg-primary text-white shadow-md'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      : 'bg-[var(--bg-base)] text-[var(--text-primary)] hover:bg-gray-200'
                   }`}
                 >
                   {color}
@@ -117,7 +117,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
 
           {/* Type Filter */}
           <div>
-            <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block mb-2">
+            <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider block mb-2">
               Tipo
             </label>
             <div className="flex flex-wrap gap-2">
@@ -128,7 +128,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
                   className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
                     selectedType === type
                       ? 'bg-primary text-white shadow-md'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      : 'bg-[var(--bg-base)] text-[var(--text-primary)] hover:bg-gray-200'
                   }`}
                 >
                   {type}
@@ -139,7 +139,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
 
           {/* Season Filter */}
           <div>
-            <label className="text-xs font-bold text-gray-600 uppercase tracking-wider block mb-2">
+            <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider block mb-2">
               Temporada
             </label>
             <div className="flex flex-wrap gap-2">
@@ -150,7 +150,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
                   className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
                     selectedSeason === season
                       ? 'bg-primary text-white shadow-md'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      : 'bg-[var(--bg-base)] text-[var(--text-primary)] hover:bg-gray-200'
                   }`}
                 >
                   {season}
@@ -167,7 +167,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
                 setSelectedType(null);
                 setSelectedSeason(null);
               }}
-              className="w-full py-2 text-sm text-gray-600 hover:text-gray-900 font-medium transition-colors"
+              className="w-full py-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium transition-colors"
             >
               Limpiar filtros
             </button>

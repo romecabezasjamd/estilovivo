@@ -70,6 +70,8 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
   const lastPos = useRef({ x: 0, y: 0 })
   const initialPinchDist = useRef<number | null>(null)
   const startScale = useRef(1)
+  const initialPinchAngle = useRef<number | null>(null)
+  const startRotation = useRef(0)
 
   useEffect(() => {
     if (initialGarment && !selectedGarment) {
@@ -294,7 +296,9 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
         const dx = e.touches[0].clientX - e.touches[1].clientX
         const dy = e.touches[0].clientY - e.touches[1].clientY
         initialPinchDist.current = Math.hypot(dx, dy)
+        initialPinchAngle.current = Math.atan2(dy, dx)
         startScale.current = adjustments.scaleX || 1
+        startRotation.current = adjustments.rotation || 0
       }
     },
     onTouchMove: (e: React.TouchEvent) => {
@@ -303,15 +307,17 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
         const dy = e.touches[0].clientY - lastPos.current.y
         setAdjustments(prev => ({ ...prev, offsetX: (prev.offsetX || 0) + dx * 0.5, offsetY: (prev.offsetY || 0) + dy * 0.5 }))
         lastPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
-      } else if (e.touches.length === 2 && initialPinchDist.current !== null) {
+      } else if (e.touches.length === 2 && initialPinchDist.current !== null && initialPinchAngle.current !== null) {
         const dx = e.touches[0].clientX - e.touches[1].clientX
         const dy = e.touches[0].clientY - e.touches[1].clientY
         const dist = Math.hypot(dx, dy)
         const scale = startScale.current * (dist / initialPinchDist.current)
-        setAdjustments(prev => ({ ...prev, scaleX: scale, scaleY: scale }))
+        const currentAngle = Math.atan2(dy, dx)
+        const angleDelta = (currentAngle - initialPinchAngle.current) * (180 / Math.PI)
+        setAdjustments(prev => ({ ...prev, scaleX: scale, scaleY: scale, rotation: startRotation.current + angleDelta }))
       }
     },
-    onTouchEnd: () => { isDragging.current = false; initialPinchDist.current = null },
+    onTouchEnd: () => { isDragging.current = false; initialPinchDist.current = null; initialPinchAngle.current = null },
   }
 
   const saveToSocial = () => {

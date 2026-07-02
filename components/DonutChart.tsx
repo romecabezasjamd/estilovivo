@@ -50,7 +50,7 @@ const DonutChart: React.FC<DonutChartProps> = ({ slices, size = 120, strokeWidth
         {slices.map((slice, i) => (
           <div key={i} className="flex items-center gap-1">
             <div className="w-2 h-2 rounded-full" style={{ backgroundColor: slice.color }} />
-            <span className="text-[10px] text-gray-500">{slice.label}</span>
+            <span className="text-[10px] text-[var(--text-secondary)]">{slice.label}</span>
           </div>
         ))}
       </div>

@@ -179,8 +179,8 @@ const Chat: React.FC<ChatProps> = ({ onNavigate }) => {
     <div className="p-6 pb-24 bg-gray-50 min-h-full">
       <header className="flex justify-between items-center mb-6 mt-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">{t('messages')}</h1>
-          <p className="text-sm text-gray-500">{t('messagesDesc')}</p>
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">{t('messages')}</h1>
+          <p className="text-sm text-[var(--text-secondary)]">{t('messagesDesc')}</p>
         </div>
       </header>
 
@@ -189,9 +189,9 @@ const Chat: React.FC<ChatProps> = ({ onNavigate }) => {
           <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
         </div>
       ) : conversations.length === 0 ? (
-        <div className="bg-white rounded-3xl border border-gray-100 p-8 text-center shadow-sm animate-fade-in">
+        <div className="bg-[var(--bg-card)] rounded-3xl border border-[var(--border-light)] p-8 text-center shadow-sm animate-fade-in">
           <MessageCircle size={48} className="mx-auto text-gray-200 mb-3" />
-          <p className="text-gray-400 text-sm">{t('noConversations')}</p>
+          <p className="text-[var(--text-muted)] text-sm">{t('noConversations')}</p>
           <p className="text-xs text-gray-300 mt-1">{t('noConversationsDesc')}</p>
           <button
             onClick={() => onNavigate('community')}
@@ -203,7 +203,7 @@ const Chat: React.FC<ChatProps> = ({ onNavigate }) => {
         </div>
       ) : (
         <div className="flex flex-col md:flex-row gap-4 h-[calc(100vh-220px)]">
-          <div className="w-full md:w-1/3 bg-white rounded-3xl border border-gray-100 overflow-y-auto no-scrollbar shadow-sm">
+          <div className="w-full md:w-1/3 bg-[var(--bg-card)] rounded-3xl border border-[var(--border-light)] overflow-y-auto no-scrollbar shadow-sm">
             <div className="divide-y divide-gray-100">
               {conversations.map(tThread => (
                 <button
@@ -217,17 +217,17 @@ const Chat: React.FC<ChatProps> = ({ onNavigate }) => {
                     alt={tThread.otherUser?.name}
                   />
                   <div className="flex-1">
-                    <p className="text-sm font-semibold text-gray-800 truncate">{tThread.otherUser?.name || 'Usuario'}</p>
-                    <p className="text-[11px] text-gray-400 truncate">{tThread.itemTitle || 'Conversacion'}</p>
+                    <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{tThread.otherUser?.name || 'Usuario'}</p>
+                    <p className="text-[11px] text-[var(--text-muted)] truncate">{tThread.itemTitle || 'Conversacion'}</p>
                   </div>
-                  <span className="text-[10px] text-gray-400 truncate max-w-[120px]">{tThread.lastMessage?.content || ''}</span>
+                  <span className="text-[10px] text-[var(--text-muted)] truncate max-w-[120px]">{tThread.lastMessage?.content || ''}</span>
                 </button>
               ))}
             </div>
           </div>
 
           {activeThread && (
-            <div className="w-full md:w-2/3 bg-white rounded-3xl border border-gray-100 shadow-sm p-4 flex flex-col relative h-full">
+            <div className="w-full md:w-2/3 bg-[var(--bg-card)] rounded-3xl border border-[var(--border-light)] shadow-sm p-4 flex flex-col relative h-full">
               <div className="flex items-center justify-between gap-3 mb-4 pb-4 border-b border-gray-50 flex-shrink-0">
                 <div className="flex items-center gap-3">
                   <img
@@ -236,8 +236,8 @@ const Chat: React.FC<ChatProps> = ({ onNavigate }) => {
                     alt={activeThread.otherUser?.name}
                   />
                   <div>
-                    <p className="text-sm font-semibold text-gray-800">{activeThread.otherUser?.name || 'Usuario'}</p>
-                    <p className="text-[11px] text-gray-400 truncate">{activeThread.itemTitle || 'Conversacion'}</p>
+                    <p className="text-sm font-semibold text-[var(--text-primary)]">{activeThread.otherUser?.name || 'Usuario'}</p>
+                    <p className="text-[11px] text-[var(--text-muted)] truncate">{activeThread.itemTitle || 'Conversacion'}</p>
                   </div>
                 </div>
               </div>
@@ -250,7 +250,7 @@ const Chat: React.FC<ChatProps> = ({ onNavigate }) => {
                 ) : (
                   (messagesById[activeThread.id] || []).map((m: ChatMessage) => (
                     <div key={m.id} className={`flex ${m.senderId === currentUserId ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`px-3 py-2 rounded-2xl text-xs max-w-[75%] ${m.senderId === currentUserId ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600'}`}>
+                      <div className={`px-3 py-2 rounded-2xl text-xs max-w-[75%] ${m.senderId === currentUserId ? 'bg-primary text-white' : 'bg-gray-100 text-[var(--text-secondary)]'}`}>
                         {m.content}
                       </div>
                     </div>

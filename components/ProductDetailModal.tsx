@@ -106,35 +106,35 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
 
         {/* Main Modal Card */}
         <div
-          className="bg-white w-full sm:max-w-md max-h-[90vh] rounded-3xl shadow-2xl z-50 flex flex-col overflow-hidden pointer-events-auto animate-pop-in transform transition-transform"
+          className="bg-[var(--bg-card)] w-full sm:max-w-md max-h-[90vh] rounded-3xl shadow-2xl z-50 flex flex-col overflow-hidden pointer-events-auto animate-pop-in transform transition-transform"
         >
 
           {/* Header with Close and Actions */}
           <div
-            className="sticky top-0 z-20 bg-white border-b border-gray-100 px-6 py-4 flex justify-between items-center"
+            className="sticky top-0 z-20 bg-[var(--bg-card)] border-b border-[var(--border-light)] px-6 py-4 flex justify-between items-center"
           >
             <button
               onClick={onClose}
-              className="p-2 -ml-2 rounded-full hover:bg-gray-100 transition-colors"
+              className="p-2 -ml-2 rounded-full hover:bg-[var(--bg-base)] transition-colors"
             >
-              <X size={24} className="text-gray-600" />
+              <X size={24} className="text-[var(--text-secondary)]" />
             </button>
 
-            <h3 className="text-sm font-bold text-gray-800">{t('details')}</h3>
+            <h3 className="text-sm font-bold text-[var(--text-primary)]">{t('details')}</h3>
 
             <div className="flex gap-2">
               <button
                 onClick={handleShare}
-                className="p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-600"
+                className="p-2 rounded-full hover:bg-[var(--bg-base)] transition-colors text-[var(--text-secondary)]"
               >
                 <Share2 size={20} />
               </button>
               <button
                 onClick={handleLike}
                 disabled={isLoading}
-                className="p-2 rounded-full hover:bg-gray-100 transition-colors disabled:opacity-50"
+                className="p-2 rounded-full hover:bg-[var(--bg-base)] transition-colors disabled:opacity-50"
               >
-                <Heart size={20} fill={isLiked ? "currentColor" : "none"} className={isLiked ? "text-rose-500" : "text-gray-600"} />
+                <Heart size={20} fill={isLiked ? "currentColor" : "none"} className={isLiked ? "text-rose-500" : "text-[var(--text-secondary)]"} />
               </button>
             </div>
           </div>
@@ -143,18 +143,18 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
           <div className="flex-1 overflow-y-auto">
 
             {/* Product Image Gallery */}
-            <div className="w-full aspect-square bg-gray-100 relative overflow-hidden">
+            <div className="w-full aspect-square bg-[var(--bg-base)] relative overflow-hidden">
               <img src={product.image} className="w-full h-full object-cover" alt={product.title} />
 
               {/* Price Badge */}
-              <div className="absolute top-4 right-4 bg-white rounded-xl px-3 py-2 shadow-md">
+              <div className="absolute top-4 right-4 bg-[var(--bg-card)] rounded-xl px-3 py-2 shadow-md">
                 <p className="text-xl font-bold text-primary">{product.price}€</p>
               </div>
 
               {/* Condition Badge */}
               {product.condition && (
-                <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-sm rounded-lg px-3 py-1.5">
-                  <p className="text-xs font-bold text-gray-700 capitalize">{t('state')}: {product.condition}</p>
+                <div className="absolute bottom-4 left-4 bg-[var(--bg-card)]/95 backdrop-blur-sm rounded-lg px-3 py-1.5">
+                  <p className="text-xs font-bold text-[var(--text-primary)] capitalize">{t('state')}: {product.condition}</p>
                 </div>
               )}
             </div>
@@ -164,8 +164,8 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
 
               {/* Title and Brand */}
               <div>
-                <h2 className="text-2xl font-bold text-gray-900 capitalize mb-1">{product.title}</h2>
-                <p className="text-gray-600 font-medium">
+                <h2 className="text-2xl font-bold text-[var(--text-primary)] capitalize mb-1">{product.title}</h2>
+                <p className="text-[var(--text-secondary)] font-medium">
                   {product.brand || t('unknownBrand')} {product.size ? `• ${t('sizeLabel')} ${product.size}` : ''}
                 </p>
               </div>
@@ -180,27 +180,27 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                       alt={product.user}
                     />
                     <div className="min-w-0">
-                      <p className="font-bold text-gray-800 truncate">{product.user}</p>
+                      <p className="font-bold text-[var(--text-primary)] truncate">{product.user}</p>
                       <div className="flex text-yellow-400 text-xs">
-                        {'★'.repeat(5)} <span className="text-gray-400 ml-1">(24 {t('reviews')})</span>
+                        {'★'.repeat(5)} <span className="text-[var(--text-muted)] ml-1">(24 {t('reviews')})</span>
                       </div>
                     </div>
                   </div>
                   <button
                     onClick={() => onMessage?.(product)}
-                    className="p-2.5 rounded-full bg-white hover:bg-gray-50 transition-colors flex-shrink-0"
+                    className="p-2.5 rounded-full bg-[var(--bg-card)] hover:bg-[var(--bg-base)] transition-colors flex-shrink-0"
                   >
                     <MessageCircle size={18} className="text-primary" />
                   </button>
                 </div>
-                <p className="text-xs text-gray-600">{t('verifiedSeller')} • {t('fastDelivery')}</p>
+                <p className="text-xs text-[var(--text-secondary)]">{t('verifiedSeller')} • {t('fastDelivery')}</p>
               </div>
 
               {/* Description */}
               <div className="space-y-2">
-                <h3 className="font-bold text-gray-900">{t('description')}</h3>
+                <h3 className="font-bold text-[var(--text-primary)]">{t('description')}</h3>
                 <div className="relative">
-                  <p className={`text-gray-700 text-sm leading-relaxed ${!isDescExpanded ? 'line-clamp-3' : ''}`}>
+                  <p className={`text-[var(--text-primary)] text-sm leading-relaxed ${!isDescExpanded ? 'line-clamp-3' : ''}`}>
                     {product.description || t('defaultDescription')}
                   </p>
                   {((product.description || t('defaultDescription')).length > 120) && (
@@ -217,33 +217,33 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
               {/* Details Grid */}
               <div className="grid grid-cols-2 gap-3">
                 {product.brand && (
-                  <div className="bg-gray-50 rounded-xl p-3">
-                    <p className="text-xs text-gray-600 font-semibold mb-1">{t('brandLabel')}</p>
-                    <p className="text-sm font-bold text-gray-800">{product.brand}</p>
+                  <div className="bg-[var(--bg-base)] rounded-xl p-3">
+                    <p className="text-xs text-[var(--text-secondary)] font-semibold mb-1">{t('brandLabel')}</p>
+                    <p className="text-sm font-bold text-[var(--text-primary)]">{product.brand}</p>
                   </div>
                 )}
                 {product.size && (
-                  <div className="bg-gray-50 rounded-xl p-3">
-                    <p className="text-xs text-gray-600 font-semibold mb-1">{t('sizeLabel')}</p>
-                    <p className="text-sm font-bold text-gray-800">{product.size}</p>
+                  <div className="bg-[var(--bg-base)] rounded-xl p-3">
+                    <p className="text-xs text-[var(--text-secondary)] font-semibold mb-1">{t('sizeLabel')}</p>
+                    <p className="text-sm font-bold text-[var(--text-primary)]">{product.size}</p>
                   </div>
                 )}
                 {product.condition && (
-                  <div className="bg-gray-50 rounded-xl p-3">
-                    <p className="text-xs text-gray-600 font-semibold mb-1">{t('state')}</p>
-                    <p className="text-sm font-bold text-gray-800 capitalize">{product.condition}</p>
+                  <div className="bg-[var(--bg-base)] rounded-xl p-3">
+                    <p className="text-xs text-[var(--text-secondary)] font-semibold mb-1">{t('state')}</p>
+                    <p className="text-sm font-bold text-[var(--text-primary)] capitalize">{product.condition}</p>
                   </div>
                 )}
-                <div className="bg-gray-50 rounded-xl p-3">
-                  <p className="text-xs text-gray-600 font-semibold mb-1">{t('shipping')}</p>
-                  <p className="text-sm font-bold text-gray-800">3,95€</p>
+                <div className="bg-[var(--bg-base)] rounded-xl p-3">
+                  <p className="text-xs text-[var(--text-secondary)] font-semibold mb-1">{t('shipping')}</p>
+                  <p className="text-sm font-bold text-[var(--text-primary)]">3,95€</p>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Bottom Actions - Sticky */}
-          <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 space-y-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
+          <div className="sticky bottom-0 bg-[var(--bg-card)] border-t border-[var(--border-light)] px-6 py-4 space-y-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
             {product.isOwnItem ? (
               /* Own Item Actions */
               <>
@@ -326,18 +326,18 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
             className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center pointer-events-auto p-4 animate-fade-in"
           >
             <div
-              className="bg-white w-full sm:max-w-md rounded-3xl p-6 animate-pop-in shadow-2xl space-y-4"
+              className="bg-[var(--bg-card)] w-full sm:max-w-md rounded-3xl p-6 animate-pop-in shadow-2xl space-y-4"
             >
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xl font-bold text-gray-900">{t('shareItem')}</h3>
+                <h3 className="text-xl font-bold text-[var(--text-primary)]">{t('shareItem')}</h3>
                 <button
                   onClick={() => setShowShareOptions(false)}
-                  className="p-2 -mr-2 hover:bg-gray-100 rounded-full transition-colors"
+                  className="p-2 -mr-2 hover:bg-[var(--bg-base)] rounded-full transition-colors"
                 >
-                  <X size={24} className="text-gray-600" />
+                  <X size={24} className="text-[var(--text-secondary)]" />
                 </button>
               </div>
-              <p className="text-sm text-gray-600">{t('shareItemDesc')}</p>
+              <p className="text-sm text-[var(--text-secondary)]">{t('shareItemDesc')}</p>
 
               {/* Share Options */}
               <button
@@ -346,42 +346,42 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                   setShowShareOptions(false);
                   onClose();
                 }}
-                className="w-full flex items-center gap-4 p-4 border-2 border-gray-200 rounded-2xl hover:border-primary hover:bg-primary/5 active:scale-[0.98] transition-all group text-left"
+                className="w-full flex items-center gap-4 p-4 border-2 border-[var(--border-light)] rounded-2xl hover:border-primary hover:bg-primary/5 active:scale-[0.98] transition-all group text-left"
               >
                 <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-pink-400 to-rose-500 flex items-center justify-center shadow-md group-hover:scale-110 group-hover:rotate-12 transition-transform flex-shrink-0">
                   <Eye size={28} className="text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold text-gray-900 text-base">{t('postOnSocial')}</p>
-                  <p className="text-sm text-gray-600 mt-0.5">{t('shareWithCommunity')}</p>
+                  <p className="font-bold text-[var(--text-primary)] text-base">{t('postOnSocial')}</p>
+                  <p className="text-sm text-[var(--text-secondary)] mt-0.5">{t('shareWithCommunity')}</p>
                 </div>
                 <span className="text-2xl group-hover:scale-110 transition-transform">📱</span>
               </button>
 
               <button
                 onClick={handleCopyLink}
-                className="w-full flex items-center gap-4 p-4 border-2 border-gray-200 rounded-2xl hover:border-primary hover:bg-primary/5 active:scale-[0.98] transition-all group text-left"
+                className="w-full flex items-center gap-4 p-4 border-2 border-[var(--border-light)] rounded-2xl hover:border-primary hover:bg-primary/5 active:scale-[0.98] transition-all group text-left"
               >
                 <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-400 to-cyan-500 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform flex-shrink-0">
                   <Copy size={28} className="text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold text-gray-900 text-base">{copied ? `✓ ${t('linkCopied')}` : t('copyLink')}</p>
-                  <p className="text-sm text-gray-600 mt-0.5">{t('shareViaMessaging')}</p>
+                  <p className="font-bold text-[var(--text-primary)] text-base">{copied ? `✓ ${t('linkCopied')}` : t('copyLink')}</p>
+                  <p className="text-sm text-[var(--text-secondary)] mt-0.5">{t('shareViaMessaging')}</p>
                 </div>
                 <span className="text-2xl">📋</span>
               </button>
 
               <button
                 onClick={handleWhatsApp}
-                className="w-full flex items-center gap-4 p-4 border-2 border-gray-200 rounded-2xl hover:border-green-400 hover:bg-green-50 active:scale-[0.98] transition-all group text-left"
+                className="w-full flex items-center gap-4 p-4 border-2 border-[var(--border-light)] rounded-2xl hover:border-green-400 hover:bg-green-50 active:scale-[0.98] transition-all group text-left"
               >
                 <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform flex-shrink-0">
                   <MessageCircle size={28} className="text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold text-gray-900 text-base">WhatsApp</p>
-                  <p className="text-sm text-gray-600 mt-0.5">Compartir por WhatsApp</p>
+                  <p className="font-bold text-[var(--text-primary)] text-base">WhatsApp</p>
+                  <p className="text-sm text-[var(--text-secondary)] mt-0.5">Compartir por WhatsApp</p>
                 </div>
                 <span className="text-2xl">💬</span>
               </button>
@@ -389,14 +389,14 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
               {navigator.share && (
                 <button
                   onClick={handleNativeShare}
-                  className="w-full flex items-center gap-4 p-4 border-2 border-gray-200 rounded-2xl hover:border-primary hover:bg-primary/5 active:scale-[0.98] transition-all group text-left"
+                  className="w-full flex items-center gap-4 p-4 border-2 border-[var(--border-light)] rounded-2xl hover:border-primary hover:bg-primary/5 active:scale-[0.98] transition-all group text-left"
                 >
                   <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-400 to-pink-500 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform flex-shrink-0">
                     <Send size={28} className="text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-bold text-gray-900 text-base">{t('nativeShare')}</p>
-                    <p className="text-sm text-gray-600 mt-0.5">{t('nativeShareDesc')}</p>
+                    <p className="font-bold text-[var(--text-primary)] text-base">{t('nativeShare')}</p>
+                    <p className="text-sm text-[var(--text-secondary)] mt-0.5">{t('nativeShareDesc')}</p>
                   </div>
                   <span className="text-2xl">📤</span>
                 </button>
@@ -404,7 +404,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
 
               <button
                 onClick={() => setShowShareOptions(false)}
-                className="w-full mt-2 py-3 text-gray-600 font-bold rounded-xl hover:bg-gray-100 transition-colors"
+                className="w-full mt-2 py-3 text-[var(--text-secondary)] font-bold rounded-xl hover:bg-[var(--bg-base)] transition-colors"
               >
                 {t('close')}
               </button>
@@ -420,39 +420,39 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
             className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center pointer-events-auto p-4 animate-fade-in"
           >
             <div
-              className="bg-white w-full sm:max-w-md rounded-3xl p-6 animate-pop-in shadow-2xl"
+              className="bg-[var(--bg-card)] w-full sm:max-w-md rounded-3xl p-6 animate-pop-in shadow-2xl"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-900">{t('chooseHowToBuy')}</h3>
+                <h3 className="text-xl font-bold text-[var(--text-primary)]">{t('chooseHowToBuy')}</h3>
                 <button
                   onClick={() => setShowBuyOptions(false)}
-                  className="p-2 -mr-2 hover:bg-gray-100 rounded-full transition-colors"
+                  className="p-2 -mr-2 hover:bg-[var(--bg-base)] rounded-full transition-colors"
                 >
-                  <X size={24} className="text-gray-600" />
+                  <X size={24} className="text-[var(--text-secondary)]" />
                 </button>
               </div>
 
               <div className="space-y-3 mb-4">
-                <button className="w-full flex items-center p-4 border border-gray-200 rounded-2xl hover:border-primary hover:bg-primary/5 transition-all group">
+                <button className="w-full flex items-center p-4 border border-[var(--border-light)] rounded-2xl hover:border-primary hover:bg-primary/5 transition-all group">
                   <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-400 to-green-500 flex items-center justify-center mr-4 group-hover:scale-110 transition-transform flex-shrink-0">
                     <Store size={20} className="text-white" />
                   </div>
                   <div className="text-left flex-1">
-                    <p className="font-bold text-gray-800">{t('inPerson')}</p>
-                    <p className="text-xs text-gray-600">{t('meetWith')} {product.user.split(' ')[0]}</p>
+                    <p className="font-bold text-[var(--text-primary)]">{t('inPerson')}</p>
+                    <p className="text-xs text-[var(--text-secondary)]">{t('meetWith')} {product.user.split(' ')[0]}</p>
                   </div>
                   <span className="text-sm font-bold text-emerald-600">{t('free')}</span>
                 </button>
 
-                <button className="w-full flex items-center p-4 border border-gray-200 rounded-2xl hover:border-primary hover:bg-primary/5 transition-all group">
+                <button className="w-full flex items-center p-4 border border-[var(--border-light)] rounded-2xl hover:border-primary hover:bg-primary/5 transition-all group">
                   <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center mr-4 group-hover:scale-110 transition-transform flex-shrink-0">
                     <Truck size={20} className="text-white" />
                   </div>
                   <div className="text-left flex-1">
-                    <p className="font-bold text-gray-800">{t('homeDelivery')}</p>
-                    <p className="text-xs text-gray-600">{t('receiveIn')}</p>
+                    <p className="font-bold text-[var(--text-primary)]">{t('homeDelivery')}</p>
+                    <p className="text-xs text-[var(--text-secondary)]">{t('receiveIn')}</p>
                   </div>
-                  <span className="text-sm font-bold text-gray-800">3,95€</span>
+                  <span className="text-sm font-bold text-[var(--text-primary)]">3,95€</span>
                 </button>
               </div>
 

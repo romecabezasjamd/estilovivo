@@ -112,7 +112,7 @@ export const FormInput: React.FC<FormInputProps> = ({
 
   return (
     <div className="space-y-1.5">
-      <label className="text-sm font-semibold text-gray-800 block">
+      <label className="text-sm font-semibold text-[var(--text-primary)] block">
         {field.label}
         {required && <span className="text-red-500 ml-1">*</span>}
       </label>
@@ -130,7 +130,7 @@ export const FormInput: React.FC<FormInputProps> = ({
                 ? 'border-red-300 bg-red-50 focus:border-red-500 focus:outline-none'
                 : isValid
                 ? 'border-emerald-300 bg-emerald-50 focus:border-emerald-500 focus:outline-none'
-                : 'border-gray-200 bg-white focus:border-primary focus:outline-none'
+                : 'border-[var(--border-light)] bg-[var(--bg-card)] focus:border-primary focus:outline-none'
             }
           `}
         />
@@ -165,17 +165,17 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
 }) => {
   return (
     <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-white rounded-3xl p-6 max-w-sm shadow-2xl animate-pop-in space-y-4">
+      <div className="bg-[var(--bg-card)] rounded-3xl p-6 max-w-sm shadow-2xl animate-pop-in space-y-4">
         <div className="space-y-2">
-          <h3 className="text-xl font-bold text-gray-900">{title}</h3>
-          <p className="text-sm text-gray-600">{message}</p>
+          <h3 className="text-xl font-bold text-[var(--text-primary)]">{title}</h3>
+          <p className="text-sm text-[var(--text-secondary)]">{message}</p>
         </div>
 
         <div className="flex gap-3 pt-2">
           <button
             onClick={onCancel}
             disabled={isLoading}
-            className="flex-1 py-2.5 px-4 rounded-xl font-semibold bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors disabled:opacity-50"
+            className="flex-1 py-2.5 px-4 rounded-xl font-semibold bg-[var(--bg-base)] text-[var(--text-primary)] hover:bg-gray-200 transition-colors disabled:opacity-50"
           >
             {cancelLabel}
           </button>

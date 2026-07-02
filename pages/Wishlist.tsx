@@ -126,8 +126,8 @@ const Wishlist: React.FC<WishlistProps> = ({ garments, onNavigate }) => {
     <div className="p-6 pb-24 bg-gray-50 min-h-full">
       <header className="flex justify-between items-center mb-6 mt-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">{t('wishlist')}</h1>
-          <p className="text-sm text-gray-500">{favorites.length} {t('savedItems')}</p>
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">{t('wishlist')}</h1>
+          <p className="text-sm text-[var(--text-secondary)]">{favorites.length} {t('savedItems')}</p>
         </div>
         <button
           onClick={() => onNavigate('community')}
@@ -144,7 +144,7 @@ const Wishlist: React.FC<WishlistProps> = ({ garments, onNavigate }) => {
       ) : favorites.length === 0 ? (
         <div className="text-center py-16">
           <Heart size={48} className="mx-auto text-gray-200 mb-3" />
-          <p className="text-gray-400 text-sm">{t('noWishlist')}</p>
+          <p className="text-[var(--text-muted)] text-sm">{t('noWishlist')}</p>
           <p className="text-xs text-gray-300 mt-1">{t('noWishlistDesc')}</p>
           <button
             onClick={() => onNavigate('community')}
@@ -156,7 +156,7 @@ const Wishlist: React.FC<WishlistProps> = ({ garments, onNavigate }) => {
       ) : (
         <div className="grid grid-cols-2 gap-4 animate-fade-in-up">
           {favorites.map((fav: any) => (
-            <div key={fav.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div key={fav.id} className="bg-[var(--bg-card)] rounded-2xl shadow-sm border border-[var(--border-light)] overflow-hidden">
               {fav.look && (
                 <>
                   <div className="aspect-[3/4] bg-gray-100 relative">
@@ -171,13 +171,13 @@ const Wishlist: React.FC<WishlistProps> = ({ garments, onNavigate }) => {
                         <Sparkles size={28} />
                       </div>
                     )}
-                    <div className="absolute top-2 right-2 bg-white/90 rounded-full p-1">
+                    <div className="absolute top-2 right-2 bg-[var(--bg-card)]/90 rounded-full p-1">
                       <Heart size={14} className="text-rose-500 fill-rose-500" />
                     </div>
                   </div>
                   <div className="p-3">
-                    <p className="text-sm font-semibold text-gray-800 truncate">{fav.look.name}</p>
-                    <p className="text-xs text-gray-400">Look guardado</p>
+                    <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{fav.look.name}</p>
+                    <p className="text-xs text-[var(--text-muted)]">Look guardado</p>
                     <button
                       onClick={() => handleRemove(fav)}
                       className="mt-2 text-[10px] text-rose-500 font-semibold"
@@ -202,13 +202,13 @@ const Wishlist: React.FC<WishlistProps> = ({ garments, onNavigate }) => {
                         <ShoppingBag size={28} />
                       </div>
                     )}
-                    <div className="absolute top-2 right-2 bg-white/90 rounded-full p-1">
+                    <div className="absolute top-2 right-2 bg-[var(--bg-card)]/90 rounded-full p-1">
                       <Tag size={14} className="text-primary" />
                     </div>
                   </div>
                   <div className="p-3">
-                    <p className="text-sm font-semibold text-gray-800 truncate">{fav.product.name}</p>
-                    <p className="text-xs text-gray-400">{getCompatibilityLabel(fav.product)}</p>
+                    <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{fav.product.name}</p>
+                    <p className="text-xs text-[var(--text-muted)]">{getCompatibilityLabel(fav.product)}</p>
                     <div className="mt-3 flex items-center gap-2">
                       <button
                         onClick={() => handleMoveToWardrobe(fav)}

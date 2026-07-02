@@ -493,12 +493,12 @@ const Wardrobe: React.FC<WardrobeProps> = ({
   return (
     <div className="h-full flex flex-col relative bg-gray-50">
       {/* Top Section */}
-      <div className="bg-white pb-2 pt-6 sticky top-0 z-20 shadow-sm rounded-b-3xl mb-4">
+      <div className="bg-[var(--bg-card)] pb-2 pt-6 sticky top-0 z-20 shadow-sm rounded-b-3xl mb-4">
         <div className="flex justify-between items-center px-6 mb-4">
           {searchOpen ? (
             <div className="flex-1 flex items-center gap-2">
               <button onClick={toggleSearch}>
-                <ArrowLeft size={20} className="text-gray-500" />
+                <ArrowLeft size={20} className="text-[var(--text-secondary)]" />
               </button>
               <input
                 ref={searchRef}
@@ -509,18 +509,18 @@ const Wardrobe: React.FC<WardrobeProps> = ({
               />
               {searchQuery && (
                 <button onClick={() => setSearchQuery('')}>
-                  <X size={18} className="text-gray-400" />
+                  <X size={18} className="text-[var(--text-muted)]" />
                 </button>
               )}
             </div>
           ) : (
             <>
-              <h1 className="text-2xl font-bold text-gray-800">{t('wardrobe')}</h1>
+              <h1 className="text-2xl font-bold text-[var(--text-primary)]">{t('wardrobe')}</h1>
               {activeView === 'closet' && (
                 <div className="flex space-x-2">
                   <button
                     onClick={toggleSearch}
-                    className="p-2 bg-gray-50 rounded-full border border-gray-100 text-gray-600 hover:bg-gray-100 transition"
+                    className="p-2 bg-gray-50 rounded-full border border-[var(--border-light)] text-[var(--text-secondary)] hover:bg-gray-100 transition"
                   >
                     <Search size={20} />
                   </button>
@@ -528,7 +528,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                     onClick={() => setFilterPanelOpen(!filterPanelOpen)}
                     className={`p-2 rounded-full border transition ${filterPanelOpen || seasonFilter !== 'all' || sortBy !== 'recent'
                       ? 'bg-primary/10 border-primary/20 text-primary'
-                      : 'bg-gray-50 border-gray-100 text-gray-600 hover:bg-gray-100'
+                      : 'bg-gray-50 border-[var(--border-light)] text-[var(--text-secondary)] hover:bg-gray-100'
                       }`}
                   >
                     <SlidersHorizontal size={20} />
@@ -547,8 +547,8 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                 key={view}
                 onClick={() => setActiveView(view)}
                 className={`flex-1 py-2 rounded-xl transition-all duration-300 flex items-center justify-center gap-1 ${activeView === view
-                  ? 'bg-white text-primary shadow-sm'
-                  : 'text-gray-400 hover:text-gray-600'
+                  ? 'bg-[var(--bg-card)] text-primary shadow-sm'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
                   }`}
               >
                 {view === 'closet' && <><Shirt size={14} /> Armario</>}
@@ -562,7 +562,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
 
       {/* Filter Panel */}
       {filterPanelOpen && activeView === 'closet' && (
-        <div className="mx-6 mb-4 bg-white rounded-2xl p-4 shadow-sm border border-gray-100 animate-fade-in">
+        <div className="mx-6 mb-4 bg-[var(--bg-card)] rounded-2xl p-4 shadow-sm border border-[var(--border-light)] animate-fade-in">
           <div className="flex justify-between items-center mb-3">
             <h3 className="text-sm font-semibold">Filtros avanzados</h3>
             <button
@@ -573,13 +573,13 @@ const Wardrobe: React.FC<WardrobeProps> = ({
             </button>
           </div>
           <div className="mb-3">
-            <p className="text-xs text-gray-400 mb-2">Temporada</p>
+            <p className="text-xs text-[var(--text-muted)] mb-2">Temporada</p>
             <div className="flex gap-2 flex-wrap">
               {SEASONS.map(s => (
                 <button
                   key={s.id}
                   onClick={() => setSeasonFilter(s.id)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${seasonFilter === s.id ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500'
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${seasonFilter === s.id ? 'bg-primary text-white' : 'bg-gray-100 text-[var(--text-secondary)]'
                     }`}
                 >
                   {s.label}
@@ -588,7 +588,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
             </div>
           </div>
           <div>
-            <p className="text-xs text-gray-400 mb-2">Ordenar por</p>
+            <p className="text-xs text-[var(--text-muted)] mb-2">Ordenar por</p>
             <div className="flex gap-2 flex-wrap">
               {[
                 { id: 'recent' as const, label: 'Recientes' },
@@ -598,7 +598,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                 <button
                   key={s.id}
                   onClick={() => setSortBy(s.id)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${sortBy === s.id ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500'
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${sortBy === s.id ? 'bg-primary text-white' : 'bg-gray-100 text-[var(--text-secondary)]'
                     }`}
                 >
                   {s.label}
@@ -607,13 +607,13 @@ const Wardrobe: React.FC<WardrobeProps> = ({
             </div>
           </div>
           <div className="mt-3">
-            <p className="text-xs text-gray-400 mb-2">Color</p>
+            <p className="text-xs text-[var(--text-muted)] mb-2">Color</p>
             <div className="flex gap-2 flex-wrap">
               {availableColors.map(c => (
                 <button
                   key={c}
                   onClick={() => setColorFilter(c)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${colorFilter === c ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500'
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${colorFilter === c ? 'bg-primary text-white' : 'bg-gray-100 text-[var(--text-secondary)]'
                     }`}
                 >
                   {c === 'all' ? 'Todos' : c}
@@ -635,7 +635,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                 onClick={() => setFilter(cat.id)}
                 className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-colors border ${filter === cat.id
                   ? 'bg-primary text-white border-primary shadow-md shadow-primary/20'
-                  : 'bg-white text-gray-500 border-gray-200'
+                  : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-light)]'
                   }`}
               >
                 {cat.label}
@@ -646,7 +646,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
           {/* Removed inline Washing Machine - moved to Layout nav bubbles */}
 
           {/* Count & sort info */}
-          <div className="flex justify-between items-center px-1 mb-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+          <div className="flex justify-between items-center px-1 mb-4 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">
             <span>{filteredItems.length} Prendas</span>
             <span>
               {sortBy === 'recent' && 'Orden: Recientes'}
@@ -657,36 +657,36 @@ const Wardrobe: React.FC<WardrobeProps> = ({
 
           {/* Usage Insights */}
           <div className="grid grid-cols-2 gap-3 mb-4 animate-fade-in">
-            <div className="bg-white rounded-2xl border border-gray-100 p-3 shadow-sm">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Top usadas</p>
+            <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-light)] p-3 shadow-sm">
+              <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2">Top usadas</p>
               {topUsedItems.length === 0 ? (
-                <p className="text-xs text-gray-400">Sin datos aun</p>
+                <p className="text-xs text-[var(--text-muted)]">Sin datos aun</p>
               ) : (
                 <div className="space-y-2">
                   {topUsedItems.slice(0, 3).map(item => (
                     <div key={item.id} className="flex items-center gap-2">
                       {item.imageUrl && <img src={item.imageUrl} alt={item.name || item.type} className="w-8 h-8 rounded-lg object-cover" />}
                       <div className="flex-1">
-                        <p className="text-xs font-semibold text-gray-700 truncate">{item.name || item.type}</p>
-                        <p className="text-[10px] text-gray-400">{item.usageCount || 0} usos</p>
+                        <p className="text-xs font-semibold text-[var(--text-primary)] truncate">{item.name || item.type}</p>
+                        <p className="text-[10px] text-[var(--text-muted)]">{item.usageCount || 0} usos</p>
                       </div>
                     </div>
                   ))}
                 </div>
               )}
             </div>
-            <div className="bg-white rounded-2xl border border-gray-100 p-3 shadow-sm">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Poco usadas</p>
+            <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-light)] p-3 shadow-sm">
+              <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2">Poco usadas</p>
               {lowUsageItems.length === 0 ? (
-                <p className="text-xs text-gray-400">Todo en rotacion</p>
+                <p className="text-xs text-[var(--text-muted)]">Todo en rotacion</p>
               ) : (
                 <div className="space-y-2">
                   {lowUsageItems.slice(0, 3).map(item => (
                     <div key={item.id} className="flex items-center gap-2">
                       {item.imageUrl && <img src={item.imageUrl} alt={item.name || item.type} className="w-8 h-8 rounded-lg object-cover" />}
                       <div className="flex-1">
-                        <p className="text-xs font-semibold text-gray-700 truncate">{item.name || item.type}</p>
-                        <p className="text-[10px] text-gray-400">{item.usageCount || 0} usos</p>
+                        <p className="text-xs font-semibold text-[var(--text-primary)] truncate">{item.name || item.type}</p>
+                        <p className="text-[10px] text-[var(--text-muted)]">{item.usageCount || 0} usos</p>
                       </div>
                     </div>
                   ))}
@@ -701,7 +701,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
               <Shirt size={48} className="mx-auto text-gray-200 mb-3" />
               {searchQuery ? (
                 <>
-                  <p className="text-gray-400 text-sm">Sin resultados para "{searchQuery}"</p>
+                  <p className="text-[var(--text-muted)] text-sm">Sin resultados para "{searchQuery}"</p>
                   <button
                     onClick={() => setSearchQuery('')}
                     className="mt-3 text-primary text-sm font-medium"
@@ -711,7 +711,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                 </>
               ) : (
                 <>
-                  <p className="text-gray-400 text-sm">Tu armario está vacío</p>
+                  <p className="text-[var(--text-muted)] text-sm">Tu armario está vacío</p>
                   <p className="text-xs text-gray-300 mt-1">Añade tu primera prenda</p>
                 </>
               )}
@@ -732,7 +732,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                 onDragStart={(e) => onDragStart(e, garment.id)}
                 onDragEnd={onDragEnd}
                 onClick={() => openDetailModal(garment)}
-                className={`group stagger-child relative bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md hover:border-primary/50 transition-all ${!garment.forSale ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
+                className={`group stagger-child relative bg-[var(--bg-card)] rounded-2xl overflow-hidden shadow-sm border border-[var(--border-light)] hover:shadow-md hover:border-primary/50 transition-all ${!garment.forSale ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
               >
                 <div className="aspect-[3/4] overflow-hidden bg-gray-50 relative">
                   <img
@@ -744,7 +744,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                     <div className="absolute top-2 w-full px-2 flex justify-between">
                       <button
                         onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(garment.id); }}
-                        className="bg-white/90 backdrop-blur-sm p-1.5 rounded-full text-red-500 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shadow-sm"
+                        className="bg-[var(--bg-card)]/90 backdrop-blur-sm p-1.5 rounded-full text-red-500 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shadow-sm"
                         title="Eliminar"
                       >
                         <Trash2 size={14} />
@@ -755,7 +755,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                           setSelectedForSale(garment);
                           setIsSelling(true);
                         }}
-                        className="bg-white/90 backdrop-blur-sm p-1.5 rounded-full text-emerald-600 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shadow-sm"
+                        className="bg-[var(--bg-card)]/90 backdrop-blur-sm p-1.5 rounded-full text-emerald-600 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shadow-sm"
                         title="Vender prenda"
                       >
                         <ShoppingBag size={14} />
@@ -772,14 +772,14 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                 </div>
 
                 {!garment.forSale && (
-                  <div className="absolute bottom-14 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg text-[10px] font-bold text-primary shadow-sm">
+                  <div className="absolute bottom-14 right-2 bg-[var(--bg-card)]/90 backdrop-blur-sm px-2 py-1 rounded-lg text-[10px] font-bold text-primary shadow-sm">
                     {garment.usageCount || 0} usos
                   </div>
                 )}
 
                 <div className="p-3">
-                  <p className="text-sm font-semibold text-gray-800 truncate">{garment.name || garment.type}</p>
-                  <div className="flex items-center justify-between text-xs text-gray-400 capitalize mt-0.5">
+                  <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{garment.name || garment.type}</p>
+                  <div className="flex items-center justify-between text-xs text-[var(--text-muted)] capitalize mt-0.5">
                     <span>{garment.color}</span>
                     {garment.brand && <span className="text-[10px]">{garment.brand}</span>}
                   </div>
@@ -802,7 +802,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
       {activeView === 'looks' && (
         <div className="px-6 flex-1 overflow-y-auto no-scrollbar pb-24 animate-fade-in">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold text-gray-800">Tus Looks</h3>
+            <h3 className="font-bold text-[var(--text-primary)]">Tus Looks</h3>
             <button
               type="button"
               onClick={openCreateLook}
@@ -815,7 +815,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
           {looks.length === 0 ? (
             <div className="text-center py-16">
               <Sparkles size={48} className="mx-auto text-gray-200 mb-3" />
-              <p className="text-gray-400 text-sm">Aún no tienes looks guardados</p>
+              <p className="text-[var(--text-muted)] text-sm">Aún no tienes looks guardados</p>
               <p className="text-xs text-gray-300 mt-1">Crea tu primer look en minutos</p>
               <button
                 type="button"
@@ -832,7 +832,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                 return (
                   <div
                     key={look.id}
-                    className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow"
+                    className="bg-[var(--bg-card)] rounded-2xl overflow-hidden shadow-sm border border-[var(--border-light)] hover:shadow-md transition-shadow"
                   >
                     <div className="aspect-[4/5] bg-gray-50 relative">
                       {lookImg ? (
@@ -843,14 +843,14 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                         </div>
                       )}
                       {look.isPublic && (
-                        <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm text-[10px] font-bold text-primary px-2 py-1 rounded-full">
+                        <div className="absolute top-2 right-2 bg-[var(--bg-card)]/90 backdrop-blur-sm text-[10px] font-bold text-primary px-2 py-1 rounded-full">
                           Publico
                         </div>
                       )}
                     </div>
                     <div className="p-3">
-                      <p className="text-sm font-semibold text-gray-800 truncate">{look.name}</p>
-                      <div className="flex items-center justify-between text-xs text-gray-400 mt-0.5">
+                      <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{look.name}</p>
+                      <div className="flex items-center justify-between text-xs text-[var(--text-muted)] mt-0.5">
                         <span>{look.garments?.filter(g => !!g).length || 0} prendas</span>
                         <span className="capitalize">{look.mood || 'personal'}</span>
                       </div>
@@ -873,17 +873,17 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                 <p className="text-emerald-100 text-xs font-medium mb-1">Valor en escaparate</p>
                 <h3 className="text-3xl font-bold">{totalSalesValue.toFixed(0)}€</h3>
               </div>
-              <div className="bg-white/20 p-2 rounded-xl">
+              <div className="bg-[var(--bg-card)]/20 p-2 rounded-xl">
                 <DollarSign size={20} className="text-white" />
               </div>
             </div>
             <div className="mt-4 flex space-x-3 text-xs font-medium">
-              <span className="bg-white/20 px-2 py-1 rounded-lg">{salesItems.length} en venta</span>
+              <span className="bg-[var(--bg-card)]/20 px-2 py-1 rounded-lg">{salesItems.length} en venta</span>
             </div>
           </div>
 
           <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold text-gray-800">En tu escaparate</h3>
+            <h3 className="font-bold text-[var(--text-primary)]">En tu escaparate</h3>
             <button
               onClick={() => { setIsSelling(true); setSelectedForSale(null); setSalePrice(''); setSaleName(''); setSaleImage(null); setSaleFile(null); setSaleUploadError(null); setSaleCategory('top'); }}
               className="text-primary text-xs font-bold bg-primary/10 px-3 py-1.5 rounded-full"
@@ -895,7 +895,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
           {salesItems.length === 0 ? (
             <div className="text-center py-16">
               <ShoppingBag size={48} className="mx-auto text-gray-200 mb-3" />
-              <p className="text-gray-400 text-sm">No tienes prendas en venta</p>
+              <p className="text-[var(--text-muted)] text-sm">No tienes prendas en venta</p>
               <p className="text-xs text-gray-300 mt-1">Vende lo que ya no uses</p>
             </div>
           ) : (
@@ -903,7 +903,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
               {salesItems.map((item) => (
                 <div
                   key={item.id}
-                  className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 relative"
+                  className="bg-[var(--bg-card)] rounded-2xl overflow-hidden shadow-sm border border-[var(--border-light)] relative"
                 >
                   <div className="absolute top-2 right-2 z-10 bg-emerald-500 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-sm">
                     {item.price}€
@@ -915,9 +915,9 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                     <img src={item.imageUrl} alt="" className="w-full h-full object-cover opacity-90" />
                   </div>
                   <div className="p-3">
-                    <p className="text-xs font-bold text-gray-700 truncate">{item.name || item.type}</p>
+                    <p className="text-xs font-bold text-[var(--text-primary)] truncate">{item.name || item.type}</p>
                     {item.condition && (
-                      <p className="text-[10px] text-gray-400 capitalize mt-0.5">{item.condition}</p>
+                      <p className="text-[10px] text-[var(--text-muted)] capitalize mt-0.5">{item.condition}</p>
                     )}
                     <button
                       onClick={() => cancelSale(item)}
@@ -936,11 +936,11 @@ const Wardrobe: React.FC<WardrobeProps> = ({
       {/* ADD GARMENT MODAL */}
       {isAdding && (
         <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl animate-pop-in flex flex-col max-h-[90vh]">
-            <div className="flex justify-between items-center mb-6 p-6 border-b border-gray-100 flex-shrink-0">
-              <h2 className="text-xl font-bold text-gray-800">Nueva Prenda</h2>
+          <div className="bg-[var(--bg-card)] w-full max-w-md rounded-3xl shadow-2xl animate-pop-in flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center mb-6 p-6 border-b border-[var(--border-light)] flex-shrink-0">
+              <h2 className="text-xl font-bold text-[var(--text-primary)]">Nueva Prenda</h2>
               <button onClick={resetAddModal}>
-                <X size={24} className="text-gray-400" />
+                <X size={24} className="text-[var(--text-muted)]" />
               </button>
             </div>
 
@@ -950,7 +950,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                 {!newImage ? (
                   <div className="w-full aspect-[4/3] bg-gray-50 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center p-4 gap-3">
                     <Camera size={36} className="text-gray-300" />
-                    <span className="text-sm text-gray-500 font-medium">Añade una foto de la prenda</span>
+                    <span className="text-sm text-[var(--text-secondary)] font-medium">Añade una foto de la prenda</span>
                     <div className="flex gap-2 w-full max-w-xs">
                       <button
                         type="button"
@@ -969,7 +969,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                         Galería
                       </button>
                     </div>
-                    <label className="flex items-center gap-1 text-xs text-gray-400 cursor-pointer hover:text-primary transition-colors">
+                    <label className="flex items-center gap-1 text-xs text-[var(--text-muted)] cursor-pointer hover:text-primary transition-colors">
                       <ImagePlus size={14} />
                       <span>O subir desde el dispositivo</span>
                       <input ref={el => { fileInputRef.current = el; }} type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
@@ -993,7 +993,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
 
               {/* Name */}
               <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Nombre</label>
+                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Nombre</label>
                 <input
                   value={newName}
                   onChange={e => setNewName(e.target.value)}
@@ -1004,13 +1004,13 @@ const Wardrobe: React.FC<WardrobeProps> = ({
 
               {/* Category */}
               <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Categoría</label>
+                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Categoría</label>
                 <div className="flex gap-2 flex-wrap">
                   {CATEGORIES.filter(c => c.id !== 'all').map(cat => (
                     <button
                       key={cat.id}
                       onClick={() => setNewCategory(cat.id)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${newCategory === cat.id ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500'
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${newCategory === cat.id ? 'bg-primary text-white' : 'bg-gray-100 text-[var(--text-secondary)]'
                         }`}
                     >
                       {cat.label}
@@ -1022,7 +1022,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
               {/* Color & Brand */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">Color</label>
+                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Color</label>
                   <input
                     value={newColor}
                     onChange={e => setNewColor(e.target.value)}
@@ -1031,7 +1031,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">Marca</label>
+                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Marca</label>
                   <input
                     value={newBrand}
                     onChange={e => setNewBrand(e.target.value)}
@@ -1043,13 +1043,13 @@ const Wardrobe: React.FC<WardrobeProps> = ({
 
               {/* Season */}
               <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Temporada</label>
+                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Temporada</label>
                 <div className="flex gap-2 flex-wrap">
                   {SEASONS.map(s => (
                     <button
                       key={s.id}
                       onClick={() => setNewSeason(s.id as any)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${newSeason === s.id ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500'
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${newSeason === s.id ? 'bg-primary text-white' : 'bg-gray-100 text-[var(--text-secondary)]'
                         }`}
                     >
                       {s.label}
@@ -1075,13 +1075,13 @@ const Wardrobe: React.FC<WardrobeProps> = ({
       {/* SELL MODAL */}
       {isSelling && (
         <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl animate-pop-in flex flex-col max-h-[90vh]">
+          <div className="bg-[var(--bg-card)] w-full max-w-sm rounded-3xl shadow-2xl animate-pop-in flex flex-col max-h-[90vh]">
             <div className="flex-shrink-0 p-6 border-b border-gray-50 text-center">
               <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3">
                 <SellIcon size={32} />
               </div>
-              <h2 className="text-xl font-bold text-gray-800">Poner en venta</h2>
-              <p className="text-xs text-gray-400 mt-1">Convierte tu armario en ingresos</p>
+              <h2 className="text-xl font-bold text-[var(--text-primary)]">Poner en venta</h2>
+              <p className="text-xs text-[var(--text-muted)] mt-1">Convierte tu armario en ingresos</p>
             </div>
 
             <div className="overflow-y-auto flex-1 p-6 space-y-4">
@@ -1089,8 +1089,8 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                 <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl">
                   <img src={selectedForSale.imageUrl} className="w-12 h-12 rounded-xl object-cover" alt="" />
                   <div>
-                    <p className="text-sm font-bold text-gray-700">{selectedForSale.name || selectedForSale.type}</p>
-                    <p className="text-[10px] text-gray-400 capitalize">{selectedForSale.color} · {selectedForSale.brand || 'Marca no especif.'}</p>
+                    <p className="text-sm font-bold text-[var(--text-primary)]">{selectedForSale.name || selectedForSale.type}</p>
+                    <p className="text-[10px] text-[var(--text-muted)] capitalize">{selectedForSale.color} · {selectedForSale.brand || 'Marca no especif.'}</p>
                   </div>
                 </div>
               ) : (
@@ -1098,7 +1098,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                   {!saleImage ? (
                     <div className="w-full aspect-[4/3] bg-gray-50 border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center p-4 gap-3">
                       <Camera size={36} className="text-gray-300" />
-                      <span className="text-sm text-gray-500 font-medium">Foto de la prenda</span>
+                      <span className="text-sm text-[var(--text-secondary)] font-medium">Foto de la prenda</span>
                       <div className="flex gap-2 w-full max-w-xs">
                         <button
                           type="button"
@@ -1117,7 +1117,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                           Galería
                         </button>
                       </div>
-                      <label className="flex items-center gap-1 text-xs text-gray-400 cursor-pointer hover:text-primary transition-colors">
+                      <label className="flex items-center gap-1 text-xs text-[var(--text-muted)] cursor-pointer hover:text-primary transition-colors">
                         <ImagePlus size={14} />
                         <span>O subir desde el dispositivo</span>
                         <input type="file" accept="image/*" className="hidden" onChange={handleSaleFileUpload} />
@@ -1143,7 +1143,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
               {!selectedForSale && (
                 <>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">Nombre</label>
+                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Nombre</label>
                     <input
                       value={saleName}
                       onChange={e => setSaleName(e.target.value)}
@@ -1152,13 +1152,13 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">Categoría</label>
+                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Categoría</label>
                     <div className="flex gap-2 flex-wrap">
                       {CATEGORIES.filter(c => c.id !== 'all').map(cat => (
                         <button
                           key={cat.id}
                           onClick={() => setSaleCategory(cat.id)}
-                          className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${saleCategory === cat.id ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500'}`}
+                          className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${saleCategory === cat.id ? 'bg-primary text-white' : 'bg-gray-100 text-[var(--text-secondary)]'}`}
                         >
                           {cat.label}
                         </button>
@@ -1169,9 +1169,9 @@ const Wardrobe: React.FC<WardrobeProps> = ({
               )}
 
               <div>
-                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Precio de venta</label>
+                <label className="block text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest mb-1.5 ml-1">Precio de venta</label>
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">€</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] font-bold">€</span>
                   <input
                     type="number"
                     value={salePrice}
@@ -1184,7 +1184,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Estado</label>
+                  <label className="block text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest mb-1.5 ml-1">Estado</label>
                   <select
                     value={saleCondition}
                     onChange={e => setSaleCondition(e.target.value)}
@@ -1197,7 +1197,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Talla</label>
+                  <label className="block text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest mb-1.5 ml-1">Talla</label>
                   <input
                     value={saleSize}
                     onChange={e => setSaleSize(e.target.value)}
@@ -1208,7 +1208,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Descripción</label>
+                <label className="block text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest mb-1.5 ml-1">Descripción</label>
                 <textarea
                   value={saleDescription}
                   onChange={e => setSaleDescription(e.target.value)}
@@ -1222,7 +1222,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
             <div className="flex-shrink-0 p-6 bg-gray-50 flex gap-3">
               <button
                 onClick={() => resetSellModal()}
-                className="flex-1 py-3 text-sm font-bold text-gray-400"
+                className="flex-1 py-3 text-sm font-bold text-[var(--text-muted)]"
               >
                 Cancelar
               </button>
@@ -1241,51 +1241,51 @@ const Wardrobe: React.FC<WardrobeProps> = ({
       {/* EDIT MODAL */}
       {isEditing && selectedGarmentForDetail && (
         <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl animate-pop-in flex flex-col max-h-[90vh]">
+          <div className="bg-[var(--bg-card)] w-full max-w-sm rounded-3xl shadow-2xl animate-pop-in flex flex-col max-h-[90vh]">
             <div className="flex-shrink-0 p-6 border-b border-gray-50 text-center">
               <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-3">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
               </div>
-              <h2 className="text-xl font-bold text-gray-800">Editar prenda</h2>
+              <h2 className="text-xl font-bold text-[var(--text-primary)]">Editar prenda</h2>
             </div>
             <div className="overflow-y-auto flex-1 p-6 space-y-4">
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl">
                 <img src={selectedGarmentForDetail.imageUrl} className="w-12 h-12 rounded-xl object-cover" alt="" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-gray-700 truncate">{selectedGarmentForDetail.name || selectedGarmentForDetail.type}</p>
-                  <p className="text-[10px] text-gray-400 capitalize">{selectedGarmentForDetail.color}</p>
+                  <p className="text-sm font-bold text-[var(--text-primary)] truncate">{selectedGarmentForDetail.name || selectedGarmentForDetail.type}</p>
+                  <p className="text-[10px] text-[var(--text-muted)] capitalize">{selectedGarmentForDetail.color}</p>
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Nombre</label>
+                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Nombre</label>
                 <input value={editName} onChange={e => setEditName(e.target.value)} className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500/20" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Categoría</label>
+                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Categoría</label>
                 <div className="flex gap-2 flex-wrap">
                   {CATEGORIES.filter(c => c.id !== 'all').map(cat => (
                     <button key={cat.id} onClick={() => setEditCategory(cat.id)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${editCategory === cat.id ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500'}`}>{cat.label}</button>
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${editCategory === cat.id ? 'bg-primary text-white' : 'bg-gray-100 text-[var(--text-secondary)]'}`}>{cat.label}</button>
                   ))}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">Color</label>
+                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Color</label>
                   <input value={editColor} onChange={e => setEditColor(e.target.value)} placeholder="Ej: rojo" className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm outline-none" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">Marca</label>
+                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Marca</label>
                   <input value={editBrand} onChange={e => setEditBrand(e.target.value)} placeholder="Ej: Zara" className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm outline-none" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">Talla</label>
+                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Talla</label>
                   <input value={editSize} onChange={e => setEditSize(e.target.value)} placeholder="M, 42..." className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm outline-none" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">Estado</label>
+                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Estado</label>
                   <select value={editCondition} onChange={e => setEditCondition(e.target.value)} className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm outline-none appearance-none">
                     <option value="new">Nuevo</option>
                     <option value="good">Buen estado</option>
@@ -1295,22 +1295,22 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1.5">Descripción</label>
+                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Descripción</label>
                 <textarea value={editDescription} onChange={e => setEditDescription(e.target.value)} rows={2} className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm outline-none resize-none" />
               </div>
               {editForSale && (
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5">Precio (€)</label>
+                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Precio (€)</label>
                   <input type="number" value={editPrice} onChange={e => setEditPrice(e.target.value)} className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm outline-none" />
                 </div>
               )}
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={editForSale} onChange={e => setEditForSale(e.target.checked)} className="rounded" />
-                <span className="text-sm font-medium text-gray-600">En venta</span>
+                <span className="text-sm font-medium text-[var(--text-secondary)]">En venta</span>
               </label>
             </div>
             <div className="flex-shrink-0 p-6 bg-gray-50 flex gap-3">
-              <button onClick={resetEditModal} className="flex-1 py-3 text-sm font-bold text-gray-400">Cancelar</button>
+              <button onClick={resetEditModal} className="flex-1 py-3 text-sm font-bold text-[var(--text-muted)]">Cancelar</button>
               <button onClick={confirmEdit} className="flex-[2] bg-blue-500 text-white py-3 rounded-xl text-sm font-bold shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-colors">Guardar cambios</button>
             </div>
           </div>
@@ -1355,20 +1355,20 @@ const Wardrobe: React.FC<WardrobeProps> = ({
       {/* SELECT TRIP MODAL */}
       {addToTripModalGarment && (
         <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-pop-in">
+          <div className="bg-[var(--bg-card)] w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-pop-in">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-gray-800">Añadir a un viaje</h3>
+              <h3 className="text-lg font-bold text-[var(--text-primary)]">Añadir a un viaje</h3>
               <button
                 onClick={() => setAddToTripModalGarment(null)}
                 className="p-2 -mr-2 bg-gray-50 hover:bg-gray-100 rounded-full transition-colors"
               >
-                <X size={20} className="text-gray-500" />
+                <X size={20} className="text-[var(--text-secondary)]" />
               </button>
             </div>
             
             {trips.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-sm text-gray-500 mb-4">No tienes viajes planificados.</p>
+                <p className="text-sm text-[var(--text-secondary)] mb-4">No tienes viajes planificados.</p>
                 <button 
                   onClick={() => { setAddToTripModalGarment(null); onNavigate('suitcase'); }}
                   className="bg-primary text-white text-sm font-bold px-4 py-2 rounded-xl"
@@ -1389,13 +1389,13 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                           setAddToTripModalGarment(null);
                         }
                       }}
-                      className={`w-full text-left flex items-center justify-between p-4 rounded-2xl border transition-all ${isIncluded ? 'border-primary bg-primary/5 opacity-50 cursor-default' : 'border-gray-200 bg-white hover:border-primary/50'}`}
+                      className={`w-full text-left flex items-center justify-between p-4 rounded-2xl border transition-all ${isIncluded ? 'border-primary bg-primary/5 opacity-50 cursor-default' : 'border-[var(--border-light)] bg-[var(--bg-card)] hover:border-primary/50'}`}
                     >
                       <div>
-                        <p className="font-bold text-gray-800">{trip.destination}</p>
-                        <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400 mt-1">{trip.dateStart}</p>
+                        <p className="font-bold text-[var(--text-primary)]">{trip.destination}</p>
+                        <p className="text-[10px] uppercase font-bold tracking-widest text-[var(--text-muted)] mt-1">{trip.dateStart}</p>
                       </div>
-                      {isIncluded ? <Check size={20} className="text-primary" /> : <Plus size={20} className="text-gray-400" />}
+                      {isIncluded ? <Check size={20} className="text-primary" /> : <Plus size={20} className="text-[var(--text-muted)]" />}
                     </button>
                   );
                 })}
@@ -1406,7 +1406,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
       )}
 
       {showCreateLook && (
-        <div className="fixed inset-0 z-[55] bg-white">
+        <div className="fixed inset-0 z-[55] bg-[var(--bg-card)]">
           <Suspense
             fallback={
               <div className="h-full flex items-center justify-center">

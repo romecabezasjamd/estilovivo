@@ -81,11 +81,11 @@ const Toast: React.FC<ToastProps> = ({ toast, onClose }) => {
       case 'info':
       default:
         return {
-          bg: 'bg-gray-50 border border-gray-200',
-          icon: <Info size={20} className="text-gray-600" />,
-          text: 'text-gray-900',
+          bg: 'bg-[var(--bg-base)] border border-[var(--border-light)]',
+          icon: <Info size={20} className="text-[var(--text-secondary)]" />,
+          text: 'text-[var(--text-primary)]',
           bar: 'bg-gray-500',
-          action: 'text-gray-700 hover:bg-gray-100'
+          action: 'text-[var(--text-primary)] hover:bg-[var(--bg-base)]'
         };
     }
   };
@@ -130,7 +130,7 @@ const Toast: React.FC<ToastProps> = ({ toast, onClose }) => {
             setIsExiting(true);
             setTimeout(onClose, 300);
           }}
-          className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
+          className="flex-shrink-0 text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
         >
           <X size={18} />
         </button>

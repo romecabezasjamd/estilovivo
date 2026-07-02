@@ -145,10 +145,10 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
       {/* Header & Welcome */}
       <header className="space-y-6 mt-4">
         <Logo variant="icon" className="w-16 h-16 mx-auto" />
-        <h1 className="text-3xl font-bold text-gray-800 tracking-tight">
+        <h1 className="text-3xl font-bold text-[var(--text-primary)] tracking-tight">
           Hola, <span className="text-primary">{user.name}</span>
         </h1>
-        <p className="text-gray-500 text-lg font-light">{t('howAreYouFeeling')}</p>
+        <p className="text-[var(--text-secondary)] text-lg font-light">{t('howAreYouFeeling')}</p>
         <LevelProgress user={user} />
       </header>
 
@@ -171,7 +171,7 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
             onClick={() => onMoodChange(m.id)}
             className={`flex-shrink-0 px-4 py-3 rounded-2xl border flex items-center space-x-2 transition-all transform active:scale-95 ${isActive
               ? 'bg-primary text-white border-primary shadow-lg ring-2 ring-offset-2 ring-primary/30'
-              : 'bg-white border-gray-100 text-gray-600 shadow-sm hover:border-gray-200'
+              : 'bg-[var(--bg-card)] border-[var(--border-light)] text-[var(--text-secondary)] shadow-sm hover:border-[var(--border-light)]'
               } ${isCycleHighlight && !isSelected ? 'ring-2 ring-purple-300 border-purple-200' : ''}`}
           >
             <span className="text-xl">{m.emoji}</span>
@@ -185,7 +185,7 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
       <section>
         {todayLook ? (
           <div className="bg-primary text-white p-5 rounded-3xl shadow-xl shadow-primary/20 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -mr-8 -mt-8" />
+            <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--bg-card)]/5 rounded-full -mr-8 -mt-8" />
             <div className="flex items-center space-x-4 relative z-10">
               {todayLook.imageUrl || (todayLook.garments && todayLook.garments.length > 0) ? (
                 <img
@@ -194,7 +194,7 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
                   alt={todayLook.name}
                 />
               ) : (
-                <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center">
+                <div className="w-16 h-16 rounded-2xl bg-[var(--bg-card)]/20 flex items-center justify-center">
                   <Shirt size={28} className="text-white/70" />
                 </div>
               )}
@@ -205,7 +205,7 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
                   <p className="text-sm text-teal-100">{todayLook.garments.filter(g => !!g).length} prendas</p>
                 )}
               </div>
-              <button onClick={() => onNavigate('planner')} className="bg-white/10 p-2 rounded-full hover:bg-white/20">
+              <button onClick={() => onNavigate('planner')} className="bg-[var(--bg-card)]/10 p-2 rounded-full hover:bg-[var(--bg-card)]/20">
                 <ChevronRight size={20} />
               </button>
             </div>
@@ -221,7 +221,7 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
                 Basado en tu mood {user.mood ? `"${moods.find(m => m.id === user.mood)?.label}"` : ''}
               </span>
             </div>
-            <div className="bg-white/10 p-2 rounded-full group-hover:bg-white/20 transition-colors">
+            <div className="bg-[var(--bg-card)]/10 p-2 rounded-full group-hover:bg-[var(--bg-card)]/20 transition-colors">
               <Sparkles size={24} className="text-accent" />
             </div>
           </button>
@@ -231,7 +231,7 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
       {/* Weekly Summary */}
       <section className="space-y-4">
         <div className="flex justify-between items-end">
-          <h2 className="text-xl font-bold text-gray-800">Tu Semana</h2>
+          <h2 className="text-xl font-bold text-[var(--text-primary)]">Tu Semana</h2>
           <button onClick={() => onNavigate('planner')} className="text-xs text-primary font-semibold flex items-center">
             Ver todo <ChevronRight size={14} />
           </button>
@@ -239,7 +239,7 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
         <div className="flex space-x-3 overflow-x-auto no-scrollbar pb-2">
           {weeklyPlanner.map((day) => (
             <div key={day.date} className="flex flex-col items-center space-y-2 flex-shrink-0">
-              <span className={`text-xs font-medium ${day.isToday ? 'text-primary' : 'text-gray-400'}`}>{day.day}</span>
+              <span className={`text-xs font-medium ${day.isToday ? 'text-primary' : 'text-[var(--text-muted)]'}`}>{day.day}</span>
               {day.isCycleDay && showCycleFeatures ? (
                 <button
                   type="button"
@@ -261,7 +261,7 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
                       ? 'border-accent shadow-md'
                       : day.lookImage
                         ? 'border-primary/30'
-                        : 'border-dashed border-gray-200 bg-gray-50'
+                        : 'border-dashed border-[var(--border-light)] bg-gray-50'
                   }`}
                 >
                   {day.lookImage ? (
@@ -286,60 +286,60 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
 
       {/* Stats Grid */}
       <section className="grid grid-cols-2 gap-3">
-        <div className="stagger-child bg-white p-4 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-primary/30 transition-all">
+        <div className="stagger-child bg-[var(--bg-card)] p-4 rounded-2xl border border-[var(--border-light)] shadow-sm hover:shadow-md hover:border-primary/30 transition-all">
           <div className="flex items-center space-x-2 text-primary mb-2">
             <Shirt size={16} />
-            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Armario</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Armario</span>
           </div>
-          <span className="text-2xl font-bold text-gray-800">{totalGarments}</span>
-          <span className="text-xs text-gray-400 ml-1">prendas</span>
+          <span className="text-2xl font-bold text-[var(--text-primary)]">{totalGarments}</span>
+          <span className="text-xs text-[var(--text-muted)] ml-1">prendas</span>
         </div>
-        <div className="stagger-child bg-white p-4 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-primary/30 transition-all">
+        <div className="stagger-child bg-[var(--bg-card)] p-4 rounded-2xl border border-[var(--border-light)] shadow-sm hover:shadow-md hover:border-primary/30 transition-all">
           <div className="flex items-center space-x-2 text-primary mb-2">
             <TrendingUp size={16} />
-            <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Looks</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Looks</span>
           </div>
-          <span className="text-2xl font-bold text-gray-800">{totalLooks}</span>
-          <span className="text-xs text-gray-400 ml-1">creados</span>
+          <span className="text-2xl font-bold text-[var(--text-primary)]">{totalLooks}</span>
+          <span className="text-xs text-[var(--text-muted)] ml-1">creados</span>
         </div>
       </section>
 
       {/* Sustainability / Usage Stats */}
-      <section className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm space-y-4">
+      <section className="bg-[var(--bg-card)] p-5 rounded-3xl border border-[var(--border-light)] shadow-sm space-y-4">
         <div className="flex items-center space-x-2 text-primary">
           <RefreshCcw size={18} />
           <h3 className="font-bold">Armario Consciente</h3>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="stagger-child bg-lavender-50 p-3 rounded-2xl hover:shadow-md transition-all">
-            <p className="text-xs text-gray-500 mb-1">Más usada</p>
+            <p className="text-xs text-[var(--text-secondary)] mb-1">Más usada</p>
             <div className="flex items-center space-x-2">
               {mostUsedGarment ? (
                 <>
                   <img src={mostUsedGarment.imageUrl} className="w-8 h-8 rounded-full object-cover" alt={mostUsedGarment.type} />
                   <div>
-                    <span className="text-[10px] font-semibold text-gray-700 line-clamp-1 capitalize">{mostUsedGarment.name || mostUsedGarment.type}</span>
-                    <span className="text-[10px] text-gray-400 block">{mostUsedGarment.usageCount} usos</span>
+                    <span className="text-[10px] font-semibold text-[var(--text-primary)] line-clamp-1 capitalize">{mostUsedGarment.name || mostUsedGarment.type}</span>
+                    <span className="text-[10px] text-[var(--text-muted)] block">{mostUsedGarment.usageCount} usos</span>
                   </div>
                 </>
               ) : (
-                <span className="text-[10px] text-gray-400">Sin datos aún</span>
+                <span className="text-[10px] text-[var(--text-muted)]">Sin datos aún</span>
               )}
             </div>
           </div>
           <div className="stagger-child bg-orange-50 p-3 rounded-2xl hover:shadow-md transition-all">
-            <p className="text-xs text-gray-500 mb-1">Baja rotación</p>
+            <p className="text-xs text-[var(--text-secondary)] mb-1">Baja rotación</p>
             <div className="flex items-center space-x-2">
               {lowUsageCount > 0 ? (
                 <>
                   <AlertTriangle size={18} className="text-accent" />
                   <div>
                     <span className="text-xl font-bold text-accent">{lowUsageCount}</span>
-                    <span className="text-[10px] text-gray-600 block leading-tight">prendas olvidadas</span>
+                    <span className="text-[10px] text-[var(--text-secondary)] block leading-tight">prendas olvidadas</span>
                   </div>
                 </>
               ) : (
-                <span className="text-[10px] text-gray-500">Todas en rotación</span>
+                <span className="text-[10px] text-[var(--text-secondary)]">Todas en rotación</span>
               )}
             </div>
           </div>
@@ -347,23 +347,23 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
       </section>
 
       {/* Most Used Garments */}
-      <section className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm animate-fade-in-up">
+      <section className="bg-[var(--bg-card)] p-5 rounded-3xl border border-[var(--border-light)] shadow-sm animate-fade-in-up">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-bold text-gray-800">Tus prendas mas usadas</h3>
+          <h3 className="font-bold text-[var(--text-primary)]">Tus prendas mas usadas</h3>
           <button onClick={() => onNavigate('wardrobe')} className="text-xs text-primary font-semibold">
             Ver armario
           </button>
         </div>
         {topUsedGarments.length === 0 ? (
-          <p className="text-sm text-gray-400">Aun no hay suficiente uso registrado.</p>
+          <p className="text-sm text-[var(--text-muted)]">Aun no hay suficiente uso registrado.</p>
         ) : (
           <div className="space-y-3">
             {topUsedGarments.map(item => (
               <div key={item.id} className="flex items-center gap-3">
                 <img src={item.imageUrl} alt={item.name || item.type} className="w-12 h-12 rounded-xl object-cover" />
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-gray-800 truncate">{item.name || item.type}</p>
-                  <p className="text-xs text-gray-400 capitalize">{item.color} · {item.usageCount || 0} usos</p>
+                  <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{item.name || item.type}</p>
+                  <p className="text-xs text-[var(--text-muted)] capitalize">{item.color} · {item.usageCount || 0} usos</p>
                 </div>
               </div>
             ))}
@@ -372,23 +372,23 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
       </section>
 
       {/* Low Usage Garments */}
-      <section className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm animate-fade-in-up">
+      <section className="bg-[var(--bg-card)] p-5 rounded-3xl border border-[var(--border-light)] shadow-sm animate-fade-in-up">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-bold text-gray-800">Prendas olvidadas</h3>
+          <h3 className="font-bold text-[var(--text-primary)]">Prendas olvidadas</h3>
           <button onClick={() => onNavigate('wardrobe')} className="text-xs text-primary font-semibold">
             Reactivar
           </button>
         </div>
         {lowUsageGarments.length === 0 ? (
-          <p className="text-sm text-gray-400">Todo tu armario esta en rotacion.</p>
+          <p className="text-sm text-[var(--text-muted)]">Todo tu armario esta en rotacion.</p>
         ) : (
           <div className="space-y-3">
             {lowUsageGarments.map(item => (
               <div key={item.id} className="flex items-center gap-3">
                 <img src={item.imageUrl} alt={item.name || item.type} className="w-12 h-12 rounded-xl object-cover" />
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-gray-800 truncate">{item.name || item.type}</p>
-                  <p className="text-xs text-gray-400 capitalize">{item.color} · {item.usageCount || 0} usos</p>
+                  <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{item.name || item.type}</p>
+                  <p className="text-xs text-[var(--text-muted)] capitalize">{item.color} · {item.usageCount || 0} usos</p>
                 </div>
               </div>
             ))}
@@ -398,33 +398,33 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
 
       {/* Quick Access Grid */}
       <div className="grid grid-cols-2 gap-3 pt-2">
-        <button onClick={() => onNavigate('wardrobe')} className="stagger-child p-4 bg-white border border-gray-100 rounded-2xl shadow-sm text-left hover:border-primary/30 hover:shadow-md transition-all">
+        <button onClick={() => onNavigate('wardrobe')} className="stagger-child p-4 bg-[var(--bg-card)] border border-[var(--border-light)] rounded-2xl shadow-sm text-left hover:border-primary/30 hover:shadow-md transition-all">
           <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mb-2">
             <Shirt size={16} />
           </div>
-          <span className="font-medium text-gray-700 text-sm">Mi Armario</span>
-          <p className="text-[10px] text-gray-400 mt-0.5">Organiza tus prendas</p>
+          <span className="font-medium text-[var(--text-primary)] text-sm">Mi Armario</span>
+          <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Organiza tus prendas</p>
         </button>
-        <button onClick={() => onNavigate('wishlist')} className="stagger-child p-4 bg-white border border-gray-100 rounded-2xl shadow-sm text-left hover:border-primary/30 hover:shadow-md transition-all">
+        <button onClick={() => onNavigate('wishlist')} className="stagger-child p-4 bg-[var(--bg-card)] border border-[var(--border-light)] rounded-2xl shadow-sm text-left hover:border-primary/30 hover:shadow-md transition-all">
           <div className="w-8 h-8 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center mb-2">
             <Heart size={16} />
           </div>
-          <span className="font-medium text-gray-700 text-sm">Wishlist</span>
-          <p className="text-[10px] text-gray-400 mt-0.5">Tus deseos de compra</p>
+          <span className="font-medium text-[var(--text-primary)] text-sm">Wishlist</span>
+          <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Tus deseos de compra</p>
         </button>
-        <button onClick={() => onNavigate('suitcase')} className="stagger-child p-4 bg-white border border-gray-100 rounded-2xl shadow-sm text-left hover:border-primary/30 hover:shadow-md transition-all">
+        <button onClick={() => onNavigate('suitcase')} className="stagger-child p-4 bg-[var(--bg-card)] border border-[var(--border-light)] rounded-2xl shadow-sm text-left hover:border-primary/30 hover:shadow-md transition-all">
           <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mb-2">
             <Briefcase size={16} />
           </div>
-          <span className="font-medium text-gray-700 text-sm">Mis Viajes</span>
-          <p className="text-[10px] text-gray-400 mt-0.5">Planifica tu maleta</p>
+          <span className="font-medium text-[var(--text-primary)] text-sm">Mis Viajes</span>
+          <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Planifica tu maleta</p>
         </button>
-        <button onClick={() => onNavigate('community')} className="stagger-child p-4 bg-white border border-gray-100 rounded-2xl shadow-sm text-left hover:border-primary/30 hover:shadow-md transition-all">
+        <button onClick={() => onNavigate('community')} className="stagger-child p-4 bg-[var(--bg-card)] border border-[var(--border-light)] rounded-2xl shadow-sm text-left hover:border-primary/30 hover:shadow-md transition-all">
           <div className="w-8 h-8 rounded-full bg-yellow-50 text-yellow-600 flex items-center justify-center mb-2">
             <Sun size={16} />
           </div>
-          <span className="font-medium text-gray-700 text-sm">Comunidad</span>
-          <p className="text-[10px] text-gray-400 mt-0.5">Inspírate con looks</p>
+          <span className="font-medium text-[var(--text-primary)] text-sm">Comunidad</span>
+          <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Inspírate con looks</p>
         </button>
       </div>
     </div>

@@ -174,34 +174,8 @@ function findContentBounds(mask: Uint8ClampedArray, width: number, height: numbe
   }
 }
 
-async function runAiBackgroundRemoval(imageSource: string): Promise<string | null> {
-  try {
-    const { default: removeBackground } = await import('@imgly/background-removal')
-    const resultBlob = await removeBackground(imageSource, {
-      device: 'cpu',
-      model: 'isnet_quint8',
-      output: {
-        format: 'image/png',
-        type: 'foreground',
-        quality: 0.95,
-      },
-      debug: false,
-    })
-    return await blobToDataUrl(resultBlob)
-  } catch (error) {
-    console.warn('AI background removal unavailable, using heuristic fallback', error)
-    return null
-  }
-}
-
 export async function removeBackground(imageUrl: string, options: ProcessOptions = {}): Promise<string> {
   const { tolerance = 45, featherRadius = 6, autoCrop = true, maxSize = 1200 } = options
-
-  const aiCutout = await runAiBackgroundRemoval(imageUrl)
-  if (aiCutout) {
-    if (!autoCrop) return aiCutout
-    return autoCropTransparent(aiCutout)
-  }
 
   const img = await loadImage(imageUrl)
   let w = img.naturalWidth

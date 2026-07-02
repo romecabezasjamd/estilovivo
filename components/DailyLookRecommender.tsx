@@ -32,8 +32,8 @@ const DailyLookRecommender: React.FC<DailyLookRecommenderProps> = ({
       <div className="flex items-center gap-2 px-1">
         <span className="text-2xl">{emoji}</span>
         <div>
-          <h3 className="font-bold text-lg text-gray-900">{occasion}</h3>
-          <p className="text-xs text-gray-500">{reasoning}</p>
+          <h3 className="font-bold text-lg text-[var(--text-primary)]">{occasion}</h3>
+          <p className="text-xs text-[var(--text-secondary)]">{reasoning}</p>
         </div>
         <Sparkles size={20} className="ml-auto text-primary animate-bounce" />
       </div>
@@ -42,9 +42,9 @@ const DailyLookRecommender: React.FC<DailyLookRecommenderProps> = ({
       {image && (
         <div
           onClick={() => onSelectLook?.(featuredLook)}
-          className="group cursor-pointer bg-white rounded-3xl border border-gray-100 overflow-hidden hover:shadow-lg hover:border-primary/30 transition-all"
+          className="group cursor-pointer bg-[var(--bg-card)] rounded-3xl border border-[var(--border-light)] overflow-hidden hover:shadow-lg hover:border-primary/30 transition-all"
         >
-          <div className="relative aspect-[16/10] bg-gray-100 overflow-hidden">
+          <div className="relative aspect-[16/10] bg-[var(--bg-base)] overflow-hidden">
             <img
               src={image}
               alt={featuredLook.name}

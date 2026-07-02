@@ -205,19 +205,19 @@ const Community: React.FC<CommunityProps> = ({ user, onNavigate }) => {
     return (
         <div className="pb-24 bg-gray-50 min-h-full">
             {/* Header with Tabs */}
-            <div className="bg-white p-5 rounded-b-3xl shadow-sm mb-6 sticky top-0 z-10">
+            <div className="bg-[var(--bg-card)] p-5 rounded-b-3xl shadow-sm mb-6 sticky top-0 z-10">
                 <div className="flex justify-between items-center mb-4">
-                    <h1 className="text-2xl font-bold text-gray-800">{t('social')}</h1>
+                    <h1 className="text-2xl font-bold text-[var(--text-primary)]">{t('social')}</h1>
                     <div className="flex bg-gray-100 rounded-full p-1">
                         <button
                             onClick={() => setActiveTab('feed')}
-                            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${activeTab === 'feed' ? 'bg-white text-primary shadow-sm' : 'text-gray-500'}`}
+                            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${activeTab === 'feed' ? 'bg-[var(--bg-card)] text-primary shadow-sm' : 'text-[var(--text-secondary)]'}`}
                         >
                             Inspiración
                         </button>
                         <button
                             onClick={() => setActiveTab('shop')}
-                            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${activeTab === 'shop' ? 'bg-white text-primary shadow-sm' : 'text-gray-500'}`}
+                            className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${activeTab === 'shop' ? 'bg-[var(--bg-card)] text-primary shadow-sm' : 'text-[var(--text-secondary)]'}`}
                         >
                             {t('forSale')}
                         </button>
@@ -230,20 +230,20 @@ const Community: React.FC<CommunityProps> = ({ user, onNavigate }) => {
                         <span className="inline-block px-2 py-1 bg-accent text-[10px] font-bold uppercase tracking-wider rounded-md mb-2">Reto Semanal</span>
                         <h3 className="font-bold text-lg mb-1">Color Block</h3>
                         <p className="text-sm text-teal-100 opacity-90 mb-3">Combina colores vibrantes y gana visibilidad en la tienda.</p>
-                        <button className="text-xs font-semibold bg-white text-primary px-3 py-1.5 rounded-full">Participar</button>
+                        <button className="text-xs font-semibold bg-[var(--bg-card)] text-primary px-3 py-1.5 rounded-full">Participar</button>
                     </div>
                 )}
 
                 {activeTab === 'shop' && (
                     <form onSubmit={handleSearchSubmit} className="flex space-x-2 animate-fade-in">
-                        <div className="flex-1 bg-gray-100 rounded-xl px-3 py-2 flex items-center text-gray-400">
+                        <div className="flex-1 bg-gray-100 rounded-xl px-3 py-2 flex items-center text-[var(--text-muted)]">
                             <Search size={16} className="mr-2" />
                             <input
                                 type="text"
                                 value={searchQuery}
                                 onChange={e => setSearchQuery(e.target.value)}
                                 placeholder="Buscar prendas..."
-                                className="bg-transparent border-none outline-none text-sm w-full text-gray-700"
+                                className="bg-transparent border-none outline-none text-sm w-full text-[var(--text-primary)]"
                             />
                         </div>
                         <button type="submit" className="bg-primary text-white p-2 rounded-xl">
@@ -265,25 +265,25 @@ const Community: React.FC<CommunityProps> = ({ user, onNavigate }) => {
                             {feedLooks.map(post => {
                                 const postImage = getLookImage(post);
                                 return (
-                                    <div key={post.id} className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden animate-fade-in-up">
+                                    <div key={post.id} className="bg-[var(--bg-card)] rounded-3xl shadow-sm border border-[var(--border-light)] overflow-hidden animate-fade-in-up">
                                         <div className="p-4 flex justify-between items-center">
                                             <div className="flex items-center space-x-3">
                                                 <img
                                                     src={post.userAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.userName || 'U')}&background=0F4C5C&color=fff`}
-                                                    className="w-10 h-10 rounded-full object-cover border border-gray-100"
+                                                    className="w-10 h-10 rounded-full object-cover border border-[var(--border-light)]"
                                                     alt={post.userName}
                                                 />
                                                 <div>
-                                                    <h4 className="font-bold text-sm text-gray-800">{post.userName || 'Usuario'}</h4>
+                                                    <h4 className="font-bold text-sm text-[var(--text-primary)]">{post.userName || 'Usuario'}</h4>
                                                     {post.mood && (
                                                         <div className="flex items-center space-x-1">
                                                             <div className="w-2 h-2 rounded-full bg-accent" />
-                                                            <span className="text-xs text-gray-500">{post.mood}</span>
+                                                            <span className="text-xs text-[var(--text-secondary)]">{post.mood}</span>
                                                         </div>
                                                     )}
                                                 </div>
                                             </div>
-                                            <button className="text-gray-400">
+                                            <button className="text-[var(--text-muted)]">
                                                 <MoreHorizontal size={20} />
                                             </button>
                                         </div>
@@ -296,7 +296,7 @@ const Community: React.FC<CommunityProps> = ({ user, onNavigate }) => {
                                             <div className="aspect-[4/5] bg-gray-50 flex items-center justify-center">
                                                 <div className="text-center opacity-40">
                                                     <Shirt size={48} className="mx-auto mb-2 text-gray-400" />
-                                                    <p className="text-sm text-gray-500">{post.name}</p>
+                                                    <p className="text-sm text-[var(--text-secondary)]">{post.name}</p>
                                                     {post.garments && post.garments.length > 0 && (
                                                         <div className="flex justify-center mt-3 space-x-2">
                                                             {post.garments.slice(0, 4).map(g => (
@@ -313,14 +313,14 @@ const Community: React.FC<CommunityProps> = ({ user, onNavigate }) => {
                                                 <div className="flex space-x-4">
                                                     <button
                                                         onClick={() => handleToggleLike(post.id)}
-                                                        className={`flex items-center space-x-1 transition-colors ${post.isLiked ? 'text-rose-500' : 'text-gray-600 hover:text-rose-500'}`}
+                                                        className={`flex items-center space-x-1 transition-colors ${post.isLiked ? 'text-rose-500' : 'text-[var(--text-secondary)] hover:text-rose-500'}`}
                                                     >
                                                         <Heart size={24} fill={post.isLiked ? "currentColor" : "none"} />
                                                         <span className="text-xs font-bold">{post.likesCount || 0}</span>
                                                     </button>
                                                     <button
                                                         onClick={() => openComments(post.id)}
-                                                        className="flex items-center space-x-1 text-gray-600 hover:text-blue-500 transition-colors"
+                                                        className="flex items-center space-x-1 text-[var(--text-secondary)] hover:text-blue-500 transition-colors"
                                                     >
                                                         <MessageCircle size={24} />
                                                         <span className="text-xs font-bold">{post.commentsCount || 0}</span>
@@ -328,12 +328,12 @@ const Community: React.FC<CommunityProps> = ({ user, onNavigate }) => {
                                                 </div>
                                                 <button
                                                     onClick={() => handleToggleFavorite(post.id)}
-                                                    className={`transition-colors ${post.isFavorited ? 'text-amber-500' : 'text-gray-600 hover:text-amber-500'}`}
+                                                    className={`transition-colors ${post.isFavorited ? 'text-amber-500' : 'text-[var(--text-secondary)] hover:text-amber-500'}`}
                                                 >
                                                     <Bookmark size={24} fill={post.isFavorited ? "currentColor" : "none"} />
                                                 </button>
                                             </div>
-                                            <p className="text-sm text-gray-700 leading-relaxed">
+                                            <p className="text-sm text-[var(--text-primary)] leading-relaxed">
                                                 <span className="font-bold mr-1">{post.userName || 'Usuario'}</span>
                                                 {post.name}
                                             </p>
@@ -349,7 +349,7 @@ const Community: React.FC<CommunityProps> = ({ user, onNavigate }) => {
                                 );
                             })}
                             {feedLooks.length === 0 && (
-                                <div className="text-center py-20 text-gray-400">
+                                <div className="text-center py-20 text-[var(--text-muted)]">
                                     <Shirt size={48} className="mx-auto mb-3 text-gray-300" />
                                     <p className="font-medium">Aún no hay looks compartidos</p>
                                     <p className="text-sm mt-1">Sé el primero en compartir un look público.</p>
@@ -365,14 +365,14 @@ const Community: React.FC<CommunityProps> = ({ user, onNavigate }) => {
                                 {shopItems.map((item) => (
                                     <div
                                         key={item.id}
-                                        className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 relative group cursor-pointer"
+                                        className="bg-[var(--bg-card)] rounded-2xl overflow-hidden shadow-sm border border-[var(--border-light)] relative group cursor-pointer"
                                         onClick={() => handleItemClick(item)}
                                     >
                                         <button
                                             onClick={(e) => { e.stopPropagation(); handleToggleProductFavorite(item.id); }}
                                             className={`absolute top-2 left-2 z-10 p-1.5 rounded-full shadow-sm ${favoritedProductIds.has(item.id)
                                                 ? 'bg-amber-500 text-white'
-                                                : 'bg-white text-gray-500'
+                                                : 'bg-[var(--bg-card)] text-[var(--text-secondary)]'
                                                 }`}
                                         >
                                             <Bookmark size={14} fill={favoritedProductIds.has(item.id) ? 'currentColor' : 'none'} />
@@ -384,7 +384,7 @@ const Community: React.FC<CommunityProps> = ({ user, onNavigate }) => {
                                         <div className="aspect-square bg-gray-50 relative">
                                             <img src={item.image} className="w-full h-full object-cover" loading="lazy" alt={item.title} />
                                             <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                <button className="bg-white text-primary px-3 py-1.5 rounded-full text-xs font-bold flex items-center shadow-lg transform scale-90 group-hover:scale-100 transition-transform">
+                                                <button className="bg-[var(--bg-card)] text-primary px-3 py-1.5 rounded-full text-xs font-bold flex items-center shadow-lg transform scale-90 group-hover:scale-100 transition-transform">
                                                     <ShoppingBag size={12} className="mr-1" /> Ver
                                                 </button>
                                             </div>
@@ -392,15 +392,15 @@ const Community: React.FC<CommunityProps> = ({ user, onNavigate }) => {
 
                                         <div className="p-3">
                                             <div className="flex justify-between items-start mb-1">
-                                                <p className="text-xs font-bold text-gray-700 capitalize line-clamp-1">{item.title}</p>
+                                                <p className="text-xs font-bold text-[var(--text-primary)] capitalize line-clamp-1">{item.title}</p>
                                             </div>
-                                            <div className="flex items-center text-[10px] text-gray-400 mb-2">
+                                            <div className="flex items-center text-[10px] text-[var(--text-muted)] mb-2">
                                                 <Tag size={10} className="mr-1" />
                                                 <span>{item.brand} {item.size !== 'Única' ? `• Talla ${item.size}` : ''}</span>
                                             </div>
                                             <div className="flex items-center pt-2 border-t border-gray-50">
-                                                <img src={item.avatar} className="w-5 h-5 rounded-full object-cover border border-gray-100 mr-1.5" alt={item.user} />
-                                                <span className="text-[10px] text-gray-500 truncate">{item.user}</span>
+                                                <img src={item.avatar} className="w-5 h-5 rounded-full object-cover border border-[var(--border-light)] mr-1.5" alt={item.user} />
+                                                <span className="text-[10px] text-[var(--text-secondary)] truncate">{item.user}</span>
                                                 <button
                                                     onClick={(e) => { e.stopPropagation(); handleStartChat(item); }}
                                                     className="ml-auto text-[10px] text-primary font-semibold"
@@ -412,7 +412,7 @@ const Community: React.FC<CommunityProps> = ({ user, onNavigate }) => {
                                     </div>
                                 ))}
                                 {shopItems.length === 0 && (
-                                    <div className="col-span-2 text-center py-20 text-gray-400">
+                                    <div className="col-span-2 text-center py-20 text-[var(--text-muted)]">
                                         <ShoppingBag size={48} className="mx-auto mb-3 text-gray-300" />
                                         <p className="font-medium">No hay artículos a la venta</p>
                                         <p className="text-sm mt-1">Vuelve más tarde o prueba otra búsqueda.</p>
@@ -427,11 +427,11 @@ const Community: React.FC<CommunityProps> = ({ user, onNavigate }) => {
             {/* Comments Modal */}
             {commentsLookId && (
                 <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center">
-                    <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl animate-fade-in-up h-[70vh] flex flex-col">
-                        <div className="flex justify-between items-center p-4 border-b border-gray-100">
-                            <h3 className="font-bold text-gray-800">Comentarios</h3>
+                    <div className="bg-[var(--bg-card)] w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl animate-fade-in-up h-[70vh] flex flex-col">
+                        <div className="flex justify-between items-center p-4 border-b border-[var(--border-light)]">
+                            <h3 className="font-bold text-[var(--text-primary)]">Comentarios</h3>
                             <button onClick={() => { setCommentsLookId(null); setComments([]); }}>
-                                <X size={24} className="text-gray-400" />
+                                <X size={24} className="text-[var(--text-muted)]" />
                             </button>
                         </div>
 
@@ -452,10 +452,10 @@ const Community: React.FC<CommunityProps> = ({ user, onNavigate }) => {
                                         />
                                         <div>
                                             <p className="text-sm">
-                                                <span className="font-bold text-gray-800 mr-1">{c.userName}</span>
-                                                <span className="text-gray-600">{c.content}</span>
+                                                <span className="font-bold text-[var(--text-primary)] mr-1">{c.userName}</span>
+                                                <span className="text-[var(--text-secondary)]">{c.content}</span>
                                             </p>
-                                            <span className="text-[10px] text-gray-400">
+                                            <span className="text-[10px] text-[var(--text-muted)]">
                                                 {new Date(c.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
                                             </span>
                                         </div>
@@ -464,7 +464,7 @@ const Community: React.FC<CommunityProps> = ({ user, onNavigate }) => {
                             )}
                         </div>
 
-                        <div className="p-4 border-t border-gray-100 flex items-center space-x-3">
+                        <div className="p-4 border-t border-[var(--border-light)] flex items-center space-x-3">
                             <img
                                 src={user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=0F4C5C&color=fff`}
                                 className="w-8 h-8 rounded-full object-cover flex-shrink-0"

@@ -1112,11 +1112,11 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
 
   // === RENDER ===
   return (
-    <div className="pb-24 bg-gray-50 min-h-full">
+    <div className="pb-24 bg-[var(--bg-base)] min-h-full">
       {/* Header with Main Tabs */}
-      <div className="bg-white p-5 rounded-b-3xl shadow-sm mb-6 sticky top-0 z-10">
+      <div className="bg-[var(--bg-card)] p-5 rounded-b-3xl shadow-sm mb-6 sticky top-0 z-10">
         <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl font-bold text-gray-800">Social</h1>
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Social</h1>
         </div>
 
         <div className="relative">
@@ -1131,7 +1131,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${activeTab === tab.key ? 'bg-white text-primary shadow-sm' : 'text-gray-500'}`}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${activeTab === tab.key ? 'bg-[var(--bg-card)] text-primary shadow-sm' : 'text-[var(--text-secondary)]'}`}
               >
                 <span className="text-sm leading-none">{tab.icon}</span>
                 <span>{tab.label}</span>
@@ -1149,7 +1149,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
             className="bg-gradient-to-r from-primary to-accent rounded-2xl p-4 text-white relative animate-fade-in mt-4 cursor-pointer transition-transform hover:scale-[1.01] active:scale-[0.99]"
           >
             <div className="absolute top-0 right-0 w-32 h-32 overflow-hidden">
-              <div className="w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10" />
+              <div className="w-32 h-32 bg-[var(--bg-card)]/10 rounded-full -mr-10 -mt-10" />
             </div>
             <div className="relative z-10">
               <span className="inline-flex items-center gap-1 px-2 py-1 bg-accent text-[10px] font-bold uppercase tracking-wider rounded-md mb-2">
@@ -1165,9 +1165,9 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                     <span>Nivel {activeUser.level || 1}</span>
                     <span>{(activeUser.experiencePoints || 0) % 100} / 100 XP</span>
                   </div>
-                  <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-[var(--bg-card)]/20 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-white rounded-full transition-all duration-500"
+                      className="h-full bg-[var(--bg-card)] rounded-full transition-all duration-500"
                       style={{ width: `${(activeUser.experiencePoints || 0) % 100}%` }}
                     />
                   </div>
@@ -1188,7 +1188,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                         <MoreHorizontal size={14} />
                       </button>
                       {challengeMenuOpen && (
-                        <div className="absolute left-0 top-8 z-50 bg-white rounded-xl shadow-xl border border-gray-100 py-1 min-w-[180px] animate-fade-in">
+                        <div className="absolute left-0 top-8 z-50 bg-[var(--bg-card)] rounded-xl shadow-xl border border-[var(--border-light)] py-1 min-w-[180px] animate-fade-in">
                           <button
                             onClick={(e) => { e.stopPropagation(); setChallengeMenuOpen(false); setConfirmDelete({ type: 'challenge' }); }}
                             disabled={!!challengeDeletingId}
@@ -1198,7 +1198,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); setChallengeMenuOpen(false); }}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 font-medium hover:bg-gray-50 transition-colors"
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[var(--text-secondary)] font-medium hover:bg-gray-50 transition-colors"
                           >
                             Cancelar
                           </button>
@@ -1213,7 +1213,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                   <>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleParticipateChallenge(); }}
-                      className="text-xs font-semibold px-3 py-1.5 rounded-full bg-white text-primary hover:bg-primary hover:text-white transition-all"
+                      className="text-xs font-semibold px-3 py-1.5 rounded-full bg-[var(--bg-card)] text-primary hover:bg-primary hover:text-white transition-all"
                     >
                       Participar
                     </button>
@@ -1254,14 +1254,14 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
 
         {activeTab === 'shop' && (
           <form onSubmit={handleSearchSubmit} className="flex space-x-2 animate-fade-in mt-4">
-            <div className="flex-1 bg-gray-100 rounded-xl px-3 py-2 flex items-center text-gray-400">
+            <div className="flex-1 bg-gray-100 rounded-xl px-3 py-2 flex items-center text-[var(--text-muted)]">
               <Search size={16} className="mr-2" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Buscar prendas..."
-                className="bg-transparent border-none outline-none text-sm w-full text-gray-700"
+                className="bg-transparent border-none outline-none text-sm w-full text-[var(--text-primary)]"
               />
             </div>
             <button type="submit" className="bg-primary text-white p-2 rounded-xl">
@@ -1289,12 +1289,12 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
               )}
 
               {/* Stories Carousel - Instagram-style bubbles */}
-              <div className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 mb-6 overflow-hidden">
+              <div className="bg-[var(--bg-card)] rounded-3xl p-4 shadow-sm border border-[var(--border-light)] mb-6 overflow-hidden">
                 <div className="flex items-center justify-between gap-3 mb-4">
                   <div className="flex items-center gap-2">
                     <div>
-                      <p className="text-[10px] uppercase tracking-[0.28em] text-gray-400">Historias</p>
-                      <h2 className="text-lg font-bold text-gray-800">Lo último de la comunidad</h2>
+                      <p className="text-[10px] uppercase tracking-[0.28em] text-[var(--text-muted)]">Historias</p>
+                      <h2 className="text-lg font-bold text-[var(--text-primary)]">Lo último de la comunidad</h2>
                     </div>
                     {stories.filter(s => !s.isOwn && !viewedStoryIds.has(s.id)).length > 0 && (
                       <span className="bg-primary text-white text-[10px] font-bold rounded-full px-2 py-0.5 leading-none mt-1">
@@ -1329,11 +1329,11 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                     <div className="w-16 h-16 rounded-full border-2 border-dashed border-primary/40 bg-primary/5 flex items-center justify-center text-primary hover:bg-primary/10 transition-colors">
                       <Plus size={22} />
                     </div>
-                    <span className="text-[10px] text-gray-500 font-medium">Nueva</span>
+                    <span className="text-[10px] text-[var(--text-secondary)] font-medium">Nueva</span>
                   </button>
 
                   {stories.length === 0 ? (
-                    <div className="flex items-center justify-center text-sm text-gray-400 h-20 px-4">
+                    <div className="flex items-center justify-center text-sm text-[var(--text-muted)] h-20 px-4">
                       Publica tu primera historia y gana visibilidad.
                     </div>
                   ) : prioritizedStories.map(story => {
@@ -1346,7 +1346,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                         className={`flex flex-col items-center gap-1.5 flex-shrink-0 group ${isViewed && !story.isOwn ? 'opacity-60' : ''}`}
                       >
                         <div className={`w-16 h-16 rounded-full ${isViewed && !story.isOwn ? 'bg-gray-200' : 'bg-gradient-to-br from-primary via-accent to-amber-400'} p-[2px] shadow-sm group-hover:shadow-md transition-shadow`}>
-                          <div className="w-full h-full rounded-full bg-white p-[2px]">
+                          <div className="w-full h-full rounded-full bg-[var(--bg-card)] p-[2px]">
                             {story.imageUrl ? (
                               <img src={story.imageUrl} alt={story.text || 'Historia'} className="w-full h-full rounded-full object-cover" loading="lazy" />
                             ) : (
@@ -1356,7 +1356,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                             )}
                           </div>
                         </div>
-                        <span className="text-[10px] text-gray-600 font-medium max-w-[68px] truncate">{story.userName}</span>
+                        <span className="text-[10px] text-[var(--text-secondary)] font-medium max-w-[68px] truncate">{story.userName}</span>
                       </button>
                     );
                   })}
@@ -1365,16 +1365,16 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
 
               {/* Ver todas stories modal */}
               {showAllStories && (
-                <div className="fixed inset-0 z-[60] bg-white animate-fade-in overflow-y-auto" onClick={() => setShowAllStories(false)}>
-                  <div className="sticky top-0 bg-white border-b border-gray-100 p-4 flex items-center justify-between z-10">
-                    <h3 className="font-bold text-gray-800">Todas las historias</h3>
-                    <button onClick={() => setShowAllStories(false)} className="p-1.5 rounded-full text-gray-400 hover:bg-gray-100 transition-colors">
+                <div className="fixed inset-0 z-[60] bg-[var(--bg-card)] animate-fade-in overflow-y-auto" onClick={() => setShowAllStories(false)}>
+                  <div className="sticky top-0 bg-[var(--bg-card)] border-b border-[var(--border-light)] p-4 flex items-center justify-between z-10">
+                    <h3 className="font-bold text-[var(--text-primary)]">Todas las historias</h3>
+                    <button onClick={() => setShowAllStories(false)} className="p-1.5 rounded-full text-[var(--text-muted)] hover:bg-gray-100 transition-colors">
                       <X size={20} />
                     </button>
                   </div>
                   <div className="p-4 grid grid-cols-3 gap-4" onClick={e => e.stopPropagation()}>
                     {prioritizedStories.filter(s => !s.isOwn).length === 0 ? (
-                      <p className="col-span-3 text-center text-gray-400 py-10 text-sm">No hay historias de otros usuarios</p>
+                      <p className="col-span-3 text-center text-[var(--text-muted)] py-10 text-sm">No hay historias de otros usuarios</p>
                     ) : prioritizedStories.filter(s => !s.isOwn).map(story => (
                       <button
                         key={story.id}
@@ -1382,7 +1382,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                         className="flex flex-col items-center gap-1.5"
                       >
                         <div className={`w-16 h-16 rounded-full ${viewedStoryIds.has(story.id) ? 'bg-gray-200' : 'bg-gradient-to-br from-primary via-accent to-amber-400'} p-[2px] shadow-sm`}>
-                          <div className="w-full h-full rounded-full bg-white p-[2px]">
+                          <div className="w-full h-full rounded-full bg-[var(--bg-card)] p-[2px]">
                             {story.imageUrl ? (
                               <img src={story.imageUrl} alt={story.text || 'Historia'} className="w-full h-full rounded-full object-cover" loading="lazy" />
                             ) : (
@@ -1392,7 +1392,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                             )}
                           </div>
                         </div>
-                        <span className="text-[10px] text-gray-600 font-medium truncate max-w-[68px]">{story.userName}</span>
+                        <span className="text-[10px] text-[var(--text-secondary)] font-medium truncate max-w-[68px]">{story.userName}</span>
                       </button>
                     ))}
                   </div>
@@ -1401,10 +1401,10 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
 
               {/* Top Users (Iconos de Estilo) Widget */}
               {topUsers.length > 0 && (
-                <div className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 mb-6 overflow-hidden">
+                <div className="bg-[var(--bg-card)] rounded-3xl p-4 shadow-sm border border-[var(--border-light)] mb-6 overflow-hidden">
                   <div className="flex items-center gap-2 mb-3 px-1">
                     <Sparkles className="text-amber-500 w-4 h-4" />
-                    <h3 className="text-sm font-bold text-gray-800 tracking-wide uppercase">Iconos de Estilo</h3>
+                    <h3 className="text-sm font-bold text-[var(--text-primary)] tracking-wide uppercase">Iconos de Estilo</h3>
                   </div>
                   <div className="flex overflow-x-auto gap-4 pb-2 no-scrollbar px-1 snap-x">
                     {topUsers.map((tu, idx) => (
@@ -1419,14 +1419,14 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                             {tu.level || 1}
                           </div>
                           {idx === 0 && (
-                            <div className="absolute -top-2 -right-1 text-amber-500 bg-white rounded-full">👑</div>
+                            <div className="absolute -top-2 -right-1 text-amber-500 bg-[var(--bg-card)] rounded-full">👑</div>
                           )}
                         </div>
-                        <p className="text-[10px] font-semibold text-gray-700 truncate w-full text-center mt-1.5">{tu.name.split(' ')[0]}</p>
-                        <p className="text-[9px] text-gray-400">{tu.experiencePoints} XP</p>
+                        <p className="text-[10px] font-semibold text-[var(--text-primary)] truncate w-full text-center mt-1.5">{tu.name.split(' ')[0]}</p>
+                        <p className="text-[9px] text-[var(--text-muted)]">{tu.experiencePoints} XP</p>
                         <button
                           onClick={() => toggleFollowUser(tu.id)}
-                          className={`mt-2 text-[10px] font-bold px-2 py-1 rounded-full transition ${followedUserIds.has(tu.id) ? 'bg-primary text-white' : 'bg-white text-gray-600 border border-gray-200'}`}
+                          className={`mt-2 text-[10px] font-bold px-2 py-1 rounded-full transition ${followedUserIds.has(tu.id) ? 'bg-primary text-white' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border border-[var(--border-light)]'}`}
                         >
                           {followedUserIds.has(tu.id) ? 'Siguiendo' : 'Seguir'}
                         </button>
@@ -1442,21 +1442,21 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                   const postImage = getLookImage(post);
 
                   return (
-                    <div key={post.id} className="bg-white rounded-[1.5rem] overflow-hidden shadow-sm border border-gray-100">
+                    <div key={post.id} className="bg-[var(--bg-card)] rounded-[1.5rem] overflow-hidden shadow-sm border border-[var(--border-light)]">
 
                       {/* Creator Header */}
                       <div className="flex items-center gap-3 px-4 py-3">
                         <img
                           src={post.userAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.userName || 'U')}&background=0F4C5C&color=fff`}
-                          className="w-8 h-8 rounded-full object-cover border border-gray-200"
+                          className="w-8 h-8 rounded-full object-cover border border-[var(--border-light)]"
                           alt={post.userName} loading="lazy"
                         />
-                        <span className="text-sm font-semibold text-gray-800">{post.userName || 'Usuario'}</span>
-                        <span className="text-[10px] text-gray-400 ml-auto font-medium">Lv.{getPostUserLevel(post)}</span>
+                        <span className="text-sm font-semibold text-[var(--text-primary)]">{post.userName || 'Usuario'}</span>
+                        <span className="text-[10px] text-[var(--text-muted)] ml-auto font-medium">Lv.{getPostUserLevel(post)}</span>
                         {post.userId !== currentUserId && (
                           <button
                             onClick={(e) => { e.stopPropagation(); handleStartChat(undefined, { user: { id: post.userId, name: post.userName, avatar: post.userAvatar } }); }}
-                            className="p-1.5 rounded-full text-gray-400 hover:text-primary hover:bg-primary/5 transition-colors"
+                            className="p-1.5 rounded-full text-[var(--text-muted)] hover:text-primary hover:bg-primary/5 transition-colors"
                             title="Enviar mensaje"
                           >
                             <Send size={14} />
@@ -1466,12 +1466,12 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                           <div className="relative">
                             <button
                               onClick={() => setPostMenuOpenId(postMenuOpenId === post.id ? null : post.id)}
-                              className="p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                              className="p-1.5 rounded-full text-[var(--text-muted)] hover:text-gray-600 hover:bg-gray-100 transition-colors"
                             >
                               <MoreHorizontal size={16} />
                             </button>
                             {postMenuOpenId === post.id && (
-                              <div className="absolute right-0 top-8 z-50 bg-white rounded-xl shadow-xl border border-gray-100 py-1 min-w-[170px] animate-fade-in">
+                              <div className="absolute right-0 top-8 z-50 bg-[var(--bg-card)] rounded-xl shadow-xl border border-[var(--border-light)] py-1 min-w-[170px] animate-fade-in">
                                 <button
                                   onClick={() => { setConfirmDelete({ type: 'post', id: post.id }); setPostMenuOpenId(null); }}
                                   className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-red-600 font-medium hover:bg-red-50 transition-colors"
@@ -1480,7 +1480,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                                 </button>
                                 <button
                                   onClick={() => setPostMenuOpenId(null)}
-                                  className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-gray-600 font-medium hover:bg-gray-50 transition-colors"
+                                  className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-[var(--text-secondary)] font-medium hover:bg-gray-50 transition-colors"
                                 >
                                   Cancelar
                                 </button>
@@ -1496,7 +1496,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                           <img src={postImage} className="w-full aspect-square object-cover" loading="lazy" alt={post.name} />
                         </div>
                       ) : (
-                        <div className="aspect-square bg-gray-50 flex items-center justify-center">
+                        <div className="aspect-square bg-[var(--bg-base)] flex items-center justify-center">
                           <Shirt size={40} className="text-gray-300" />
                         </div>
                       )}
@@ -1506,32 +1506,32 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                         <div className="flex items-center gap-4">
                           <button
                             onClick={() => handleToggleLike(post.id)}
-                            className={`flex items-center gap-1.5 text-sm transition-colors ${post.isLiked ? 'text-rose-500' : 'text-gray-500 hover:text-rose-400'}`}
+                            className={`flex items-center gap-1.5 text-sm transition-colors ${post.isLiked ? 'text-rose-500' : 'text-[var(--text-secondary)] hover:text-rose-400'}`}
                           >
                             <Heart size={18} fill={post.isLiked ? "currentColor" : "none"} />
                             <span className="font-semibold">{post.likesCount || 0}</span>
                           </button>
                           <button
                             onClick={() => openComments(post.id)}
-                            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                            className="flex items-center gap-1.5 text-sm text-[var(--text-secondary)] hover:text-gray-700 transition-colors"
                           >
                             <MessageCircle size={18} />
                             <span className="font-semibold">{post.commentsCount || 0}</span>
                           </button>
                           <button
                             onClick={() => handleShareNative(post)}
-                            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors ml-auto"
+                            className="flex items-center gap-1.5 text-sm text-[var(--text-secondary)] hover:text-gray-700 transition-colors ml-auto"
                           >
                             <Share2 size={16} />
                           </button>
                         </div>
                         {post.name && (
-                          <p className="text-sm text-gray-800 font-medium mt-2 leading-snug">{post.name}</p>
+                          <p className="text-sm text-[var(--text-primary)] font-medium mt-2 leading-snug">{post.name}</p>
                         )}
                         {post.mood && (
-                          <p className="text-sm text-gray-500 mt-1 leading-relaxed">{post.mood}</p>
+                          <p className="text-sm text-[var(--text-secondary)] mt-1 leading-relaxed">{post.mood}</p>
                         )}
-                        <p className="text-[11px] text-gray-400 mt-2">
+                        <p className="text-[11px] text-[var(--text-muted)] mt-2">
                           {new Date(post.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </p>
                       </div>
@@ -1545,8 +1545,8 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                   <div className="w-20 h-20 mx-auto mb-5 rounded-3xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center animate-bounce-in">
                     <Sparkles size={36} className="text-primary" />
                   </div>
-                  <p className="text-lg font-bold text-gray-700 mb-2">✨ Sé la primera en inspirar a la comunidad</p>
-                  <p className="text-sm text-gray-400 mb-6">Comparte tu estilo y conecta con otras amantes de la moda</p>
+                  <p className="text-lg font-bold text-[var(--text-primary)] mb-2">✨ Sé la primera en inspirar a la comunidad</p>
+                  <p className="text-sm text-[var(--text-muted)] mb-6">Comparte tu estilo y conecta con otras amantes de la moda</p>
                   <button
                     onClick={() => setIsPublishModalOpen(true)}
                     className="inline-flex items-center gap-2 bg-primary text-white text-sm font-bold px-6 py-3 rounded-full shadow-lg shadow-primary/30 hover:opacity-90 transition-all active:scale-[0.98]"
@@ -1561,7 +1561,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                   <button
                     onClick={loadMoreFeed}
                     disabled={feedLoadingMore}
-                    className="bg-gray-100 text-gray-600 text-xs font-bold px-6 py-2.5 rounded-full hover:bg-gray-200 transition-all disabled:opacity-40"
+                    className="bg-gray-100 text-[var(--text-secondary)] text-xs font-bold px-6 py-2.5 rounded-full hover:bg-gray-200 transition-all disabled:opacity-40"
                   >
                     {feedLoadingMore ? 'Cargando...' : 'Cargar más'}
                   </button>
@@ -1582,7 +1582,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                     className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors border ${
                       shopFilter === cat
                         ? 'bg-primary text-white border-primary'
-                        : 'bg-white text-gray-500 border-gray-200 hover:border-primary/30'
+                        : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-light)] hover:border-primary/30'
                     }`}
                   >
                     {cat === 'all' ? 'Todo' : cat.charAt(0).toUpperCase() + cat.slice(1)}
@@ -1593,14 +1593,14 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                 {shopItems.map((item) => (
                   <div
                     key={item.id}
-                    className="stagger-child bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 relative group cursor-pointer hover:shadow-md hover:border-primary/30 transition-all"
+                    className="stagger-child bg-[var(--bg-card)] rounded-2xl overflow-hidden shadow-sm border border-[var(--border-light)] relative group cursor-pointer hover:shadow-md hover:border-primary/30 transition-all"
                     onClick={() => handleItemClick(item)}
                   >
                     <button
                       onClick={(e) => { e.stopPropagation(); handleToggleProductFavorite(item.id); }}
                       className={`absolute top-2 left-2 z-10 p-1.5 rounded-full shadow-sm ${favoritedProductIds.has(item.id)
                         ? 'bg-amber-500 text-white'
-                        : 'bg-white text-gray-500'
+                        : 'bg-[var(--bg-card)] text-[var(--text-secondary)]'
                         }`}
                     >
                       <Bookmark size={14} fill={favoritedProductIds.has(item.id) ? 'currentColor' : 'none'} />
@@ -1609,10 +1609,10 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                       {item.price}€
                     </div>
 
-                    <div className="aspect-square bg-gray-50 relative">
+                    <div className="aspect-square bg-[var(--bg-base)] relative">
                       <img src={item.image} className="w-full h-full object-cover" loading="lazy" alt={item.title} />
                       <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <button className="bg-white text-primary px-3 py-1.5 rounded-full text-xs font-bold flex items-center shadow-lg transform scale-90 group-hover:scale-100 transition-transform">
+                        <button className="bg-[var(--bg-card)] text-primary px-3 py-1.5 rounded-full text-xs font-bold flex items-center shadow-lg transform scale-90 group-hover:scale-100 transition-transform">
                           <ShoppingBag size={12} className="mr-1" /> Ver
                         </button>
                       </div>
@@ -1620,15 +1620,15 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
 
                     <div className="p-3">
                       <div className="flex justify-between items-start mb-1">
-                        <p className="text-xs font-bold text-gray-700 capitalize line-clamp-1">{item.title}</p>
+                        <p className="text-xs font-bold text-[var(--text-primary)] capitalize line-clamp-1">{item.title}</p>
                       </div>
-                      <div className="flex items-center text-[10px] text-gray-400 mb-2">
+                      <div className="flex items-center text-[10px] text-[var(--text-muted)] mb-2">
                         <Tag size={10} className="mr-1" />
                         <span>{item.brand} {item.size !== 'Única' ? `• Talla ${item.size}` : ''}</span>
                       </div>
                       <div className="flex items-center pt-2 border-t border-gray-50">
-                        <img src={item.avatar} className="w-5 h-5 rounded-full object-cover border border-gray-100 mr-1.5" alt={item.user} />
-                        <span className="text-[10px] text-gray-500 truncate">{item.user}</span>
+                        <img src={item.avatar} className="w-5 h-5 rounded-full object-cover border border-[var(--border-light)] mr-1.5" alt={item.user} />
+                        <span className="text-[10px] text-[var(--text-secondary)] truncate">{item.user}</span>
                         {(item.userId !== currentUserId && (item as any).user?.id !== currentUserId) && (
                         <button
                           onClick={(e) => { e.stopPropagation(); handleStartChat(item); }}
@@ -1642,7 +1642,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                   </div>
                 ))}
                 {shopItems.length === 0 && (
-                  <div className="col-span-2 text-center py-20 text-gray-400">
+                  <div className="col-span-2 text-center py-20 text-[var(--text-muted)]">
                     <ShoppingBag size={48} className="mx-auto mb-3 text-gray-300" />
                     <p className="font-medium">No hay artículos a la venta</p>
                     <p className="text-sm mt-1">Vuelve más tarde o prueba otra búsqueda.</p>
@@ -1658,7 +1658,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
               {favorites.length === 0 ? (
                 <div className="text-center py-16">
                   <Heart size={48} className="mx-auto text-gray-200 mb-3" />
-                  <p className="text-gray-400 text-sm">Aun no tienes favoritos</p>
+                  <p className="text-[var(--text-muted)] text-sm">Aun no tienes favoritos</p>
                   <p className="text-xs text-gray-300 mt-1">Guarda prendas o looks que te inspiren</p>
                   <button
                     onClick={() => setActiveTab('feed')}
@@ -1670,7 +1670,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
               ) : (
                 <div className="grid grid-cols-2 gap-4">
                   {favorites.map((fav: any) => (
-                    <div key={fav.id} className="stagger-child bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md hover:border-primary/30 transition-all">
+                    <div key={fav.id} className="stagger-child bg-[var(--bg-card)] rounded-2xl shadow-sm border border-[var(--border-light)] overflow-hidden hover:shadow-md hover:border-primary/30 transition-all">
                       {fav.look && (
                         <>
                           <div className="aspect-[3/4] bg-gray-100 relative">
@@ -1685,13 +1685,13 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                                 <Sparkles size={28} />
                               </div>
                             )}
-                            <div className="absolute top-2 right-2 bg-white/90 rounded-full p-1">
+                            <div className="absolute top-2 right-2 bg-[var(--bg-card)]/90 rounded-full p-1">
                               <Heart size={14} className="text-rose-500 fill-rose-500" />
                             </div>
                           </div>
                           <div className="p-3">
-                            <p className="text-sm font-semibold text-gray-800 truncate">{fav.look.name}</p>
-                            <p className="text-xs text-gray-400">Look guardado</p>
+                            <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{fav.look.name}</p>
+                            <p className="text-xs text-[var(--text-muted)]">Look guardado</p>
                             <button
                               onClick={() => handleRemoveFavorite(fav)}
                               className="mt-2 text-[10px] text-rose-500 font-semibold"
@@ -1716,13 +1716,13 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                                 <ShoppingBag size={28} />
                               </div>
                             )}
-                            <div className="absolute top-2 right-2 bg-white/90 rounded-full p-1">
+                            <div className="absolute top-2 right-2 bg-[var(--bg-card)]/90 rounded-full p-1">
                               <Tag size={14} className="text-primary" />
                             </div>
                           </div>
                           <div className="p-3">
-                            <p className="text-sm font-semibold text-gray-800 truncate">{fav.product.name}</p>
-                            <p className="text-xs text-gray-400">{getCompatibilityLabel(fav.product)}</p>
+                            <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{fav.product.name}</p>
+                            <p className="text-xs text-[var(--text-muted)]">{getCompatibilityLabel(fav.product)}</p>
                             <div className="mt-3 flex items-center gap-2">
                               <button
                                 onClick={() => handleMoveToWardrobe(fav)}
@@ -1760,14 +1760,14 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
             <div className="px-4 pb-4 animate-fade-in space-y-6">
               <div className="flex items-center gap-2 mb-2 px-2">
                 <Sparkles className="text-primary" size={20} />
-                <h2 className="text-lg font-bold text-gray-800">Tendencias Feb 2026</h2>
+                <h2 className="text-lg font-bold text-[var(--text-primary)]">Tendencias Feb 2026</h2>
               </div>
 
               <div className="grid grid-cols-1 gap-6">
                 {fashionTrends.map((trend) => (
                   <div
                     key={trend.id}
-                    className="stagger-child bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100 group transition-all hover:shadow-lg"
+                    className="stagger-child bg-[var(--bg-card)] rounded-3xl overflow-hidden shadow-sm border border-[var(--border-light)] group transition-all hover:shadow-lg"
                   >
                     <div className="aspect-[16/9] relative overflow-hidden">
                       <img
@@ -1776,7 +1776,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                       />
                       <div className="absolute top-4 left-4">
-                        <span className="bg-white/90 backdrop-blur-md text-primary text-[10px] font-bold px-3 py-1.5 rounded-full shadow-sm">
+                        <span className="bg-[var(--bg-card)]/90 backdrop-blur-md text-primary text-[10px] font-bold px-3 py-1.5 rounded-full shadow-sm">
                           {trend.category}
                         </span>
                       </div>
@@ -1784,18 +1784,18 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
 
                     <div className="p-5">
                       <div className="flex justify-between items-start mb-2">
-                        <h3 className="font-bold text-gray-800 text-lg">{trend.title}</h3>
-                        <span className="text-[10px] font-medium text-gray-400 bg-gray-50 px-2 py-1 rounded-md border border-gray-100">
+                        <h3 className="font-bold text-[var(--text-primary)] text-lg">{trend.title}</h3>
+                        <span className="text-[10px] font-medium text-[var(--text-muted)] bg-[var(--bg-base)] px-2 py-1 rounded-md border border-[var(--border-light)]">
                           {trend.source}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-600 leading-relaxed mb-4">
+                      <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-4">
                         {trend.description}
                       </p>
                       <div className="flex justify-between items-center">
                         <div className="flex flex-wrap gap-2">
                           {trend.tags.map((tag: string) => (
-                            <span key={tag} className="text-[10px] font-semibold text-gray-400">
+                            <span key={tag} className="text-[10px] font-semibold text-[var(--text-muted)]">
                               #{tag.toLowerCase().replace(/\s+/g, '')}
                             </span>
                           ))}
@@ -1806,7 +1806,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                               href={trend.link}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-[10px] font-bold text-gray-400 flex items-center gap-1 hover:text-gray-600 transition-colors"
+                              className="text-[10px] font-bold text-[var(--text-muted)] flex items-center gap-1 hover:text-gray-600 transition-colors"
                             >
                               Leer más <ExternalLink size={12} />
                             </a>
@@ -1845,9 +1845,9 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
           {activeTab === 'chat' && (
             <div className="px-6 animate-fade-in">
               {conversations.length === 0 ? (
-                <div className="bg-white rounded-3xl border border-gray-100 p-8 text-center shadow-sm">
+                <div className="bg-[var(--bg-card)] rounded-3xl border border-[var(--border-light)] p-8 text-center shadow-sm">
                   <MessageCircle size={48} className="mx-auto text-gray-200 mb-3" />
-                  <p className="text-gray-400 text-sm">Aun no tienes conversaciones</p>
+                  <p className="text-[var(--text-muted)] text-sm">Aun no tienes conversaciones</p>
                   <p className="text-xs text-gray-300 mt-1">Explora la tienda para iniciar un chat</p>
                   <button
                     onClick={() => setActiveTab('shop')}
@@ -1859,7 +1859,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                 </div>
               ) : (
                 <div className="grid grid-cols-1 gap-4">
-                  <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm">
+                  <div className="bg-[var(--bg-card)] rounded-3xl border border-[var(--border-light)] overflow-hidden shadow-sm">
                     <div className="divide-y divide-gray-100">
                       {conversations.map(t => (
                         <button
@@ -1873,17 +1873,17 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                             alt={t.otherUser?.name}
                           />
                           <div className="flex-1">
-                            <p className="text-sm font-semibold text-gray-800 truncate">{t.otherUser?.name || 'Usuario'}</p>
-                            <p className="text-[11px] text-gray-400 truncate">{t.itemTitle || 'Conversacion'}</p>
+                            <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{t.otherUser?.name || 'Usuario'}</p>
+                            <p className="text-[11px] text-[var(--text-muted)] truncate">{t.itemTitle || 'Conversacion'}</p>
                           </div>
-                          <span className="text-[10px] text-gray-400 truncate max-w-[120px]">{t.lastMessage?.content || ''}</span>
+                          <span className="text-[10px] text-[var(--text-muted)] truncate max-w-[120px]">{t.lastMessage?.content || ''}</span>
                         </button>
                       ))}
                     </div>
                   </div>
 
                   {activeThread && (
-                    <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-4">
+                    <div className="bg-[var(--bg-card)] rounded-3xl border border-[var(--border-light)] shadow-sm p-4">
                       <div className="flex items-center gap-3 mb-4">
                         <img
                           src={activeThread.otherUser?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(activeThread.otherUser?.name || 'U')}&background=0F4C5C&color=fff`}
@@ -1891,8 +1891,8 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                           alt={activeThread.otherUser?.name}
                         />
                         <div>
-                          <p className="text-sm font-semibold text-gray-800">{activeThread.otherUser?.name || 'Usuario'}</p>
-                          <p className="text-[11px] text-gray-400 truncate">{activeThread.itemTitle || 'Conversacion'}</p>
+                          <p className="text-sm font-semibold text-[var(--text-primary)]">{activeThread.otherUser?.name || 'Usuario'}</p>
+                          <p className="text-[11px] text-[var(--text-muted)] truncate">{activeThread.itemTitle || 'Conversacion'}</p>
                         </div>
                       </div>
 
@@ -1905,7 +1905,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                           (messagesById[activeThread.id] || []).map((m: ChatMessage) => (
                             <div key={m.id} className={`flex ${m.senderId === currentUserId ? 'justify-end' : 'justify-start'}`}>
                               <div className={`max-w-[75%]`}>
-                                <div className={`px-3 py-2 rounded-2xl text-xs ${m.senderId === currentUserId ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600'}`}>
+                                <div className={`px-3 py-2 rounded-2xl text-xs ${m.senderId === currentUserId ? 'bg-primary text-white' : 'bg-gray-100 text-[var(--text-secondary)]'}`}>
                                   {m.imageUrl ? (
                                     <img src={m.imageUrl} alt="Adjunto" className="w-full h-auto rounded-xl mb-2" />
                                   ) : null}
@@ -1921,7 +1921,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                                 {messageReactions[m.id] && messageReactions[m.id].length > 0 && (
                                   <div className="flex gap-1 mt-1 ml-1">
                                     {messageReactions[m.id].map((emoji, idx) => (
-                                      <span key={idx} className="text-xs bg-white border border-gray-200 rounded-full px-1.5 py-0.5 shadow-sm">
+                                      <span key={idx} className="text-xs bg-[var(--bg-card)] border border-[var(--border-light)] rounded-full px-1.5 py-0.5 shadow-sm">
                                         {emoji}
                                       </span>
                                     ))}
@@ -1948,12 +1948,12 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
 
                       <div className="flex flex-col gap-2">
                         {chatAttachment && (
-                          <div className="flex items-center justify-between rounded-2xl bg-white border border-gray-200 p-3">
-                            <span className="text-xs text-gray-500">Adjunto listo para enviar</span>
+                          <div className="flex items-center justify-between rounded-2xl bg-[var(--bg-card)] border border-[var(--border-light)] p-3">
+                            <span className="text-xs text-[var(--text-secondary)]">Adjunto listo para enviar</span>
                             <button onClick={() => setChatAttachment(null)} className="text-[10px] text-primary font-semibold">Eliminar</button>
                           </div>
                         )}
-                        <div className="flex items-center gap-2 bg-gray-50 rounded-full px-3 py-2">
+                        <div className="flex items-center gap-2 bg-[var(--bg-base)] rounded-full px-3 py-2">
                           <button
                             type="button"
                             onClick={handleChatAttach}
@@ -1996,11 +1996,11 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
       {/* Comments Modal */}
       {commentsLookId && (
         <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl animate-pop-in max-h-[90vh] flex flex-col">
-            <div className="flex justify-between items-center p-4 border-b border-gray-100">
-              <h3 className="font-bold text-gray-800">Comentarios</h3>
+          <div className="bg-[var(--bg-card)] w-full max-w-md rounded-3xl shadow-2xl animate-pop-in max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center p-4 border-b border-[var(--border-light)]">
+              <h3 className="font-bold text-[var(--text-primary)]">Comentarios</h3>
               <button onClick={() => { setCommentsLookId(null); setComments([]); }}>
-                <X size={24} className="text-gray-400" />
+                <X size={24} className="text-[var(--text-muted)]" />
               </button>
             </div>
 
@@ -2010,7 +2010,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                   <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
                 </div>
               ) : comments.length === 0 ? (
-                <p className="text-center text-gray-400 py-10">Sé el primero en comentar</p>
+                <p className="text-center text-[var(--text-muted)] py-10">Sé el primero en comentar</p>
               ) : (
                 comments.map(c => (
                   <div key={c.id}>
@@ -2022,16 +2022,16 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                       />
                       <div className="flex-1">
                         <p className="text-sm">
-                          <span className="font-bold text-gray-800 mr-1">{c.userName}</span>
-                          <span className="text-gray-600">{c.content}</span>
+                          <span className="font-bold text-[var(--text-primary)] mr-1">{c.userName}</span>
+                          <span className="text-[var(--text-secondary)]">{c.content}</span>
                         </p>
                         <div className="flex items-center gap-3 mt-1">
-                          <span className="text-[10px] text-gray-400">
+                          <span className="text-[10px] text-[var(--text-muted)]">
                             {new Date(c.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
                           </span>
                           <button
                             onClick={() => setReplyToComment(replyToComment?.id === c.id ? null : { id: c.id, name: c.userName })}
-                            className="text-[10px] font-semibold text-gray-500 hover:text-primary"
+                            className="text-[10px] font-semibold text-[var(--text-secondary)] hover:text-primary"
                           >
                             Responder
                           </button>
@@ -2039,7 +2039,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                       </div>
                     </div>
                     {c.replies && c.replies.length > 0 && (
-                      <div className="ml-10 mt-2 space-y-2 border-l-2 border-gray-100 pl-3">
+                      <div className="ml-10 mt-2 space-y-2 border-l-2 border-[var(--border-light)] pl-3">
                         {c.replies.map(r => (
                           <div key={r.id} className="flex space-x-2">
                             <img
@@ -2049,10 +2049,10 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                             />
                             <div>
                               <p className="text-sm">
-                                <span className="font-bold text-gray-800 mr-1">{r.userName}</span>
-                                <span className="text-gray-600">{r.content}</span>
+                                <span className="font-bold text-[var(--text-primary)] mr-1">{r.userName}</span>
+                                <span className="text-[var(--text-secondary)]">{r.content}</span>
                               </p>
-                              <span className="text-[10px] text-gray-400">
+                              <span className="text-[10px] text-[var(--text-muted)]">
                                 {new Date(r.createdAt).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
                               </span>
                             </div>
@@ -2065,11 +2065,11 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
               )}
             </div>
 
-            <div className="p-4 border-t border-gray-100">
+            <div className="p-4 border-t border-[var(--border-light)]">
               {replyToComment && (
                 <div className="flex items-center justify-between bg-primary/5 rounded-lg px-3 py-1.5 mb-2">
-                  <p className="text-xs text-gray-600">Respondiendo a <span className="font-semibold">{replyToComment.name}</span></p>
-                  <button onClick={() => setReplyToComment(null)}><X size={14} className="text-gray-400" /></button>
+                  <p className="text-xs text-[var(--text-secondary)]">Respondiendo a <span className="font-semibold">{replyToComment.name}</span></p>
+                  <button onClick={() => setReplyToComment(null)}><X size={14} className="text-[var(--text-muted)]" /></button>
                 </div>
               )}
               <div className="flex items-center space-x-3">
@@ -2104,15 +2104,15 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
       {/* Story View Modal */}
       {selectedStoryId && (
         <div className="fixed inset-0 z-[70] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setSelectedStoryId(null)}>
-          <div className="bg-white w-full max-w-lg rounded-[2rem] overflow-hidden shadow-2xl animate-pop-in max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+          <div className="bg-[var(--bg-card)] w-full max-w-lg rounded-[2rem] overflow-hidden shadow-2xl animate-pop-in max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-[var(--border-light)]">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 ring-2 ring-primary/20">
                   <img src={stories.find(s => s.id === selectedStoryId)?.userAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(stories.find(s => s.id === selectedStoryId)?.userName || 'U')}&background=0F4C5C&color=fff`} alt="Avatar" className="w-full h-full object-cover" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-gray-900">{stories.find(s => s.id === selectedStoryId)?.userName}</p>
-                  <p className="text-[10px] text-gray-500">{getStoryOwnerBadge(stories.find(s => s.id === selectedStoryId)!)} · {stories.find(s => s.id === selectedStoryId)?.views} vistas</p>
+                  <p className="text-sm font-bold text-[var(--text-primary)]">{stories.find(s => s.id === selectedStoryId)?.userName}</p>
+                  <p className="text-[10px] text-[var(--text-secondary)]">{getStoryOwnerBadge(stories.find(s => s.id === selectedStoryId)!)} · {stories.find(s => s.id === selectedStoryId)?.views} vistas</p>
                 </div>
               </div>
               <div className="flex items-center gap-1">
@@ -2124,12 +2124,12 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                       <div className="relative">
                         <button
                           onClick={() => setStoryMenuOpenId(storyMenuOpenId === st.id ? null : st.id)}
-                          className="text-gray-400 p-2 rounded-full hover:bg-gray-100 transition-colors"
+                          className="text-[var(--text-muted)] p-2 rounded-full hover:bg-gray-100 transition-colors"
                         >
                           <MoreHorizontal size={18} />
                         </button>
                         {storyMenuOpenId === st.id && (
-                          <div className="absolute right-0 top-10 z-50 bg-white rounded-xl shadow-xl border border-gray-100 py-1 min-w-[160px] animate-fade-in">
+                          <div className="absolute right-0 top-10 z-50 bg-[var(--bg-card)] rounded-xl shadow-xl border border-[var(--border-light)] py-1 min-w-[160px] animate-fade-in">
                             <button
                               onClick={() => { setStoryMenuOpenId(null); setConfirmDelete({ type: 'story', id: st.id }); }}
                               disabled={deletingStoryId === st.id}
@@ -2139,7 +2139,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                             </button>
                             <button
                               onClick={() => setStoryMenuOpenId(null)}
-                              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-600 font-medium hover:bg-gray-50 transition-colors"
+                              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-[var(--text-secondary)] font-medium hover:bg-gray-50 transition-colors"
                             >
                               Cancelar
                             </button>
@@ -2150,7 +2150,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                   }
                   return null;
                 })()}
-                <button onClick={() => setSelectedStoryId(null)} className="text-gray-400 p-2 rounded-full hover:bg-gray-100 transition-colors">
+                <button onClick={() => setSelectedStoryId(null)} className="text-[var(--text-muted)] p-2 rounded-full hover:bg-gray-100 transition-colors">
                   <X size={20} />
                 </button>
               </div>
@@ -2172,10 +2172,10 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                       </div>
                     ) : (
                       <div className="min-h-[260px] rounded-3xl bg-gradient-to-br from-primary/10 to-accent/10 p-6 flex items-center justify-center">
-                        <p className="text-base text-gray-700 leading-relaxed text-center italic">&ldquo;{story.text}&rdquo;</p>
+                        <p className="text-base text-[var(--text-primary)] leading-relaxed text-center italic">&ldquo;{story.text}&rdquo;</p>
                       </div>
                     )}
-                    <div className="flex items-center justify-between text-[11px] text-gray-500 px-1">
+                    <div className="flex items-center justify-between text-[11px] text-[var(--text-secondary)] px-1">
                       <span>{new Date(story.createdAt).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
                       <div className="flex items-center gap-3">
                         <span className="text-primary font-semibold text-xs">{story.views} visualizaciones</span>
@@ -2223,30 +2223,30 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
       {/* Create Story Modal */}
       {isCreateStoryOpen && (
         <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setIsCreateStoryOpen(false)}>
-          <div className="bg-white w-full max-w-md rounded-[2rem] overflow-hidden shadow-2xl animate-pop-in max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-5 border-b border-gray-100">
+          <div className="bg-[var(--bg-card)] w-full max-w-md rounded-[2rem] overflow-hidden shadow-2xl animate-pop-in max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b border-[var(--border-light)]">
               <div>
-                <h3 className="text-lg font-bold text-gray-900">Crear nueva historia</h3>
-                <p className="text-[12px] text-gray-500">Sube una foto, look o comparte una frase corta.</p>
+                <h3 className="text-lg font-bold text-[var(--text-primary)]">Crear nueva historia</h3>
+                <p className="text-[12px] text-[var(--text-secondary)]">Sube una foto, look o comparte una frase corta.</p>
               </div>
-              <button onClick={() => setIsCreateStoryOpen(false)} className="text-gray-400 p-2 rounded-full hover:bg-gray-100 transition-colors">
+              <button onClick={() => setIsCreateStoryOpen(false)} className="text-[var(--text-muted)] p-2 rounded-full hover:bg-gray-100 transition-colors">
                 <X size={22} />
               </button>
             </div>
 
             <div className="p-5 space-y-4 overflow-y-auto no-scrollbar flex-1">
-              <div className="flex gap-2 bg-gray-50 rounded-2xl p-1">
+              <div className="flex gap-2 bg-[var(--bg-base)] rounded-2xl p-1">
                 <button
                   type="button"
                   onClick={() => setStoryForm(prev => ({ ...prev, type: 'image' }))}
-                  className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-300 ${storyForm.type === 'image' ? 'bg-white text-primary shadow-sm' : 'text-gray-500'}`}
+                  className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-300 ${storyForm.type === 'image' ? 'bg-[var(--bg-card)] text-primary shadow-sm' : 'text-[var(--text-secondary)]'}`}
                 >
                   Imagen
                 </button>
                 <button
                   type="button"
                   onClick={() => setStoryForm(prev => ({ ...prev, type: 'text' }))}
-                  className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-300 ${storyForm.type === 'text' ? 'bg-white text-primary shadow-sm' : 'text-gray-500'}`}
+                  className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-300 ${storyForm.type === 'text' ? 'bg-[var(--bg-card)] text-primary shadow-sm' : 'text-[var(--text-secondary)]'}`}
                 >
                   Texto
                 </button>
@@ -2265,12 +2265,12 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                     <button
                       type="button"
                       onClick={() => handleStoryPhotoPick(CameraSource.Photos)}
-                      className="rounded-3xl bg-gray-100 text-gray-700 py-3 font-semibold hover:bg-gray-200 transition-all active:scale-95"
+                      className="rounded-3xl bg-gray-100 text-[var(--text-primary)] py-3 font-semibold hover:bg-gray-200 transition-all active:scale-95"
                     >
                       Galería
                     </button>
                   </div>
-                  <div className="rounded-3xl border border-dashed border-gray-200 bg-gray-50 overflow-hidden transition-all duration-300 relative">
+                  <div className="rounded-3xl border border-dashed border-[var(--border-light)] bg-[var(--bg-base)] overflow-hidden transition-all duration-300 relative">
                     {storyForm.imageUrl ? (
                       <div className="relative">
                         <img src={storyForm.imageUrl} alt="Vista previa" className="w-full object-cover animate-pop-in" style={{ maxHeight: '320px' }} />
@@ -2287,7 +2287,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                         )}
                       </div>
                     ) : (
-                      <p className="text-sm text-gray-400 py-16 text-center">Selecciona una foto para tu historia.</p>
+                      <p className="text-sm text-[var(--text-muted)] py-16 text-center">Selecciona una foto para tu historia.</p>
                     )}
                   </div>
                   {storyForm.imageUrl && (
@@ -2297,11 +2297,11 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                         value={storyForm.text}
                         onChange={e => setStoryForm(prev => ({ ...prev, text: e.target.value }))}
                         placeholder="Añade texto sobre la imagen..."
-                        className="w-full rounded-3xl border border-gray-200 px-4 py-3 text-sm text-gray-700 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                        className="w-full rounded-3xl border border-[var(--border-light)] px-4 py-3 text-sm text-[var(--text-primary)] outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
                       />
                       <div className="flex gap-2">
                         <div className="flex-1">
-                          <p className="text-[10px] text-gray-400 font-semibold mb-1.5 uppercase tracking-wider">Posición</p>
+                          <p className="text-[10px] text-[var(--text-muted)] font-semibold mb-1.5 uppercase tracking-wider">Posición</p>
                           <div className="flex gap-1">
                             {(['top', 'center', 'bottom'] as const).map(pos => (
                               <button
@@ -2309,7 +2309,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                                 type="button"
                                 onClick={() => setStoryForm(prev => ({ ...prev, textPosition: pos }))}
                                 className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all ${
-                                  storyForm.textPosition === pos ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                  storyForm.textPosition === pos ? 'bg-primary text-white' : 'bg-gray-100 text-[var(--text-secondary)] hover:bg-gray-200'
                                 }`}
                               >
                                 {pos === 'top' ? 'Arriba' : pos === 'center' ? 'Centro' : 'Abajo'}
@@ -2318,7 +2318,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                           </div>
                         </div>
                         <div className="flex-1">
-                          <p className="text-[10px] text-gray-400 font-semibold mb-1.5 uppercase tracking-wider">Tamaño</p>
+                          <p className="text-[10px] text-[var(--text-muted)] font-semibold mb-1.5 uppercase tracking-wider">Tamaño</p>
                           <div className="flex gap-1">
                             {(['sm', 'md', 'lg'] as const).map(size => (
                               <button
@@ -2326,7 +2326,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                                 type="button"
                                 onClick={() => setStoryForm(prev => ({ ...prev, textSize: size }))}
                                 className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all ${
-                                  storyForm.textSize === size ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                  storyForm.textSize === size ? 'bg-primary text-white' : 'bg-gray-100 text-[var(--text-secondary)] hover:bg-gray-200'
                                 }`}
                               >
                                 {size === 'sm' ? 'Peq' : size === 'md' ? 'Med' : 'Gde'}
@@ -2343,25 +2343,25 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                   value={storyForm.text}
                   onChange={e => setStoryForm(prev => ({ ...prev, text: e.target.value }))}
                   placeholder="Escribe tu frase o reflexión..."
-                  className="w-full min-h-[160px] rounded-3xl border border-gray-200 p-4 text-sm text-gray-700 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all resize-none"
+                  className="w-full min-h-[160px] rounded-3xl border border-[var(--border-light)] p-4 text-sm text-[var(--text-primary)] outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all resize-none"
                 />
               )}
 
               <div className="space-y-3">
-                <p className="text-[12px] font-semibold text-gray-500 uppercase tracking-[0.2em]">O desde tu armario</p>
+                <p className="text-[12px] font-semibold text-[var(--text-secondary)] uppercase tracking-[0.2em]">O desde tu armario</p>
                 <div className="grid grid-cols-3 gap-2">
                   {garments.slice(0, 6).map(g => (
                     <button
                       key={g.id}
                       type="button"
                       onClick={() => setStoryForm(prev => ({ ...prev, type: 'image', text: g.name, imageUrl: g.imageUrl, selectedGarmentId: g.id, imageFile: null }))}
-                      className={`h-24 rounded-3xl overflow-hidden border-2 transition-all duration-200 ${storyForm.selectedGarmentId === g.id ? 'border-primary shadow-md scale-105' : 'border-gray-200 hover:border-primary/30'} bg-white`}
+                      className={`h-24 rounded-3xl overflow-hidden border-2 transition-all duration-200 ${storyForm.selectedGarmentId === g.id ? 'border-primary shadow-md scale-105' : 'border-[var(--border-light)] hover:border-primary/30'} bg-[var(--bg-card)]`}
                     >
                       <img src={g.imageUrl} alt={g.name} className="w-full h-full object-cover" />
                     </button>
                   ))}
                   {garments.length === 0 && (
-                    <div className="col-span-3 rounded-3xl border border-dashed border-gray-200 bg-gray-50 p-4 text-center text-xs text-gray-400">
+                    <div className="col-span-3 rounded-3xl border border-dashed border-[var(--border-light)] bg-[var(--bg-base)] p-4 text-center text-xs text-[var(--text-muted)]">
                       Añade prendas a tu armario y compártelas como historia.
                     </div>
                   )}
@@ -2401,10 +2401,10 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
       {/* Challenge Detail & Submission Modal */}
       {showChallengeModal && currentChallenge && (
         <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => { setShowChallengeModal(false); setChallengeImage(null); setChallengeDescription(''); setChallengeValidationMsg(null); }}>
-          <div className="bg-white w-full max-w-lg rounded-[2rem] shadow-2xl overflow-hidden animate-pop-in max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b border-gray-100 flex-shrink-0">
-              <h3 className="font-bold text-gray-800 text-lg">Subir look del reto</h3>
-              <button onClick={() => { setShowChallengeModal(false); setChallengeImage(null); setChallengeDescription(''); setChallengeValidationMsg(null); }} className="p-1.5 rounded-full text-gray-400 hover:bg-gray-100 transition-colors">
+          <div className="bg-[var(--bg-card)] w-full max-w-lg rounded-[2rem] shadow-2xl overflow-hidden animate-pop-in max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-[var(--border-light)] flex-shrink-0">
+              <h3 className="font-bold text-[var(--text-primary)] text-lg">Subir look del reto</h3>
+              <button onClick={() => { setShowChallengeModal(false); setChallengeImage(null); setChallengeDescription(''); setChallengeValidationMsg(null); }} className="p-1.5 rounded-full text-[var(--text-muted)] hover:bg-gray-100 transition-colors">
                 <X size={20} />
               </button>
             </div>
@@ -2418,7 +2418,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                     +{currentChallenge.reward} XP
                   </span>
                 </div>
-                <p className="text-xs text-gray-600">{currentChallenge.description}</p>
+                <p className="text-xs text-[var(--text-secondary)]">{currentChallenge.description}</p>
               </div>
 
               {/* Tips section */}
@@ -2433,9 +2433,9 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
 
               {/* Image picker - Required */}
               <div>
-                <p className="text-xs font-semibold text-gray-700 mb-2">Foto del look <span className="text-rose-500">*</span></p>
+                <p className="text-xs font-semibold text-[var(--text-primary)] mb-2">Foto del look <span className="text-rose-500">*</span></p>
                 {challengeImage ? (
-                  <div className="relative aspect-square rounded-2xl overflow-hidden bg-gray-100 border border-gray-200">
+                  <div className="relative aspect-square rounded-2xl overflow-hidden bg-gray-100 border border-[var(--border-light)]">
                     <img src={challengeImage.dataUrl} alt="Preview" className="w-full h-full object-cover" />
                     <button
                       onClick={() => setChallengeImage(null)}
@@ -2448,14 +2448,14 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => handleChallengePickImage('camera')}
-                      className="w-full aspect-video rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 flex flex-col items-center justify-center gap-1 text-gray-400 hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                      className="w-full aspect-video rounded-2xl border-2 border-dashed border-[var(--border-light)] bg-[var(--bg-base)] flex flex-col items-center justify-center gap-1 text-[var(--text-muted)] hover:border-primary/40 hover:bg-primary/5 transition-colors"
                     >
                       <Camera size={22} />
                       <span className="text-[11px]">Cámara</span>
                     </button>
                     <button
                       onClick={() => handleChallengePickImage('gallery')}
-                      className="w-full aspect-video rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 flex flex-col items-center justify-center gap-1 text-gray-400 hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                      className="w-full aspect-video rounded-2xl border-2 border-dashed border-[var(--border-light)] bg-[var(--bg-base)] flex flex-col items-center justify-center gap-1 text-[var(--text-muted)] hover:border-primary/40 hover:bg-primary/5 transition-colors"
                     >
                       <Sparkles size={22} />
                       <span className="text-[11px]">Galería</span>
@@ -2466,15 +2466,15 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
 
               {/* Description - Required */}
               <div>
-                <p className="text-xs font-semibold text-gray-700 mb-2">Descripción <span className="text-rose-500">*</span></p>
+                <p className="text-xs font-semibold text-[var(--text-primary)] mb-2">Descripción <span className="text-rose-500">*</span></p>
                 <textarea
                   value={challengeDescription}
                   onChange={e => setChallengeDescription(e.target.value)}
                   placeholder="Cuéntanos cómo creaste este look. Mínimo 10 caracteres."
                   rows={3}
-                  className="w-full bg-gray-50 rounded-2xl px-4 py-3 text-sm text-gray-700 border border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none transition"
+                  className="w-full bg-[var(--bg-base)] rounded-2xl px-4 py-3 text-sm text-[var(--text-primary)] border border-[var(--border-light)] focus:border-primary focus:ring-1 focus:ring-primary outline-none resize-none transition"
                 />
-                <p className="text-[10px] text-gray-400 mt-1">{challengeDescription.length}/500 {challengeDescription.length > 0 && challengeDescription.length < 10 && <span className="text-amber-500">(mínimo 10)</span>}</p>
+                <p className="text-[10px] text-[var(--text-muted)] mt-1">{challengeDescription.length}/500 {challengeDescription.length > 0 && challengeDescription.length < 10 && <span className="text-amber-500">(mínimo 10)</span>}</p>
               </div>
 
               {/* Validation message */}
@@ -2504,10 +2504,10 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
       {/* Challenge History Modal */}
       {showChallengeHistory && (
         <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowChallengeHistory(false)}>
-          <div className="bg-white w-full max-w-lg rounded-[2rem] shadow-2xl overflow-hidden animate-pop-in max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b border-gray-100 flex-shrink-0">
-              <h3 className="font-bold text-gray-800 text-lg">Historial de retos</h3>
-              <button onClick={() => setShowChallengeHistory(false)} className="p-1.5 rounded-full text-gray-400 hover:bg-gray-100 transition-colors">
+          <div className="bg-[var(--bg-card)] w-full max-w-lg rounded-[2rem] shadow-2xl overflow-hidden animate-pop-in max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-[var(--border-light)] flex-shrink-0">
+              <h3 className="font-bold text-[var(--text-primary)] text-lg">Historial de retos</h3>
+              <button onClick={() => setShowChallengeHistory(false)} className="p-1.5 rounded-full text-[var(--text-muted)] hover:bg-gray-100 transition-colors">
                 <X size={20} />
               </button>
             </div>
@@ -2517,7 +2517,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                   <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
                 </div>
               ) : challengeHistory.length === 0 ? (
-                <div className="text-center py-10 text-gray-400">
+                <div className="text-center py-10 text-[var(--text-muted)]">
                   <Sparkles size={32} className="mx-auto mb-2 text-gray-300" />
                   <p className="text-sm font-medium">Aún no hay retos completados</p>
                   <p className="text-xs mt-1">Participa en el reto semanal para verlo aquí</p>
@@ -2531,7 +2531,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                   {challengeHistory.filter((c: any) => c.submissions?.length > 0).map((challenge: any) => {
                     const sub = challenge.submissions[0];
                     return (
-                      <div key={challenge.id} className="bg-gray-50 rounded-2xl p-4 border border-gray-100 flex gap-3">
+                      <div key={challenge.id} className="bg-[var(--bg-base)] rounded-2xl p-4 border border-[var(--border-light)] flex gap-3">
                         {sub?.imageUrl && (
                           <div className="w-16 h-16 rounded-xl overflow-hidden bg-gray-200 flex-shrink-0">
                             <img src={sub.imageUrl} alt={challenge.title} className="w-full h-full object-cover" loading="lazy" />
@@ -2539,13 +2539,13 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                         )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <h4 className="text-sm font-bold text-gray-800 truncate">{challenge.title}</h4>
+                            <h4 className="text-sm font-bold text-[var(--text-primary)] truncate">{challenge.title}</h4>
                             <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded-full flex-shrink-0">
                               +{challenge.reward} XP
                             </span>
                           </div>
-                          <p className="text-[11px] text-gray-500 mt-1 line-clamp-2">{sub?.description || challenge.description}</p>
-                          <p className="text-[10px] text-gray-400 mt-1">
+                          <p className="text-[11px] text-[var(--text-secondary)] mt-1 line-clamp-2">{sub?.description || challenge.description}</p>
+                          <p className="text-[10px] text-[var(--text-muted)] mt-1">
                             {new Date(challenge.endDate).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
                           </p>
                         </div>
@@ -2554,10 +2554,10 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                   })}
                   {challengeHistory.filter((c: any) => c.submissions?.length === 0).length > 0 && (
                     <div>
-                      <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold mb-2">Retos sin participación</p>
+                      <p className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] font-semibold mb-2">Retos sin participación</p>
                       <div className="flex flex-wrap gap-2">
                         {challengeHistory.filter((c: any) => c.submissions?.length === 0).map((c: any) => (
-                          <span key={c.id} className="text-[11px] bg-gray-100 text-gray-500 px-2 py-1 rounded-full">{c.title}</span>
+                          <span key={c.id} className="text-[11px] bg-gray-100 text-[var(--text-secondary)] px-2 py-1 rounded-full">{c.title}</span>
                         ))}
                       </div>
                     </div>
@@ -2582,10 +2582,10 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
       {/* Publish Post Modal (Instagram-style) */}
       {isPublishModalOpen && (
         <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setIsPublishModalOpen(false)}>
-          <div className="bg-white w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden animate-pop-in" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b border-gray-100">
-              <h3 className="font-bold text-gray-800 text-lg">Nueva publicación</h3>
-              <button onClick={() => { setIsPublishModalOpen(false); setPublishPhoto(null); setPublishDescription(''); }} className="p-1.5 rounded-full text-gray-400 hover:bg-gray-100 transition-colors">
+          <div className="bg-[var(--bg-card)] w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden animate-pop-in" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-[var(--border-light)]">
+              <h3 className="font-bold text-[var(--text-primary)] text-lg">Nueva publicación</h3>
+              <button onClick={() => { setIsPublishModalOpen(false); setPublishPhoto(null); setPublishDescription(''); }} className="p-1.5 rounded-full text-[var(--text-muted)] hover:bg-gray-100 transition-colors">
                 <X size={20} />
               </button>
             </div>
@@ -2593,7 +2593,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
             <div className="p-5 space-y-4">
               {!publishPhoto ? (
                 <div className="space-y-3">
-                  <p className="text-sm text-gray-500 text-center">Selecciona una foto para tu publicación</p>
+                  <p className="text-sm text-[var(--text-secondary)] text-center">Selecciona una foto para tu publicación</p>
                   <div className="flex gap-3">
                     <button
                       onClick={() => handlePublishPhotoPick(CameraSource.Camera)}
@@ -2603,7 +2603,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                     </button>
                     <button
                       onClick={() => handlePublishPhotoPick(CameraSource.Photos)}
-                      className="flex-1 bg-gray-100 text-gray-700 py-4 rounded-2xl font-semibold hover:bg-gray-200 transition-all active:scale-[0.98]"
+                      className="flex-1 bg-gray-100 text-[var(--text-primary)] py-4 rounded-2xl font-semibold hover:bg-gray-200 transition-all active:scale-[0.98]"
                     >
                       Galería
                     </button>
@@ -2612,7 +2612,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                 </div>
               ) : (
                 <div className="space-y-4 animate-fade-in-up">
-                  <div className="relative rounded-2xl overflow-hidden bg-gray-50">
+                  <div className="relative rounded-2xl overflow-hidden bg-[var(--bg-base)]">
                     <img src={publishPhoto} alt="Preview" className="w-full max-h-80 object-contain" />
                     <button
                       onClick={() => { setPublishPhoto(null); setPublishPhotoFile(null); }}
@@ -2626,13 +2626,13 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                     onChange={e => setPublishDescription(e.target.value)}
                     placeholder="Escribe una descripción..."
                     rows={3}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all resize-none"
+                    className="w-full bg-[var(--bg-base)] border border-[var(--border-light)] rounded-xl px-4 py-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all resize-none"
                   />
                   {publishError && <p className="text-xs text-rose-500 animate-fade-in">{publishError}</p>}
                   <div className="flex gap-3 pt-2">
                     <button
                       onClick={() => handlePublishPhotoPick(CameraSource.Camera)}
-                      className="px-4 py-2.5 bg-gray-100 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-200 transition-colors"
+                      className="px-4 py-2.5 bg-gray-100 text-[var(--text-secondary)] rounded-xl text-sm font-semibold hover:bg-gray-200 transition-colors"
                     >
                       Cambiar foto
                     </button>
@@ -2661,34 +2661,34 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
           {/* Dismiss area */}
           <div className="absolute inset-0" onClick={() => setShopModalLook(null)} />
 
-          <div className="bg-white w-full sm:max-w-md rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl relative z-10 animate-slide-up max-h-[85vh] flex flex-col">
+          <div className="bg-[var(--bg-card)] w-full sm:max-w-md rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl relative z-10 animate-slide-up max-h-[85vh] flex flex-col">
             <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto my-3 sm:hidden" />
 
-            <div className="p-5 border-b border-gray-100 flex justify-between items-center">
+            <div className="p-5 border-b border-[var(--border-light)] flex justify-between items-center">
               <div>
-                <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
+                <h3 className="font-bold text-[var(--text-primary)] text-lg flex items-center gap-2">
                   <ShoppingBag size={18} className="text-primary" />
                   Boutique del Look
                 </h3>
-                <p className="text-[10px] text-gray-500 uppercase font-semibold tracking-wider mt-1">{shopModalLook.name}</p>
+                <p className="text-[10px] text-[var(--text-secondary)] uppercase font-semibold tracking-wider mt-1">{shopModalLook.name}</p>
               </div>
-              <button onClick={() => setShopModalLook(null)} className="p-2 bg-gray-50 rounded-full text-gray-500 hover:bg-gray-100">
+              <button onClick={() => setShopModalLook(null)} className="p-2 bg-[var(--bg-base)] rounded-full text-[var(--text-secondary)] hover:bg-gray-100">
                 <X size={20} />
               </button>
             </div>
 
             <div className="p-5 flex-1 overflow-y-auto space-y-4">
               {shopModalLook.garments?.filter(g => g.forSale).map(g => (
-                <div key={g.id} className="flex gap-4 border border-gray-100 p-3 rounded-2xl bg-gray-50/50">
+                <div key={g.id} className="flex gap-4 border border-[var(--border-light)] p-3 rounded-2xl bg-[var(--bg-base)]/50">
                   <img src={g.imageUrl} className="w-20 h-24 object-cover rounded-xl bg-gray-200" alt={g.name} />
                   <div className="flex-1 min-w-0 flex flex-col justify-between">
                     <div>
                       <div className="flex justify-between items-start">
-                        <p className="font-bold text-sm text-gray-800 truncate pr-2">{g.name}</p>
+                        <p className="font-bold text-sm text-[var(--text-primary)] truncate pr-2">{g.name}</p>
                         <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded flex-shrink-0">{g.price}€</span>
                       </div>
-                      <p className="text-xs text-gray-500 mt-1 capitalize">{g.brand || 'Varios'} • Talla {g.size || 'Única'}</p>
-                      <p className="text-[10px] text-gray-400 mt-0.5">Vendida por {shopModalLook.userName || 'Usuario'}</p>
+                      <p className="text-xs text-[var(--text-secondary)] mt-1 capitalize">{g.brand || 'Varios'} • Talla {g.size || 'Única'}</p>
+                      <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Vendida por {shopModalLook.userName || 'Usuario'}</p>
                     </div>
                     <button
                       onClick={() => {
@@ -2704,7 +2704,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
               ))}
 
               {(!shopModalLook.garments || !shopModalLook.garments.some(g => g.forSale)) && (
-                <div className="py-8 text-center text-gray-400">
+                <div className="py-8 text-center text-[var(--text-muted)]">
                   <p>Este look ya no tiene prendas disponibles para la venta.</p>
                 </div>
               )}

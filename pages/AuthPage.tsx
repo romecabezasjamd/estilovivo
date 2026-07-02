@@ -163,7 +163,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
     };
 
     return (
-        <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 relative overflow-hidden">
+        <div className="min-h-screen bg-[var(--bg-card)] flex flex-col items-center justify-center p-6 relative overflow-hidden">
             {/* Background Decorative Elements */}
             <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-3xl" />
             <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-teal-500/5 rounded-full blur-3xl" />
@@ -172,20 +172,20 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
             <div className="absolute top-6 right-6 z-50">
                 <button
                     onClick={() => setShowLangMenu(!showLangMenu)}
-                    className="bg-white/80 backdrop-blur-md border border-gray-100 p-3 rounded-2xl shadow-sm hover:shadow-md transition-all flex items-center gap-2"
+                    className="bg-[var(--bg-card)]/80 backdrop-blur-md border border-[var(--border-light)] p-3 rounded-2xl shadow-sm hover:shadow-md transition-all flex items-center gap-2"
                 >
                     <Languages size={18} className="text-primary" />
-                    <span className="text-xs font-bold uppercase text-gray-600">
+                    <span className="text-xs font-bold uppercase text-[var(--text-secondary)]">
                         {languages.find(l => l.id === language)?.label}
                         {language === 'es' && dialect !== 'none' && ` (${dialects.find(d => d.id === dialect)?.label})`}
                     </span>
                 </button>
 
                 {showLangMenu && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-gray-100 p-2 animate-fade-in-down">
+                    <div className="absolute right-0 mt-2 w-48 bg-[var(--bg-card)] rounded-2xl shadow-xl border border-[var(--border-light)] p-2 animate-fade-in-down">
                         <div className="p-2 border-b border-gray-50 mb-1 flex items-center gap-2">
-                            <Globe size={14} className="text-gray-400" />
-                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t('language')}</span>
+                            <Globe size={14} className="text-[var(--text-muted)]" />
+                            <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">{t('language')}</span>
                         </div>
                         <div className="max-h-48 overflow-y-auto">
                             {languages.map(l => (
@@ -195,7 +195,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                                         setLanguage(l.id);
                                         if (l.id !== 'es') setShowLangMenu(false);
                                     }}
-                                    className={`w-full text-left px-4 py-2 rounded-xl text-xs font-bold transition-colors ${language === l.id ? 'bg-primary/10 text-primary' : 'text-gray-600 hover:bg-gray-50'}`}
+                                    className={`w-full text-left px-4 py-2 rounded-xl text-xs font-bold transition-colors ${language === l.id ? 'bg-primary/10 text-primary' : 'text-[var(--text-secondary)] hover:bg-gray-50'}`}
                                 >
                                     {l.label}
                                 </button>
@@ -204,7 +204,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
 
                         {language === 'es' && (
                             <div className="mt-2 pt-2 border-t border-gray-50">
-                                <span className="p-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest block">{t('dialect')}</span>
+                                <span className="p-2 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest block">{t('dialect')}</span>
                                 {dialects.map(d => (
                                     <button
                                         key={d.id}
@@ -212,7 +212,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                                             setDialect(d.id);
                                             setShowLangMenu(false);
                                         }}
-                                        className={`w-full text-left px-4 py-2 rounded-xl text-xs font-bold transition-colors ${dialect === d.id ? 'bg-primary/10 text-primary' : 'text-gray-600 hover:bg-gray-50'}`}
+                                        className={`w-full text-left px-4 py-2 rounded-xl text-xs font-bold transition-colors ${dialect === d.id ? 'bg-primary/10 text-primary' : 'text-[var(--text-secondary)] hover:bg-gray-50'}`}
                                     >
                                         {d.label}
                                     </button>
@@ -230,10 +230,10 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                     </div>
                     {(view === 'forgot' || view === 'reset') && (
                         <>
-                            <h1 className="text-2xl font-black text-gray-900 tracking-tight mb-2 mt-6">
+                            <h1 className="text-2xl font-black text-[var(--text-primary)] tracking-tight mb-2 mt-6">
                                 {view === 'forgot' ? t('forgotPassword') : t('resetPassword')}
                             </h1>
-                            <p className="text-gray-500 font-medium text-sm">
+                            <p className="text-[var(--text-secondary)] font-medium text-sm">
                                 {view === 'forgot'
                                     ? 'Introduce tu email para recuperar tu acceso'
                                     : 'Crea una contraseña nueva y segura'}
@@ -242,18 +242,18 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                     )}
                 </div>
 
-                <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl shadow-gray-200/50 border border-gray-100">
+                <div className="bg-[var(--bg-card)]/80 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl shadow-gray-200/50 border border-[var(--border-light)]">
                     {view === 'auth' && (
                         <div className="flex bg-gray-100 rounded-2xl p-1 mb-8">
                             <button
                                 onClick={() => setIsLogin(true)}
-                                className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${isLogin ? 'bg-white text-primary shadow-sm' : 'text-gray-400'}`}
+                                className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${isLogin ? 'bg-[var(--bg-card)] text-primary shadow-sm' : 'text-[var(--text-muted)]'}`}
                             >
                                 {t('login')}
                             </button>
                             <button
                                 onClick={() => setIsLogin(false)}
-                                className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${!isLogin ? 'bg-white text-primary shadow-sm' : 'text-gray-400'}`}
+                                className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${!isLogin ? 'bg-[var(--bg-card)] text-primary shadow-sm' : 'text-[var(--text-muted)]'}`}
                             >
                                 {t('register')}
                             </button>
@@ -266,40 +266,40 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                                 {!isLogin && (
                                     <>
                                         <div className="space-y-1">
-                                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">{t('name')}</label>
+                                            <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest ml-1">{t('name')}</label>
                                             <div className="relative group">
-                                                <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                                                <User className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={20} />
                                                 <input
                                                     type="text"
                                                     required
                                                     value={name}
                                                     onChange={(e) => setName(e.target.value)}
-                                                    className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-800"
+                                                    className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-[var(--text-primary)]"
                                                     placeholder={t('name')}
                                                 />
                                             </div>
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">{t('birthDate')}</label>
+                                            <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest ml-1">{t('birthDate')}</label>
                                             <div className="relative group">
-                                                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                                                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={20} />
                                                 <input
                                                     type="date"
                                                     value={birthDate}
                                                     onChange={(e) => setBirthDate(e.target.value)}
-                                                    className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-800"
+                                                    className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-[var(--text-primary)]"
                                                 />
                                             </div>
                                         </div>
                                         <div className="space-y-2">
-                                            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">{t('gender')}</label>
+                                            <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest ml-1">{t('gender')}</label>
                                             <div className="grid grid-cols-3 gap-2">
                                                 {(['female', 'male', 'other'] as const).map(option => (
                                                     <button
                                                         key={option}
                                                         type="button"
                                                         onClick={() => setGender(option)}
-                                                        className={`py-3 rounded-xl text-sm font-bold transition-all ${gender === option ? 'bg-primary text-white shadow-lg' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
+                                                        className={`py-3 rounded-xl text-sm font-bold transition-all ${gender === option ? 'bg-primary text-white shadow-lg' : 'bg-gray-50 text-[var(--text-secondary)] hover:bg-gray-100'}`}
                                                     >
                                                         {t(option as any)}
                                                     </button>
@@ -310,9 +310,9 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                                 )}
 
                                 <div className="space-y-1">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">{t('email')}</label>
+                                    <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest ml-1">{t('email')}</label>
                                     <div className="relative group">
-                                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={20} />
                                         <input
                                             type="email"
                                             required
@@ -320,7 +320,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                                             onChange={(e) => setEmail(e.target.value.trim())}
                                             autoComplete="email"
                                             autoCapitalize="none"
-                                            className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-800"
+                                            className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-[var(--text-primary)]"
                                             placeholder={savedEmail || "ejemplo@email.com"}
                                         />
                                     </div>
@@ -328,7 +328,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
 
                                 <div className="space-y-1">
                                     <div className="flex justify-between items-center">
-                                        <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">{t('password')}</label>
+                                        <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest ml-1">{t('password')}</label>
                                         {isLogin && (
                                             <button
                                                 type="button"
@@ -340,27 +340,27 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                                         )}
                                     </div>
                                     <div className="relative group">
-                                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={20} />
                                         <input
                                             type={showPassword ? "text" : "password"}
                                             required
                                             value={password}
                                             onChange={(e) => setPassword(e.target.value)}
                                             autoComplete={isLogin ? "current-password" : "new-password"}
-                                            className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-12 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-800"
+                                            className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-12 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-[var(--text-primary)]"
                                             placeholder="••••••••"
                                         />
                                         <button
                                             type="button"
                                             onClick={() => setShowPassword(!showPassword)}
-                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary transition-colors p-1"
+                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-primary transition-colors p-1"
                                         >
                                             {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                                         </button>
                                     </div>
                                     {view === 'auth' && (
                                         <div className="mt-2">
-                                            <label className="flex items-center gap-3 text-sm text-gray-600">
+                                            <label className="flex items-center gap-3 text-sm text-[var(--text-secondary)]">
                                                 <input
                                                     type="checkbox"
                                                     checked={rememberMe}
@@ -369,7 +369,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                                                 />
                                                 <span>Recordarme en este dispositivo</span>
                                             </label>
-                                            <p className="text-xs text-gray-400 mt-1">Mantén tu email y sesión guardados para iniciar más rápido.</p>
+                                            <p className="text-xs text-[var(--text-muted)] mt-1">Mantén tu email y sesión guardados para iniciar más rápido.</p>
                                         </div>
                                     )}
                                 </div>
@@ -377,9 +377,9 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                         ) : view === 'forgot' ? (
                             <div className="space-y-4">
                                 <div className="space-y-1">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">{t('email')}</label>
+                                    <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest ml-1">{t('email')}</label>
                                     <div className="relative group">
-                                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={20} />
                                         <input
                                             type="email"
                                             required
@@ -387,7 +387,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                                             onChange={(e) => setEmail(e.target.value.trim())}
                                             autoComplete="email"
                                             autoCapitalize="none"
-                                            className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-800"
+                                            className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-[var(--text-primary)]"
                                             placeholder={savedEmail || "ejemplo@email.com"}
                                         />
                                     </div>
@@ -395,7 +395,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                                 <button
                                     type="button"
                                     onClick={() => setView('auth')}
-                                    className="text-[10px] font-bold text-gray-400 hover:text-gray-600 transition-colors uppercase tracking-widest"
+                                    className="text-[10px] font-bold text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors uppercase tracking-widest"
                                 >
                                     {t('back')}
                                 </button>
@@ -403,29 +403,29 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                         ) : (
                             <div className="space-y-4">
                                 <div className="space-y-1">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">{t('newPassword')}</label>
+                                    <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest ml-1">{t('newPassword')}</label>
                                     <div className="relative group">
-                                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={20} />
                                         <input
                                             type="password"
                                             required
                                             value={password}
                                             onChange={(e) => setPassword(e.target.value)}
-                                            className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-800"
+                                            className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-[var(--text-primary)]"
                                             placeholder="••••••••"
                                         />
                                     </div>
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">{t('confirmPassword')}</label>
+                                    <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest ml-1">{t('confirmPassword')}</label>
                                     <div className="relative group">
-                                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={20} />
                                         <input
                                             type="password"
                                             required
                                             value={confirmPassword}
                                             onChange={(e) => setConfirmPassword(e.target.value)}
-                                            className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-gray-800"
+                                            className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-[var(--text-primary)]"
                                             placeholder="••••••••"
                                         />
                                     </div>
