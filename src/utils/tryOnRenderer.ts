@@ -26,7 +26,7 @@ export interface RenderOptions {
 const DEFAULT_ADJUSTMENTS: GarmentAdjustments = {
   scaleX: 1, scaleY: 1, rotation: 0,
   offsetX: 0, offsetY: 0, opacity: 0.95,
-  shadowBlur: 20, shadowOffsetY: 8,
+  shadowBlur: 18, shadowOffsetY: 6,
   brightness: 1.0, contrast: 1.0,
 }
 
@@ -56,69 +56,79 @@ export function calculateGarmentTransform(
   const autoWaistY = waistY || (torsoTopY + torsoHeight * 0.55)
 
   if (type === 'top' || type === 'blouse' || type === 'shirt' || type === 't-shirt' || type === 'camiseta') {
-    const baseWidth = shoulderWidth * 1.15
-    const baseHeight = torsoHeight * 1.15
+    const baseWidth = shoulderWidth * 1.18
+    const baseHeight = torsoHeight * 1.18
     scaleX = baseWidth / 200
     scaleY = baseHeight / 200
     x = bodyCenterX
     y = torsoTopY + torsoHeight * 0.55
+    rotation = torsoAngle * 0.7
   } else if (type === 'bottom' || type === 'pants' || type === 'jeans' || type === 'shorts' || type === 'pantalón' || type === 'falda' || type === 'skirt') {
-    const baseWidth = Math.max(hipWidth, waistWidth) * 1.12
-    const baseHeight = Math.max(legLength * 0.95, torsoHeight * 1.3) * 1.0
+    const baseWidth = Math.max(hipWidth, waistWidth) * 1.15
+    const baseHeight = Math.max(legLength * 0.98, torsoHeight * 1.35) * 1.0
     scaleX = baseWidth / 200
     scaleY = baseHeight / 200
     x = bodyCenterX
-    y = autoWaistY + legLength * 0.22
+    y = autoWaistY + legLength * 0.24
+    rotation = torsoAngle * 0.3
   } else if (type === 'dress' || type === 'vestido') {
-    const baseWidth = Math.max(shoulderWidth, hipWidth) * 1.18
-    const baseHeight = torsoHeight + legLength * 0.82
+    const baseWidth = Math.max(shoulderWidth, hipWidth) * 1.2
+    const baseHeight = torsoHeight + legLength * 0.85
     scaleX = baseWidth / 200
     scaleY = baseHeight / 200
     x = bodyCenterX
     y = torsoTopY + baseHeight * 0.48
+    rotation = torsoAngle * 0.65
   } else if (type === 'outerwear' || type === 'jacket' || type === 'coat' || type === 'chaqueta' || type === 'abrigo') {
-    const baseWidth = shoulderWidth * 1.22
-    const baseHeight = torsoHeight * 1.28
+    const baseWidth = shoulderWidth * 1.25
+    const baseHeight = torsoHeight * 1.3
     scaleX = baseWidth / 200
     scaleY = baseHeight / 200
     x = bodyCenterX
     y = torsoTopY + torsoHeight * 0.55
+    rotation = torsoAngle * 0.7
   } else if (type === 'shoes' || type === 'zapatos' || type === 'sneakers') {
-    scaleX = shoulderWidth * 0.3 / 200
-    scaleY = shoulderWidth * 0.15 / 200
+    scaleX = shoulderWidth * 0.32 / 200
+    scaleY = shoulderWidth * 0.16 / 200
     y = bodyDims.imageHeight - 50
     x = bodyCenterX
+    rotation = 0
   } else if (type === 'accessories' || type === 'accesorios' || type === 'bag' || type === 'bolso') {
-    scaleX = shoulderWidth * 0.4 / 200
-    scaleY = shoulderWidth * 0.4 / 200
+    scaleX = shoulderWidth * 0.42 / 200
+    scaleY = shoulderWidth * 0.42 / 200
     x = bodyCenterX + shoulderWidth * 0.8
     y = bodyCenterY + torsoHeight * 0.3
+    rotation = torsoAngle * 0.2
   } else {
     const baseWidth = shoulderWidth * 1.2
     const baseHeight = torsoHeight * 1.0
     scaleX = baseWidth / 200
     scaleY = baseHeight / 200
+    x = bodyCenterX
     y = bodyCenterY
   }
 
   return { x, y, scaleX, scaleY, rotation }
 }
 
-function estimateLightingProfile(ctx: CanvasRenderingContext2D, width: number, height: number): { brightness: number; contrast: number; shadow: number } {
-  const sampleX = Math.floor(width * 0.15)
-  const sampleY = Math.floor(height * 0.2)
-  const sampleW = Math.max(1, Math.floor(width * 0.7))
-  const sampleH = Math.max(1, Math.floor(height * 0.65))
+function estimateLightingProfile(ctx: CanvasRenderingContext2D, width: number, height: number): { brightness: number; contrast: number; shadow: number; ambientR: number; ambientG: number; ambientB: number } {
+  const sampleX = Math.floor(width * 0.1)
+  const sampleY = Math.floor(height * 0.15)
+  const sampleW = Math.max(1, Math.floor(width * 0.8))
+  const sampleH = Math.max(1, Math.floor(height * 0.7))
   const sample = ctx.getImageData(sampleX, sampleY, sampleW, sampleH)
   const data = sample.data
   let sum = 0
   let sumSq = 0
+  let sumR = 0, sumG = 0, sumB = 0
   let count = 0
-  const step = Math.max(16, Math.floor((sampleW * sampleH) / 2500))
+  const step = Math.max(12, Math.floor((sampleW * sampleH) / 3000))
   for (let i = 0; i < data.length; i += 4 * step) {
-    const luminance = (data[i] * 0.299) + (data[i + 1] * 0.587) + (data[i + 2] * 0.114)
+    const r = data[i], g = data[i + 1], b = data[i + 2]
+    const luminance = r * 0.299 + g * 0.587 + b * 0.114
     sum += luminance
     sumSq += luminance * luminance
+    sumR += r; sumG += g; sumB += b
     count++
   }
   const mean = count ? sum / count : 128
@@ -127,7 +137,10 @@ function estimateLightingProfile(ctx: CanvasRenderingContext2D, width: number, h
   const brightness = clamp(1 + (mean - 128) / 620, 0.88, 1.12)
   const contrast = clamp(1 + (80 - std) / 900, 0.94, 1.08)
   const shadow = clamp(0.20 + (255 - mean) / 1200, 0.16, 0.34)
-  return { brightness, contrast, shadow }
+  const ambientR = count ? clamp(sumR / count / 128, 0.85, 1.15) : 1
+  const ambientG = count ? clamp(sumG / count / 128, 0.85, 1.15) : 1
+  const ambientB = count ? clamp(sumB / count / 128, 0.85, 1.15) : 1
+  return { brightness, contrast, shadow, ambientR, ambientG, ambientB }
 }
 
 export async function renderTryOn(options: RenderOptions): Promise<string> {
@@ -185,18 +198,23 @@ export async function renderTryOn(options: RenderOptions): Promise<string> {
 
   ctx.save()
 
-  ctx.shadowColor = `rgba(0,0,0,${lighting.shadow})`
-  ctx.shadowBlur = adj.shadowBlur * scale
+  const shadowAlpha = clamp(lighting.shadow * 0.8, 0.12, 0.30)
+  ctx.shadowColor = `rgba(0,0,0,${shadowAlpha})`
+  ctx.shadowBlur = adj.shadowBlur * scale * 0.9
   ctx.shadowOffsetX = 0
-  ctx.shadowOffsetY = adj.shadowOffsetY * scale
+  ctx.shadowOffsetY = adj.shadowOffsetY * scale * 0.8
 
   const cx = targetX
   const cy = targetY
   ctx.translate(cx, cy)
   ctx.rotate((auto.rotation + adj.rotation) * Math.PI / 180)
   ctx.globalAlpha = adj.opacity
-  ctx.filter = `brightness(${clamp(adj.brightness * lighting.brightness, 0.85, 1.2)}) contrast(${clamp(adj.contrast * lighting.contrast, 0.9, 1.12)}) saturate(0.98)`
+
+  const finalBrightness = clamp(adj.brightness * lighting.brightness, 0.85, 1.2)
+  const finalContrast = clamp(adj.contrast * lighting.contrast, 0.9, 1.12)
+  ctx.filter = `brightness(${finalBrightness}) contrast(${finalContrast}) saturate(0.97)`
   ctx.drawImage(garmentImg, -renderW / 2, -renderH / 2, renderW, renderH)
+
   ctx.restore()
 
   return canvas.toDataURL('image/png')

@@ -5,12 +5,13 @@ import {
   X, ArrowLeft, Camera, Image as ImageIcon, Check, Shirt, RefreshCcw,
   ZoomIn, ZoomOut, RotateCw, Sun, Moon, Maximize, Save, Share2,
   CheckCircle, AlertCircle, Loader, Sparkles, Move, Sliders,
-  Plus, Upload
+  Plus, Upload, User
 } from 'lucide-react'
 import PoseGuide from '../components/PoseGuide'
-import { removeBackground } from '../src/utils/garmentProcessor'
+import { removeBackground, removeClothingFromPerson } from '../src/utils/garmentProcessor'
 import { detectPose, loadPoseDetector, getLoadStatus, drawKeypointsOnCanvas, BodyDimensions, BodyLandmarks } from '../src/utils/bodyDetection'
 import { renderTryOn, GarmentAdjustments, calculateGarmentTransform } from '../src/utils/tryOnRenderer'
+import { segmentPerson, getSegmenterStatus, extractPersonFromBackground } from '../src/utils/bodySegmentation'
 import { pickPhoto, CameraSource, dataUrlToFile } from '../src/utils/cameraPhoto'
 import { api } from '../services/api'
 import { successImpact, errorImpact, lightImpact } from '../src/utils/haptic'
@@ -64,6 +65,7 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
   const [detectionKeypoints, setDetectionKeypoints] = useState<Array<{ x: number; y: number; score: number; name: string }> | null>(null)
   const [savingName, setSavingName] = useState(false)
   const [savingMsg, setSavingMsg] = useState('')
+  const [segmentationReady, setSegmentationReady] = useState(false)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -102,6 +104,9 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
     if (status.loadError) {
       setModelLoading(false)
     }
+
+    const segStatus = getSegmenterStatus()
+    if (segStatus.isReady) setSegmentationReady(true)
   }, [])
 
   const handlePoseGuideDone = () => setStep('photo')
@@ -569,7 +574,11 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
 
           {step === 'tryon' && (
             <motion.div key="tryon" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col h-full">
-              <div className="flex-1 relative flex items-center justify-center bg-black/5 dark:bg-white/5 p-4" ref={containerRef}>
+              <div
+                className="flex-1 relative flex items-center justify-center bg-black/5 dark:bg-white/5 p-4"
+                ref={containerRef}
+                {...canvasHandlers}
+              >
                 {resultUrl ? (
                   <img
                     src={resultUrl}

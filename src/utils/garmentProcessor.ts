@@ -56,16 +56,26 @@ function sampleEdgeColors(
   data: Uint8ClampedArray,
   width: number,
   height: number,
-  sampleCount: number = 200
+  sampleCount: number = 300
 ): number[][] {
   const samples: number[][] = []
   const edgePixels: [number, number][] = []
+
   for (let x = 0; x < width; x++) {
-    edgePixels.push([x, 0], [x, height - 1])
+    edgePixels.push([x, 0], [x, 1], [x, height - 1], [x, height - 2])
   }
-  for (let y = 1; y < height - 1; y++) {
-    edgePixels.push([0, y], [width - 1, y])
+  for (let y = 2; y < height - 2; y++) {
+    edgePixels.push([0, y], [1, y], [width - 1, y], [width - 2, y])
   }
+
+  const corners = [
+    [0, 0], [1, 0], [0, 1],
+    [width - 1, 0], [width - 2, 0], [width - 1, 1],
+    [0, height - 1], [1, height - 1], [0, height - 2],
+    [width - 1, height - 1], [width - 2, height - 1], [width - 1, height - 2],
+  ]
+  for (const c of corners) edgePixels.push(c as [number, number])
+
   const step = Math.max(1, Math.floor(edgePixels.length / sampleCount))
   for (let i = 0; i < edgePixels.length; i += step) {
     const [px, py] = edgePixels[i]
@@ -117,7 +127,7 @@ function createMask(
       mask[i] = 0
     } else {
       const isBg = dist < tolerance
-      const t = Math.max(0, Math.min(1, (dist - tolerance * 0.5) / (tolerance * 0.5)))
+      const t = Math.max(0, Math.min(1, (dist - tolerance * 0.4) / (tolerance * 0.6)))
       mask[i] = isBg ? 0 : Math.round(t * 255)
     }
   }
@@ -174,6 +184,31 @@ function findContentBounds(mask: Uint8ClampedArray, width: number, height: numbe
   }
 }
 
+function floodFillMask(
+  mask: Uint8ClampedArray,
+  width: number,
+  height: number,
+  startX: number,
+  startY: number,
+  fillValue: number
+): void {
+  const stack: [number, number][] = [[startX, startY]]
+  const visited = new Uint8Array(width * height)
+  const targetThreshold = 128
+
+  while (stack.length > 0) {
+    const [x, y] = stack.pop()!
+    const key = y * width + x
+    if (x < 0 || x >= width || y < 0 || y >= height) continue
+    if (visited[key]) continue
+    visited[key] = 1
+    if (mask[key] > targetThreshold) continue
+
+    mask[key] = fillValue
+    stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1])
+  }
+}
+
 export async function removeBackground(imageUrl: string, options: ProcessOptions = {}): Promise<string> {
   const { tolerance = 45, featherRadius = 6, autoCrop = true, maxSize = 1200 } = options
 
@@ -194,6 +229,12 @@ export async function removeBackground(imageUrl: string, options: ProcessOptions
   const bg = dominantColor(bgSamples)
 
   let mask = createMask(data, w, h, bg, tolerance)
+
+  const corners = [[0, 0], [w - 1, 0], [0, h - 1], [w - 1, h - 1]]
+  for (const [cx, cy] of corners) {
+    floodFillMask(mask, w, h, cx, cy, 0)
+  }
+
   mask = featherMask(mask, w, h, featherRadius)
 
   for (let i = 0; i < w * h; i++) {
@@ -212,6 +253,44 @@ export async function removeBackground(imageUrl: string, options: ProcessOptions
       return cropCanvas.toDataURL('image/png')
     }
   }
+  return canvas.toDataURL('image/png')
+}
+
+export async function removeClothingFromPerson(
+  personImageUrl: string,
+  options: { tolerance?: number; featherRadius?: number; maxSize?: number } = {}
+): Promise<string> {
+  const { tolerance = 55, featherRadius = 8, maxSize = 1000 } = options
+
+  const img = await loadImage(personImageUrl)
+  let w = img.naturalWidth
+  let h = img.naturalHeight
+  if (maxSize && (w > maxSize || h > maxSize)) {
+    const scale = Math.min(maxSize / w, maxSize / h)
+    w = Math.round(w * scale)
+    h = Math.round(h * scale)
+  }
+  const { canvas, ctx } = getContext(w, h)
+  ctx.drawImage(img, 0, 0, w, h)
+  const imageData = ctx.getImageData(0, 0, w, h)
+  const data = imageData.data
+
+  const bgSamples = sampleEdgeColors(data, w, h, 200)
+  const bg = dominantColor(bgSamples)
+  let mask = createMask(data, w, h, bg, tolerance)
+
+  const corners = [[0, 0], [w - 1, 0], [0, h - 1], [w - 1, h - 1]]
+  for (const [cx, cy] of corners) {
+    floodFillMask(mask, w, h, cx, cy, 0)
+  }
+
+  mask = featherMask(mask, w, h, featherRadius)
+
+  for (let i = 0; i < w * h; i++) {
+    data[i * 4 + 3] = mask[i]
+  }
+  ctx.putImageData(imageData, 0, 0)
+
   return canvas.toDataURL('image/png')
 }
 
