@@ -26,6 +26,9 @@ export default defineConfig(({ mode }) => {
         VitePWA({
           registerType: 'autoUpdate',
           includeAssets: ['icon-192.png', 'icon-512.png', 'estilo-vivo-logo-full.png', 'estilo-vivo-logo-icon.png'],
+          workbox: {
+            globIgnores: ['**/ort-wasm-simd-threaded.jsep-*.wasm'],
+          },
           manifest: {
             name: 'Estilo Vivo',
             short_name: 'EstiloVivo',

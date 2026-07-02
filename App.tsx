@@ -9,6 +9,7 @@ const Profile = lazy(() => import('./pages/Profile'));
 const Suitcase = lazy(() => import('./pages/Suitcase'));
 const AuthPage = lazy(() => import('./pages/AuthPage'));
 const Wishlist = lazy(() => import('./pages/Wishlist'));
+const VirtualTryOn = lazy(() => import('./pages/VirtualTryOn'));
 import { GlobalStateProvider, useGlobalState } from './src/context/GlobalStateContext';
 import { LanguageProvider } from './src/context/LanguageContext';
 import { ThemeProvider } from './src/context/ThemeContext';

@@ -4,6 +4,7 @@ import { api, loadAuthToken } from '../../services/api';
 import { loadFromLocalStorage } from '../../hooks/useLocalStorage';
 import { useNotification } from './NotificationContext';
 import { useLanguage } from './LanguageContext';
+import { prepareGarmentUpload } from '../utils/garmentProcessor';
 
 const AUTH_TOKEN_KEY = 'beyour_token';
 const REMEMBER_ME_KEY = 'beyour_remember_me';
@@ -235,8 +236,18 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
         });
 
         try {
+            let uploadFile = file;
+            if (uploadFile && typeof window !== 'undefined') {
+                try {
+                    const prepared = await prepareGarmentUpload(uploadFile, { maxSize: 1600 });
+                    uploadFile = prepared.file;
+                } catch (prepError) {
+                    console.warn('No se pudo preparar la prenda para el probador', prepError);
+                }
+            }
+
             const saved = await api.addGarment({
-                file,
+                file: uploadFile,
                 name: garment.name || garment.type,
                 category: garment.type,
                 color: garment.color,

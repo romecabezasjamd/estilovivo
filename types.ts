@@ -198,6 +198,22 @@ export interface UserStreak {
   lastDate: string | null;
 }
 
+export interface TryOnSession {
+  id: string
+  bodyPhotoUrl: string
+  garmentId: string
+  resultUrl: string
+  adjustments: {
+    scaleX: number
+    scaleY: number
+    rotation: number
+    offsetX: number
+    offsetY: number
+    opacity: number
+  }
+  createdAt: string
+}
+
 export interface GamificationProgress {
   experiencePoints: number;
   level: number;
