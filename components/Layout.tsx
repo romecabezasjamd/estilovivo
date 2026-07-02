@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Home, Shirt, Users, User, RefreshCcw, X, Luggage, WashingMachine, Wand2, Sparkles, Scan } from 'lucide-react';
 import { useLanguage } from '../src/context/LanguageContext';

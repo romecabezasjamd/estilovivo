@@ -250,7 +250,9 @@ const handleResponse = async (res: Response) => {
         if (res.status === 401 || (res.status === 403 && error.error === 'Invalid or expired token')) {
             await clearAuthToken();
             clearPersistedSession();
-            window.location.href = '/';
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('auth:expired'));
+            }
         }
 
         throw new Error(error.error || 'Request failed');

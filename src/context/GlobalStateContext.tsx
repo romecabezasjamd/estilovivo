@@ -69,6 +69,20 @@ const clearPersistedSession = () => {
     SESSION_KEYS.forEach(key => localStorage.removeItem(key));
 };
 
+const isJwtLikelyValid = (token: string): boolean => {
+    try {
+        const parts = token.split('.');
+        if (parts.length !== 3) return false;
+        const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+        if (typeof payload?.exp === 'number') {
+            return payload.exp * 1000 > Date.now();
+        }
+        return true;
+    } catch {
+        return false;
+    }
+};
+
 // ─── Provider ────────────────────────────────────────────────────────────────
 
 export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -85,6 +99,17 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
     // ── Init ─────────────────────────────────────────────────────────────────
 
     useEffect(() => {
+        const handleAuthExpired = () => {
+            clearPersistedSession();
+            setUser(null);
+            setGarments([]);
+            setLooks([]);
+            setPlanner([]);
+            setTrips([]);
+        };
+
+        window.addEventListener('auth:expired', handleAuthExpired as EventListener);
+
         const init = async () => {
             const shouldRestoreSession = localStorage.getItem(REMEMBER_ME_KEY) === 'true';
             const cachedUser = shouldRestoreSession ? localStorage.getItem('beyour_user') : null;
@@ -115,8 +140,16 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
             try {
                 await loadAuthToken();
-                const hasSession = !!localStorage.getItem(AUTH_TOKEN_KEY);
+                const token = localStorage.getItem(AUTH_TOKEN_KEY) || '';
+                const hasSession = !!token;
                 if (!hasSession) {
+                    clearPersistedSession();
+                    setUser(null);
+                    setIsLoading(false);
+                    return;
+                }
+
+                if (!isJwtLikelyValid(token)) {
                     clearPersistedSession();
                     setUser(null);
                     setIsLoading(false);
@@ -128,12 +161,20 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
                     userData = await api.getMe();
                     setUser(userData);
                     localStorage.setItem('beyour_user', JSON.stringify(userData));
-                } catch {
+                } catch (error) {
+                    const tokenStillPresent = !!localStorage.getItem(AUTH_TOKEN_KEY);
+                    if (!tokenStillPresent) {
+                        clearPersistedSession();
+                        setUser(null);
+                        setIsLoading(false);
+                        return;
+                    }
+
                     if (cachedUser) {
                         userData = JSON.parse(cachedUser);
                         setUser(userData);
                     } else {
-                        throw new Error('No user data');
+                        throw error;
                     }
                 }
 
@@ -191,6 +232,10 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
         };
 
         init();
+
+        return () => {
+            window.removeEventListener('auth:expired', handleAuthExpired as EventListener);
+        };
     }, []);
 
     // ── Auth ─────────────────────────────────────────────────────────────────
