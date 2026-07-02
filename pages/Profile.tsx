@@ -61,6 +61,32 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
   const [deleting, setDeleting] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
 
+  // Change detection for "Guardar cambios" button
+  const [hasChanges, setHasChanges] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [settingsSaveError, setSettingsSaveError] = useState<string | null>(null);
+  const initialSettingsRef = useRef({
+    presetTheme,
+    customColor,
+    darkModeSetting,
+    fontSize,
+    highContrast,
+    hapticEnabled: hapticEnabledState,
+  });
+
+  // Track changes
+  useEffect(() => {
+    const init = initialSettingsRef.current;
+    const changed =
+      presetTheme !== init.presetTheme ||
+      customColor !== init.customColor ||
+      darkModeSetting !== init.darkModeSetting ||
+      fontSize !== init.fontSize ||
+      highContrast !== init.highContrast ||
+      hapticEnabledState !== init.hapticEnabled;
+    setHasChanges(changed);
+  }, [presetTheme, customColor, darkModeSetting, fontSize, highContrast, hapticEnabledState]);
+
   // Gamification progress
   const [gameProgress, setGameProgress] = useState<any>(null);
   const [gameAchievements, setGameAchievements] = useState<any[]>([]);
@@ -113,21 +139,19 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
     }
   }, [user.id]);
 
-  // Font size
+  // Font size - apply visually but don't persist until save
   useEffect(() => {
     try {
       const el = document.documentElement;
       el.style.fontSize = fontSize === 'small' ? '14px' : fontSize === 'large' ? '18px' : '';
-      localStorage.setItem('ev_font_size', fontSize);
     } catch {}
   }, [fontSize]);
 
-  // High contrast
+  // High contrast - apply visually but don't persist until save
   useEffect(() => {
     try {
       const el = document.documentElement;
       el.classList.toggle('high-contrast', highContrast);
-      localStorage.setItem('ev_high_contrast', highContrast ? 'on' : 'off');
     } catch {}
   }, [highContrast]);
 
@@ -342,6 +366,34 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
       clearPersistedSession();
       await clearAuthToken();
       window.location.reload();
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    setSettingsSaveError(null);
+    setSaveSuccess(false);
+    try {
+      // Persist font size and high contrast to localStorage
+      localStorage.setItem('ev_font_size', fontSize);
+      localStorage.setItem('ev_high_contrast', highContrast ? 'on' : 'off');
+
+      // Theme and dark mode are already applied via their contexts
+      // Haptic is already applied via setHapticEnabled
+
+      // Update initial values to match current
+      initialSettingsRef.current = {
+        presetTheme,
+        customColor,
+        darkModeSetting,
+        fontSize,
+        highContrast,
+        hapticEnabled: hapticEnabledState,
+      };
+      setHasChanges(false);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (e: any) {
+      setSettingsSaveError(e?.message || 'No se pudieron guardar los cambios. Inténtalo de nuevo.');
     }
   };
 
@@ -1739,6 +1791,32 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                   </button>
                 </div>
               </div>
+            </div>
+
+            {/* Save Changes Button */}
+            <div className="pt-4">
+              {saveSuccess && (
+                <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-xl text-center animate-fade-in">
+                  <p className="text-xs font-bold text-green-700">Cambios guardados correctamente</p>
+                </div>
+              )}
+              {settingsSaveError && (
+                <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-xl text-center animate-fade-in">
+                  <p className="text-xs font-bold text-red-600">{settingsSaveError}</p>
+                </div>
+              )}
+              <button
+                onClick={handleSaveSettings}
+                disabled={!hasChanges}
+                className={`w-full py-4 rounded-2xl font-bold text-sm transition-all duration-300 shadow-lg ${
+                  hasChanges
+                    ? 'bg-[var(--color-primary)] text-white shadow-[var(--color-primary)]/30 active:scale-[0.98] hover:shadow-xl'
+                    : 'bg-[var(--bg-card-hover)] text-[var(--text-muted)] cursor-not-allowed shadow-none'
+                }`}
+                style={hasChanges ? { backgroundColor: 'var(--color-primary)' } : {}}
+              >
+                Guardar cambios
+              </button>
             </div>
 
             {/* Terms Modal */}
