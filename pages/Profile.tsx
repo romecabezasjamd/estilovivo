@@ -115,16 +115,20 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
 
   // Font size
   useEffect(() => {
-    const el = document.documentElement;
-    el.style.fontSize = fontSize === 'small' ? '14px' : fontSize === 'large' ? '18px' : '';
-    try { localStorage.setItem('ev_font_size', fontSize); } catch {}
+    try {
+      const el = document.documentElement;
+      el.style.fontSize = fontSize === 'small' ? '14px' : fontSize === 'large' ? '18px' : '';
+      localStorage.setItem('ev_font_size', fontSize);
+    } catch {}
   }, [fontSize]);
 
   // High contrast
   useEffect(() => {
-    const el = document.documentElement;
-    el.classList.toggle('high-contrast', highContrast);
-    try { localStorage.setItem('ev_high_contrast', highContrast ? 'on' : 'off'); } catch {}
+    try {
+      const el = document.documentElement;
+      el.classList.toggle('high-contrast', highContrast);
+      localStorage.setItem('ev_high_contrast', highContrast ? 'on' : 'off');
+    } catch {}
   }, [highContrast]);
 
   // Load stats
@@ -317,10 +321,15 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
       setSettingsError('La fecha de fin debe ser posterior al inicio');
       return;
     }
-    saveCyclePeriod(user.id, { startDate: cycleStartDate, endDate: cycleEndDate });
-    setSettingsError(null);
-    setCycleSaveSuccess(true);
-    setTimeout(() => setCycleSaveSuccess(false), 3000);
+    try {
+      saveCyclePeriod(user.id, { startDate: cycleStartDate, endDate: cycleEndDate });
+      setSettingsError(null);
+      setCycleSaveSuccess(true);
+      setTimeout(() => setCycleSaveSuccess(false), 3000);
+    } catch (e) {
+      console.warn('Error saving cycle dates:', e);
+      setSettingsError('No se pudieron guardar las fechas');
+    }
   };
 
   const handleLogout = async () => {
@@ -1408,13 +1417,13 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                     <p className="text-[11px] text-gray-400">Vibración al completar acciones</p>
                   </div>
                   <button
-                    onClick={() => { const next = !hapticEnabled; setHapticEnabled(next); setHapticEnabledState(next); }}
-                    className={`relative w-11 h-6 rounded-full transition-colors ${hapticEnabled ? 'bg-primary' : 'bg-gray-300'}`}
+                    onClick={() => { const next = !hapticEnabledState; setHapticEnabled(next); setHapticEnabledState(next); }}
+                    className={`relative w-11 h-6 rounded-full transition-colors ${hapticEnabledState ? 'bg-primary' : 'bg-gray-300'}`}
                     role="switch"
-                    aria-checked={hapticEnabled}
+                    aria-checked={hapticEnabledState}
                     aria-label="Vibración háptica"
                   >
-                    <div className={`w-5 h-5 bg-white rounded-full shadow-sm absolute top-0.5 transition-transform ${hapticEnabled ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+                    <div className={`w-5 h-5 bg-white rounded-full shadow-sm absolute top-0.5 transition-transform ${hapticEnabledState ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
                   </button>
                 </div>
               </div>

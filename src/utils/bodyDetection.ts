@@ -59,12 +59,26 @@ export async function loadPoseDetector(): Promise<PoseDetectorType> {
 
   detectorPromise = (async () => {
     try {
-      const [tf, poseDetection] = await Promise.all([
-        import('@tensorflow/tfjs-core'),
-        import('@tensorflow/tfjs-backend-webgl'),
-        import('@tensorflow-models/pose-detection'),
-      ])
-      await tf.ready()
+      const tfCore = await import('@tensorflow/tfjs-core')
+      const poseDetection = await import('@tensorflow-models/pose-detection')
+
+      let backendReady = false
+      try {
+        await import('@tensorflow/tfjs-backend-webgl')
+        await tfCore.ready()
+        backendReady = true
+      } catch {
+        try {
+          const cpuBackend = await import('@tensorflow/tfjs-backend-cpu')
+          await tfCore.ready()
+          backendReady = true
+        } catch {}
+      }
+
+      if (!backendReady) {
+        throw new Error('No se pudo inicializar el backend de TensorFlow. Intenta desde el navegador web.')
+      }
+
       const detector = await poseDetection.createDetector(
         poseDetection.SupportedModels.MoveNet,
         { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
