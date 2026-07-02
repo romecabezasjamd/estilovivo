@@ -21,11 +21,18 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
   <script>
-    // Force clear old service workers and problematic localStorage cache
+    // Force clear old service workers and caches
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(function(registrations) {
         for(let registration of registrations) {
           registration.unregister();
+        }
+      });
+    }
+    if ('caches' in window) {
+      caches.keys().then(function(names) {
+        for(let name of names) {
+          caches.delete(name);
         }
       });
     }
@@ -40,8 +47,8 @@
   }
 }
 </script>
-  <script type="module" crossorigin src="/assets/index-KBqFRT-C.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-DkJgMa5i.css">
+  <script type="module" crossorigin src="/assets/index-CbefBAQV.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-DZmjFebO.css">
 <link rel="manifest" href="/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/registerSW.js"></script></head>
 
 <body>

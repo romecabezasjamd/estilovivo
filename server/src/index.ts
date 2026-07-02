@@ -2825,10 +2825,25 @@ const frontendPath = NODE_ENV === 'production'
   : path.join(__dirname, '../../dist');
 
 if (NODE_ENV === 'production') {
-  app.use(express.static(frontendPath));
+  app.use(express.static(frontendPath, {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.js') || filePath.endsWith('.mjs')) {
+        res.setHeader('Content-Type', 'application/javascript');
+      } else if (filePath.endsWith('.wasm')) {
+        res.setHeader('Content-Type', 'application/wasm');
+      } else if (filePath.endsWith('.css')) {
+        res.setHeader('Content-Type', 'text/css');
+      }
+      if (filePath.includes('/assets/')) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      }
+    }
+  }));
   app.get('*', (req: Request, res: Response) => {
-    if (!req.path.startsWith('/api')) {
+    if (!req.path.startsWith('/api') && !req.path.match(/\.(js|mjs|css|wasm|png|jpg|jpeg|gif|svg|ico|json|woff|woff2|ttf|eot)$/)) {
       res.sendFile(path.join(frontendPath, 'index.html'));
+    } else {
+      res.status(404).end();
     }
   });
 }
