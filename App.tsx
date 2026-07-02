@@ -65,7 +65,7 @@ const AppContent: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--bg-base)] flex items-center justify-center">
         <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
       </div>
     );
@@ -165,7 +165,7 @@ const AppContent: React.FC = () => {
   return (
     <Layout activeTab={activeTab} onTabChange={handleNavigate}>
       <Suspense fallback={
-        <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="min-h-screen bg-[var(--bg-base)] flex items-center justify-center">
           <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
         </div>
       }>

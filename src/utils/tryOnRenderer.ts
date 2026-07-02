@@ -53,37 +53,36 @@ export function calculateGarmentTransform(
   const type = garmentType.toLowerCase()
   let scaleX = 1, scaleY = 1, x = bodyCenterX, y = bodyCenterY, rotation = torsoAngle * 0.65
   const torsoTopY = bodyCenterY - torsoHeight * 0.5
-  const torsoBottomY = bodyCenterY + torsoHeight * 0.5
   const autoWaistY = waistY || (torsoTopY + torsoHeight * 0.55)
 
   if (type === 'top' || type === 'blouse' || type === 'shirt' || type === 't-shirt' || type === 'camiseta') {
     const baseWidth = shoulderWidth * 1.15
-    const baseHeight = torsoHeight * 1.2
+    const baseHeight = torsoHeight * 1.15
     scaleX = baseWidth / 200
     scaleY = baseHeight / 200
     x = bodyCenterX
-    y = torsoTopY + torsoHeight * 0.58
+    y = torsoTopY + torsoHeight * 0.55
   } else if (type === 'bottom' || type === 'pants' || type === 'jeans' || type === 'shorts' || type === 'pantalón' || type === 'falda' || type === 'skirt') {
-    const baseWidth = Math.max(hipWidth, waistWidth) * 1.15
-    const baseHeight = Math.max(legLength, torsoHeight * 1.35) * 1.02
+    const baseWidth = Math.max(hipWidth, waistWidth) * 1.12
+    const baseHeight = Math.max(legLength * 0.95, torsoHeight * 1.3) * 1.0
     scaleX = baseWidth / 200
     scaleY = baseHeight / 200
     x = bodyCenterX
-    y = autoWaistY + Math.max(legLength * 0.25, torsoHeight * 0.18)
+    y = autoWaistY + legLength * 0.22
   } else if (type === 'dress' || type === 'vestido') {
-    const baseWidth = Math.max(shoulderWidth, hipWidth) * 1.2
-    const baseHeight = Math.max(torsoHeight + legLength * 0.85, torsoHeight * 2.1)
+    const baseWidth = Math.max(shoulderWidth, hipWidth) * 1.18
+    const baseHeight = torsoHeight + legLength * 0.82
     scaleX = baseWidth / 200
     scaleY = baseHeight / 200
     x = bodyCenterX
-    y = torsoTopY + baseHeight * 0.5 * 0.92
+    y = torsoTopY + baseHeight * 0.48
   } else if (type === 'outerwear' || type === 'jacket' || type === 'coat' || type === 'chaqueta' || type === 'abrigo') {
-    const baseWidth = shoulderWidth * 1.25
-    const baseHeight = torsoHeight * 1.3
+    const baseWidth = shoulderWidth * 1.22
+    const baseHeight = torsoHeight * 1.28
     scaleX = baseWidth / 200
     scaleY = baseHeight / 200
     x = bodyCenterX
-    y = torsoTopY + torsoHeight * 0.58
+    y = torsoTopY + torsoHeight * 0.55
   } else if (type === 'shoes' || type === 'zapatos' || type === 'sneakers') {
     scaleX = shoulderWidth * 0.3 / 200
     scaleY = shoulderWidth * 0.15 / 200

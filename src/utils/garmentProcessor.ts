@@ -189,14 +189,18 @@ export async function removeBackground(imageUrl: string, options: ProcessOptions
   ctx.drawImage(img, 0, 0, w, h)
   const imageData = ctx.getImageData(0, 0, w, h)
   const data = imageData.data
+
   const bgSamples = sampleEdgeColors(data, w, h)
   const bg = dominantColor(bgSamples)
+
   let mask = createMask(data, w, h, bg, tolerance)
   mask = featherMask(mask, w, h, featherRadius)
+
   for (let i = 0; i < w * h; i++) {
     data[i * 4 + 3] = mask[i]
   }
   ctx.putImageData(imageData, 0, 0)
+
   if (autoCrop) {
     const bounds = findContentBounds(mask, w, h)
     if (bounds) {
@@ -222,7 +226,7 @@ export async function prepareGarmentUpload(file: File, options: ProcessOptions =
     const processedFile = dataUrlToFile(cutoutUrl, file.name.replace(/\.[^.]+$/, '') + '-cutout.png')
     return { file: processedFile, previewUrl: cutoutUrl }
   } catch (error) {
-    console.warn('Falling back to original garment file', error)
+    console.warn('Background removal failed, using original garment', error)
     return { file, previewUrl }
   }
 }

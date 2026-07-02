@@ -85,11 +85,15 @@ html[style*="font-size: 14px"] .text-xs { font-size: 11px !important; }
 html[style*="font-size: 18px"] .text-xs { font-size: 13px !important; }
 
 .glass {
-    @apply bg-white/70 backdrop-blur-md border border-white/40;
+    @apply backdrop-blur-md border;
+    background-color: color-mix(in srgb, var(--bg-card) 70%, transparent);
+    border-color: color-mix(in srgb, var(--border-light) 40%, transparent);
 }
 
 .glass-dark {
-    @apply bg-black/40 backdrop-blur-xl border border-white/10;
+    @apply backdrop-blur-xl;
+    background-color: color-mix(in srgb, var(--bg-base) 40%, transparent);
+    border-color: color-mix(in srgb, var(--border-light) 10%, transparent);
 }
 
 .vertical-text {
@@ -138,7 +142,11 @@ html[style*="font-size: 18px"] .text-xs { font-size: 13px !important; }
 .animate-slide-out-up { animation: slideOutUp 0.3s ease-in both; }
 .animate-slide-up { animation: slideUp 0.4s ease-out both; }
 .animate-pulse-soft { animation: pulseSoft 2s ease-in-out infinite; }
-.animate-shimmer { background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200px 100%; animation: shimmer 1.5s infinite; }
+.animate-shimmer {
+    background: linear-gradient(90deg, var(--bg-card-hover) 25%, var(--border-light) 50%, var(--bg-card-hover) 75%);
+    background-size: 200px 100%;
+    animation: shimmer 1.5s infinite;
+}
 .animate-checkmark { animation: checkmark 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
 
 .stagger-child {
@@ -222,3 +230,67 @@ html[style*="font-size: 18px"] .text-xs { font-size: 13px !important; }
         animation: none;
     }
 }
+
+/* ============================================
+   GLOBAL DARK MODE OVERRIDES
+   Ensures ALL elements respond to .dark class
+   ============================================ */
+
+/* Base surfaces */
+.dark body,
+.dark #root {
+    background-color: var(--bg-base);
+    color: var(--text-primary);
+}
+
+/* Common hardcoded patterns - override in dark mode */
+.dark .bg-white { background-color: var(--bg-card) !important; }
+.dark .bg-gray-50 { background-color: var(--bg-base) !important; }
+.dark .bg-gray-100 { background-color: var(--bg-card-hover) !important; }
+.dark .bg-gray-200 { background-color: var(--border-light) !important; }
+
+/* Text colors */
+.dark .text-gray-300 { color: var(--text-muted) !important; }
+.dark .text-gray-400 { color: var(--text-muted) !important; }
+.dark .text-gray-500 { color: var(--text-secondary) !important; }
+.dark .text-gray-600 { color: var(--text-secondary) !important; }
+.dark .text-gray-700 { color: var(--text-primary) !important; }
+.dark .text-gray-800 { color: var(--text-primary) !important; }
+.dark .text-gray-900 { color: var(--text-primary) !important; }
+.dark .text-black { color: var(--text-primary) !important; }
+
+/* Border colors */
+.dark .border-gray-100 { border-color: var(--border-light) !important; }
+.dark .border-gray-200 { border-color: var(--border-light) !important; }
+.dark .border-gray-300 { border-color: var(--border-light) !important; }
+
+/* Hover states */
+.dark .hover\:bg-gray-50:hover { background-color: var(--bg-card-hover) !important; }
+.dark .hover\:bg-gray-100:hover { background-color: var(--bg-card-hover) !important; }
+.dark .hover\:bg-gray-200:hover { background-color: var(--border-light) !important; }
+
+/* Focus rings */
+.dark .focus\:ring-gray-200:focus { --tw-ring-color: var(--border-light); }
+.dark .focus\:border-gray-300:focus { border-color: var(--border-light) !important; }
+
+/* Input fields */
+.dark input,
+.dark textarea,
+.dark select {
+    background-color: var(--bg-card);
+    color: var(--text-primary);
+    border-color: var(--border-light);
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+    color: var(--text-muted);
+}
+
+/* Scrollbar */
+.dark ::-webkit-scrollbar-track { background: var(--bg-base); }
+.dark ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 4px; }
+.dark ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* SVG icons inherit currentColor */
+.dark svg { color: inherit; }

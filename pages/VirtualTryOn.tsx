@@ -27,8 +27,9 @@ interface VirtualTryOnProps {
 
 type Step = 'guide' | 'photo' | 'detecting' | 'select' | 'processing' | 'tryon' | 'saving' | 'saved'
 
-const AI_LOAD_TIMEOUT_MS = 20000
-const AI_ERROR_MESSAGE = 'No se pudo generar el modelo IA. Inténtalo de nuevo.'
+const AI_LOAD_TIMEOUT_MS = 25000
+const AI_ERROR_MESSAGE = 'La IA tardó demasiado. Inténtalo de nuevo.'
+const PROCESSING_TIMEOUT_MS = 15000
 
 const getFallbackBodyDims = (): BodyDimensions => ({
   shoulderWidth: 200,
@@ -175,9 +176,13 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
     } catch (err: any) {
       setModelLoading(false)
       const msg = err?.message || AI_ERROR_MESSAGE
-      setError(msg.includes('timeout') || msg.includes('Timeout')
-        ? 'La carga del modelo está tardando demasiado. Verifica tu conexión a internet.'
-        : msg)
+      if (msg.includes('timeout') || msg.includes('Timeout') || msg.includes('demasiado')) {
+        setError('La carga del modelo está tardando demasiado. Verifica tu conexión a internet.')
+      } else if (msg.includes('No se detectó')) {
+        setError(msg)
+      } else {
+        setError('No se pudo analizar la foto. Puedes usar el modo manual.')
+      }
       setStep('detecting')
     }
   }
@@ -211,14 +216,23 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
     setResultUrl(null)
     const nextGarment = garment
     try {
-      const processed = await removeBackground(garment.imageUrl, { maxSize: 800 })
+      const processed = await withTimeout(
+        removeBackground(garment.imageUrl, { maxSize: 800 }),
+        PROCESSING_TIMEOUT_MS,
+        'El procesamiento de la prenda está tardando demasiado'
+      )
       setProcessedGarmentUrl(processed)
       setStep('tryon')
       await renderComposite(processed, nextGarment)
     } catch (err: any) {
+      console.warn('Garment processing failed, using original:', err)
       setProcessedGarmentUrl(garment.imageUrl)
       setStep('tryon')
-      await renderComposite(garment.imageUrl, nextGarment)
+      try {
+        await renderComposite(garment.imageUrl, nextGarment)
+      } catch (renderErr: any) {
+        setError('Error al generar la previsualización')
+      }
     }
   }
 
@@ -226,18 +240,23 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
     if (!bodyPhotoUrl || !garment) return
     try {
       const dims = bodyDims || getFallbackBodyDims()
-      const result = await renderTryOn({
-        bodyImageUrl: bodyPhotoUrl,
-        garmentImageUrl: garmentUrl,
-        garmentType: garment.type,
-        bodyDimensions: dims,
-        adjustments,
-        canvasWidth: 600,
-        canvasHeight: 800,
-      })
+      const result = await withTimeout(
+        renderTryOn({
+          bodyImageUrl: bodyPhotoUrl,
+          garmentImageUrl: garmentUrl,
+          garmentType: garment.type,
+          bodyDimensions: dims,
+          adjustments,
+          canvasWidth: 600,
+          canvasHeight: 800,
+        }),
+        10000,
+        'La generación del preview está tardando demasiado'
+      )
       setResultUrl(result)
     } catch (err: any) {
-      setError('Error al generar la previsualización: ' + (err.message || ''))
+      console.warn('Render failed:', err)
+      setError('Error al generar la previsualización: ' + (err.message || 'Inténtalo de nuevo'))
     }
   }
 
@@ -562,6 +581,17 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
                   <div className="flex flex-col items-center gap-3 text-[var(--text-muted)]">
                     <Loader size={32} className="animate-spin" />
                     <p className="text-sm">Generando...</p>
+                    {error && (
+                      <div className="flex flex-col items-center gap-2 mt-2">
+                        <p className="text-xs text-red-500">{error}</p>
+                        <button
+                          onClick={() => { setError(null); if (processedGarmentUrl && selectedGarment) renderComposite(processedGarmentUrl, selectedGarment) }}
+                          className="px-4 py-2 bg-primary text-white rounded-xl text-xs font-bold"
+                        >
+                          Reintentar
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
