@@ -60,6 +60,8 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
   const initialPinchAngle = useRef<number | null>(null)
   const startRotation = useRef(0)
   const renderLock = useRef(false)
+  const adjDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const adjVersion = useRef(0)
 
   useEffect(() => {
     if (initialGarment && !selectedGarment) setSelectedGarment(initialGarment)
@@ -193,6 +195,20 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
       await doRender(garment.imageUrl, garment)
     }
   }
+
+  useEffect(() => {
+    if (step !== 'tryon' || !processedGarmentUrl || !selectedGarment) return
+    if (adjDebounce.current) clearTimeout(adjDebounce.current)
+    adjVersion.current++
+    const v = adjVersion.current
+    adjDebounce.current = setTimeout(() => {
+      if (v === adjVersion.current && !renderLock.current) {
+        setResultUrl(null)
+        doRender(processedGarmentUrl, selectedGarment)
+      }
+    }, 350)
+    return () => { if (adjDebounce.current) clearTimeout(adjDebounce.current) }
+  }, [adjustments])
 
   const resetAdj = () => {
     setAdjustments({})
