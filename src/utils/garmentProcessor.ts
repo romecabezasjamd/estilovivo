@@ -131,6 +131,37 @@ function contentBounds(mask: Uint8ClampedArray, w: number, h: number, threshold 
   }
 }
 
+function detectAlphaTransparency(data: Uint8ClampedArray, w: number, h: number): boolean {
+  let transparent = 0
+  const total = w * h
+  const step = Math.max(1, Math.floor(total / 5000))
+  for (let i = 3; i < total * 4; i += 4 * step) {
+    if (data[i] < 128) transparent++
+  }
+  return transparent / (total / step) > 0.15
+}
+
+function edgeBasedMask(data: Uint8ClampedArray, w: number, h: number): Uint8ClampedArray {
+  const m = new Uint8ClampedArray(w * h)
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const i = (y * w + x) * 4
+      if (data[i + 3] < 128) { m[y * w + x] = 0; continue }
+      let maxDiff = 0
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue
+          const ni = ((y + dy) * w + (x + dx)) * 4
+          const diff = Math.abs(data[i] - data[ni]) + Math.abs(data[i + 1] - data[ni + 1]) + Math.abs(data[i + 2] - data[ni + 2])
+          maxDiff = Math.max(maxDiff, diff)
+        }
+      }
+      m[y * w + x] = maxDiff < 30 ? 255 : maxDiff < 80 ? 180 : 128
+    }
+  }
+  return m
+}
+
 export async function removeBackground(imageUrl: string, options: ProcessOptions = {}): Promise<string> {
   const { tolerance = 55, featherRadius = 8, autoCrop = true, maxSize = 1200 } = options
   const img = await loadImage(imageUrl)
@@ -142,9 +173,27 @@ export async function removeBackground(imageUrl: string, options: ProcessOptions
   const { c, ctx } = getCanvas(w, h)
   ctx.drawImage(img, 0, 0, w, h)
   const id = ctx.getImageData(0, 0, w, h)
+
+  if (detectAlphaTransparency(id.data, w, h)) {
+    const b = contentBounds(id.data.map((v, i) => i % 4 === 3 ? v : 0), w, h)
+    if (b) {
+      const cr = document.createElement('canvas')
+      cr.width = b.w; cr.height = b.h
+      cr.getContext('2d')!.drawImage(c, b.x, b.y, b.w, b.h, 0, 0, b.w, b.h)
+      return cr.toDataURL('image/png')
+    }
+  }
+
   const bg = dominant(sampleCorners(id.data, w, h))
   let mask = buildMask(id.data, w, h, bg, tolerance)
   floodBG(mask, w, h)
+
+  const fgPixels = mask.reduce((s, v) => s + (v > 128 ? 1 : 0), 0)
+  if (fgPixels < w * h * 0.05) {
+    mask = edgeBasedMask(id.data, w, h)
+    floodBG(mask, w, h)
+  }
+
   mask = feather(mask, w, h, featherRadius)
   for (let i = 0; i < w * h; i++) id.data[i * 4 + 3] = mask[i]
   ctx.putImageData(id, 0, 0)

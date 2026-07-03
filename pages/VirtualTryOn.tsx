@@ -27,6 +27,7 @@ type Step = 'guide' | 'photo' | 'detecting' | 'select' | 'processing' | 'tryon' 
 
 const RENDER_TIMEOUT = 20000
 const PROCESS_TIMEOUT = 20000
+const SAFETY_TIMEOUT = 45000
 
 const FALLBACK: BodyDimensions = {
   shoulderWidth: 200, hipWidth: 200, waistWidth: 180,
@@ -62,6 +63,19 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
   const renderLock = useRef(false)
   const adjDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
   const adjVersion = useRef(0)
+  const safetyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const currentStepRef = useRef<Step>('guide')
+
+  useEffect(() => {
+    currentStepRef.current = step
+  }, [step])
+
+  useEffect(() => {
+    return () => {
+      if (safetyTimer.current) clearTimeout(safetyTimer.current)
+      if (adjDebounce.current) clearTimeout(adjDebounce.current)
+    }
+  }, [])
 
   useEffect(() => {
     if (initialGarment && !selectedGarment) setSelectedGarment(initialGarment)
@@ -75,6 +89,20 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
     }).finally(() => { if (tid) clearTimeout(tid) })
   }
 
+  const startSafetyTimer = () => {
+    if (safetyTimer.current) clearTimeout(safetyTimer.current)
+    safetyTimer.current = setTimeout(() => {
+      if (currentStepRef.current === 'processing' || currentStepRef.current === 'detecting') {
+        setError('La operación está tardando demasiado. Inténtalo de nuevo.')
+        setStep('select')
+      }
+    }, SAFETY_TIMEOUT)
+  }
+
+  const clearSafetyTimer = () => {
+    if (safetyTimer.current) { clearTimeout(safetyTimer.current); safetyTimer.current = null }
+  }
+
   const goPhoto = () => { setError(null); setResultUrl(null); setProcessedGarmentUrl(null); setStep('photo') }
 
   const handlePickPhoto = async (source: CameraSource) => {
@@ -85,8 +113,10 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
       setBodyPhotoUrl(dataUrl)
       if (mode === 'manual') { setStep('select'); return }
       setStep('detecting')
+      startSafetyTimer()
       await detectFn(dataUrl)
     } catch (err: any) {
+      clearSafetyTimer()
       if (!String(err?.message || '').toLowerCase().includes('cancel')) {
         setError(err?.message || 'No se pudo obtener la foto')
       }
@@ -103,6 +133,7 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
         setBodyPhotoUrl(reader.result)
         if (mode === 'manual') { setStep('select'); return }
         setStep('detecting')
+        startSafetyTimer()
         await detectFn(reader.result)
       }
     }
@@ -117,12 +148,14 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
         setModelLoaded(true)
       }
       setModelLoading(false)
+      clearSafetyTimer()
       const r = await withTimeout(detectPose(url), 30000, 'La IA tardó demasiado. Inténtalo de nuevo.')
       setBodyDims(r.dimensions)
       setDetectionKeypoints(r.keypoints)
       setStep('select')
     } catch (err: any) {
       setModelLoading(false)
+      clearSafetyTimer()
       const m = err?.message || ''
       if (m.includes('demasiado') || m.includes('timeout')) {
         setError('La carga del modelo está tardando demasiado. Verifica tu conexión.')
@@ -144,6 +177,7 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
       setStep(selectedGarment ? 'tryon' : 'select'); return
     }
     setStep('detecting')
+    startSafetyTimer()
     await detectFn(bodyPhotoUrl)
   }
 
@@ -180,15 +214,18 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
     setError(null)
     setAdjustments({})
     setStep('processing')
+    startSafetyTimer()
     try {
       const processed = await withTimeout(
         removeBackground(garment.imageUrl, { maxSize: 800 }),
         PROCESS_TIMEOUT, 'El procesamiento de la prenda está tardando demasiado'
       )
+      clearSafetyTimer()
       setProcessedGarmentUrl(processed)
       setStep('tryon')
       await doRender(processed, garment)
     } catch (err: any) {
+      clearSafetyTimer()
       console.warn('removeBackground fallback to original:', err)
       setProcessedGarmentUrl(garment.imageUrl)
       setStep('tryon')
@@ -391,7 +428,7 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
                   </div>
                   <div className="flex gap-2 w-full">
                     <button onClick={() => { setError(null); setStep('photo') }} className="flex-1 py-3 rounded-xl border border-[var(--border-light)] text-[var(--text-secondary)] text-xs font-bold">Volver</button>
-                    <button onClick={() => { setError(null); if (bodyPhotoUrl) detectFn(bodyPhotoUrl) }} className="flex-1 py-3 rounded-xl bg-primary text-white text-xs font-bold shadow-lg shadow-primary/30">Reintentar</button>
+                    <button onClick={() => { setError(null); if (bodyPhotoUrl) { startSafetyTimer(); detectFn(bodyPhotoUrl) } }} className="flex-1 py-3 rounded-xl bg-primary text-white text-xs font-bold shadow-lg shadow-primary/30">Reintentar</button>
                   </div>
                   <button onClick={() => { setError(null); setMode('manual'); setStep('select') }} className="text-xs text-[var(--text-muted)] font-bold underline underline-offset-2">Usar modo manual</button>
                 </div>
