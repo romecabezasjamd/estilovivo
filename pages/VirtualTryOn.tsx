@@ -7,11 +7,11 @@ import {
 } from 'lucide-react'
 import PoseGuide from '../components/PoseGuide'
 import { removeBackground } from '../src/utils/garmentProcessor'
-import { detectPose, loadPoseDetector, getLoadStatus, BodyDimensions, BodyLandmarks } from '../src/utils/bodyDetection'
+import { detectPose, loadPoseDetector, BodyDimensions } from '../src/utils/bodyDetection'
 import { renderTryOn, GarmentAdjustments } from '../src/utils/tryOnRenderer'
 import { pickPhoto, CameraSource } from '../src/utils/cameraPhoto'
 import { api } from '../services/api'
-import { successImpact, errorImpact, lightImpact } from '../src/utils/haptic'
+import { successImpact, errorImpact } from '../src/utils/haptic'
 
 interface VirtualTryOnProps {
   user?: { id?: string; name: string; fullBodyAvatar?: string }
@@ -25,11 +25,10 @@ interface VirtualTryOnProps {
 
 type Step = 'guide' | 'photo' | 'detecting' | 'select' | 'processing' | 'tryon' | 'saving' | 'saved'
 
-const AI_LOAD_TIMEOUT = 25000
-const PROCESSING_TIMEOUT = 15000
-const RENDER_TIMEOUT = 12000
+const RENDER_TIMEOUT = 20000
+const PROCESS_TIMEOUT = 20000
 
-const FALLBACK_DIMS: BodyDimensions = {
+const FALLBACK: BodyDimensions = {
   shoulderWidth: 200, hipWidth: 200, waistWidth: 180,
   torsoHeight: 220, legLength: 260,
   bodyCenterX: 200, bodyCenterY: 300, waistY: 320,
@@ -60,41 +59,31 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
   const startScale = useRef(1)
   const initialPinchAngle = useRef<number | null>(null)
   const startRotation = useRef(0)
-  const renderRunning = useRef(false)
+  const renderLock = useRef(false)
 
   useEffect(() => {
     if (initialGarment && !selectedGarment) setSelectedGarment(initialGarment)
   }, [initialGarment, selectedGarment])
 
-  useEffect(() => {
-    const s = getLoadStatus()
-    if (s.isLoading) setModelLoading(true)
-    if (s.hasDetector) { setModelLoaded(true); setModelLoading(false) }
-  }, [])
-
-  const withTimeout = async <T,>(promise: Promise<T>, ms: number, msg: string): Promise<T> => {
+  const withTimeout = <T,>(p: Promise<T>, ms: number, msg: string): Promise<T> => {
     let tid: ReturnType<typeof setTimeout> | null = null
-    try {
-      return await new Promise<T>((resolve, reject) => {
-        tid = setTimeout(() => reject(new Error(msg)), ms)
-        promise.then(resolve).catch(reject)
-      })
-    } finally { if (tid) clearTimeout(tid) }
+    return new Promise<T>((resolve, reject) => {
+      tid = setTimeout(() => reject(new Error(msg)), ms)
+      p.then(resolve).catch(reject)
+    }).finally(() => { if (tid) clearTimeout(tid) })
   }
 
-  const handlePoseGuideDone = () => setStep('photo')
-
-  const clearDetection = () => {
-    setBodyDims(null); setDetectionKeypoints(null); setModelLoading(false)
-  }
+  const goPhoto = () => { setError(null); setResultUrl(null); setProcessedGarmentUrl(null); setStep('photo') }
 
   const handlePickPhoto = async (source: CameraSource) => {
-    setError(null); setResultUrl(null); setProcessedGarmentUrl(null); clearDetection()
+    setError(null); setResultUrl(null); setProcessedGarmentUrl(null)
+    setBodyDims(null); setDetectionKeypoints(null); setModelLoading(false)
     try {
       const { dataUrl } = await pickPhoto(source)
       setBodyPhotoUrl(dataUrl)
-      if (mode === 'manual') setStep('select')
-      else { setStep('detecting'); await runDetection(dataUrl) }
+      if (mode === 'manual') { setStep('select'); return }
+      setStep('detecting')
+      await detectFn(dataUrl)
     } catch (err: any) {
       if (!String(err?.message || '').toLowerCase().includes('cancel')) {
         setError(err?.message || 'No se pudo obtener la foto')
@@ -102,38 +91,44 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
     }
   }
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return
-    setError(null); setResultUrl(null); setProcessedGarmentUrl(null); clearDetection()
+    setError(null); setResultUrl(null); setProcessedGarmentUrl(null)
+    setBodyDims(null); setDetectionKeypoints(null); setModelLoading(false)
     const reader = new FileReader()
     reader.onloadend = async () => {
       if (typeof reader.result === 'string') {
         setBodyPhotoUrl(reader.result)
-        if (mode === 'manual') setStep('select')
-        else { setStep('detecting'); await runDetection(reader.result) }
+        if (mode === 'manual') { setStep('select'); return }
+        setStep('detecting')
+        await detectFn(reader.result)
       }
     }
     reader.readAsDataURL(file); e.target.value = ''
   }
 
-  const runDetection = async (imageUrl: string) => {
+  const detectFn = async (url: string) => {
     setError(null); setModelLoading(true)
     try {
       if (!modelLoaded) {
-        await withTimeout(loadPoseDetector(), AI_LOAD_TIMEOUT, 'La IA tardó demasiado. Inténtalo de nuevo.')
+        await withTimeout(loadPoseDetector(), 30000, 'La IA tardó demasiado. Inténtalo de nuevo.')
         setModelLoaded(true)
       }
       setModelLoading(false)
-      const result = await withTimeout(detectPose(imageUrl), AI_LOAD_TIMEOUT, 'La IA tardó demasiado. Inténtalo de nuevo.')
-      setBodyDims(result.dimensions)
-      setDetectionKeypoints(result.keypoints)
+      const r = await withTimeout(detectPose(url), 30000, 'La IA tardó demasiado. Inténtalo de nuevo.')
+      setBodyDims(r.dimensions)
+      setDetectionKeypoints(r.keypoints)
       setStep('select')
     } catch (err: any) {
       setModelLoading(false)
-      const msg = err?.message || ''
-      if (msg.includes('demasiado') || msg.includes('timeout')) setError('La carga del modelo está tardando demasiado. Verifica tu conexión.')
-      else if (msg.includes('No se detectó')) setError(msg)
-      else setError('No se pudo analizar la foto. Puedes usar el modo manual.')
+      const m = err?.message || ''
+      if (m.includes('demasiado') || m.includes('timeout')) {
+        setError('La carga del modelo está tardando demasiado. Verifica tu conexión.')
+      } else if (m.includes('No se detectó')) {
+        setError(m)
+      } else {
+        setError('No se pudo analizar la foto. Puedes usar el modo manual.')
+      }
       setStep('detecting')
     }
   }
@@ -142,16 +137,20 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
     if (next === mode) return
     setMode(next); setError(null); setResultUrl(null); setProcessedGarmentUrl(null)
     if (!bodyPhotoUrl) { setStep('photo'); return }
-    if (next === 'manual') { clearDetection(); setStep(selectedGarment ? 'tryon' : 'select'); return }
-    setStep('detecting'); await runDetection(bodyPhotoUrl)
+    if (next === 'manual') {
+      setBodyDims(null); setDetectionKeypoints(null)
+      setStep(selectedGarment ? 'tryon' : 'select'); return
+    }
+    setStep('detecting')
+    await detectFn(bodyPhotoUrl)
   }
 
   const doRender = async (garmentUrl: string, garment: Garment) => {
-    if (renderRunning.current) return
-    renderRunning.current = true
+    if (renderLock.current) return
+    renderLock.current = true
     try {
-      const dims = bodyDims || FALLBACK_DIMS
-      const result = await withTimeout(
+      const dims = bodyDims || FALLBACK
+      const out = await withTimeout(
         renderTryOn({
           bodyImageUrl: bodyPhotoUrl!,
           garmentImageUrl: garmentUrl,
@@ -162,51 +161,46 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
         }),
         RENDER_TIMEOUT, 'La generación del preview está tardando demasiado'
       )
-      setResultUrl(result)
+      setResultUrl(out)
     } catch (err: any) {
-      console.warn('Render failed:', err)
-      if (!resultUrl) setResultUrl(bodyPhotoUrl!)
-      setError('Error al generar la previsualización. ' + (err.message || 'Inténtalo de nuevo.'))
+      console.warn('renderTryOn error:', err)
+      if (bodyPhotoUrl) setResultUrl(bodyPhotoUrl)
+      setError('No se pudo procesar la prenda. Inténtalo de nuevo o usa modo manual.')
     } finally {
-      renderRunning.current = false
+      renderLock.current = false
     }
   }
 
   const handleSelectGarment = async (garment: Garment) => {
+    if (renderLock.current) return
     setSelectedGarment(garment)
-    setStep('processing')
-    setError(null)
     setResultUrl(null)
+    setError(null)
     setAdjustments({})
-
+    setStep('processing')
     try {
       const processed = await withTimeout(
         removeBackground(garment.imageUrl, { maxSize: 800 }),
-        PROCESSING_TIMEOUT, 'El procesamiento de la prenda está tardando demasiado'
+        PROCESS_TIMEOUT, 'El procesamiento de la prenda está tardando demasiado'
       )
       setProcessedGarmentUrl(processed)
       setStep('tryon')
       await doRender(processed, garment)
     } catch (err: any) {
-      console.warn('Garment processing failed, using original:', err)
+      console.warn('removeBackground fallback to original:', err)
       setProcessedGarmentUrl(garment.imageUrl)
       setStep('tryon')
       await doRender(garment.imageUrl, garment)
     }
   }
 
-  useEffect(() => {
-    if (step === 'tryon' && processedGarmentUrl && bodyPhotoUrl && selectedGarment && !resultUrl && !renderRunning.current) {
+  const resetAdj = () => {
+    setAdjustments({})
+    if (processedGarmentUrl && selectedGarment && bodyPhotoUrl) {
+      setResultUrl(null)
       doRender(processedGarmentUrl, selectedGarment)
     }
-  }, [step])
-
-  const handleAdjust = (key: keyof GarmentAdjustments, value: number) => {
-    lightImpact()
-    setAdjustments(prev => ({ ...prev, [key]: (prev[key] || 0) + value }))
   }
-
-  const resetAdjustments = () => { lightImpact(); setAdjustments({}) }
 
   const handleSave = async () => {
     if (!resultUrl || !lookName.trim() || !selectedGarment) return
@@ -241,7 +235,11 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
       if (e.touches.length === 1 && isDragging.current) {
         const dx = e.touches[0].clientX - lastPos.current.x
         const dy = e.touches[0].clientY - lastPos.current.y
-        setAdjustments(prev => ({ ...prev, offsetX: (prev.offsetX || 0) + dx * 0.5, offsetY: (prev.offsetY || 0) + dy * 0.5 }))
+        setAdjustments(prev => ({
+          ...prev,
+          offsetX: (prev.offsetX || 0) + dx * 0.5,
+          offsetY: (prev.offsetY || 0) + dy * 0.5,
+        }))
         lastPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
       } else if (e.touches.length === 2 && initialPinchDist.current !== null && initialPinchAngle.current !== null) {
         const dx = e.touches[0].clientX - e.touches[1].clientX
@@ -250,74 +248,85 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
         const scale = startScale.current * (dist / initialPinchDist.current)
         const angle = Math.atan2(dy, dx)
         const delta = (angle - initialPinchAngle.current) * (180 / Math.PI)
-        setAdjustments(prev => ({ ...prev, scaleX: scale, scaleY: scale, rotation: startRotation.current + delta }))
+        setAdjustments(prev => ({
+          ...prev,
+          scaleX: scale, scaleY: scale,
+          rotation: startRotation.current + delta,
+        }))
       }
     },
-    onTouchEnd: () => { isDragging.current = false; initialPinchDist.current = null; initialPinchAngle.current = null },
+    onTouchEnd: () => {
+      isDragging.current = false
+      initialPinchDist.current = null
+      initialPinchAngle.current = null
+    },
   }
 
   const mouseHandlers = {
-    onMouseDown: (e: React.MouseEvent) => { isDragging.current = true; lastPos.current = { x: e.clientX, y: e.clientY } },
+    onMouseDown: (e: React.MouseEvent) => {
+      isDragging.current = true
+      lastPos.current = { x: e.clientX, y: e.clientY }
+    },
     onMouseMove: (e: React.MouseEvent) => {
       if (!isDragging.current) return
-      const dx = e.clientX - lastPos.current.x, dy = e.clientY - lastPos.current.y
-      setAdjustments(prev => ({ ...prev, offsetX: (prev.offsetX || 0) + dx * 0.5, offsetY: (prev.offsetY || 0) + dy * 0.5 }))
+      const dx = e.clientX - lastPos.current.x
+      const dy = e.clientY - lastPos.current.y
+      setAdjustments(prev => ({
+        ...prev,
+        offsetX: (prev.offsetX || 0) + dx * 0.5,
+        offsetY: (prev.offsetY || 0) + dy * 0.5,
+      }))
       lastPos.current = { x: e.clientX, y: e.clientY }
     },
     onMouseUp: () => { isDragging.current = false },
   }
 
-  const saveToSocial = () => { if (onNavigate) onNavigate('social', 'create'); onClose() }
-  const saveToChallenge = () => { if (onNavigate) onNavigate('social', 'challenge'); onClose() }
+  const goSocial = () => { if (onNavigate) onNavigate('social', 'create'); onClose() }
+  const goChallenge = () => { if (onNavigate) onNavigate('social', 'challenge'); onClose() }
 
-  const stepTitles: Record<Step, string> = {
+  const stepTitle: Record<Step, string> = {
     guide: 'Guía', photo: 'Foto', detecting: 'Detectando...', select: 'Prenda',
     processing: 'Procesando...', tryon: 'Probador', saving: 'Guardando...', saved: '¡Listo!',
   }
 
   return (
     <div className="fixed inset-0 z-[90] bg-[var(--bg-base)] flex flex-col font-sans">
-      {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-light)] bg-[var(--bg-card)]">
-        <button onClick={onClose} className="w-9 h-9 rounded-full bg-[var(--bg-base)] flex items-center justify-center text-[var(--text-secondary)] hover:bg-[var(--bg-card-hover)] transition-colors">
+        <button onClick={onClose} className="w-9 h-9 rounded-full bg-[var(--bg-base)] flex items-center justify-center text-[var(--text-secondary)]">
           <ArrowLeft size={18} />
         </button>
         <div className="flex items-center gap-2">
           {(['guide', 'photo', 'select', 'tryon'] as Step[]).map((s, i) => (
             <div key={s} className="flex items-center gap-1">
-              <div className={`w-2 h-2 rounded-full transition-colors ${step === s ? 'bg-primary' : i < ['guide', 'photo', 'select', 'tryon'].indexOf(step) ? 'bg-primary/50' : 'bg-[var(--border-light)]'}`} />
+              <div className={`w-2 h-2 rounded-full ${step === s ? 'bg-primary' : i < ['guide', 'photo', 'select', 'tryon'].indexOf(step) ? 'bg-primary/50' : 'bg-[var(--border-light)]'}`} />
               {i < 3 && <div className="w-4 h-[1px] bg-[var(--border-light)]" />}
             </div>
           ))}
         </div>
-        <span className="text-xs font-bold text-[var(--text-secondary)] tracking-wider">{stepTitles[step]}</span>
+        <span className="text-xs font-bold text-[var(--text-secondary)] tracking-wider">{stepTitle[step]}</span>
       </div>
 
-      {/* Mode selector */}
       <div className="px-4 pt-3">
         <div className="grid grid-cols-2 gap-2 rounded-2xl bg-[var(--bg-card)] p-1 border border-[var(--border-light)]">
-          <button type="button" onClick={() => handleModeChange('manual')}
+          <button onClick={() => handleModeChange('manual')}
             className={`py-2 rounded-xl text-[11px] font-bold transition-colors ${mode === 'manual' ? 'bg-primary text-white shadow-sm' : 'text-[var(--text-secondary)]'}`}>
             Modo Manual
           </button>
-          <button type="button" onClick={() => handleModeChange('ai')}
+          <button onClick={() => handleModeChange('ai')}
             className={`py-2 rounded-xl text-[11px] font-bold transition-colors ${mode === 'ai' ? 'bg-primary text-white shadow-sm' : 'text-[var(--text-secondary)]'}`}>
             Modo IA
           </button>
         </div>
       </div>
 
-      {/* Content */}
       <div className="flex-1 overflow-y-auto no-scrollbar">
         <AnimatePresence mode="wait">
-          {/* GUIDE */}
           {step === 'guide' && (
             <motion.div key="guide" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-5">
-              <PoseGuide onStart={handlePoseGuideDone} />
+              <PoseGuide onStart={() => setStep('photo')} />
             </motion.div>
           )}
 
-          {/* PHOTO */}
           {step === 'photo' && (
             <motion.div key="photo" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-5 flex flex-col gap-6">
               <div className="text-center">
@@ -326,12 +335,12 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
               </div>
               {bodyPhotoUrl && (
                 <div className="relative w-full max-w-xs mx-auto aspect-[3/4] rounded-3xl overflow-hidden bg-[var(--bg-card)] border border-[var(--border-light)]">
-                  <img src={bodyPhotoUrl} alt="Tu foto" className="w-full h-full object-cover" />
+                  <img src={bodyPhotoUrl} alt="" className="w-full h-full object-cover" loading="eager" />
                   <div className="absolute inset-0 ring-2 ring-primary/30 ring-inset rounded-3xl pointer-events-none" />
                 </div>
               )}
               <div className="flex flex-col gap-3 max-w-sm mx-auto w-full">
-                <button onClick={() => handlePickPhoto(CameraSource.Camera)} className="w-full py-4 bg-primary text-white rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-primary-dark active:scale-[0.98] transition-all shadow-lg shadow-primary/30">
+                <button onClick={() => handlePickPhoto(CameraSource.Camera)} className="w-full py-4 bg-primary text-white rounded-2xl font-bold flex items-center justify-center gap-3 active:scale-[0.98] transition-all shadow-lg shadow-primary/30">
                   <Camera size={20} /><span>Tomar foto con cámara</span>
                 </button>
                 <button onClick={() => handlePickPhoto(CameraSource.Photos)} className="w-full py-4 bg-[var(--bg-card)] text-[var(--text-primary)] rounded-2xl font-bold flex items-center justify-center gap-3 border border-[var(--border-light)] active:scale-[0.98] transition-all">
@@ -351,7 +360,6 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
             </motion.div>
           )}
 
-          {/* DETECTING */}
           {step === 'detecting' && (
             <motion.div key="detecting" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center justify-center p-10 gap-6 min-h-[60vh]">
               {modelLoading ? <Loader size={40} className="text-primary animate-spin" /> : <Sparkles size={40} className="text-primary animate-pulse" />}
@@ -367,7 +375,7 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
                   </div>
                   <div className="flex gap-2 w-full">
                     <button onClick={() => { setError(null); setStep('photo') }} className="flex-1 py-3 rounded-xl border border-[var(--border-light)] text-[var(--text-secondary)] text-xs font-bold">Volver</button>
-                    <button onClick={() => { setError(null); runDetection(bodyPhotoUrl || '') }} className="flex-1 py-3 rounded-xl bg-primary text-white text-xs font-bold shadow-lg shadow-primary/30">Reintentar</button>
+                    <button onClick={() => { setError(null); if (bodyPhotoUrl) detectFn(bodyPhotoUrl) }} className="flex-1 py-3 rounded-xl bg-primary text-white text-xs font-bold shadow-lg shadow-primary/30">Reintentar</button>
                   </div>
                   <button onClick={() => { setError(null); setMode('manual'); setStep('select') }} className="text-xs text-[var(--text-muted)] font-bold underline underline-offset-2">Usar modo manual</button>
                 </div>
@@ -375,21 +383,22 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
             </motion.div>
           )}
 
-          {/* SELECT GARMENT */}
           {step === 'select' && bodyPhotoUrl && (
             <motion.div key="select" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-5 flex flex-col gap-4">
-              {mode === 'ai' && detectionKeypoints ? (
-                <DrawKeypointsCanvas imageUrl={bodyPhotoUrl} keypoints={detectionKeypoints} />
-              ) : (
-                <div className="relative w-full max-w-xs mx-auto aspect-[3/4] rounded-2xl overflow-hidden bg-[var(--bg-card)] border border-[var(--border-light)]">
-                  <img src={bodyPhotoUrl} alt="Tu foto" className="w-full h-full object-cover" />
-                  <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-black/50 text-white text-[10px] font-bold">Modo Manual</div>
+              <div className="relative w-full max-w-xs mx-auto aspect-[3/4] rounded-2xl overflow-hidden bg-[var(--bg-card)] border border-[var(--border-light)]">
+                <img src={bodyPhotoUrl} alt="" className="w-full h-full object-cover" loading="eager" />
+                <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-black/50 text-white text-[10px] font-bold">{mode === 'ai' ? 'Modo IA' : 'Modo Manual'}</div>
+              </div>
+              {mode === 'ai' && detectionKeypoints && detectionKeypoints.some(k => k.score > 0.3) && (
+                <div className="text-center">
+                  <p className="text-xs text-green-600 dark:text-green-400 font-bold">✓ Cuerpo detectado</p>
+                  {bodyDims && <p className="text-[10px] text-[var(--text-muted)]">Hombros: {Math.round(bodyDims.shoulderWidth)}px</p>}
                 </div>
               )}
               <div>
                 <h3 className="text-lg font-bold flex items-center gap-2"><Shirt size={18} /> Elige una prenda</h3>
                 <p className="text-xs text-[var(--text-secondary)] mt-1">
-                  {mode === 'ai' && bodyDims ? `Cuerpo detectado — hombros: ${Math.round(bodyDims.shoulderWidth)}px` : 'Arrastra, pellizca y rota para ajustar'}
+                  {mode === 'ai' ? 'La IA ajustará la prenda automáticamente' : 'Arrastra, pellizca y rota para ajustar'}
                 </p>
               </div>
               {error && (
@@ -409,16 +418,15 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
                   {garments.map(g => (
                     <button key={g.id} onClick={() => handleSelectGarment(g)}
                       className={`aspect-square rounded-2xl border-2 p-2 flex items-center justify-center transition-all active:scale-95 ${selectedGarment?.id === g.id ? 'border-primary bg-primary/5' : 'border-[var(--border-light)] bg-[var(--bg-card)] hover:border-primary/50'}`}>
-                      <img src={g.imageUrl} alt={g.name} className="max-w-full max-h-full object-contain" />
+                      <img src={g.imageUrl} alt={g.name} className="max-w-full max-h-full object-contain" loading="eager" />
                     </button>
                   ))}
                 </div>
               )}
-              <button onClick={() => setStep('photo')} className="w-full py-3 rounded-xl border border-[var(--border-light)] text-[var(--text-secondary)] text-xs font-bold">Tomar otra foto</button>
+              <button onClick={goPhoto} className="w-full py-3 rounded-xl border border-[var(--border-light)] text-[var(--text-secondary)] text-xs font-bold">Tomar otra foto</button>
             </motion.div>
           )}
 
-          {/* PROCESSING */}
           {step === 'processing' && (
             <motion.div key="processing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center justify-center p-10 gap-4 min-h-[60vh]">
               <Loader size={40} className="text-primary animate-spin" />
@@ -426,11 +434,10 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
                 <h3 className="text-lg font-bold">Procesando prenda</h3>
                 <p className="text-sm text-[var(--text-secondary)] mt-1">Eliminando fondo y preparando para superposición</p>
               </div>
-              {selectedGarment && <img src={selectedGarment.imageUrl} alt="" className="w-20 h-20 object-contain opacity-50" />}
+              {selectedGarment && <img src={selectedGarment.imageUrl} alt="" className="w-20 h-20 object-contain opacity-50" loading="eager" />}
             </motion.div>
           )}
 
-          {/* TRYON */}
           {step === 'tryon' && (
             <motion.div key="tryon" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col h-full">
               <div
@@ -440,15 +447,15 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
                 {...mouseHandlers}
               >
                 {resultUrl ? (
-                  <img src={resultUrl} alt="Probador virtual" className="max-w-full max-h-full object-contain rounded-2xl shadow-xl" draggable={false} />
+                  <img src={resultUrl} alt="Probador virtual" className="max-w-full max-h-full object-contain rounded-2xl shadow-xl" draggable={false} loading="eager" />
                 ) : (
                   <div className="flex flex-col items-center gap-3 text-[var(--text-muted)]">
                     <Loader size={32} className="animate-spin" />
                     <p className="text-sm">Generando...</p>
                     {error && (
                       <div className="flex flex-col items-center gap-2 mt-2">
-                        <p className="text-xs text-red-500">{error}</p>
-                        <button onClick={() => { setError(null); if (processedGarmentUrl && selectedGarment) doRender(processedGarmentUrl, selectedGarment) }}
+                        <p className="text-xs text-red-500 text-center max-w-[260px]">{error}</p>
+                        <button onClick={() => { setError(null); if (processedGarmentUrl && selectedGarment && bodyPhotoUrl) doRender(processedGarmentUrl, selectedGarment) }}
                           className="px-4 py-2 bg-primary text-white rounded-xl text-xs font-bold">Reintentar</button>
                       </div>
                     )}
@@ -456,25 +463,20 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
                 )}
               </div>
 
-              {/* Controls */}
               <div className="bg-[var(--bg-card)] border-t border-[var(--border-light)] p-4 space-y-3">
-                {mode === 'manual' && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-[var(--text-muted)]">Mueve, pellizca y rota con tus dedos</span>
-                    <button onClick={resetAdjustments} className="text-[10px] text-primary font-bold flex items-center gap-1"><RefreshCcw size={12} /> Restablecer</button>
-                  </div>
-                )}
-                {mode === 'ai' && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-[var(--text-muted)]">Ajusta la posición si es necesario</span>
-                    <button onClick={resetAdjustments} className="text-[10px] text-primary font-bold flex items-center gap-1"><RefreshCcw size={12} /> Restablecer</button>
-                  </div>
-                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-[var(--text-muted)]">
+                    {mode === 'manual' ? 'Mueve, pellizca y rota con tus dedos' : 'Ajusta la posición si es necesario'}
+                  </span>
+                  <button onClick={resetAdj} className="text-[10px] text-primary font-bold flex items-center gap-1">
+                    <RefreshCcw size={12} /> Restablecer
+                  </button>
+                </div>
                 <div className="flex gap-2">
                   <button onClick={() => setSavingName(true)} className="flex-1 py-3 bg-primary text-white rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-primary-dark active:scale-[0.98] transition-all shadow-lg shadow-primary/30">
                     <Save size={16} /> Guardar look
                   </button>
-                  <button onClick={saveToSocial} className="flex-1 py-3 bg-[var(--bg-base)] text-[var(--text-primary)] rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 border border-[var(--border-light)] active:scale-[0.98] transition-all">
+                  <button onClick={goSocial} className="flex-1 py-3 bg-[var(--bg-base)] text-[var(--text-primary)] rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 border border-[var(--border-light)] active:scale-[0.98] transition-all">
                     <Share2 size={16} /> Publicar
                   </button>
                 </div>
@@ -482,7 +484,6 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
             </motion.div>
           )}
 
-          {/* SAVING */}
           {step === 'saving' && (
             <motion.div key="saving" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center justify-center p-10 gap-4 min-h-[60vh]">
               <Loader size={40} className="text-primary animate-spin" />
@@ -490,7 +491,6 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
             </motion.div>
           )}
 
-          {/* SAVED */}
           {step === 'saved' && (
             <motion.div key="saved" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center justify-center p-10 gap-6 min-h-[60vh]">
               <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
@@ -500,12 +500,12 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
                 <h3 className="text-xl font-bold">Look guardado</h3>
                 <p className="text-sm text-[var(--text-secondary)] mt-1">Tu probador virtual se ha guardado como look</p>
               </div>
-              {resultUrl && <img src={resultUrl} alt="Resultado" className="w-40 h-52 object-contain rounded-2xl shadow-lg border border-[var(--border-light)]" />}
+              {resultUrl && <img src={resultUrl} alt="Resultado" className="w-40 h-52 object-contain rounded-2xl shadow-lg border border-[var(--border-light)]" loading="eager" />}
               <div className="flex gap-3 w-full max-w-xs">
-                <button onClick={saveToSocial} className="flex-1 py-3 bg-primary text-white rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-primary-dark active:scale-[0.98] transition-all">
+                <button onClick={goSocial} className="flex-1 py-3 bg-primary text-white rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-primary/30">
                   <Share2 size={16} /> Publicar
                 </button>
-                <button onClick={saveToChallenge} className="flex-1 py-3 bg-[var(--bg-card)] text-[var(--text-primary)] rounded-xl font-bold text-xs uppercase tracking-wider border border-[var(--border-light)] active:scale-[0.98] transition-all">
+                <button onClick={goChallenge} className="flex-1 py-3 bg-[var(--bg-card)] text-[var(--text-primary)] rounded-xl font-bold text-xs uppercase tracking-wider border border-[var(--border-light)]">
                   Reto
                 </button>
               </div>
@@ -515,7 +515,6 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
         </AnimatePresence>
       </div>
 
-      {/* Save name modal */}
       <AnimatePresence>
         {savingName && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/40 backdrop-blur-sm z-30 flex items-center justify-center p-6">
@@ -523,7 +522,7 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
               <h3 className="text-lg font-bold mb-1">Nombre del look</h3>
               <p className="text-xs text-[var(--text-secondary)] mb-4">¿Cómo quieres llamar a este look?</p>
               <input autoFocus value={lookName} onChange={e => setLookName(e.target.value)} placeholder="Ej: Outfit primavera"
-                className="w-full bg-[var(--bg-base)] border border-[var(--border-light)] rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-primary transition-colors"
+                className="w-full bg-[var(--bg-base)] border border-[var(--border-light)] rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-primary"
                 onKeyDown={e => { if (e.key === 'Enter' && lookName.trim()) handleSave() }} />
               <div className="flex gap-3 mt-4">
                 <button onClick={() => setSavingName(false)} className="flex-1 py-3 bg-[var(--bg-base)] text-[var(--text-secondary)] rounded-xl font-bold text-xs">Cancelar</button>
@@ -534,7 +533,6 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
         )}
       </AnimatePresence>
 
-      {/* Error toast */}
       <AnimatePresence>
         {error && step !== 'photo' && step !== 'select' && step !== 'detecting' && (
           <motion.div initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 50 }}
@@ -545,35 +543,6 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
-  )
-}
-
-function DrawKeypointsCanvas({ imageUrl, keypoints }: { imageUrl: string; keypoints: Array<{ x: number; y: number; score: number; name: string }> }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  useEffect(() => {
-    const c = canvasRef.current; if (!c) return
-    const ctx = c.getContext('2d'); if (!ctx) return
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => {
-      c.width = img.naturalWidth; c.height = img.naturalHeight; c.style.maxHeight = '400px'
-      ctx.drawImage(img, 0, 0)
-      ctx.strokeStyle = '#00ff88'; ctx.lineWidth = 3; ctx.fillStyle = '#00ff88'
-      const conns = [['left_shoulder', 'right_shoulder'], ['left_hip', 'right_hip'], ['left_shoulder', 'left_hip'], ['right_shoulder', 'right_hip'], ['left_shoulder', 'left_ear'], ['right_shoulder', 'right_ear']]
-      for (const [a, b] of conns) {
-        const p1 = keypoints.find(k => k.name === a), p2 = keypoints.find(k => k.name === b)
-        if (p1 && p2 && p1.score > 0.3 && p2.score > 0.3) { ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke() }
-      }
-      for (const kp of keypoints) {
-        if (kp.score > 0.3) { ctx.beginPath(); ctx.arc(kp.x, kp.y, 5, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke() }
-      }
-    }
-    img.src = imageUrl
-  }, [imageUrl, keypoints])
-  return (
-    <div className="relative w-full max-w-xs mx-auto aspect-[3/4] rounded-2xl overflow-hidden bg-[var(--bg-card)] border border-[var(--border-light)]">
-      <canvas ref={canvasRef} className="w-full h-full object-contain" />
     </div>
   )
 }
