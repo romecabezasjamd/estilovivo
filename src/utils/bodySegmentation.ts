@@ -1,5 +1,3 @@
-import { SelfieSegmentation, Results as SegmentationResults } from '@mediapipe/selfie_segmentation'
-
 export interface SegmentationResult {
   maskImage: ImageData
   canvas: HTMLCanvasElement
@@ -7,52 +5,46 @@ export interface SegmentationResult {
   height: number
 }
 
-let segmenter: SelfieSegmentation | null = null
+let segmenter: any = null
 let segmenterLoading = false
 let segmenterError: string | null = null
+let initPromise: Promise<any> | null = null
 
 export function getSegmenterStatus() {
   return { isLoading: segmenterLoading, error: segmenterError, isReady: segmenter !== null }
 }
 
-export async function loadSegmenter(): Promise<SelfieSegmentation> {
+export async function loadSegmenter(): Promise<any> {
   if (segmenter) return segmenter
-  if (segmenterLoading) {
-    return new Promise((resolve, reject) => {
-      const check = setInterval(() => {
-        if (segmenter) { clearInterval(check); resolve(segmenter) }
-        if (segmenterError) { clearInterval(check); reject(new Error(segmenterError)) }
-      }, 100)
-    })
-  }
+  if (initPromise) return initPromise
 
   segmenterLoading = true
   segmenterError = null
 
-  try {
-    segmenter = new SelfieSegmentation({
-      locateFile: (file: string) =>
-        `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`,
-    })
+  initPromise = (async () => {
+    try {
+      const { SelfieSegmentation } = await import('@mediapipe/selfie_segmentation')
+      const seg = new SelfieSegmentation({
+        locateFile: (file: string) =>
+          `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`,
+      })
+      seg.setOptions({ modelSelection: 1, selfieMode: true })
+      await new Promise<void>((resolve, reject) => {
+        seg.onResults(() => resolve())
+        seg.initialize().catch(reject)
+      })
+      segmenter = seg
+      segmenterLoading = false
+      return seg
+    } catch (err) {
+      segmenterLoading = false
+      segmenterError = err instanceof Error ? err.message : 'Error al cargar segmentación'
+      initPromise = null
+      throw new Error(segmenterError)
+    }
+  })()
 
-    segmenter.setOptions({
-      modelSelection: 1,
-      selfieMode: true,
-    })
-
-    await new Promise<void>((resolve, reject) => {
-      segmenter!.onResults(() => resolve())
-      segmenter!.initialize().catch(reject)
-    })
-
-    segmenterLoading = false
-    return segmenter!
-  } catch (err) {
-    segmenterLoading = false
-    segmenterError = err instanceof Error ? err.message : 'Error al cargar segmentación'
-    segmenter = null
-    throw new Error(segmenterError)
-  }
+  return initPromise
 }
 
 export async function segmentPerson(imageSource: string | HTMLImageElement | HTMLCanvasElement): Promise<SegmentationResult> {
@@ -74,9 +66,10 @@ export async function segmentPerson(imageSource: string | HTMLImageElement | HTM
   const offCtx = offCanvas.getContext('2d')!
   offCtx.drawImage(imgEl, 0, 0, width, height)
 
-  const results: SegmentationResults = await new Promise((resolve, reject) => {
-    seg.onResults((r: SegmentationResults) => resolve(r))
-    seg.send({ image: offCanvas }).catch(reject)
+  const results = await new Promise<any>((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error('Segmentación timeout')), 15000)
+    seg.onResults((r: any) => { clearTimeout(timeout); resolve(r) })
+    seg.send({ image: offCanvas }).catch((e: any) => { clearTimeout(timeout); reject(e) })
   })
 
   if (!results.segmentationMask) {
@@ -88,10 +81,9 @@ export async function segmentPerson(imageSource: string | HTMLImageElement | HTM
   maskCanvas.height = height
   const maskCtx = maskCanvas.getContext('2d')!
   maskCtx.drawImage(results.segmentationMask, 0, 0, width, height)
-  const maskImageData = maskCtx.getImageData(0, 0, width, height)
 
   return {
-    maskImage: maskImageData,
+    maskImage: maskCtx.getImageData(0, 0, width, height),
     canvas: maskCanvas,
     width,
     height,
@@ -104,7 +96,6 @@ export async function applyPersonMask(
   options: { featherRadius?: number; backgroundColor?: [number, number, number, number] } = {}
 ): Promise<string> {
   const { featherRadius = 3, backgroundColor = [0, 0, 0, 0] } = options
-
   const img = await loadImageElement(imageUrl)
   const { width, height } = segmentationResult
 
@@ -119,15 +110,12 @@ export async function applyPersonMask(
   const mask = segmentationResult.maskImage.data
 
   for (let i = 0; i < data.length; i += 4) {
-    const maskVal = mask[i]
-    if (maskVal < 128) {
-      data[i] = backgroundColor[0]
-      data[i + 1] = backgroundColor[1]
-      data[i + 2] = backgroundColor[2]
-      data[i + 3] = backgroundColor[3]
-    } else if (featherRadius > 0 && maskVal < 200) {
-      const alpha = (maskVal - 128) / 72
-      data[i + 3] = Math.round(data[i + 3] * alpha)
+    const mv = mask[i]
+    if (mv < 128) {
+      data[i] = backgroundColor[0]; data[i + 1] = backgroundColor[1]
+      data[i + 2] = backgroundColor[2]; data[i + 3] = backgroundColor[3]
+    } else if (featherRadius > 0 && mv < 200) {
+      data[i + 3] = Math.round(data[i + 3] * ((mv - 128) / 72))
     }
   }
 
