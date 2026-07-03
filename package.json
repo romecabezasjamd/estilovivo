@@ -12,7 +12,9 @@
     "android:open": "npx cap open android",
     "ios:sync": "npm run build && npx cap sync ios",
     "ios:open": "npx cap open ios",
-    "cap:sync": "npm run build && npx cap sync"
+    "cap:sync": "npm run build && npx cap sync",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.4",
@@ -44,6 +46,7 @@
     "@vitejs/plugin-react": "^5.0.0",
     "@vitest/ui": "^4.0.18",
     "autoprefixer": "^10.4.20",
+    "jsdom": "^29.1.1",
     "postcss": "^8.4.47",
     "sharp": "^0.34.5",
     "supertest": "^7.2.2",

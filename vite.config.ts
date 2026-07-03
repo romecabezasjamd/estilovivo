@@ -69,6 +69,16 @@ export default defineConfig(({ mode }) => {
       build: {
         outDir: 'dist',
         sourcemap: false,
+        rollupOptions: {
+          output: {
+            manualChunks: {
+              'tf-core': ['@tensorflow/tfjs-core', '@tensorflow/tfjs-converter'],
+              'tf-backends': ['@tensorflow/tfjs-backend-webgl', '@tensorflow/tfjs-backend-cpu'],
+              'pose-detection': ['@tensorflow-models/pose-detection'],
+              'framer-motion': ['framer-motion'],
+            },
+          },
+        },
       }
     };
 });
