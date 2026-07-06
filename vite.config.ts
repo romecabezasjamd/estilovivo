@@ -27,7 +27,26 @@ export default defineConfig(({ mode }) => {
           registerType: 'autoUpdate',
           includeAssets: ['icon-192.png', 'icon-512.png', 'estilo-vivo-logo-full.png', 'estilo-vivo-logo-icon.png'],
           workbox: {
-            globIgnores: ['**/ort-wasm-simd-threaded.jsep-*.wasm'],
+            globIgnores: ['**/ort-wasm-simd-threaded.jsep-*.wasm', '**/human-*', '**/tf-*', '**/pose-detection-*'],
+            runtimeCaching: [
+              {
+                urlPattern: /\/api\//,
+                handler: 'NetworkFirst',
+                options: {
+                  cacheName: 'api-cache',
+                  networkTimeoutSeconds: 5,
+                  expiration: { maxEntries: 50, maxAgeSeconds: 300 },
+                },
+              },
+              {
+                urlPattern: /^https:\/\/cdn\.jsdelivr\.net\//,
+                handler: 'CacheFirst',
+                options: {
+                  cacheName: 'cdn-cache',
+                  expiration: { maxEntries: 100, maxAgeSeconds: 604800 },
+                },
+              },
+            ],
           },
           manifest: {
             name: 'Estilo Vivo',
@@ -74,8 +93,8 @@ export default defineConfig(({ mode }) => {
             manualChunks: {
               'tf-core': ['@tensorflow/tfjs-core', '@tensorflow/tfjs-converter'],
               'tf-backends': ['@tensorflow/tfjs-backend-webgl', '@tensorflow/tfjs-backend-cpu'],
-              'pose-detection': ['@tensorflow-models/pose-detection', '@tensorflow-models/body-segmentation'],
               'human': ['@vladmandic/human'],
+              'mediapipe': ['@mediapipe/selfie_segmentation'],
               'framer-motion': ['framer-motion'],
             },
           },

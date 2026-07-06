@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { calculateGarmentTransform } from '../tryOnRenderer'
-import { BodyDimensions } from '../bodyDetection'
+import { calculateGarmentTransform } from '../garmentOverlay'
+import { BodyDimensions } from '../poseDetection'
 
 const defaultDims: BodyDimensions = {
   shoulderWidth: 200, hipWidth: 180, waistWidth: 160,
