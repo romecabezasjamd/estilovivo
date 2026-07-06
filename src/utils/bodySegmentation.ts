@@ -5,59 +5,16 @@ export interface SegmentationResult {
   height: number
 }
 
-let humanInstance: any = null
-let humanLoading = false
-let humanInitErr: string | null = null
-let humanInitP: Promise<any> | null = null
-
 let bodyPixSegmenter: any = null
 let bodyPixLoading = false
 let bodyPixInitP: Promise<any> | null = null
 
 export function getStatus() {
   return {
-    isLoading: humanLoading || bodyPixLoading,
-    error: humanInitErr,
-    isReady: humanInstance !== null || bodyPixSegmenter !== null,
+    isLoading: bodyPixLoading,
+    error: null,
+    isReady: bodyPixSegmenter !== null,
   }
-}
-
-async function loadHuman(): Promise<any> {
-  if (humanInstance) return humanInstance
-  if (humanInitP) return humanInitP
-  humanLoading = true
-  humanInitErr = null
-  humanInitP = (async () => {
-    try {
-      const Human = (await import('@vladmandic/human')).default
-      const h = new Human({
-        backend: 'webgl',
-        debug: false,
-        async: true,
-        warmup: 'none',
-        cacheModels: true,
-        deallocate: true,
-        body: { enabled: true, maxDetected: 1, minConfidence: 0.3 },
-        face: { enabled: false },
-        hand: { enabled: false },
-        object: { enabled: false },
-        gesture: { enabled: false },
-        segmentation: { enabled: true },
-        filter: { enabled: false },
-      })
-      await h.init()
-      await h.load()
-      humanInstance = h
-      humanLoading = false
-      return h
-    } catch (e) {
-      humanLoading = false
-      humanInitErr = e instanceof Error ? e.message : 'Error al cargar Human.js'
-      humanInitP = null
-      throw new Error(humanInitErr)
-    }
-  })()
-  return humanInitP
 }
 
 async function loadBodyPix(): Promise<any> {
@@ -83,7 +40,7 @@ async function loadBodyPix(): Promise<any> {
       const bodySeg = await import('@tensorflow-models/body-segmentation')
       const seg = await bodySeg.createSegmenter(
         bodySeg.SupportedModels.BodyPix,
-        { runtime: 'tfjs', modelType: bodySeg.modelTypes.general }
+        { runtime: 'tfjs', modelType: (bodySeg.modelTypes as any)?.general || 'general' }
       )
       bodyPixSegmenter = seg
       bodyPixLoading = false
@@ -112,51 +69,6 @@ function getC(w: number, h: number) {
   c.width = w; c.height = h
   const ctx = c.getContext('2d', { willReadFrequently: true })!
   return { c, ctx }
-}
-
-function tensorToMask(tensor: any, w: number, h: number): HTMLCanvasElement {
-  const mc = document.createElement('canvas')
-  mc.width = w; mc.height = h
-  const mctx = mc.getContext('2d')!
-  if (tensor instanceof ImageData) {
-    mctx.putImageData(tensor, 0, 0)
-  } else if (tensor.data) {
-    mctx.putImageData(new ImageData(new Uint8ClampedArray(tensor.data), tensor.width || w, tensor.height || h), 0, 0)
-  } else if (tensor.shape) {
-    const data = tensor.dataSync ? tensor.dataSync() : tensor
-    const pixels = new Uint8ClampedArray(w * h * 4)
-    const src = data instanceof Uint8Array ? data : new Uint8Array(data)
-    for (let i = 0; i < w * h; i++) {
-      const v = src[i] ?? 0
-      pixels[i * 4] = 255
-      pixels[i * 4 + 1] = 255
-      pixels[i * 4 + 2] = 255
-      pixels[i * 4 + 3] = v > 128 ? 255 : 0
-    }
-    mctx.putImageData(new ImageData(pixels, w, h), 0, 0)
-  } else {
-    const tmpC = document.createElement('canvas')
-    const tw = tensor.width || w, th = tensor.height || h
-    tmpC.width = tw; tmpC.height = th
-    const tmpCtx = tmpC.getContext('2d')!
-    if (tensor instanceof HTMLCanvasElement) {
-      tmpCtx.drawImage(tensor, 0, 0)
-    } else {
-      tmpCtx.putImageData(tensor, 0, 0)
-    }
-    mctx.drawImage(tmpC, 0, 0, w, h)
-  }
-  return mc
-}
-
-async function segmentWithHuman(imageEl: HTMLImageElement): Promise<SegmentationResult> {
-  const h = await loadHuman()
-  const w = imageEl.naturalWidth
-  const h2 = imageEl.naturalHeight
-  const tensor = await h.segmentation(imageEl)
-  if (!tensor) throw new Error('Human.js no pudo segmentar')
-  const mc = tensorToMask(tensor, w, h2)
-  return { personMask: mc.getContext('2d')!.getImageData(0, 0, w, h2), personCanvas: mc, width: w, height: h2 }
 }
 
 async function segmentWithBodyPix(imageEl: HTMLImageElement): Promise<SegmentationResult> {
@@ -215,12 +127,6 @@ export async function segmentPerson(imageSrc: string | HTMLImageElement | HTMLCa
     el = await loadImg(imageSrc)
   } else {
     el = imageSrc
-  }
-
-  try {
-    return await segmentWithHuman(el as HTMLImageElement)
-  } catch (e) {
-    console.warn('Human.js segmentation failed, trying BodyPix:', e)
   }
 
   try {

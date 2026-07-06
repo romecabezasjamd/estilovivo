@@ -79,6 +79,7 @@ async function loadHuman(): Promise<any> {
         cacheModels: true,
         cacheSensitivity: 0.7,
         deallocate: true,
+        modelBasePath: 'https://cdn.jsdelivr.net/npm/@vladmandic/human@3.3.6/models',
         body: { enabled: true, maxDetected: 1, minConfidence: 0.3 },
         face: { enabled: false },
         hand: { enabled: false },
