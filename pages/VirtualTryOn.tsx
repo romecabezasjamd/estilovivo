@@ -8,6 +8,7 @@ import {
 import PoseGuide from '../components/PoseGuide'
 import { removeBackground } from '../src/utils/garmentProcessor'
 import { detectPose, loadPoseDetector, BodyDimensions } from '../src/utils/bodyDetection'
+import { segmentPerson, SegmentationResult } from '../src/utils/bodySegmentation'
 import { renderTryOn, GarmentAdjustments } from '../src/utils/tryOnRenderer'
 import { pickPhoto, CameraSource } from '../src/utils/cameraPhoto'
 import { api } from '../services/api'
@@ -25,9 +26,10 @@ interface VirtualTryOnProps {
 
 type Step = 'guide' | 'photo' | 'detecting' | 'select' | 'processing' | 'tryon' | 'saving' | 'saved'
 
-const RENDER_TIMEOUT = 20000
-const PROCESS_TIMEOUT = 20000
-const SAFETY_TIMEOUT = 45000
+const RENDER_TIMEOUT = 25000
+const PROCESS_TIMEOUT = 25000
+const DETECT_TIMEOUT = 40000
+const SAFETY_TIMEOUT = 50000
 
 const FALLBACK: BodyDimensions = {
   shoulderWidth: 200, hipWidth: 200, waistWidth: 180,
@@ -41,6 +43,7 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
   const [mode, setMode] = useState<'manual' | 'ai'>(initialMode)
   const [bodyPhotoUrl, setBodyPhotoUrl] = useState<string | null>(user?.fullBodyAvatar || null)
   const [bodyDims, setBodyDims] = useState<BodyDimensions | null>(null)
+  const [segmentation, setSegmentation] = useState<SegmentationResult | null>(null)
   const [selectedGarment, setSelectedGarment] = useState<Garment | null>(initialGarment)
   const [processedGarmentUrl, setProcessedGarmentUrl] = useState<string | null>(null)
   const [resultUrl, setResultUrl] = useState<string | null>(null)
@@ -66,9 +69,7 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
   const safetyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const currentStepRef = useRef<Step>('guide')
 
-  useEffect(() => {
-    currentStepRef.current = step
-  }, [step])
+  useEffect(() => { currentStepRef.current = step }, [step])
 
   useEffect(() => {
     return () => {
@@ -92,7 +93,8 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
   const startSafetyTimer = () => {
     if (safetyTimer.current) clearTimeout(safetyTimer.current)
     safetyTimer.current = setTimeout(() => {
-      if (currentStepRef.current === 'processing' || currentStepRef.current === 'detecting') {
+      const s = currentStepRef.current
+      if (s === 'processing' || s === 'detecting') {
         setError('La operación está tardando demasiado. Inténtalo de nuevo.')
         setStep('select')
       }
@@ -107,7 +109,7 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
 
   const handlePickPhoto = async (source: CameraSource) => {
     setError(null); setResultUrl(null); setProcessedGarmentUrl(null)
-    setBodyDims(null); setDetectionKeypoints(null); setModelLoading(false)
+    setBodyDims(null); setDetectionKeypoints(null); setSegmentation(null); setModelLoading(false)
     try {
       const { dataUrl } = await pickPhoto(source)
       setBodyPhotoUrl(dataUrl)
@@ -126,7 +128,7 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return
     setError(null); setResultUrl(null); setProcessedGarmentUrl(null)
-    setBodyDims(null); setDetectionKeypoints(null); setModelLoading(false)
+    setBodyDims(null); setDetectionKeypoints(null); setSegmentation(null); setModelLoading(false)
     const reader = new FileReader()
     reader.onloadend = async () => {
       if (typeof reader.result === 'string') {
@@ -144,14 +146,18 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
     setError(null); setModelLoading(true)
     try {
       if (!modelLoaded) {
-        await withTimeout(loadPoseDetector(), 30000, 'La IA tardó demasiado. Inténtalo de nuevo.')
+        await withTimeout(loadPoseDetector(), DETECT_TIMEOUT, 'El modelo de IA tardó demasiado en cargar.')
         setModelLoaded(true)
       }
       setModelLoading(false)
+      const [poseResult, segResult] = await Promise.all([
+        withTimeout(detectPose(url), DETECT_TIMEOUT, 'La detección de cuerpo tardó demasiado.'),
+        withTimeout(segmentPerson(url), DETECT_TIMEOUT, 'La segmentación tardó demasiado.'),
+      ])
       clearSafetyTimer()
-      const r = await withTimeout(detectPose(url), 30000, 'La IA tardó demasiado. Inténtalo de nuevo.')
-      setBodyDims(r.dimensions)
-      setDetectionKeypoints(r.keypoints)
+      setBodyDims(poseResult.dimensions)
+      setDetectionKeypoints(poseResult.keypoints)
+      setSegmentation(segResult)
       setStep('select')
     } catch (err: any) {
       setModelLoading(false)
@@ -173,7 +179,6 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
     setMode(next); setError(null); setResultUrl(null); setProcessedGarmentUrl(null)
     if (!bodyPhotoUrl) { setStep('photo'); return }
     if (next === 'manual') {
-      setBodyDims(null); setDetectionKeypoints(null)
       setStep(selectedGarment ? 'tryon' : 'select'); return
     }
     setStep('detecting')
@@ -192,6 +197,7 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
           garmentImageUrl: garmentUrl,
           garmentType: garment.type,
           bodyDimensions: dims,
+          segmentation: mode === 'ai' ? segmentation : null,
           adjustments,
           canvasWidth: 600, canvasHeight: 800,
         }),
@@ -417,8 +423,8 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
             <motion.div key="detecting" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center justify-center p-10 gap-6 min-h-[60vh]">
               {modelLoading ? <Loader size={40} className="text-primary animate-spin" /> : <Sparkles size={40} className="text-primary animate-pulse" />}
               <div className="text-center">
-                <h3 className="text-lg font-bold">{modelLoading ? 'Cargando modelo de IA...' : 'Analizando tu foto...'}</h3>
-                <p className="text-sm text-[var(--text-secondary)] mt-1">{modelLoading ? 'Primera carga puede tardar unos segundos' : 'Detectando hombros, cintura, cadera y piernas'}</p>
+                <h3 className="text-lg font-bold">{modelLoading ? 'Cargando motor de IA...' : 'Analizando tu foto...'}</h3>
+                <p className="text-sm text-[var(--text-secondary)] mt-1">{modelLoading ? 'Primera carga puede tardar unos segundos' : 'Detectando cuerpo, postura y segmentación'}</p>
               </div>
               {error && (
                 <div className="flex flex-col items-center gap-3 max-w-xs">

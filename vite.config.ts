@@ -74,7 +74,8 @@ export default defineConfig(({ mode }) => {
             manualChunks: {
               'tf-core': ['@tensorflow/tfjs-core', '@tensorflow/tfjs-converter'],
               'tf-backends': ['@tensorflow/tfjs-backend-webgl', '@tensorflow/tfjs-backend-cpu'],
-              'pose-detection': ['@tensorflow-models/pose-detection'],
+              'pose-detection': ['@tensorflow-models/pose-detection', '@tensorflow-models/body-segmentation'],
+              'human': ['@vladmandic/human'],
               'framer-motion': ['framer-motion'],
             },
           },

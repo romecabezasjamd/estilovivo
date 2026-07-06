@@ -115,6 +115,29 @@ function estimateLighting(ctx: CanvasRenderingContext2D, w: number, h: number) {
   }
 }
 
+function drawGarmentOnCanvas(
+  ctx: CanvasRenderingContext2D,
+  garmentImg: HTMLImageElement,
+  tx: number, ty: number,
+  rw: number, rh: number,
+  rotation: number,
+  adj: GarmentAdjustments,
+  light: { brightness: number; contrast: number; shadow: number },
+  sc: number,
+) {
+  ctx.save()
+  ctx.shadowColor = `rgba(0,0,0,${clamp(light.shadow * 0.75, 0.10, 0.32)})`
+  ctx.shadowBlur = adj.shadowBlur * sc * 0.9
+  ctx.shadowOffsetX = 0
+  ctx.shadowOffsetY = adj.shadowOffsetY * sc * 0.8
+  ctx.translate(tx, ty)
+  ctx.rotate(rotation * Math.PI / 180)
+  ctx.globalAlpha = adj.opacity
+  ctx.filter = `brightness(${clamp(adj.brightness * light.brightness, 0.82, 1.25)}) contrast(${clamp(adj.contrast * light.contrast, 0.88, 1.15)}) saturate(0.96)`
+  ctx.drawImage(garmentImg, -rw / 2, -rh / 2, rw, rh)
+  ctx.restore()
+}
+
 export async function renderTryOn(options: RenderOptions): Promise<string> {
   const adj: GarmentAdjustments = { ...DEFAULTS, ...options.adjustments }
   const maxW = options.canvasWidth || 800
@@ -151,94 +174,46 @@ export async function renderTryOn(options: RenderOptions): Promise<string> {
   const fsy = auto.scaleY * adj.scaleY
   const rw = garmentImg.naturalWidth * fsx
   const rh = garmentImg.naturalHeight * fsy
+  const totalRotation = auto.rotation + adj.rotation
 
   if (options.segmentation) {
     const maskCanvas = options.segmentation.personCanvas
-    const tempCanvas = document.createElement('canvas')
-    tempCanvas.width = cw; tempCanvas.height = ch
-    const tempCtx = tempCanvas.getContext('2d')!
 
-    tempCtx.drawImage(bodyImg, 0, 0, cw, ch)
-
-    tempCtx.save()
-    tempCtx.shadowColor = `rgba(0,0,0,${clamp(light.shadow * 0.75, 0.10, 0.32)})`
-    tempCtx.shadowBlur = adj.shadowBlur * sc * 0.9
-    tempCtx.shadowOffsetX = 0
-    tempCtx.shadowOffsetY = adj.shadowOffsetY * sc * 0.8
-    tempCtx.translate(tx, ty)
-    tempCtx.rotate((auto.rotation + adj.rotation) * Math.PI / 180)
-    tempCtx.globalAlpha = adj.opacity
-    tempCtx.filter = `brightness(${clamp(adj.brightness * light.brightness, 0.82, 1.25)}) contrast(${clamp(adj.contrast * light.contrast, 0.88, 1.15)}) saturate(0.96)`
-    tempCtx.drawImage(garmentImg, -rw / 2, -rh / 2, rw, rh)
-    tempCtx.restore()
-
-    const personMaskCanvas = document.createElement('canvas')
-    personMaskCanvas.width = cw; personMaskCanvas.height = ch
-    const pmCtx = personMaskCanvas.getContext('2d')!
-    pmCtx.drawImage(maskCanvas, 0, 0, cw, ch)
-
-    ctx.clearRect(0, 0, cw, ch)
-    ctx.drawImage(tempCanvas, 0, 0)
-
-    ctx.globalCompositeOperation = 'destination-in'
-    ctx.drawImage(personMaskCanvas, 0, 0)
-    ctx.globalCompositeOperation = 'source-over'
-
-    const bodyOnlyCanvas = document.createElement('canvas')
-    bodyOnlyCanvas.width = cw; bodyOnlyCanvas.height = ch
-    const boCtx = bodyOnlyCanvas.getContext('2d')!
-    boCtx.drawImage(bodyImg, 0, 0, cw, ch)
-    boCtx.globalCompositeOperation = 'destination-in'
-    boCtx.drawImage(personMaskCanvas, 0, 0)
-    boCtx.globalCompositeOperation = 'source-over'
+    const personOnlyCanvas = document.createElement('canvas')
+    personOnlyCanvas.width = cw; personOnlyCanvas.height = ch
+    const poCtx = personOnlyCanvas.getContext('2d')!
+    poCtx.drawImage(bodyImg, 0, 0, cw, ch)
+    poCtx.globalCompositeOperation = 'destination-in'
+    poCtx.drawImage(maskCanvas, 0, 0, cw, ch)
 
     const garmentOnlyCanvas = document.createElement('canvas')
     garmentOnlyCanvas.width = cw; garmentOnlyCanvas.height = ch
     const goCtx = garmentOnlyCanvas.getContext('2d')!
-    goCtx.save()
-    goCtx.shadowColor = `rgba(0,0,0,${clamp(light.shadow * 0.75, 0.10, 0.32)})`
-    goCtx.shadowBlur = adj.shadowBlur * sc * 0.9
-    goCtx.shadowOffsetX = 0
-    goCtx.shadowOffsetY = adj.shadowOffsetY * sc * 0.8
-    goCtx.translate(tx, ty)
-    goCtx.rotate((auto.rotation + adj.rotation) * Math.PI / 180)
-    goCtx.globalAlpha = adj.opacity
-    goCtx.filter = `brightness(${clamp(adj.brightness * light.brightness, 0.82, 1.25)}) contrast(${clamp(adj.contrast * light.contrast, 0.88, 1.15)}) saturate(0.96)`
-    goCtx.drawImage(garmentImg, -rw / 2, -rh / 2, rw, rh)
-    goCtx.restore()
+    drawGarmentOnCanvas(goCtx, garmentImg, tx, ty, rw, rh, totalRotation, adj, light, sc)
 
     const invMaskCanvas = document.createElement('canvas')
     invMaskCanvas.width = cw; invMaskCanvas.height = ch
     const imCtx = invMaskCanvas.getContext('2d')!
-    imCtx.drawImage(personMaskCanvas, 0, 0)
+    imCtx.drawImage(maskCanvas, 0, 0, cw, ch)
     imCtx.globalCompositeOperation = 'source-in'
     imCtx.fillStyle = '#000'
     imCtx.fillRect(0, 0, cw, ch)
 
-    const garmentBgCanvas = document.createElement('canvas')
-    garmentBgCanvas.width = cw; garmentBgCanvas.height = ch
-    const gbCtx = garmentBgCanvas.getContext('2d')!
+    const garmentBehindCanvas = document.createElement('canvas')
+    garmentBehindCanvas.width = cw; garmentBehindCanvas.height = ch
+    const gbCtx = garmentBehindCanvas.getContext('2d')!
     gbCtx.drawImage(garmentOnlyCanvas, 0, 0)
     gbCtx.globalCompositeOperation = 'destination-in'
     gbCtx.drawImage(invMaskCanvas, 0, 0)
 
     ctx.clearRect(0, 0, cw, ch)
-    ctx.drawImage(bodyOnlyCanvas, 0, 0)
+    ctx.drawImage(bodyImg, 0, 0, cw, ch)
     ctx.globalCompositeOperation = 'source-over'
-    ctx.drawImage(garmentBgCanvas, 0, 0)
+    ctx.drawImage(garmentBehindCanvas, 0, 0)
+    ctx.drawImage(personOnlyCanvas, 0, 0)
     ctx.drawImage(garmentOnlyCanvas, 0, 0)
   } else {
-    ctx.save()
-    ctx.shadowColor = `rgba(0,0,0,${clamp(light.shadow * 0.75, 0.10, 0.32)})`
-    ctx.shadowBlur = adj.shadowBlur * sc * 0.9
-    ctx.shadowOffsetX = 0
-    ctx.shadowOffsetY = adj.shadowOffsetY * sc * 0.8
-    ctx.translate(tx, ty)
-    ctx.rotate((auto.rotation + adj.rotation) * Math.PI / 180)
-    ctx.globalAlpha = adj.opacity
-    ctx.filter = `brightness(${clamp(adj.brightness * light.brightness, 0.82, 1.25)}) contrast(${clamp(adj.contrast * light.contrast, 0.88, 1.15)}) saturate(0.96)`
-    ctx.drawImage(garmentImg, -rw / 2, -rh / 2, rw, rh)
-    ctx.restore()
+    drawGarmentOnCanvas(ctx, garmentImg, tx, ty, rw, rh, totalRotation, adj, light, sc)
   }
 
   return canvas.toDataURL('image/png')
@@ -249,8 +224,7 @@ export async function renderTryOnPreview(bodyImageUrl: string, garmentImageUrl: 
 }
 
 export async function renderWithSegmentation(bodyImageUrl: string, garmentUrl: string, garmentType: string, bodyDims: BodyDimensions, segmentation: SegmentationResult, adjustments?: Partial<GarmentAdjustments>): Promise<string> {
-  const r = await renderTryOn({ bodyImageUrl, garmentImageUrl: garmentUrl, garmentType, bodyDimensions: bodyDims, segmentation, adjustments })
-  return r
+  return renderTryOn({ bodyImageUrl, garmentImageUrl: garmentUrl, garmentType, bodyDimensions: bodyDims, segmentation, adjustments })
 }
 
 export { calcGarmentTransform as calculateGarmentTransform }
