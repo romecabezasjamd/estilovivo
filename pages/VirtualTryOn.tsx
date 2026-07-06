@@ -1,15 +1,16 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Garment } from '../types'
 import {
   X, ArrowLeft, Camera, Image as ImageIcon, Shirt, RefreshCcw,
-  Save, Share2, CheckCircle, AlertCircle, Loader, Sparkles, Upload
+  Save, Share2, CheckCircle, AlertCircle, Loader, Sparkles, Upload,
+  Layers, ChevronUp, ChevronDown, Plus
 } from 'lucide-react'
 import PoseGuide from '../components/PoseGuide'
 import { removeBackground } from '../src/utils/garmentProcessor'
 import { detectPose, loadPoseDetector, BodyDimensions } from '../src/utils/poseDetection'
 import { segmentPerson, SegmentationResult } from '../src/utils/bodySegmentationNew'
-import { renderTryOn, GarmentAdjustments, calcGarmentTransform } from '../src/utils/garmentOverlay'
+import { renderMultiTryOn, GarmentAdjustments } from '../src/utils/garmentOverlay'
 import { pickPhoto, CameraSource } from '../src/utils/cameraPhoto'
 import { api } from '../services/api'
 import { successImpact, errorImpact } from '../src/utils/haptic'
@@ -26,10 +27,11 @@ interface VirtualTryOnProps {
 
 type Step = 'guide' | 'photo' | 'detecting' | 'select' | 'processing' | 'tryon' | 'saving' | 'saved'
 
-const RENDER_TIMEOUT = 25000
-const PROCESS_TIMEOUT = 25000
-const DETECT_TIMEOUT = 40000
-const SAFETY_TIMEOUT = 50000
+const RENDER_TIMEOUT = 20000
+const PROCESS_TIMEOUT = 20000
+const DETECT_TIMEOUT = 12000
+const SEG_TIMEOUT = 8000
+const SAFETY_TIMEOUT = 30000
 
 const FALLBACK: BodyDimensions = {
   shoulderWidth: 200, hipWidth: 200, waistWidth: 180,
@@ -38,23 +40,43 @@ const FALLBACK: BodyDimensions = {
   torsoAngle: 0, headHeight: 50, imageWidth: 400, imageHeight: 600,
 }
 
+const CATEGORIES = [
+  { id: 'all', label: 'Todo' },
+  { id: 'top', label: 'Tops' },
+  { id: 'bottom', label: 'Bottoms' },
+  { id: 'outerwear', label: 'Abrigos' },
+  { id: 'dress', label: 'Vestidos' },
+  { id: 'shoes', label: 'Zapatos' },
+  { id: 'accessories', label: 'Accesorios' },
+]
+
+interface GarmentLayer {
+  id: string
+  garment: Garment
+  processedUrl: string
+  adjustments: Partial<GarmentAdjustments>
+}
+
+function generateId() { return Math.random().toString(36).substring(2, 9) }
+
 export default function VirtualTryOn({ user, garments, initialGarment = null, initialMode = 'ai', onSaveLook, onClose, onNavigate }: VirtualTryOnProps) {
   const [step, setStep] = useState<Step>('guide')
   const [mode, setMode] = useState<'manual' | 'ai'>(initialMode)
   const [bodyPhotoUrl, setBodyPhotoUrl] = useState<string | null>(user?.fullBodyAvatar || null)
   const [bodyDims, setBodyDims] = useState<BodyDimensions | null>(null)
   const [segmentation, setSegmentation] = useState<SegmentationResult | null>(null)
-  const [selectedGarment, setSelectedGarment] = useState<Garment | null>(initialGarment)
-  const [processedGarmentUrl, setProcessedGarmentUrl] = useState<string | null>(null)
+  const [garmentLayers, setGarmentLayers] = useState<GarmentLayer[]>([])
   const [resultUrl, setResultUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [adjustments, setAdjustments] = useState<Partial<GarmentAdjustments>>({})
   const [lookName, setLookName] = useState('')
   const [modelLoading, setModelLoading] = useState(false)
   const [modelLoaded, setModelLoaded] = useState(false)
   const [detectionKeypoints, setDetectionKeypoints] = useState<Array<{ x: number; y: number; score: number; name: string }> | null>(null)
   const [savingName, setSavingName] = useState(false)
   const [savingMsg, setSavingMsg] = useState('')
+  const [activeLayerId, setActiveLayerId] = useState<string | null>(null)
+  const [selectedGarmentIds, setSelectedGarmentIds] = useState<Set<string>>(new Set())
+  const [garmentFilter, setGarmentFilter] = useState('all')
 
   const containerRef = useRef<HTMLDivElement>(null)
   const isDragging = useRef(false)
@@ -79,8 +101,10 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
   }, [])
 
   useEffect(() => {
-    if (initialGarment && !selectedGarment) setSelectedGarment(initialGarment)
-  }, [initialGarment, selectedGarment])
+    if (initialGarment && garmentLayers.length === 0 && !selectedGarmentIds.has(initialGarment.id)) {
+      setSelectedGarmentIds(prev => new Set(prev).add(initialGarment.id))
+    }
+  }, [initialGarment])
 
   const withTimeout = <T,>(p: Promise<T>, ms: number, msg: string): Promise<T> => {
     let tid: ReturnType<typeof setTimeout> | null = null
@@ -105,10 +129,10 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
     if (safetyTimer.current) { clearTimeout(safetyTimer.current); safetyTimer.current = null }
   }
 
-  const goPhoto = () => { setError(null); setResultUrl(null); setProcessedGarmentUrl(null); setStep('photo') }
+  const goPhoto = () => { setError(null); setResultUrl(null); setStep('photo') }
 
   const handlePickPhoto = async (source: CameraSource) => {
-    setError(null); setResultUrl(null); setProcessedGarmentUrl(null)
+    setError(null); setResultUrl(null)
     setBodyDims(null); setDetectionKeypoints(null); setSegmentation(null); setModelLoading(false)
     try {
       const { dataUrl } = await pickPhoto(source)
@@ -127,7 +151,7 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return
-    setError(null); setResultUrl(null); setProcessedGarmentUrl(null)
+    setError(null); setResultUrl(null)
     setBodyDims(null); setDetectionKeypoints(null); setSegmentation(null); setModelLoading(false)
     const reader = new FileReader()
     reader.onloadend = async () => {
@@ -151,23 +175,22 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
       }
       setModelLoading(false)
 
-      const [poseR, segR] = await Promise.allSettled([
-        withTimeout(detectPose(url), DETECT_TIMEOUT, 'La detección de cuerpo tardó demasiado.').catch(e => { console.warn(e); return null }),
-        withTimeout(segmentPerson(url), DETECT_TIMEOUT, 'La segmentación tardó demasiado.').catch(e => { console.warn(e); return null }),
-      ])
+      const poseR = await withTimeout(detectPose(url), DETECT_TIMEOUT, 'La detección de cuerpo tardó demasiado.').catch(e => { console.warn(e); return null })
 
       clearSafetyTimer()
-      setBodyDims(poseR.status === 'fulfilled' && poseR.value ? poseR.value.dimensions : FALLBACK)
-      setDetectionKeypoints(poseR.status === 'fulfilled' && poseR.value ? poseR.value.keypoints : null)
-      setSegmentation(segR.status === 'fulfilled' ? segR.value : null)
 
-      if (poseR.status === 'rejected' && segR.status === 'rejected') {
-        setError('No se pudo analizar la foto. Intenta con mejor iluminación o usa modo manual.')
-      } else if (poseR.status === 'rejected') {
-        setError('La detección de postura falló. Usa el modo manual para ajustar.')
+      const dims = poseR ? poseR.dimensions : FALLBACK
+      const kps = poseR ? poseR.keypoints : null
+      setBodyDims(dims)
+      setDetectionKeypoints(kps)
+
+      if (!poseR) {
+        setError('No se pudo detectar el cuerpo. Intenta con mejor iluminación o usa modo manual.')
       }
 
       setStep('select')
+
+      segmentPerson(url).then(seg => setSegmentation(seg)).catch(() => {})
     } catch (err: any) {
       setModelLoading(false)
       clearSafetyTimer()
@@ -179,98 +202,181 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
 
   const handleModeChange = async (next: 'manual' | 'ai') => {
     if (next === mode) return
-    setMode(next); setError(null); setResultUrl(null); setProcessedGarmentUrl(null)
+    setMode(next); setError(null); setResultUrl(null)
     setSegmentation(null); setBodyDims(null)
     if (!bodyPhotoUrl) { setStep('photo'); return }
     if (next === 'manual') {
-      setStep(selectedGarment ? 'tryon' : 'select'); return
+      setStep(garmentLayers.length > 0 ? 'tryon' : 'select'); return
     }
     setStep('detecting')
     startSafetyTimer()
     await detectFn(bodyPhotoUrl)
   }
 
-  const doRender = async (garmentUrl: string, garment: Garment) => {
+  const handleToggleGarment = (garment: Garment) => {
+    setSelectedGarmentIds(prev => {
+      const next = new Set(prev)
+      if (next.has(garment.id)) {
+        next.delete(garment.id)
+      } else {
+        next.add(garment.id)
+      }
+      return next
+    })
+  }
+
+  const handleProcessSelected = async () => {
+    if (selectedGarmentIds.size === 0) return
+    setStep('processing')
+    startSafetyTimer()
+
+    const existingIds = new Set(garmentLayers.map(l => l.garment.id))
+    const newGarments = garments.filter(g => selectedGarmentIds.has(g.id) && !existingIds.has(g.id))
+    const keptLayers = garmentLayers.filter(l => selectedGarmentIds.has(l.garment.id))
+
+    const newLayers: GarmentLayer[] = []
+
+    for (const g of newGarments) {
+      try {
+        const processed = await withTimeout(
+          removeBackground(g.imageUrl, { maxSize: 800 }),
+          PROCESS_TIMEOUT, `El procesamiento de ${g.name} tardó demasiado`
+        )
+        newLayers.push({
+          id: generateId(),
+          garment: g,
+          processedUrl: processed,
+          adjustments: {},
+        })
+      } catch {
+        newLayers.push({
+          id: generateId(),
+          garment: g,
+          processedUrl: g.imageUrl,
+          adjustments: {},
+        })
+      }
+    }
+
+    clearSafetyTimer()
+    const allLayers = [...keptLayers, ...newLayers]
+    setGarmentLayers(allLayers)
+    if (allLayers.length > 0) {
+      setActiveLayerId(allLayers[allLayers.length - 1].id)
+    }
+    setStep('tryon')
+    setSelectedGarmentIds(new Set())
+    await doRenderAll(allLayers)
+  }
+
+  const handleAddMoreGarments = () => {
+    setSelectedGarmentIds(new Set(garmentLayers.map(l => l.garment.id)))
+    setStep('select')
+  }
+
+  const doRenderAll = async (layers?: GarmentLayer[]) => {
     if (renderLock.current) return
+    const activeLayers = layers || garmentLayers
+    if (activeLayers.length === 0 || !bodyPhotoUrl) return
+
     renderLock.current = true
     try {
       const dims = bodyDims || FALLBACK
       const out = await withTimeout(
-        renderTryOn({
-          bodyImageUrl: bodyPhotoUrl!,
-          garmentImageUrl: garmentUrl,
-          garmentType: garment.type,
+        renderMultiTryOn({
+          bodyImageUrl: bodyPhotoUrl,
+          garmentLayers: activeLayers.map(l => ({
+            garmentImageUrl: l.processedUrl,
+            garmentType: l.garment.type,
+            adjustments: l.adjustments,
+          })),
           bodyDimensions: dims,
           segmentation: mode === 'ai' ? segmentation : null,
-          adjustments,
-          canvasWidth: 600, canvasHeight: 800,
+          canvasWidth: 600,
+          canvasHeight: 800,
         }),
-        RENDER_TIMEOUT, 'La generación del preview está tardando demasiado'
+        RENDER_TIMEOUT, 'La generación está tardando demasiado'
       )
       setResultUrl(out)
     } catch (err: any) {
       if (bodyPhotoUrl) setResultUrl(bodyPhotoUrl)
-      setError('No se pudo procesar la prenda. Inténtalo de nuevo o usa modo manual.')
+      setError('No se pudo procesar la combinación. Inténtalo de nuevo.')
     } finally {
       renderLock.current = false
     }
   }
 
-  const handleSelectGarment = async (garment: Garment) => {
-    if (renderLock.current) return
-    setSelectedGarment(garment)
-    setResultUrl(null)
-    setError(null)
-    setAdjustments({})
-    setStep('processing')
-    startSafetyTimer()
-    try {
-      const processed = await withTimeout(
-        removeBackground(garment.imageUrl, { maxSize: 800 }),
-        PROCESS_TIMEOUT, 'El procesamiento de la prenda está tardando demasiado'
-      )
-      clearSafetyTimer()
-      setProcessedGarmentUrl(processed)
-      setStep('tryon')
-      await doRender(processed, garment)
-    } catch (err: any) {
-      clearSafetyTimer()
-      setProcessedGarmentUrl(garment.imageUrl)
-      setStep('tryon')
-      await doRender(garment.imageUrl, garment)
-    }
-  }
-
   useEffect(() => {
-    if (step !== 'tryon' || !processedGarmentUrl || !selectedGarment) return
+    if (step !== 'tryon' || garmentLayers.length === 0) return
     if (adjDebounce.current) clearTimeout(adjDebounce.current)
     adjVersion.current++
     const v = adjVersion.current
     adjDebounce.current = setTimeout(() => {
       if (v === adjVersion.current && !renderLock.current) {
         setResultUrl(null)
-        doRender(processedGarmentUrl, selectedGarment)
+        doRenderAll(garmentLayers)
       }
     }, 350)
     return () => { if (adjDebounce.current) clearTimeout(adjDebounce.current) }
-  }, [adjustments])
+  }, [garmentLayers])
 
   const resetAdj = () => {
-    setAdjustments({})
-    if (processedGarmentUrl && selectedGarment && bodyPhotoUrl) {
+    setGarmentLayers(prev => prev.map(l => ({ ...l, adjustments: {} })))
+    if (bodyPhotoUrl) {
       setResultUrl(null)
-      doRender(processedGarmentUrl, selectedGarment)
+      doRenderAll(garmentLayers.map(l => ({ ...l, adjustments: {} })))
     }
   }
 
+  const handleRemoveLayer = (id: string) => {
+    setGarmentLayers(prev => {
+      const next = prev.filter(l => l.id !== id)
+      if (next.length === 0) {
+        setActiveLayerId(null)
+        setResultUrl(null)
+        setStep('select')
+      } else if (activeLayerId === id) {
+        setActiveLayerId(next[next.length - 1].id)
+      }
+      return next
+    })
+  }
+
+  const handleMoveLayerUp = (index: number) => {
+    if (index >= garmentLayers.length - 1) return
+    setGarmentLayers(prev => {
+      const next = [...prev]
+      ;[next[index], next[index + 1]] = [next[index + 1], next[index]]
+      return next
+    })
+  }
+
+  const handleMoveLayerDown = (index: number) => {
+    if (index <= 0) return
+    setGarmentLayers(prev => {
+      const next = [...prev]
+      ;[next[index], next[index - 1]] = [next[index - 1], next[index]]
+      return next
+    })
+  }
+
+  const updateActiveLayerAdj = (fn: (prev: Partial<GarmentAdjustments>) => Partial<GarmentAdjustments>) => {
+    setGarmentLayers(prev => prev.map(l =>
+      l.id === activeLayerId
+        ? { ...l, adjustments: { ...l.adjustments, ...fn(l.adjustments) } }
+        : l
+    ))
+  }
+
   const handleSave = async () => {
-    if (!resultUrl || !lookName.trim() || !selectedGarment) return
+    if (!resultUrl || !lookName.trim() || garmentLayers.length === 0) return
     setStep('saving'); setSavingMsg('Generando imagen final...')
     try {
       const res = await fetch(resultUrl)
       const blob = await res.blob()
       setSavingMsg('Guardando en tu armario...')
-      await api.saveLookWithImage(lookName, [selectedGarment.id], blob)
+      const garmentIds = garmentLayers.map(l => l.garment.id)
+      await api.saveLookWithImage(lookName, garmentIds, blob)
       successImpact(); setStep('saved'); setSavingMsg('¡Look guardado con éxito!')
     } catch (err: any) {
       errorImpact(); setError(err.message || 'Error al guardar'); setStep('tryon')
@@ -279,6 +385,7 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
 
   const touchHandlers = {
     onTouchStart: (e: React.TouchEvent) => {
+      if (!activeLayerId) return
       if (e.touches.length === 1) {
         isDragging.current = true
         lastPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
@@ -288,16 +395,20 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
         const dy = e.touches[0].clientY - e.touches[1].clientY
         initialPinchDist.current = Math.hypot(dx, dy)
         initialPinchAngle.current = Math.atan2(dy, dx)
-        startScale.current = adjustments.scaleX || 1
-        startRotation.current = adjustments.rotation || 0
+        setGarmentLayers(prev => {
+          const layer = prev.find(l => l.id === activeLayerId)
+          startScale.current = layer?.adjustments?.scaleX || 1
+          startRotation.current = layer?.adjustments?.rotation || 0
+          return prev
+        })
       }
     },
     onTouchMove: (e: React.TouchEvent) => {
+      if (!activeLayerId) return
       if (e.touches.length === 1 && isDragging.current) {
         const dx = e.touches[0].clientX - lastPos.current.x
         const dy = e.touches[0].clientY - lastPos.current.y
-        setAdjustments(prev => ({
-          ...prev,
+        updateActiveLayerAdj(prev => ({
           offsetX: (prev.offsetX || 0) + dx * 0.5,
           offsetY: (prev.offsetY || 0) + dy * 0.5,
         }))
@@ -309,8 +420,7 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
         const scale = startScale.current * (dist / initialPinchDist.current)
         const angle = Math.atan2(dy, dx)
         const delta = (angle - initialPinchAngle.current) * (180 / Math.PI)
-        setAdjustments(prev => ({
-          ...prev,
+        updateActiveLayerAdj(() => ({
           scaleX: scale, scaleY: scale,
           rotation: startRotation.current + delta,
         }))
@@ -325,15 +435,15 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
 
   const mouseHandlers = {
     onMouseDown: (e: React.MouseEvent) => {
+      if (!activeLayerId) return
       isDragging.current = true
       lastPos.current = { x: e.clientX, y: e.clientY }
     },
     onMouseMove: (e: React.MouseEvent) => {
-      if (!isDragging.current) return
+      if (!isDragging.current || !activeLayerId) return
       const dx = e.clientX - lastPos.current.x
       const dy = e.clientY - lastPos.current.y
-      setAdjustments(prev => ({
-        ...prev,
+      updateActiveLayerAdj(prev => ({
         offsetX: (prev.offsetX || 0) + dx * 0.5,
         offsetY: (prev.offsetY || 0) + dy * 0.5,
       }))
@@ -346,9 +456,13 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
   const goChallenge = () => { if (onNavigate) onNavigate('social', 'challenge'); onClose() }
 
   const stepTitle: Record<Step, string> = {
-    guide: 'Guía', photo: 'Foto', detecting: 'Detectando...', select: 'Prenda',
+    guide: 'Guía', photo: 'Foto', detecting: 'Detectando...', select: 'Prendas',
     processing: 'Procesando...', tryon: 'Probador', saving: 'Guardando...', saved: '¡Listo!',
   }
+
+  const filteredGarments = garmentFilter === 'all'
+    ? garments
+    : garments.filter(g => g.type === garmentFilter)
 
   return (
     <div className="fixed inset-0 z-[90] bg-[var(--bg-base)] flex flex-col font-sans">
@@ -457,9 +571,9 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
                 </div>
               )}
               <div>
-                <h3 className="text-lg font-bold flex items-center gap-2"><Shirt size={18} /> Elige una prenda</h3>
+                <h3 className="text-lg font-bold flex items-center gap-2"><Shirt size={18} /> Elige prendas</h3>
                 <p className="text-xs text-[var(--text-secondary)] mt-1">
-                  {mode === 'ai' ? 'La IA ajustará la prenda automáticamente' : 'Arrastra, pellizca y rota para ajustar'}
+                  Selecciona varias prendas para probar. Se superpondrán por capas.
                 </p>
               </div>
               {error && (
@@ -468,23 +582,64 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
                   <p className="text-[11px] text-amber-700 dark:text-amber-300">{error}</p>
                 </div>
               )}
-              {garments.length === 0 ? (
+
+              <div className="flex gap-1 overflow-x-auto no-scrollbar pb-1">
+                {CATEGORIES.map(cat => (
+                  <button key={cat.id} onClick={() => setGarmentFilter(cat.id)}
+                    className={`shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold transition-colors ${
+                      garmentFilter === cat.id
+                        ? 'bg-primary text-white'
+                        : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border border-[var(--border-light)]'
+                    }`}>
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+
+              {filteredGarments.length === 0 ? (
                 <div className="text-center py-10 text-[var(--text-muted)]">
                   <Shirt size={40} className="mx-auto mb-3 opacity-40" />
-                  <p className="text-sm">No tienes prendas en tu armario</p>
-                  <p className="text-xs mt-1">Añade prendas desde la sección Armario</p>
+                  <p className="text-sm">No tienes prendas en esta categoría</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-3 gap-3 pb-6">
-                  {garments.map(g => (
-                    <button key={g.id} onClick={() => handleSelectGarment(g)}
-                      className={`aspect-square rounded-2xl border-2 p-2 flex items-center justify-center transition-all active:scale-95 ${selectedGarment?.id === g.id ? 'border-primary bg-primary/5' : 'border-[var(--border-light)] bg-[var(--bg-card)] hover:border-primary/50'}`}>
-                      <img src={g.imageUrl} alt={g.name} className="max-w-full max-h-full object-contain" loading="eager" />
-                    </button>
-                  ))}
+                  {filteredGarments.map(g => {
+                    const isSelected = selectedGarmentIds.has(g.id)
+                    return (
+                      <button key={g.id} onClick={() => handleToggleGarment(g)}
+                        className={`relative aspect-square rounded-2xl border-2 p-2 flex items-center justify-center transition-all active:scale-95 ${
+                          isSelected
+                            ? 'border-primary bg-primary/10 ring-2 ring-primary/30'
+                            : 'border-[var(--border-light)] bg-[var(--bg-card)] hover:border-primary/50'
+                        }`}>
+                        <img src={g.imageUrl} alt={g.name} className="max-w-full max-h-full object-contain" loading="eager" />
+                        {isSelected && (
+                          <div className="absolute top-1 right-1 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
+                            <CheckCircle size={12} className="text-white" />
+                          </div>
+                        )}
+                      </button>
+                    )
+                  })}
                 </div>
               )}
-              <button onClick={goPhoto} className="w-full py-3 rounded-xl border border-[var(--border-light)] text-[var(--text-secondary)] text-xs font-bold">Tomar otra foto</button>
+
+              <div className="sticky bottom-0 bg-[var(--bg-base)] pt-2 pb-4 flex flex-col gap-2">
+                {selectedGarmentIds.size > 0 && (
+                  <div className="text-center text-xs text-[var(--text-secondary)]">
+                    {selectedGarmentIds.size} prenda{selectedGarmentIds.size !== 1 ? 's' : ''} seleccionada{selectedGarmentIds.size !== 1 ? 's' : ''}
+                  </div>
+                )}
+                <button onClick={handleProcessSelected} disabled={selectedGarmentIds.size === 0}
+                  className={`w-full py-4 rounded-2xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
+                    selectedGarmentIds.size > 0
+                      ? 'bg-primary text-white shadow-lg shadow-primary/30 active:scale-[0.98]'
+                      : 'bg-[var(--bg-card)] text-[var(--text-muted)] border border-[var(--border-light)]'
+                  }`}>
+                  <Layers size={16} /> Probar combinación
+                </button>
+                <button onClick={goPhoto} className="w-full py-3 rounded-xl border border-[var(--border-light)] text-[var(--text-secondary)] text-xs font-bold">Tomar otra foto</button>
+              </div>
             </motion.div>
           )}
 
@@ -492,10 +647,17 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
             <motion.div key="processing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center justify-center p-10 gap-4 min-h-[60vh]">
               <Loader size={40} className="text-primary animate-spin" />
               <div className="text-center">
-                <h3 className="text-lg font-bold">Procesando prenda</h3>
-                <p className="text-sm text-[var(--text-secondary)] mt-1">Eliminando fondo y preparando para superposición</p>
+                <h3 className="text-lg font-bold">Procesando prendas</h3>
+                <p className="text-sm text-[var(--text-secondary)] mt-1">Eliminando fondos y preparando para superposición</p>
               </div>
-              {selectedGarment && <img src={selectedGarment.imageUrl} alt="" className="w-20 h-20 object-contain opacity-50" loading="eager" />}
+              <div className="flex gap-3 mt-2">
+                {garments.filter(g => selectedGarmentIds.has(g.id)).map(g => (
+                  <div key={g.id} className="flex flex-col items-center gap-1">
+                    <img src={g.imageUrl} alt="" className="w-14 h-14 object-contain opacity-50 rounded-lg bg-[var(--bg-card)]" loading="eager" />
+                    <span className="text-[10px] text-[var(--text-muted)]">{g.name}</span>
+                  </div>
+                ))}
+              </div>
             </motion.div>
           )}
 
@@ -516,7 +678,7 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
                     {error && (
                       <div className="flex flex-col items-center gap-2 mt-2">
                         <p className="text-xs text-red-500 text-center max-w-[260px]">{error}</p>
-                        <button onClick={() => { setError(null); if (processedGarmentUrl && selectedGarment && bodyPhotoUrl) doRender(processedGarmentUrl, selectedGarment) }}
+                        <button onClick={() => { setError(null); if (bodyPhotoUrl) doRenderAll() }}
                           className="px-4 py-2 bg-primary text-white rounded-xl text-xs font-bold">Reintentar</button>
                       </div>
                     )}
@@ -524,22 +686,74 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
                 )}
               </div>
 
-              <div className="bg-[var(--bg-card)] border-t border-[var(--border-light)] p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-[var(--text-muted)]">
-                    {mode === 'manual' ? 'Mueve, pellizca y rota con tus dedos' : 'Ajusta la posición si es necesario'}
-                  </span>
-                  <button onClick={resetAdj} className="text-[10px] text-primary font-bold flex items-center gap-1">
-                    <RefreshCcw size={12} /> Restablecer
-                  </button>
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={() => setSavingName(true)} className="flex-1 py-3 bg-primary text-white rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-primary-dark active:scale-[0.98] transition-all shadow-lg shadow-primary/30">
-                    <Save size={16} /> Guardar look
-                  </button>
-                  <button onClick={goSocial} className="flex-1 py-3 bg-[var(--bg-base)] text-[var(--text-primary)] rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 border border-[var(--border-light)] active:scale-[0.98] transition-all">
-                    <Share2 size={16} /> Publicar
-                  </button>
+              <div className="bg-[var(--bg-card)] border-t border-[var(--border-light)]">
+                {garmentLayers.length > 1 && (
+                  <div className="px-4 pt-3 pb-1">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Layers size={14} className="text-[var(--text-secondary)]" />
+                      <span className="text-[11px] font-bold text-[var(--text-secondary)]">Capas</span>
+                      <span className="text-[10px] text-[var(--text-muted)]">(toca para activar)</span>
+                    </div>
+                    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                      {garmentLayers.map((layer, i) => (
+                        <div key={layer.id}
+                          onClick={() => setActiveLayerId(layer.id)}
+                          className={`shrink-0 flex items-center gap-2 px-2.5 py-1.5 rounded-xl border transition-all cursor-pointer ${
+                            activeLayerId === layer.id
+                              ? 'border-primary bg-primary/10 ring-1 ring-primary/30'
+                              : 'border-[var(--border-light)] bg-[var(--bg-base)] hover:border-primary/50'
+                          }`}>
+                          <img src={layer.garment.imageUrl} alt="" className="w-8 h-8 object-contain rounded-lg" />
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-bold truncate max-w-[80px]">{layer.garment.name}</p>
+                            <p className="text-[9px] text-[var(--text-muted)]">Capa {i + 1}</p>
+                          </div>
+                          <div className="flex flex-col gap-0.5 ml-1">
+                            <button onClick={(e) => { e.stopPropagation(); handleMoveLayerUp(i) }}
+                              disabled={i >= garmentLayers.length - 1}
+                              className={`p-0.5 rounded ${i >= garmentLayers.length - 1 ? 'opacity-20' : 'hover:bg-[var(--bg-card)]'}`}>
+                              <ChevronUp size={10} />
+                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); handleMoveLayerDown(i) }}
+                              disabled={i <= 0}
+                              className={`p-0.5 rounded ${i <= 0 ? 'opacity-20' : 'hover:bg-[var(--bg-card)]'}`}>
+                              <ChevronDown size={10} />
+                            </button>
+                          </div>
+                          <button onClick={(e) => { e.stopPropagation(); handleRemoveLayer(layer.id) }}
+                            className="p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-[var(--text-muted)] hover:text-red-500 ml-0.5">
+                            <X size={10} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="p-4 pt-2 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-[var(--text-muted)]">
+                      {activeLayerId
+                        ? `Ajustando: ${garmentLayers.find(l => l.id === activeLayerId)?.garment.name || ''}`
+                        : 'Toca una capa para ajustarla'}
+                    </span>
+                    <div className="flex gap-2">
+                      <button onClick={handleAddMoreGarments} className="text-[10px] text-primary font-bold flex items-center gap-1">
+                        <Plus size={12} /> Añadir
+                      </button>
+                      <button onClick={resetAdj} className="text-[10px] text-primary font-bold flex items-center gap-1">
+                        <RefreshCcw size={12} /> Restablecer
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => setSavingName(true)} className="flex-1 py-3 bg-primary text-white rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-primary-dark active:scale-[0.98] transition-all shadow-lg shadow-primary/30">
+                      <Save size={16} /> Guardar look
+                    </button>
+                    <button onClick={goSocial} className="flex-1 py-3 bg-[var(--bg-base)] text-[var(--text-primary)] rounded-xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 border border-[var(--border-light)] active:scale-[0.98] transition-all">
+                      <Share2 size={16} /> Publicar
+                    </button>
+                  </div>
                 </div>
               </div>
             </motion.div>

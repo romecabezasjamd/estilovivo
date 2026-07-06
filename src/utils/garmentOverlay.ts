@@ -220,6 +220,152 @@ export async function renderTryOn(options: RenderOptions): Promise<string> {
   return canvas.toDataURL('image/png')
 }
 
+export async function renderMultiTryOn(options: {
+  bodyImageUrl: string
+  garmentLayers: Array<{
+    garmentImageUrl: string
+    garmentType: string
+    adjustments?: Partial<GarmentAdjustments>
+  }>
+  bodyDimensions: BodyDimensions
+  segmentation?: SegmentationResult | null
+  canvasWidth?: number
+  canvasHeight?: number
+}): Promise<string> {
+  if (!options.garmentLayers.length) {
+    const maxW = options.canvasWidth || 800
+    const maxH = options.canvasHeight || 1000
+    const bodyImg = await loadImg(options.bodyImageUrl)
+    let cw = bodyImg.naturalWidth, ch = bodyImg.naturalHeight
+    if (cw > maxW || ch > maxH) {
+      const sc = Math.min(maxW / cw, maxH / ch, 1)
+      cw = Math.round(cw * sc); ch = Math.round(ch * sc)
+    }
+    const c = document.createElement('canvas'); c.width = cw; c.height = ch
+    const ctx = c.getContext('2d')!
+    ctx.drawImage(bodyImg, 0, 0, cw, ch)
+    return c.toDataURL('image/png')
+  }
+
+  const maxW = options.canvasWidth || 800
+  const maxH = options.canvasHeight || 1000
+  const layerCount = options.garmentLayers.length
+  const totalLoads = 1 + layerCount
+
+  const results = await Promise.allSettled([
+    loadImg(options.bodyImageUrl),
+    ...options.garmentLayers.map(l => loadImg(l.garmentImageUrl).catch(() => null)),
+  ])
+
+  const bodyResult = results[0]
+  const bodyImg = bodyResult.status === 'fulfilled' ? bodyResult.value : null
+  if (!bodyImg) throw new Error('No se pudo cargar la imagen de cuerpo')
+
+  const garmentImgs: (HTMLImageElement | null)[] = []
+  for (let i = 1; i < totalLoads; i++) {
+    const r = results[i]
+    garmentImgs.push(r.status === 'fulfilled' ? r.value : null)
+  }
+
+  let sc = 1
+  let cw = bodyImg.naturalWidth, ch = bodyImg.naturalHeight
+  if (cw > maxW || ch > maxH) {
+    sc = Math.min(maxW / cw, maxH / ch, 1)
+    cw = Math.round(cw * sc); ch = Math.round(ch * sc)
+  }
+
+  const canvas = document.createElement('canvas'); canvas.width = cw; canvas.height = ch
+  const ctx = canvas.getContext('2d')!
+  ctx.drawImage(bodyImg, 0, 0, cw, ch)
+  const light = estimateLighting(ctx, cw, ch)
+
+  const sd: BodyDimensions = {
+    ...options.bodyDimensions,
+    shoulderWidth: options.bodyDimensions.shoulderWidth * sc,
+    hipWidth: options.bodyDimensions.hipWidth * sc,
+    waistWidth: options.bodyDimensions.waistWidth * sc,
+    torsoHeight: options.bodyDimensions.torsoHeight * sc,
+    legLength: options.bodyDimensions.legLength * sc,
+    headHeight: options.bodyDimensions.headHeight * sc,
+    bodyCenterX: options.bodyDimensions.bodyCenterX * sc,
+    bodyCenterY: options.bodyDimensions.bodyCenterY * sc,
+    waistY: options.bodyDimensions.waistY * sc,
+    torsoAngle: options.bodyDimensions.torsoAngle,
+    imageWidth: cw, imageHeight: ch,
+  }
+
+  if (options.segmentation) {
+    const maskCanvas = options.segmentation.maskCanvas
+
+    const personOnlyCanvas = document.createElement('canvas')
+    personOnlyCanvas.width = cw; personOnlyCanvas.height = ch
+    const poCtx = personOnlyCanvas.getContext('2d')!
+    poCtx.drawImage(bodyImg, 0, 0, cw, ch)
+    poCtx.globalCompositeOperation = 'destination-in'
+    poCtx.drawImage(maskCanvas, 0, 0, cw, ch)
+
+    const invMaskCanvas = document.createElement('canvas')
+    invMaskCanvas.width = cw; invMaskCanvas.height = ch
+    const imCtx = invMaskCanvas.getContext('2d')!
+    imCtx.drawImage(maskCanvas, 0, 0, cw, ch)
+    imCtx.globalCompositeOperation = 'source-in'
+    imCtx.fillStyle = '#000'
+    imCtx.fillRect(0, 0, cw, ch)
+
+    const allGarmentsCanvas = document.createElement('canvas')
+    allGarmentsCanvas.width = cw; allGarmentsCanvas.height = ch
+    const agCtx = allGarmentsCanvas.getContext('2d')!
+
+    for (let i = 0; i < layerCount; i++) {
+      const gImg = garmentImgs[i]
+      if (!gImg) continue
+      const layer = options.garmentLayers[i]
+      const adj: GarmentAdjustments = { ...DEFAULTS, ...layer.adjustments }
+      const auto = calcGarmentTransform(sd, layer.garmentType)
+      const tx = auto.x + adj.offsetX
+      const ty = auto.y + adj.offsetY
+      const fsx = auto.scaleX * adj.scaleX
+      const fsy = auto.scaleY * adj.scaleY
+      const rw = gImg.naturalWidth * fsx
+      const rh = gImg.naturalHeight * fsy
+      const totalRotation = auto.rotation + adj.rotation
+      drawGarmentOnCanvas(agCtx, gImg, tx, ty, rw, rh, totalRotation, adj, light, sc)
+    }
+
+    const behindCanvas = document.createElement('canvas')
+    behindCanvas.width = cw; behindCanvas.height = ch
+    const bCtx = behindCanvas.getContext('2d')!
+    bCtx.drawImage(allGarmentsCanvas, 0, 0)
+    bCtx.globalCompositeOperation = 'destination-in'
+    bCtx.drawImage(invMaskCanvas, 0, 0)
+
+    ctx.clearRect(0, 0, cw, ch)
+    ctx.drawImage(bodyImg, 0, 0, cw, ch)
+    ctx.globalCompositeOperation = 'source-over'
+    ctx.drawImage(behindCanvas, 0, 0)
+    ctx.drawImage(personOnlyCanvas, 0, 0)
+    ctx.drawImage(allGarmentsCanvas, 0, 0)
+  } else {
+    for (let i = 0; i < layerCount; i++) {
+      const gImg = garmentImgs[i]
+      if (!gImg) continue
+      const layer = options.garmentLayers[i]
+      const adj: GarmentAdjustments = { ...DEFAULTS, ...layer.adjustments }
+      const auto = calcGarmentTransform(sd, layer.garmentType)
+      const tx = auto.x + adj.offsetX
+      const ty = auto.y + adj.offsetY
+      const fsx = auto.scaleX * adj.scaleX
+      const fsy = auto.scaleY * adj.scaleY
+      const rw = gImg.naturalWidth * fsx
+      const rh = gImg.naturalHeight * fsy
+      const totalRotation = auto.rotation + adj.rotation
+      drawGarmentOnCanvas(ctx, gImg, tx, ty, rw, rh, totalRotation, adj, light, sc)
+    }
+  }
+
+  return canvas.toDataURL('image/png')
+}
+
 export async function renderTryOnPreview(bodyImageUrl: string, garmentImageUrl: string, garmentType: string, bodyDims: BodyDimensions, adjustments?: Partial<GarmentAdjustments>): Promise<string> {
   return renderTryOn({ bodyImageUrl, garmentImageUrl, garmentType, bodyDimensions: bodyDims, adjustments, canvasWidth: 400, canvasHeight: 500 })
 }

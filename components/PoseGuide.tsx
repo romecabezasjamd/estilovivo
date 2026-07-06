@@ -79,21 +79,21 @@ export default function PoseGuide({ onStart }: PoseGuideProps) {
         </p>
       </div>
 
-      <div className="grid grid-cols-3 gap-4 h-48">
+      <div className="grid grid-cols-3 gap-3">
         <div className="flex flex-col items-center gap-2">
-          <div className="flex-1 w-full p-2 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-light)]">
+          <div className="w-full aspect-[3/5] p-2 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-light)] flex items-center justify-center overflow-hidden">
             <StickFigure variant="front" />
           </div>
           <span className="text-[10px] font-bold text-[var(--text-muted)]">Frontal</span>
         </div>
         <div className="flex flex-col items-center gap-2">
-          <div className="flex-1 w-full p-2 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-light)]">
+          <div className="w-full aspect-[3/5] p-2 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-light)] flex items-center justify-center overflow-hidden">
             <StickFigure variant="side" />
           </div>
           <span className="text-[10px] font-bold text-[var(--text-muted)]">Lateral</span>
         </div>
         <div className="flex flex-col items-center gap-2">
-          <div className="flex-1 w-full p-2 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-light)]">
+          <div className="w-full aspect-[3/5] p-2 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-light)] flex items-center justify-center overflow-hidden">
             <StickFigure variant="arms" />
           </div>
           <span className="text-[10px] font-bold text-[var(--text-muted)]">Brazos</span>
