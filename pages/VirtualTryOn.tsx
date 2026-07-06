@@ -150,13 +150,21 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
         setModelLoaded(true)
       }
       setModelLoading(false)
-      const [poseResult, segResult] = await Promise.all([
+
+      let poseResult: any = null
+      let segResult: any = null
+
+      const [poseR, segR] = await Promise.allSettled([
         withTimeout(detectPose(url), DETECT_TIMEOUT, 'La detección de cuerpo tardó demasiado.'),
         withTimeout(segmentPerson(url), DETECT_TIMEOUT, 'La segmentación tardó demasiado.'),
       ])
+
+      if (poseR.status === 'fulfilled') poseResult = poseR.value
+      if (segR.status === 'fulfilled') segResult = segR.value
+
       clearSafetyTimer()
-      setBodyDims(poseResult.dimensions)
-      setDetectionKeypoints(poseResult.keypoints)
+      setBodyDims(poseResult?.dimensions || FALLBACK)
+      setDetectionKeypoints(poseResult?.keypoints || null)
       setSegmentation(segResult)
       setStep('select')
     } catch (err: any) {
@@ -165,12 +173,11 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
       const m = err?.message || ''
       if (m.includes('demasiado') || m.includes('timeout')) {
         setError('La carga del modelo está tardando demasiado. Verifica tu conexión.')
-      } else if (m.includes('No se detectó')) {
-        setError(m)
       } else {
         setError('No se pudo analizar la foto. Puedes usar el modo manual.')
       }
-      setStep('detecting')
+      setBodyDims(FALLBACK)
+      setStep('select')
     }
   }
 

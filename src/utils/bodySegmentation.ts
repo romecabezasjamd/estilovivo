@@ -71,6 +71,38 @@ function getC(w: number, h: number) {
   return { c, ctx }
 }
 
+function maskToCanvas(mask: any, w: number, h: number): HTMLCanvasElement {
+  const mc = document.createElement('canvas')
+  mc.width = w; mc.height = h
+  const mctx = mc.getContext('2d')!
+
+  if (mask instanceof HTMLCanvasElement) {
+    mctx.drawImage(mask, 0, 0, w, h)
+  } else if (mask instanceof ImageData) {
+    const tmpC = document.createElement('canvas')
+    tmpC.width = mask.width; tmpC.height = mask.height
+    tmpC.getContext('2d')!.putImageData(mask, 0, 0)
+    mctx.drawImage(tmpC, 0, 0, w, h)
+  } else if (mask && typeof mask.toCanvas === 'function') {
+    const tmpC = mask.toCanvas()
+    mctx.drawImage(tmpC, 0, 0, w, h)
+  } else if (mask && mask.width && mask.height) {
+    try {
+      const tmpC = document.createElement('canvas')
+      tmpC.width = mask.width; tmpC.height = mask.height
+      tmpC.getContext('2d')!.drawImage(mask, 0, 0)
+      mctx.drawImage(tmpC, 0, 0, w, h)
+    } catch {
+      mctx.fillStyle = 'white'
+      mctx.fillRect(0, 0, w, h)
+    }
+  } else {
+    mctx.fillStyle = 'white'
+    mctx.fillRect(0, 0, w, h)
+  }
+  return mc
+}
+
 async function segmentWithBodyPix(imageEl: HTMLImageElement): Promise<SegmentationResult> {
   const seg = await loadBodyPix()
   const w = imageEl.naturalWidth
@@ -80,18 +112,8 @@ async function segmentWithBodyPix(imageEl: HTMLImageElement): Promise<Segmentati
     new Promise<never>((_, reject) => setTimeout(() => reject(new Error('BodyPix timeout')), 20000)),
   ])
   if (!result || result.length === 0) throw new Error('BodyPix no detectó persona')
-  const mask = result[0].mask
-  const mc = document.createElement('canvas')
-  mc.width = w; mc.height = h
+  const mc = maskToCanvas(result[0].mask, w, h)
   const mctx = mc.getContext('2d')!
-  if (mask instanceof ImageData) {
-    mctx.putImageData(mask, 0, 0)
-  } else {
-    const tmpC = document.createElement('canvas')
-    tmpC.width = mask.width; tmpC.height = mask.height
-    tmpC.getContext('2d')!.putImageData(mask, 0, 0)
-    mctx.drawImage(tmpC, 0, 0, w, h)
-  }
   return { personMask: mctx.getImageData(0, 0, w, h), personCanvas: mc, width: w, height: h }
 }
 
