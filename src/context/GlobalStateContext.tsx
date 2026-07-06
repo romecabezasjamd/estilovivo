@@ -1,10 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { UserState, Garment, Look, PlannerEntry, Trip } from '../../types';
 import { api, loadAuthToken } from '../../services/api';
-import { loadFromLocalStorage } from '../../hooks/useLocalStorage';
 import { useNotification } from './NotificationContext';
 import { useLanguage } from './LanguageContext';
 import { prepareGarmentUpload } from '../utils/garmentProcessor';
+import { syncGet, syncSet, SYNC_KEYS } from '../utils/syncStore';
 
 const AUTH_TOKEN_KEY = 'beyour_token';
 const REMEMBER_ME_KEY = 'beyour_remember_me';
@@ -112,25 +112,24 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
         const init = async () => {
             const shouldRestoreSession = localStorage.getItem(REMEMBER_ME_KEY) === 'true';
-            const cachedUser = shouldRestoreSession ? localStorage.getItem('beyour_user') : null;
-            const cachedGarments = shouldRestoreSession ? loadFromLocalStorage('beyour_garments', []) : [];
-            const cachedLooks = shouldRestoreSession ? loadFromLocalStorage('beyour_looks', []) : [];
-            const cachedPlanner = shouldRestoreSession ? loadFromLocalStorage('beyour_planner', []) : [];
-            const cachedTrips = shouldRestoreSession ? loadFromLocalStorage('beyour_trips', []) : [];
+
+            const [cachedUser, cachedGarments, cachedLooks, cachedPlanner, cachedTrips] =
+                await Promise.all([
+                    syncGet<UserState>(SYNC_KEYS.USER),
+                    syncGet<Garment[]>(SYNC_KEYS.GARMENTS),
+                    syncGet<Look[]>(SYNC_KEYS.LOOKS),
+                    syncGet<PlannerEntry[]>(SYNC_KEYS.PLANNER),
+                    syncGet<Trip[]>(SYNC_KEYS.TRIPS),
+                ]);
 
             if (cachedUser) {
-                try {
-                    setUser(JSON.parse(cachedUser));
-                } catch {
-                    console.warn('Invalid cached user, clearing local user');
-                    clearPersistedSession();
-                }
+                setUser(cachedUser);
             }
 
-            setGarments(sanitize<Garment>(cachedGarments));
-            setLooks(sanitize<Look>(cachedLooks));
-            setPlanner(sanitize<PlannerEntry>(cachedPlanner));
-            setTrips(sanitize<Trip>(cachedTrips));
+            setGarments(sanitize<Garment>(cachedGarments || []));
+            setLooks(sanitize<Look>(cachedLooks || []));
+            setPlanner(sanitize<PlannerEntry>(cachedPlanner || []));
+            setTrips(sanitize<Trip>(cachedTrips || []));
 
             if (!shouldRestoreSession) {
                 clearPersistedSession();
@@ -160,7 +159,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 try {
                     userData = await api.getMe();
                     setUser(userData);
-                    localStorage.setItem('beyour_user', JSON.stringify(userData));
+                    await syncSet(SYNC_KEYS.USER, userData);
                 } catch (error) {
                     const tokenStillPresent = !!localStorage.getItem(AUTH_TOKEN_KEY);
                     if (!tokenStillPresent) {
@@ -171,7 +170,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
                     }
 
                     if (cachedUser) {
-                        userData = JSON.parse(cachedUser);
+                        userData = cachedUser;
                         setUser(userData);
                     } else {
                         throw error;
@@ -191,25 +190,25 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 if (fetchedGarments.status === 'fulfilled') {
                     const sanitized = sanitize<Garment>(fetchedGarments.value);
                     setGarments(sanitized);
-                    localStorage.setItem('beyour_garments', JSON.stringify(sanitized));
+                    syncSet(SYNC_KEYS.GARMENTS, sanitized);
                 }
 
                 if (fetchedLooks.status === 'fulfilled') {
                     const sanitized = sanitize<Look>(fetchedLooks.value);
                     setLooks(sanitized);
-                    localStorage.setItem('beyour_looks', JSON.stringify(sanitized));
+                    syncSet(SYNC_KEYS.LOOKS, sanitized);
                 }
 
                 if (fetchedPlanner.status === 'fulfilled') {
                     const sanitized = sanitize<PlannerEntry>(fetchedPlanner.value);
                     setPlanner(sanitized);
-                    localStorage.setItem('beyour_planner', JSON.stringify(sanitized));
+                    syncSet(SYNC_KEYS.PLANNER, sanitized);
                 }
 
                 if (fetchedTrips.status === 'fulfilled') {
                     const sanitized = sanitize<Trip>(fetchedTrips.value);
                     setTrips(sanitized);
-                    localStorage.setItem('beyour_trips', JSON.stringify(sanitized));
+                    syncSet(SYNC_KEYS.TRIPS, sanitized);
                 }
 
                 const syncFailures: string[] = [];
@@ -243,7 +242,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const handleAuthSuccess = useCallback((userData: UserState, remember: boolean = true) => {
         setUser(userData);
         if (remember) {
-            localStorage.setItem('beyour_user', JSON.stringify(userData));
+            syncSet(SYNC_KEYS.USER, userData);
         } else {
             clearPersistedSession();
         }
@@ -260,7 +259,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     const handleUpdateUser = useCallback(async (updatedUser: UserState) => {
         setUser(updatedUser);
-        localStorage.setItem('beyour_user', JSON.stringify(updatedUser));
+        syncSet(SYNC_KEYS.USER, updatedUser);
         try {
             await api.updateProfile(updatedUser);
         } catch (error) {
@@ -276,7 +275,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
         setGarments(prev => {
             const updated = sanitize<Garment>([optimisticGarment, ...prev]);
-            localStorage.setItem('beyour_garments', JSON.stringify(updated));
+            syncSet(SYNC_KEYS.GARMENTS, updated);
             return updated;
         });
 
@@ -307,7 +306,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
             setGarments(prev => {
                 const updated = sanitize<Garment>(prev.map(g => g.id === tempId ? saved : g));
-                localStorage.setItem('beyour_garments', JSON.stringify(updated));
+                syncSet(SYNC_KEYS.GARMENTS, updated);
                 return updated;
             });
 
@@ -315,7 +314,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
         } catch (error) {
             setGarments(prev => {
                 const filtered = prev.filter(g => g.id !== tempId);
-                localStorage.setItem('beyour_garments', JSON.stringify(filtered));
+                syncSet(SYNC_KEYS.GARMENTS, filtered);
                 return filtered;
             });
             notify(`✗ ${t('garmentAddError')}`, 'error');
@@ -329,7 +328,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
         setGarments(prev => {
             previousGarments = [...prev];
             const filtered = sanitize<Garment>(prev.filter(g => g.id !== id));
-            localStorage.setItem('beyour_garments', JSON.stringify(filtered));
+            syncSet(SYNC_KEYS.GARMENTS, filtered);
             return filtered;
         });
 
@@ -338,7 +337,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
             notify(`✓ ${t('garmentDeleted')}`, 'success');
         } catch (error) {
             setGarments(previousGarments);
-            localStorage.setItem('beyour_garments', JSON.stringify(previousGarments));
+            syncSet(SYNC_KEYS.GARMENTS, previousGarments);
             notify(`✗ ${t('garmentDeleteError')}`, 'error');
             console.error('Error deleting garment:', error);
         }
@@ -350,7 +349,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
         setGarments(prev => {
             previousGarments = [...prev];
             const updated = sanitize<Garment>(prev.map(item => item.id === g.id ? g : item));
-            localStorage.setItem('beyour_garments', JSON.stringify(updated));
+            syncSet(SYNC_KEYS.GARMENTS, updated);
             return updated;
         });
 
@@ -359,7 +358,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
             notify(`✓ ${t('garmentUpdated')}`, 'success');
         } catch (error) {
             setGarments(previousGarments);
-            localStorage.setItem('beyour_garments', JSON.stringify(previousGarments));
+            syncSet(SYNC_KEYS.GARMENTS, previousGarments);
             notify(`✗ ${t('garmentUpdateError')}`, 'error');
             console.error('Error updating garment:', error);
         }
@@ -373,7 +372,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
         setLooks(prev => {
             const updated = sanitize<Look>([optimisticLook, ...prev]);
-            localStorage.setItem('beyour_looks', JSON.stringify(updated));
+            syncSet(SYNC_KEYS.LOOKS, updated);
             return updated;
         });
 
@@ -382,7 +381,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
             setLooks(prev => {
                 const updated = prev.map(l => l.id === tempId ? savedLook : l);
-                localStorage.setItem('beyour_looks', JSON.stringify(updated));
+                syncSet(SYNC_KEYS.LOOKS, updated);
                 return updated;
             });
 
@@ -391,7 +390,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
         } catch (error) {
             setLooks(prev => {
                 const filtered = prev.filter(l => l.id !== tempId);
-                localStorage.setItem('beyour_looks', JSON.stringify(filtered));
+                syncSet(SYNC_KEYS.LOOKS, filtered);
                 return filtered;
             });
             notify(`✗ ${t('lookSaveError')}`, 'error');
@@ -406,7 +405,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
         setLooks(prev => {
             previousLooks = [...prev];
             const filtered = prev.filter(l => l.id !== id);
-            localStorage.setItem('beyour_looks', JSON.stringify(filtered));
+            syncSet(SYNC_KEYS.LOOKS, filtered);
             return filtered;
         });
 
@@ -415,7 +414,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
             notify(`✓ ${t('lookDeleted')}`, 'success');
         } catch (error) {
             setLooks(previousLooks);
-            localStorage.setItem('beyour_looks', JSON.stringify(previousLooks));
+            syncSet(SYNC_KEYS.LOOKS, previousLooks);
             notify(`✗ ${t('lookDeleteError')}`, 'error');
             console.error('Error deleting look:', error);
         }
@@ -426,7 +425,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const updatePlannerEntry = useCallback(async (entry: PlannerEntry) => {
         setPlanner(prev => {
             const updated = [...prev.filter(p => p.date !== entry.date), entry];
-            localStorage.setItem('beyour_planner', JSON.stringify(updated));
+            syncSet(SYNC_KEYS.PLANNER, updated);
             return updated;
         });
 
@@ -434,7 +433,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
             const saved = await api.updatePlanner(entry);
             setPlanner(prev => {
                 const final = [...prev.filter(p => p.date !== entry.date), saved];
-                localStorage.setItem('beyour_planner', JSON.stringify(final));
+                syncSet(SYNC_KEYS.PLANNER, final);
                 return final;
             });
         } catch (error) {
@@ -447,7 +446,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const addTrip = useCallback(async (newTrip: Trip) => {
         setTrips(prev => {
             const updated = [newTrip, ...prev];
-            localStorage.setItem('beyour_trips', JSON.stringify(updated));
+            syncSet(SYNC_KEYS.TRIPS, updated);
             return updated;
         });
 
@@ -456,7 +455,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
             setTrips(prev => {
                 // Replace the optimistic entry (matched by destination + dates) with the real one
                 const updated = [saved, ...prev.filter(t => t.id !== newTrip.id)];
-                localStorage.setItem('beyour_trips', JSON.stringify(updated));
+                syncSet(SYNC_KEYS.TRIPS, updated);
                 return updated;
             });
         } catch (error) {
@@ -467,7 +466,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const deleteTrip = useCallback(async (id: string) => {
         setTrips(prev => {
             const filtered = prev.filter(t => t.id !== id);
-            localStorage.setItem('beyour_trips', JSON.stringify(filtered));
+            syncSet(SYNC_KEYS.TRIPS, filtered);
             return filtered;
         });
 
@@ -481,7 +480,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const updateTrip = useCallback(async (trip: Trip) => {
         setTrips(prev => {
             const updated = prev.map(t => t.id === trip.id ? trip : t);
-            localStorage.setItem('beyour_trips', JSON.stringify(updated));
+            syncSet(SYNC_KEYS.TRIPS, updated);
             return updated;
         });
 

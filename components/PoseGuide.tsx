@@ -4,124 +4,143 @@ interface PoseGuideProps {
   onStart: () => void
 }
 
-function StickFigure({ variant = 'front' }: { variant?: 'front' | 'side' | 'arms' }) {
-  const strokeColor = '#B8A9C9'
-  const accentColor = '#D4C9E1'
-
-  if (variant === 'front') {
-    return (
-      <svg viewBox="0 0 200 380" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="100" cy="42" r="22" stroke={strokeColor} strokeWidth="2.5" fill="none" />
-        <line x1="100" y1="64" x2="100" y2="200" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round" />
-        <line x1="55" y1="90" x2="145" y2="90" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round" />
-        <line x1="55" y1="90" x2="42" y2="170" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round" />
-        <line x1="145" y1="90" x2="158" y2="170" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round" />
-        <line x1="100" y1="200" x2="100" y2="205" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round" />
-        <line x1="75" y1="205" x2="125" y2="205" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round" />
-        <line x1="75" y1="205" x2="65" y2="340" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round" />
-        <line x1="125" y1="205" x2="135" y2="340" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round" />
-        <line x1="65" y1="340" x2="50" y2="345" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round" />
-        <line x1="135" y1="340" x2="150" y2="345" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round" />
-        <line x1="55" y1="82" x2="145" y2="82" stroke={accentColor} strokeWidth="1" strokeDasharray="4 4" opacity="0.5" />
-        <line x1="55" y1="82" x2="55" y2="88" stroke={accentColor} strokeWidth="1" opacity="0.5" />
-        <line x1="145" y1="82" x2="145" y2="88" stroke={accentColor} strokeWidth="1" opacity="0.5" />
-      </svg>
-    )
-  }
-
-  if (variant === 'side') {
-    return (
-      <svg viewBox="0 0 200 380" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="100" cy="42" r="22" stroke={strokeColor} strokeWidth="2.5" fill="none" />
-        <path d="M100 64 Q98 130 100 200" stroke={strokeColor} strokeWidth="2.5" fill="none" strokeLinecap="round" />
-        <path d="M100 90 Q80 130 75 175" stroke={strokeColor} strokeWidth="2.5" fill="none" strokeLinecap="round" />
-        <line x1="85" y1="205" x2="115" y2="205" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round" />
-        <line x1="90" y1="205" x2="82" y2="340" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round" />
-        <line x1="110" y1="205" x2="118" y2="340" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round" />
-        <line x1="82" y1="340" x2="70" y2="345" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round" />
-        <line x1="118" y1="340" x2="130" y2="345" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round" />
-      </svg>
-    )
-  }
-
+function FrontalFigure() {
   return (
-    <svg viewBox="0 0 200 380" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="100" cy="42" r="22" stroke={strokeColor} strokeWidth="2.5" fill="none" />
-      <line x1="100" y1="64" x2="100" y2="200" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round" />
-      <line x1="55" y1="90" x2="145" y2="90" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round" />
-      <line x1="55" y1="90" x2="35" y2="140" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round" />
-      <line x1="145" y1="90" x2="165" y2="140" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round" />
-      <line x1="75" y1="205" x2="125" y2="205" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round" />
-      <line x1="75" y1="205" x2="65" y2="340" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round" />
-      <line x1="125" y1="205" x2="135" y2="340" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round" />
-      <line x1="65" y1="340" x2="50" y2="345" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round" />
-      <line x1="135" y1="340" x2="150" y2="345" stroke={strokeColor} strokeWidth="2.5" strokeLinecap="round" />
+    <svg viewBox="0 0 120 200" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+      <circle cx="60" cy="28" r="16" stroke="var(--text-muted)" strokeWidth="1.5" fill="none" />
+      <line x1="60" y1="44" x2="60" y2="120" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="60" y1="60" x2="30" y2="95" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="60" y1="60" x2="90" y2="95" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="60" y1="120" x2="38" y2="180" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="60" y1="120" x2="82" y2="180" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="54" cy="25" r="1.5" fill="var(--text-muted)" />
+      <circle cx="66" cy="25" r="1.5" fill="var(--text-muted)" />
+      <path d="M55 33 Q60 37 65 33" stroke="var(--text-muted)" strokeWidth="1" fill="none" strokeLinecap="round" />
     </svg>
   )
 }
 
-function PhotoTip({ icon, text }: { icon: React.ReactNode; text: string }) {
+function SideFigure() {
   return (
-    <div className="flex items-start gap-3 p-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-light)]">
-      <div className="mt-0.5 text-primary">{icon}</div>
-      <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{text}</p>
-    </div>
+    <svg viewBox="0 0 120 200" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+      <circle cx="55" cy="28" r="16" stroke="var(--text-muted)" strokeWidth="1.5" fill="none" />
+      <path d="M55 44 Q52 80 54 120" stroke="var(--text-muted)" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+      <line x1="54" y1="65" x2="35" y2="85" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="54" y1="65" x2="75" y2="90" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M54 120 Q48 150 42 180" stroke="var(--text-muted)" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+      <path d="M54 120 Q60 150 66 180" stroke="var(--text-muted)" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+      <circle cx="49" cy="25" r="1.5" fill="var(--text-muted)" />
+      <path d="M50 33 Q55 36 58 33" stroke="var(--text-muted)" strokeWidth="1" fill="none" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function ArmsFigure() {
+  return (
+    <svg viewBox="0 0 120 200" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+      <circle cx="60" cy="28" r="16" stroke="var(--text-muted)" strokeWidth="1.5" fill="none" />
+      <line x1="60" y1="44" x2="60" y2="120" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="60" y1="58" x2="15" y2="82" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="60" y1="58" x2="105" y2="82" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="60" y1="120" x2="38" y2="180" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="60" y1="120" x2="82" y2="180" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="54" cy="25" r="1.5" fill="var(--text-muted)" />
+      <circle cx="66" cy="25" r="1.5" fill="var(--text-muted)" />
+      <path d="M55 33 Q60 37 65 33" stroke="var(--text-muted)" strokeWidth="1" fill="none" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function LightIcon() {
+  return (
+    <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 mx-auto">
+      <circle cx="20" cy="18" r="7" stroke="var(--text-muted)" strokeWidth="1.5" fill="none" />
+      <line x1="20" y1="5" x2="20" y2="8" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="20" y1="28" x2="20" y2="31" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="7" y1="18" x2="10" y2="18" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="30" y1="18" x2="33" y2="18" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="10.8" y1="8.8" x2="12.9" y2="10.9" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="27.1" y1="25.1" x2="29.2" y2="27.2" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="29.2" y1="8.8" x2="27.1" y2="10.9" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="12.9" y1="25.1" x2="10.8" y2="27.2" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" />
+      <rect x="14" y="32" width="12" height="3" rx="1.5" stroke="var(--text-muted)" strokeWidth="1.2" fill="none" />
+    </svg>
   )
 }
 
 export default function PoseGuide({ onStart }: PoseGuideProps) {
+  const poses = [
+    { Component: FrontalFigure, label: 'De frente', tip: 'Mira a la camara' },
+    { Component: SideFigure, label: 'Postura recta', tip: 'Hombros alineados' },
+    { Component: ArmsFigure, label: 'Brazos relajados', tip: 'Postura natural' },
+  ]
+
+  const tips = [
+    { icon: '📐', text: 'Foto de cuerpo entero, de pies a cabeza' },
+    { icon: '💡', text: 'Buena iluminacion, sin sombras fuertes' },
+    { icon: '🧍', text: 'Posicion frontal, brazos relajados a los lados' },
+    { icon: '🚫', text: 'Evita ropa oscura pegada que se funda con el fondo' },
+  ]
+
   return (
-    <div className="flex flex-col gap-6 pb-4">
+    <div className="flex flex-col gap-5">
       <div className="text-center">
-        <h2 className="text-xl font-bold">¿Cómo posar?</h2>
-        <p className="text-sm text-[var(--text-secondary)] mt-2">
-          Para obtener los mejores resultados, sigue estas recomendaciones
+        <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+          Como posar
+        </h3>
+        <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+          Sigue estas guias para obtener el mejor resultado
         </p>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
-        <div className="flex flex-col items-center gap-2">
-          <div className="w-full aspect-[3/5] p-2 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-light)] flex items-center justify-center overflow-hidden">
-            <StickFigure variant="front" />
+        {poses.map(({ Component, label, tip }) => (
+          <div key={label} className="flex flex-col items-center gap-1.5">
+            <div
+              className="w-full aspect-[3/5] p-2 rounded-xl flex items-center justify-center overflow-hidden"
+              style={{
+                backgroundColor: 'var(--bg-card)',
+                border: '1px solid var(--border-light)',
+              }}
+            >
+              <Component />
+            </div>
+            <span className="text-[10px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+              {label}
+            </span>
+            <span className="text-[9px]" style={{ color: 'var(--text-muted)' }}>
+              {tip}
+            </span>
           </div>
-          <span className="text-[10px] font-bold text-[var(--text-muted)]">Frontal</span>
-        </div>
-        <div className="flex flex-col items-center gap-2">
-          <div className="w-full aspect-[3/5] p-2 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-light)] flex items-center justify-center overflow-hidden">
-            <StickFigure variant="side" />
-          </div>
-          <span className="text-[10px] font-bold text-[var(--text-muted)]">Lateral</span>
-        </div>
-        <div className="flex flex-col items-center gap-2">
-          <div className="w-full aspect-[3/5] p-2 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-light)] flex items-center justify-center overflow-hidden">
-            <StickFigure variant="arms" />
-          </div>
-          <span className="text-[10px] font-bold text-[var(--text-muted)]">Brazos</span>
-        </div>
+        ))}
       </div>
 
-      <div className="flex flex-col gap-2">
-        <PhotoTip
-          icon={<span className="text-lg">📸</span>}
-          text="Foto de cuerpo completo, de pies a cabeza"
-        />
-        <PhotoTip
-          icon={<span className="text-lg">💡</span>}
-          text="Buena iluminación, sin sombras fuertes"
-        />
-        <PhotoTip
-          icon={<span className="text-lg">🧍</span>}
-          text="Posición frontal, brazos relajados a los lados"
-        />
-        <PhotoTip
-          icon={<span className="text-lg">🚫</span>}
-          text="Sin ropa ajustada oscura que se confunda con el fondo"
-        />
+      <div className="flex flex-col gap-2.5 mt-1">
+        <div className="flex items-center justify-center gap-2">
+          <LightIcon />
+          <span className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+            Iluminacion ideal
+          </span>
+        </div>
+        {tips.map(({ icon, text }) => (
+          <div
+            key={text}
+            className="flex items-start gap-2.5 px-3 py-2 rounded-lg text-xs"
+            style={{
+              backgroundColor: 'var(--bg-secondary, rgba(0,0,0,0.03))',
+              color: 'var(--text-secondary)',
+            }}
+          >
+            <span className="text-sm flex-shrink-0 mt-px">{icon}</span>
+            <span>{text}</span>
+          </div>
+        ))}
       </div>
 
       <button
         onClick={onStart}
-        className="w-full py-4 bg-primary text-white rounded-2xl font-bold text-sm active:scale-[0.98] transition-all shadow-lg shadow-primary/30"
+        className="w-full py-3 rounded-xl text-sm font-semibold text-white transition-opacity active:opacity-80"
+        style={{ backgroundColor: 'var(--color-primary)' }}
       >
         Tomar mi foto
       </button>
