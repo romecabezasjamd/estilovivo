@@ -40,7 +40,7 @@ async function loadBodyPix(): Promise<any> {
       const bodySeg = await import('@tensorflow-models/body-segmentation')
       const seg = await bodySeg.createSegmenter(
         bodySeg.SupportedModels.BodyPix,
-        { runtime: 'tfjs', modelType: (bodySeg.modelTypes as any)?.general || 'general' }
+        { runtime: 'tfjs', modelType: 'general' }
       )
       bodyPixSegmenter = seg
       bodyPixLoading = false
@@ -76,7 +76,7 @@ async function segmentWithBodyPix(imageEl: HTMLImageElement): Promise<Segmentati
   const w = imageEl.naturalWidth
   const h = imageEl.naturalHeight
   const result = await Promise.race([
-    seg.segmentPerson(imageEl, { flipHorizontal: false, multiSegmentation: false, segmentThreshold: 0.7 }),
+    seg.segmentPeople(imageEl, { flipHorizontal: false, multiSegmentation: false, segmentThreshold: 0.7 }),
     new Promise<never>((_, reject) => setTimeout(() => reject(new Error('BodyPix timeout')), 20000)),
   ])
   if (!result || result.length === 0) throw new Error('BodyPix no detectó persona')
