@@ -24,25 +24,13 @@ async function loadSegmenter(): Promise<any> {
   segLoading = true
   segInitP = (async () => {
     try {
-      const tfCore = await import('@tensorflow/tfjs-core')
-      try {
-        await import('@tensorflow/tfjs-backend-webgl')
-        await tfCore.ready()
-      } catch {
-        await import('@tensorflow/tfjs-backend-cpu')
-        await tfCore.ready()
-      }
-
       const selfieSeg = await import('@mediapipe/selfie_segmentation')
       const seg = new selfieSeg.SelfieSegmentation({
         locateFile: (file: string) => {
           return `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`
         }
       })
-      seg.setOptions({
-        modelSelection: 1,
-        selfieMode: false,
-      })
+      seg.setOptions({ modelSelection: 1, selfieMode: false })
       await new Promise<void>((resolve, reject) => {
         seg.onResults(() => resolve())
         seg.initialize().catch(reject)
@@ -109,9 +97,8 @@ export async function segmentPerson(imageSrc: string | HTMLImageElement | HTMLCa
     const tctx = tempCanvas.getContext('2d')!
     tctx.drawImage(el, 0, 0, w, h)
 
-    let maskCanvas: HTMLCanvasElement | null = null
-    const result = await Promise.race([
-      new Promise<void>((resolve) => {
+    const maskCanvas = await Promise.race([
+      new Promise<HTMLCanvasElement>((resolve) => {
         seg.onResults((results: any) => {
           const mask = results.segmentationMask
           const mc = document.createElement('canvas')
@@ -122,19 +109,16 @@ export async function segmentPerson(imageSrc: string | HTMLImageElement | HTMLCa
           } else if (mask instanceof ImageData) {
             mctx.putImageData(mask, 0, 0)
           } else {
-            mctx.drawImage(mask, 0, 0, w, h)
+            try { mctx.drawImage(mask, 0, 0, w, h) } catch { mctx.fillStyle = 'white'; mctx.fillRect(0, 0, w, h) }
           }
-          maskCanvas = mc
-          resolve()
+          resolve(mc)
         })
         seg.send({ image: tempCanvas })
       }),
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error('MediaPipe timeout')), 25000)),
     ])
 
-    if (result && maskCanvas) {
-      return { maskCanvas, width: w, height: h }
-    }
+    return { maskCanvas, width: w, height: h }
   } catch (e) {
     console.warn('MediaPipe Selfie Segmentation failed, using fallback:', e)
   }

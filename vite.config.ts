@@ -91,8 +91,6 @@ export default defineConfig(({ mode }) => {
         rollupOptions: {
           output: {
             manualChunks: {
-              'tf-core': ['@tensorflow/tfjs-core', '@tensorflow/tfjs-converter'],
-              'tf-backends': ['@tensorflow/tfjs-backend-webgl', '@tensorflow/tfjs-backend-cpu'],
               'human': ['@vladmandic/human'],
               'mediapipe': ['@mediapipe/selfie_segmentation'],
               'framer-motion': ['framer-motion'],

@@ -57,8 +57,12 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
   const [savingMsg, setSavingMsg] = useState('')
 
   const containerRef = useRef<HTMLDivElement>(null)
-  const garmentRef = useRef<HTMLImageElement>(null)
-  const moveableRef = useRef<any>(null)
+  const isDragging = useRef(false)
+  const lastPos = useRef({ x: 0, y: 0 })
+  const initialPinchDist = useRef<number | null>(null)
+  const startScale = useRef(1)
+  const initialPinchAngle = useRef<number | null>(null)
+  const startRotation = useRef(0)
   const renderLock = useRef(false)
   const adjDebounce = useRef<ReturnType<typeof setTimeout> | null>(null)
   const adjVersion = useRef(0)
@@ -71,7 +75,6 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
     return () => {
       if (safetyTimer.current) clearTimeout(safetyTimer.current)
       if (adjDebounce.current) clearTimeout(adjDebounce.current)
-      if (moveableRef.current) { moveableRef.current.destroy(); moveableRef.current = null }
     }
   }, [])
 
@@ -271,50 +274,70 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
     }
   }
 
-  const initMoveable = useCallback(() => {
-    if (!containerRef.current || !garmentRef.current || step !== 'tryon') return
-    if (moveableRef.current) { moveableRef.current.destroy(); moveableRef.current = null }
+  const touchHandlers = {
+    onTouchStart: (e: React.TouchEvent) => {
+      if (e.touches.length === 1) {
+        isDragging.current = true
+        lastPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+      } else if (e.touches.length === 2) {
+        isDragging.current = false
+        const dx = e.touches[0].clientX - e.touches[1].clientX
+        const dy = e.touches[0].clientY - e.touches[1].clientY
+        initialPinchDist.current = Math.hypot(dx, dy)
+        initialPinchAngle.current = Math.atan2(dy, dx)
+        startScale.current = adjustments.scaleX || 1
+        startRotation.current = adjustments.rotation || 0
+      }
+    },
+    onTouchMove: (e: React.TouchEvent) => {
+      if (e.touches.length === 1 && isDragging.current) {
+        const dx = e.touches[0].clientX - lastPos.current.x
+        const dy = e.touches[0].clientY - lastPos.current.y
+        setAdjustments(prev => ({
+          ...prev,
+          offsetX: (prev.offsetX || 0) + dx * 0.5,
+          offsetY: (prev.offsetY || 0) + dy * 0.5,
+        }))
+        lastPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+      } else if (e.touches.length === 2 && initialPinchDist.current !== null && initialPinchAngle.current !== null) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX
+        const dy = e.touches[0].clientY - e.touches[1].clientY
+        const dist = Math.hypot(dx, dy)
+        const scale = startScale.current * (dist / initialPinchDist.current)
+        const angle = Math.atan2(dy, dx)
+        const delta = (angle - initialPinchAngle.current) * (180 / Math.PI)
+        setAdjustments(prev => ({
+          ...prev,
+          scaleX: scale, scaleY: scale,
+          rotation: startRotation.current + delta,
+        }))
+      }
+    },
+    onTouchEnd: () => {
+      isDragging.current = false
+      initialPinchDist.current = null
+      initialPinchAngle.current = null
+    },
+  }
 
-    import('moveable').then(({ default: Moveable }) => {
-      if (!containerRef.current || !garmentRef.current) return
-      const moveable = new Moveable(containerRef.current, {
-        target: garmentRef.current,
-        draggable: true,
-        scalable: true,
-        rotatable: true,
-        origin: false,
-        pinchOutside: true,
-      })
-
-      moveable.on('dragStart', ({ set }) => {
-        set([adjustments.offsetX || 0, adjustments.offsetY || 0])
-      })
-      moveable.on('drag', ({ left, top }) => {
-        setAdjustments(prev => ({ ...prev, offsetX: left, offsetY: top }))
-      })
-      moveable.on('scaleStart', ({ set }) => {
-        set([adjustments.scaleX || 1, adjustments.scaleY || 1])
-      })
-      moveable.on('scale', ({ scaleX, scaleY }) => {
-        setAdjustments(prev => ({ ...prev, scaleX, scaleY }))
-      })
-      moveable.on('rotateStart', ({ set }) => {
-        set([adjustments.rotation || 0])
-      })
-      moveable.on('rotate', ({ rotate }) => {
-        setAdjustments(prev => ({ ...prev, rotation: rotate }))
-      })
-
-      moveableRef.current = moveable
-    }).catch(() => {})
-  }, [step, adjustments])
-
-  useEffect(() => {
-    if (step === 'tryon' && processedGarmentUrl) {
-      const timer = setTimeout(initMoveable, 100)
-      return () => clearTimeout(timer)
-    }
-  }, [step, processedGarmentUrl, initMoveable])
+  const mouseHandlers = {
+    onMouseDown: (e: React.MouseEvent) => {
+      isDragging.current = true
+      lastPos.current = { x: e.clientX, y: e.clientY }
+    },
+    onMouseMove: (e: React.MouseEvent) => {
+      if (!isDragging.current) return
+      const dx = e.clientX - lastPos.current.x
+      const dy = e.clientY - lastPos.current.y
+      setAdjustments(prev => ({
+        ...prev,
+        offsetX: (prev.offsetX || 0) + dx * 0.5,
+        offsetY: (prev.offsetY || 0) + dy * 0.5,
+      }))
+      lastPos.current = { x: e.clientX, y: e.clientY }
+    },
+    onMouseUp: () => { isDragging.current = false },
+  }
 
   const goSocial = () => { if (onNavigate) onNavigate('social', 'create'); onClose() }
   const goChallenge = () => { if (onNavigate) onNavigate('social', 'challenge'); onClose() }
@@ -478,6 +501,8 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
               <div
                 className="flex-1 relative flex items-center justify-center bg-black/5 dark:bg-white/5 p-4 select-none overflow-hidden"
                 ref={containerRef}
+                {...touchHandlers}
+                {...mouseHandlers}
               >
                 {resultUrl ? (
                   <img src={resultUrl} alt="Probador virtual" className="max-w-full max-h-full object-contain rounded-2xl shadow-xl" draggable={false} loading="eager" />
