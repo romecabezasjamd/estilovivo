@@ -4,9 +4,17 @@ export interface SegmentationResult {
   height: number
 }
 
+type Engine = 'mediapipe' | 'bodypix' | 'fallback'
+
 let segmenter: any = null
 let segLoading = false
 let segInitP: Promise<any> | null = null
+
+let bodyPixSegmenter: any = null
+let bpLoading = false
+let bpInitP: Promise<any> | null = null
+
+let activeEngine: Engine | null = null
 
 function loadImg(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -47,8 +55,127 @@ async function loadSegmenter(): Promise<any> {
   return segInitP
 }
 
+async function loadBodyPix(): Promise<any> {
+  if (bodyPixSegmenter) return bodyPixSegmenter
+  if (bpInitP) return bpInitP
+  bpLoading = true
+  bpInitP = (async () => {
+    try {
+      const tfCore = await import('@tensorflow/tfjs-core')
+      let backendReady = false
+      try {
+        await import('@tensorflow/tfjs-backend-webgl')
+        await tfCore.ready()
+        backendReady = true
+      } catch {
+        try {
+          await import('@tensorflow/tfjs-backend-cpu')
+          await tfCore.ready()
+          backendReady = true
+        } catch {}
+      }
+      if (!backendReady) throw new Error('No se pudo inicializar backend TF')
+      const bodySeg = await import('@tensorflow-models/body-segmentation')
+      const seg = await bodySeg.createSegmenter(
+        bodySeg.SupportedModels.BodyPix,
+        { runtime: 'tfjs', modelType: 'general' }
+      )
+      bodyPixSegmenter = seg
+      bpLoading = false
+      return seg
+    } catch (e) {
+      bpLoading = false
+      bpInitP = null
+      throw new Error(e instanceof Error ? e.message : 'Error al cargar BodyPix')
+    }
+  })()
+  return bpInitP
+}
+
+function maskToCanvas(mask: any, w: number, h: number): HTMLCanvasElement {
+  const mc = document.createElement('canvas')
+  mc.width = w; mc.height = h
+  const mctx = mc.getContext('2d')!
+  if (mask instanceof HTMLCanvasElement) {
+    mctx.drawImage(mask, 0, 0, w, h)
+  } else if (mask instanceof ImageData) {
+    const tmpC = document.createElement('canvas')
+    tmpC.width = mask.width; tmpC.height = mask.height
+    tmpC.getContext('2d')!.putImageData(mask, 0, 0)
+    mctx.drawImage(tmpC, 0, 0, w, h)
+  } else if (mask && typeof mask.toCanvas === 'function') {
+    const tmpC = mask.toCanvas()
+    mctx.drawImage(tmpC, 0, 0, w, h)
+  } else if (mask && mask.width && mask.height) {
+    try {
+      const tmpC = document.createElement('canvas')
+      tmpC.width = mask.width; tmpC.height = mask.height
+      tmpC.getContext('2d')!.drawImage(mask, 0, 0)
+      mctx.drawImage(tmpC, 0, 0, w, h)
+    } catch {
+      mctx.fillStyle = 'white'
+      mctx.fillRect(0, 0, w, h)
+    }
+  } else {
+    mctx.fillStyle = 'white'
+    mctx.fillRect(0, 0, w, h)
+  }
+  return mc
+}
+
 export function getSegmentationStatus() {
-  return { isLoading: segLoading, isReady: segmenter !== null }
+  return {
+    isLoading: segLoading || bpLoading,
+    isReady: segmenter !== null || bodyPixSegmenter !== null,
+    activeEngine,
+    mediapipe: segmenter !== null,
+    bodypix: bodyPixSegmenter !== null,
+  }
+}
+
+async function segmentWithMediaPipe(imageEl: HTMLImageElement): Promise<SegmentationResult | null> {
+  try {
+    const seg = await loadSegmenter()
+    const w = imageEl.naturalWidth
+    const h = imageEl.naturalHeight
+    const tempCanvas = document.createElement('canvas')
+    tempCanvas.width = w; tempCanvas.height = h
+    const tctx = tempCanvas.getContext('2d')!
+    tctx.drawImage(imageEl, 0, 0, w, h)
+
+    const maskCanvas = await Promise.race([
+      new Promise<HTMLCanvasElement>((resolve) => {
+        seg.onResults((results: any) => {
+          resolve(maskToCanvas(results.segmentationMask, w, h))
+        })
+        seg.send({ image: tempCanvas })
+      }),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('MediaPipe timeout')), 25000)),
+    ])
+    return { maskCanvas, width: w, height: h }
+  } catch (e) {
+    console.warn('MediaPipe failed:', e)
+    return null
+  }
+}
+
+async function segmentWithBodyPix(imageEl: HTMLImageElement): Promise<SegmentationResult | null> {
+  try {
+    const seg = await loadBodyPix()
+    const w = imageEl.naturalWidth
+    const h = imageEl.naturalHeight
+
+    const result = await Promise.race([
+      seg.segmentPeople(imageEl, { flipHorizontal: false, multiSegmentation: false, segmentThreshold: 0.7 }),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('BodyPix timeout')), 20000)),
+    ])
+    if (!result || result.length === 0) return null
+    const maskCanvas = maskToCanvas(result[0].mask, w, h)
+    return { maskCanvas, width: w, height: h }
+  } catch (e) {
+    console.warn('BodyPix failed:', e)
+    return null
+  }
 }
 
 function segmentFallback(imageEl: HTMLImageElement): SegmentationResult {
@@ -87,41 +214,13 @@ export async function segmentPerson(imageSrc: string | HTMLImageElement | HTMLCa
     el = imageSrc
   }
 
-  try {
-    const seg = await loadSegmenter()
-    const w = el.naturalWidth
-    const h = el.naturalHeight
+  let result = await segmentWithMediaPipe(el as HTMLImageElement)
+  if (result) { activeEngine = 'mediapipe'; return result }
 
-    const tempCanvas = document.createElement('canvas')
-    tempCanvas.width = w; tempCanvas.height = h
-    const tctx = tempCanvas.getContext('2d')!
-    tctx.drawImage(el, 0, 0, w, h)
+  result = await segmentWithBodyPix(el as HTMLImageElement)
+  if (result) { activeEngine = 'bodypix'; return result }
 
-    const maskCanvas = await Promise.race([
-      new Promise<HTMLCanvasElement>((resolve) => {
-        seg.onResults((results: any) => {
-          const mask = results.segmentationMask
-          const mc = document.createElement('canvas')
-          mc.width = w; mc.height = h
-          const mctx = mc.getContext('2d')!
-          if (mask instanceof HTMLCanvasElement) {
-            mctx.drawImage(mask, 0, 0, w, h)
-          } else if (mask instanceof ImageData) {
-            mctx.putImageData(mask, 0, 0)
-          } else {
-            try { mctx.drawImage(mask, 0, 0, w, h) } catch { mctx.fillStyle = 'white'; mctx.fillRect(0, 0, w, h) }
-          }
-          resolve(mc)
-        })
-        seg.send({ image: tempCanvas })
-      }),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('MediaPipe timeout')), 25000)),
-    ])
-
-    return { maskCanvas, width: w, height: h }
-  } catch (e) {
-    console.warn('MediaPipe Selfie Segmentation failed, using fallback:', e)
-  }
-
+  console.warn('All AI segmentation failed, using skin-tone heuristic fallback')
+  activeEngine = 'fallback'
   return segmentFallback(el as HTMLImageElement)
 }

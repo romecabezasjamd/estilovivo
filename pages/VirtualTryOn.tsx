@@ -143,7 +143,7 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
   }
 
   const detectFn = async (url: string) => {
-    setError(null); setModelLoading(true)
+    setError(null); setModelLoading(true); setSegmentation(null); setBodyDims(null)
     try {
       if (!modelLoaded) {
         await withTimeout(loadPoseDetector(), DETECT_TIMEOUT, 'El modelo de IA tardó demasiado en cargar.')
@@ -151,25 +151,27 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
       }
       setModelLoading(false)
 
-      let poseResult: any = null
-      let segResult: any = null
-
       const [poseR, segR] = await Promise.allSettled([
-        withTimeout(detectPose(url), DETECT_TIMEOUT, 'La detección de cuerpo tardó demasiado.'),
-        withTimeout(segmentPerson(url), DETECT_TIMEOUT, 'La segmentación tardó demasiado.'),
+        withTimeout(detectPose(url), DETECT_TIMEOUT, 'La detección de cuerpo tardó demasiado.').catch(e => { console.warn(e); return null }),
+        withTimeout(segmentPerson(url), DETECT_TIMEOUT, 'La segmentación tardó demasiado.').catch(e => { console.warn(e); return null }),
       ])
 
-      if (poseR.status === 'fulfilled') poseResult = poseR.value
-      if (segR.status === 'fulfilled') segResult = segR.value
-
       clearSafetyTimer()
-      setBodyDims(poseResult?.dimensions || FALLBACK)
-      setDetectionKeypoints(poseResult?.keypoints || null)
-      setSegmentation(segResult)
+      setBodyDims(poseR.status === 'fulfilled' && poseR.value ? poseR.value.dimensions : FALLBACK)
+      setDetectionKeypoints(poseR.status === 'fulfilled' && poseR.value ? poseR.value.keypoints : null)
+      setSegmentation(segR.status === 'fulfilled' ? segR.value : null)
+
+      if (poseR.status === 'rejected' && segR.status === 'rejected') {
+        setError('No se pudo analizar la foto. Intenta con mejor iluminación o usa modo manual.')
+      } else if (poseR.status === 'rejected') {
+        setError('La detección de postura falló. Usa el modo manual para ajustar.')
+      }
+
       setStep('select')
     } catch (err: any) {
       setModelLoading(false)
       clearSafetyTimer()
+      setError(err?.message || 'Error inesperado durante la detección')
       setBodyDims(FALLBACK)
       setStep('select')
     }
@@ -178,6 +180,7 @@ export default function VirtualTryOn({ user, garments, initialGarment = null, in
   const handleModeChange = async (next: 'manual' | 'ai') => {
     if (next === mode) return
     setMode(next); setError(null); setResultUrl(null); setProcessedGarmentUrl(null)
+    setSegmentation(null); setBodyDims(null)
     if (!bodyPhotoUrl) { setStep('photo'); return }
     if (next === 'manual') {
       setStep(selectedGarment ? 'tryon' : 'select'); return
