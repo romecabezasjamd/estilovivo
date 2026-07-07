@@ -7,6 +7,7 @@ import { pickPhoto, type CameraSource } from '../src/utils/cameraPhoto'
 import { successImpact, errorImpact } from '../src/utils/haptic'
 import PoseGuide from '../components/PoseGuide'
 import { api } from '../services/api'
+import { saveBodyPhoto, loadBodyPhoto, clearBodyPhoto } from '../src/utils/syncStore'
 
 interface Props { garments: Garment[]; onClose: () => void }
 
@@ -81,6 +82,13 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     img.onload = () => setBodyDim({ w: img.naturalWidth, h: img.naturalHeight })
     img.src = bodyUrl
   }, [bodyUrl])
+
+  // ─── Load saved body photo on mount ──────────────────────────────
+  useEffect(() => {
+    loadBodyPhoto().then(saved => {
+      if (saved) { setBodyUrl(saved); setStep('select') }
+    })
+  }, [])
 
   // ─── Global gesture state ────────────────────────────────────────
   const gesture = useRef({
@@ -258,13 +266,23 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
 
   // ─── Actions ─────────────────────────────────────────────────────
   const pick = async (src: CameraSource) => {
-    try { setError(null); const { dataUrl } = await pickPhoto(src); setBodyUrl(dataUrl); setStep('select') }
-    catch (e: any) { if (e?.message !== 'User cancelled') setError('No se pudo obtener la foto.') }
+    try {
+      setError(null)
+      const { dataUrl } = await pickPhoto(src)
+      setBodyUrl(dataUrl)
+      saveBodyPhoto(dataUrl)
+      setStep('select')
+    } catch (e: any) { if (e?.message !== 'User cancelled') setError('No se pudo obtener la foto.') }
   }
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]; if (!f) return
-    const r = new FileReader(); r.onloadend = () => { setBodyUrl(r.result as string); setStep('select') }; r.readAsDataURL(f)
+    const r = new FileReader(); r.onloadend = () => {
+      const url = r.result as string
+      setBodyUrl(url)
+      saveBodyPhoto(url)
+      setStep('select')
+    }; r.readAsDataURL(f)
   }
 
   const toggle = (g: Garment) => setSelIds(p => { const n = new Set(p); n.has(g.id) ? n.delete(g.id) : n.add(g.id); return n })
@@ -613,6 +631,10 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
 
         <div className="flex gap-2 p-3 border-t" style={{ borderColor: 'var(--border-light)' }}>
           <button onClick={() => { setStep('select'); setActive(-1) }} className="flex-1 py-2.5 rounded-xl text-xs font-medium" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>Volver</button>
+          <button onClick={() => { clearBodyPhoto(); setBodyUrl(null); setBodyDim(null); setLayers([]); setActive(-1); setStep('photo') }}
+            className="py-2.5 px-3 rounded-xl text-xs font-medium" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>
+            <Camera size={14} />
+          </button>
           <button onClick={save} disabled={!bodyUrl || layers.length === 0} className="flex-1 py-2.5 rounded-xl text-xs font-semibold text-white flex items-center justify-center gap-1.5 disabled:opacity-40" style={{ backgroundColor: 'var(--color-primary)' }}><Save size={12} />Guardar</button>
         </div>
       </div>

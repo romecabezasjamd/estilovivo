@@ -149,3 +149,17 @@ export const SYNC_KEYS = {
   THEME: 'ev_sync_theme',
   SETTINGS: 'ev_sync_settings',
 } as const
+
+const BODY_PHOTO_KEY = 'tryon_body_photo'
+
+export async function saveBodyPhoto(dataUrl: string): Promise<void> {
+  await idbSet(BODY_PHOTO_KEY, dataUrl)
+}
+
+export async function loadBodyPhoto(): Promise<string | null> {
+  return idbGet(BODY_PHOTO_KEY)
+}
+
+export async function clearBodyPhoto(): Promise<void> {
+  await idbSet(BODY_PHOTO_KEY, '')
+}

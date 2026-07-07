@@ -19,38 +19,36 @@ export interface BodyPose {
 }
 
 let detector: any = null
-let loading = false
-let loadPromise: Promise<void> | null = null
 
-async function ensureDetector(): Promise<void> {
+async function ensureDetector(timeoutMs = 8000): Promise<void> {
   if (detector) return
-  if (loadPromise) return loadPromise
 
-  loading = true
-  loadPromise = (async () => {
-    try {
-      const tfjs = await import('@tensorflow/tfjs-core')
-      await import('@tensorflow/tfjs-backend-webgl')
-      const backend = 'webgl'
-      if (!tfjs.getBackend || tfjs.getBackend() !== backend) {
-        await tfjs.setBackend(backend)
-      }
-      await tfjs.ready()
-
-      const poseDetection = await import('@tensorflow-models/pose-detection')
-      detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, {
-        modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER,
-        enableSmoothing: false,
-      })
-    } catch (e) {
-      detector = null
-      throw e
-    } finally {
-      loading = false
+  const load = (async () => {
+    const tfjs = await import('@tensorflow/tfjs-core')
+    await import('@tensorflow/tfjs-backend-webgl')
+    const backend = 'webgl'
+    if (!tfjs.getBackend || tfjs.getBackend() !== backend) {
+      await tfjs.setBackend(backend)
     }
+    await tfjs.ready()
+
+    const poseDetection = await import('@tensorflow-models/pose-detection')
+    detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, {
+      modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER,
+      enableSmoothing: false,
+    })
   })()
 
-  return loadPromise
+  const timeout = new Promise<never>((_, rej) =>
+    setTimeout(() => rej(new Error('Model load timeout')), timeoutMs)
+  )
+
+  try {
+    await Promise.race([load, timeout])
+  } catch {
+    detector = null
+    throw new Error('Failed to load pose model')
+  }
 }
 
 function findKeypoint(keypoints: Keypoint[], name: string): Keypoint | undefined {
@@ -64,7 +62,7 @@ function kp(k: Keypoint | undefined, fallback: { x: number; y: number }): Keypoi
 
 export async function detectBodyPose(imageUrl: string): Promise<BodyPose | null> {
   try {
-    await ensureDetector()
+    await ensureDetector(8000)
     if (!detector) return null
 
     const img = await new Promise<HTMLImageElement>((res, rej) => {
@@ -75,7 +73,7 @@ export async function detectBodyPose(imageUrl: string): Promise<BodyPose | null>
       el.src = imageUrl
     })
 
-    const timeout = new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Timeout')), 5000))
+    const timeout = new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Inference timeout')), 5000))
     const poses = await Promise.race([detector.estimatePoses(img), timeout]) as Array<{ keypoints: Keypoint[] }>
 
     if (!poses || poses.length === 0) return null
