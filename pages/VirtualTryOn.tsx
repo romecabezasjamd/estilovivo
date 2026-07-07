@@ -15,6 +15,7 @@ interface Layer {
   id: string; garment: Garment; url: string
   x: number; y: number; w: number; h: number
   rotation: number; opacity: number
+  flipX: boolean; flipY: boolean
 }
 
 const CATS = [
@@ -65,6 +66,9 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
   const [busy, setBusy] = useState(false)
   const [bodyPose, setBodyPose] = useState<BodyPose | null>(null)
   const [detecting, setDetecting] = useState(false)
+  const [mirror, setMirror] = useState(false)
+  const [compareMode, setCompareMode] = useState(false)
+  const [comparePos, setComparePos] = useState(50)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const layersRef = useRef<Layer[]>([])
@@ -309,7 +313,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
         newLayers.push({
           id: `${g.id}_${Date.now()}`, garment: g, url,
           x: p.x, y: p.y, w: p.w, h: p.h,
-          rotation: 0, opacity: 1,
+          rotation: 0, opacity: 1, flipX: false, flipY: false,
         })
       }
       setLayers(p => { const m = [...p, ...newLayers]; layersRef.current = m; return m })
@@ -318,13 +322,13 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     setBusy(false)
   }
 
-  const save = async () => {
+  const save = async (transparent = false) => {
     if (!bodyUrl || !bodyDim) return
     setStep('saving')
     try {
       const dataUrl = await exportCanvas(bodyUrl, layers.map(l => ({
-        url: l.url, t: { x: l.x, y: l.y, width: l.w, height: l.h, rotation: l.rotation, opacity: l.opacity }
-      })), bodyDim.w, bodyDim.h)
+        url: l.url, t: { x: l.x, y: l.y, width: l.w, height: l.h, rotation: l.rotation, opacity: l.opacity, flipX: l.flipX, flipY: l.flipY }
+      })), bodyDim.w, bodyDim.h, { transparent, mirror })
       const res = await fetch(dataUrl); const blob = await res.blob()
       await api.saveLookWithImage(`Look ${new Date().toLocaleDateString('es')}`, layers.map(l => l.garment.id), blob)
       successImpact(); setStep('saved')
@@ -480,7 +484,8 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
           className="flex-1 mx-3 my-2 rounded-xl overflow-hidden relative bg-gray-100"
           style={{ border: '1px solid var(--border-light)' }}>
           {bodyUrl && (
-            <img src={bodyUrl} className="w-full h-full object-contain pointer-events-none" draggable={false} />
+            <img src={bodyUrl} className="w-full h-full object-contain pointer-events-none" draggable={false}
+              style={{ transform: mirror ? 'scaleX(-1)' : undefined }} />
           )}
           {layers.map((l, i) => (
             <img key={l.id} src={l.url} draggable={false}
@@ -490,7 +495,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
               style={{
                 left: pct(l.x, bw), top: pct(l.y, bh),
                 width: pct(l.w, bw), height: pct(l.h, bh),
-                transform: `rotate(${l.rotation}deg)`,
+                transform: `rotate(${l.rotation}deg) scaleX(${l.flipX ? -1 : 1}) scaleY(${l.flipY ? -1 : 1})`,
                 opacity: l.opacity,
                 cursor: i === active ? 'grab' : 'pointer',
                 filter: i === active ? 'drop-shadow(0 0 3px rgba(255,77,148,0.6))' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))',
@@ -590,6 +595,22 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
               </div>
             )
           })()}
+          {compareMode && bodyUrl && (
+            <div className="absolute inset-0 z-[80]"
+              onMouseMove={e => { if (e.buttons !== 1) return; const r = containerRef.current?.getBoundingClientRect(); if (r) setComparePos(((e.clientX - r.left) / r.width) * 100) }}
+              onTouchMove={e => { const t = e.touches[0]; const r = containerRef.current?.getBoundingClientRect(); if (r) setComparePos(((t.clientX - r.left) / r.width) * 100) }}
+            >
+              <div className="absolute inset-0 overflow-hidden" style={{ clipPath: `inset(0 ${100 - comparePos}% 0 0)` }}>
+                <img src={bodyUrl} className="w-full h-full object-contain pointer-events-none" draggable={false}
+                  style={{ transform: mirror ? 'scaleX(-1)' : undefined }} />
+              </div>
+              <div className="absolute top-0 bottom-0 w-0.5 bg-white shadow-lg" style={{ left: `${comparePos}%`, zIndex: 81 }}>
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white shadow-lg flex items-center justify-center" style={{ border: '2px solid var(--color-primary)' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="2"><path d="M8 3l-5 9 5 9M16 3l5 9-5 9"/></svg>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {error && <div className="flex items-center gap-2 px-3 py-2 mx-3 mb-1 rounded-lg text-xs" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444' }}><X size={14} />{error}</div>}
@@ -623,6 +644,12 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
               <button onClick={() => moveLayer(-1)} disabled={active === 0} className="p-1.5 rounded-lg disabled:opacity-30" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }}><ChevronUp size={12} style={{ color: 'var(--text-secondary)' }} /></button>
               <button onClick={() => moveLayer(1)} disabled={active === layers.length - 1} className="p-1.5 rounded-lg disabled:opacity-30" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }}><ChevronDown size={12} style={{ color: 'var(--text-secondary)' }} /></button>
               <button onClick={resetPos} className="p-1.5 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }}><RotateCcw size={12} style={{ color: 'var(--text-secondary)' }} /></button>
+              <button onClick={() => updateLayer(active, { flipX: !cur.flipX })} className="p-1.5 rounded-lg" style={{ backgroundColor: cur.flipX ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: cur.flipX ? 'white' : 'var(--text-secondary)' }} title="Voltear horizontal">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3H5a2 2 0 00-2 2v14a2 2 0 002 2h3M16 3h3a2 2 0 012 2v14a2 2 0 01-2 2h-3M12 20V4"/></svg>
+              </button>
+              <button onClick={() => updateLayer(active, { flipY: !cur.flipY })} className="p-1.5 rounded-lg" style={{ backgroundColor: cur.flipY ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: cur.flipY ? 'white' : 'var(--text-secondary)' }} title="Voltear vertical">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 8V5a2 2 0 012-2h14a2 2 0 012 2v3M3 16v3a2 2 0 002 2h14a2 2 0 002-2v-3M4 12h16"/></svg>
+              </button>
               <div className="flex-1" />
               <button onClick={() => setStep('select')} className="px-2 py-1 rounded-lg text-[10px] font-medium" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>+ Mas prendas</button>
             </div>
@@ -631,11 +658,18 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
 
         <div className="flex gap-2 p-3 border-t" style={{ borderColor: 'var(--border-light)' }}>
           <button onClick={() => { setStep('select'); setActive(-1) }} className="flex-1 py-2.5 rounded-xl text-xs font-medium" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>Volver</button>
+          <button onClick={() => setMirror(!mirror)} className="py-2.5 px-3 rounded-xl text-xs font-medium" style={{ backgroundColor: mirror ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: mirror ? 'white' : 'var(--text-secondary)' }} title="Espejo">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3v18M17 7l-5-4-5 4"/></svg>
+          </button>
+          <button onClick={() => { setCompareMode(!compareMode); setComparePos(50) }} className="py-2.5 px-3 rounded-xl text-xs font-medium" style={{ backgroundColor: compareMode ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: compareMode ? 'white' : 'var(--text-secondary)' }} title="Comparar">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+          </button>
           <button onClick={() => { clearBodyPhoto(); setBodyUrl(null); setBodyDim(null); setLayers([]); setActive(-1); setStep('photo') }}
             className="py-2.5 px-3 rounded-xl text-xs font-medium" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>
             <Camera size={14} />
           </button>
-          <button onClick={save} disabled={!bodyUrl || layers.length === 0} className="flex-1 py-2.5 rounded-xl text-xs font-semibold text-white flex items-center justify-center gap-1.5 disabled:opacity-40" style={{ backgroundColor: 'var(--color-primary)' }}><Save size={12} />Guardar</button>
+          <button onClick={() => save(false)} disabled={!bodyUrl || layers.length === 0} className="py-2.5 px-3 rounded-xl text-xs font-semibold text-white disabled:opacity-40" style={{ backgroundColor: 'var(--color-primary)' }}><Save size={12} /></button>
+          <button onClick={() => save(true)} disabled={!bodyUrl || layers.length === 0} className="py-2.5 px-3 rounded-xl text-[10px] font-medium disabled:opacity-40" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }} title="Guardar sin fondo">PNG</button>
         </div>
       </div>
     )

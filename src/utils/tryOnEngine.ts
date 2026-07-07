@@ -5,6 +5,8 @@ export interface GarmentTransform {
   height: number
   rotation: number
   opacity: number
+  flipX?: boolean
+  flipY?: boolean
 }
 
 export function autoPlace(type: string, canvasW: number, canvasH: number): GarmentTransform {
@@ -51,6 +53,7 @@ export async function exportCanvas(
   garments: Array<{ url: string; t: GarmentTransform }>,
   displayW: number,
   displayH: number,
+  options?: { transparent?: boolean; mirror?: boolean },
 ): Promise<string> {
   const body = await loadImg(bodyUrl)
   const exportScale = Math.max(1, 1200 / Math.max(displayW, displayH))
@@ -61,25 +64,38 @@ export async function exportCanvas(
   c.width = ew
   c.height = eh
   const ctx = c.getContext('2d')!
-  ctx.fillStyle = '#ffffff'
-  ctx.fillRect(0, 0, ew, eh)
+
+  if (!options?.transparent) {
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, ew, eh)
+  }
+
+  ctx.save()
+  if (options?.mirror) {
+    ctx.translate(ew, 0)
+    ctx.scale(-1, 1)
+  }
   fitDraw(ctx, body, ew, eh)
+  ctx.restore()
 
   const shadowSize = Math.max(4, ew * 0.01)
   for (const g of garments) {
     try {
       const img = await loadImg(g.url)
       ctx.save()
-      ctx.shadowColor = 'rgba(0,0,0,0.2)'
-      ctx.shadowBlur = shadowSize
-      ctx.shadowOffsetX = shadowSize * 0.3
-      ctx.shadowOffsetY = shadowSize * 0.5
+      if (!options?.transparent) {
+        ctx.shadowColor = 'rgba(0,0,0,0.2)'
+        ctx.shadowBlur = shadowSize
+        ctx.shadowOffsetX = shadowSize * 0.3
+        ctx.shadowOffsetY = shadowSize * 0.5
+      }
       const sx = g.t.x * exportScale
       const sy = g.t.y * exportScale
       const sw = g.t.width * exportScale
       const sh = g.t.height * exportScale
       ctx.translate(sx + sw / 2, sy + sh / 2)
       ctx.rotate((g.t.rotation * Math.PI) / 180)
+      ctx.scale(g.t.flipX ? -1 : 1, g.t.flipY ? -1 : 1)
       ctx.globalAlpha = g.t.opacity
       ctx.drawImage(img, -sw / 2, -sh / 2, sw, sh)
       ctx.restore()
