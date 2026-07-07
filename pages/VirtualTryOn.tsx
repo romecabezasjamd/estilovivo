@@ -133,7 +133,7 @@ export default function VirtualTryOn({
   useEffect(() => {
     if (step === 'tryon' && layers.length > 0) {
       if (renderTimer.current) clearTimeout(renderTimer.current)
-      renderTimer.current = setTimeout(() => doRender(), 300)
+      renderTimer.current = setTimeout(() => doRender(), 150)
     }
   }, [layers, step, doRender])
 
@@ -647,7 +647,7 @@ export default function VirtualTryOn({
         <div
           ref={containerRef}
           className="relative flex-1 mx-4 my-2 rounded-xl overflow-hidden touch-none select-none"
-          style={{ border: '1px solid var(--border-light)', cursor: mode === 'manual' ? 'grab' : 'default' }}
+          style={{ border: '1px solid var(--border-light)', backgroundColor: '#ffffff' }}
         >
           {displayUrl && (
             <img
@@ -655,22 +655,6 @@ export default function VirtualTryOn({
               alt="Resultado"
               className="w-full h-full object-contain"
               draggable={false}
-              loading="eager"
-            />
-          )}
-
-          {mode === 'manual' && activeLayer && (
-            <img
-              src={activeLayer.processedUrl || activeLayer.originalUrl}
-              alt={activeLayer.name}
-              className="absolute top-1/2 left-1/2 pointer-events-none"
-              draggable={false}
-              style={{
-                transform: `translate(calc(-50% + ${activeLayer.adjustments.offsetX}px), calc(-50% + ${activeLayer.adjustments.offsetY}px)) scale(${activeLayer.adjustments.scaleX}) rotate(${activeLayer.adjustments.rotation}deg)`,
-                opacity: activeLayer.adjustments.opacity,
-                maxWidth: '80%',
-                maxHeight: '80%',
-              }}
               loading="eager"
             />
           )}

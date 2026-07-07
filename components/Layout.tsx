@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect, Suspense } from 'react';
+import ReactDOM from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Home, Shirt, Users, User, RefreshCcw, X, Luggage, WashingMachine, Wand2, Sparkles, Scan } from 'lucide-react';
 import { useLanguage } from '../src/context/LanguageContext';
@@ -269,8 +270,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
       )}
 
       {/* Semi-Automatic Virtual Try-On */}
-      <Suspense fallback={null}>
-        {showVirtualTryOn && (
+      {showVirtualTryOn && ReactDOM.createPortal(
+        <Suspense fallback={null}>
           <VirtualTryOn
             user={user}
             garments={garments}
@@ -285,8 +286,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
               window.dispatchEvent(new CustomEvent('navigateTo', { detail: { tab, subTab } }))
             }}
           />
-        )}
-      </Suspense>
+        </Suspense>,
+        document.body
+      )}
 
     </div>
   );

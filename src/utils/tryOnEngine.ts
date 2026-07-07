@@ -72,50 +72,42 @@ function estimateGarmentPlacement(
 ): { x: number; y: number; w: number; h: number; rotation: number } {
   const { shoulderWidth, hipWidth, torsoHeight, bodyCenterX, bodyCenterY, waistY, torsoAngle, imageWidth, imageHeight } = bodyDims
 
-  const normX = bodyCenterX / imageWidth
-  const normY = waistY / imageHeight
-
+  const garmentAspect = garmentH / garmentW
   let targetW: number
-  let targetH: number
-  let targetY: number
+  let anchorY: number
 
   const t = garmentType.toLowerCase()
   if (t.includes('dress') || t.includes('vestido')) {
-    targetW = Math.max(shoulderWidth, hipWidth) * 1.3
-    targetH = torsoHeight * 1.8
-    targetY = bodyCenterY - torsoHeight * 0.25
+    targetW = Math.max(shoulderWidth, hipWidth) * 1.1
+    anchorY = bodyCenterY - torsoHeight * 0.3
   } else if (t.includes('bottom') || t.includes('pantal') || t.includes('falda') || t.includes('short')) {
-    targetW = hipWidth * 1.4
-    targetH = torsoHeight * 0.9
-    targetY = waistY + torsoHeight * 0.05
+    targetW = hipWidth * 1.15
+    anchorY = waistY
   } else if (t.includes('outer') || t.includes('chaqueta') || t.includes('abrigo') || t.includes('saco')) {
-    targetW = shoulderWidth * 1.5
-    targetH = torsoHeight * 1.1
-    targetY = bodyCenterY - torsoHeight * 0.3
-  } else if (t.includes('shoe') || t.includes('zapat') || t.includes('bota')) {
-    targetW = hipWidth * 0.4
-    targetH = hipWidth * 0.35
-    targetY = imageHeight * 0.92
-  } else if (t.includes('accesorio') || t.includes('sombrero') || t.includes('gorra') || t.includes('bolso')) {
-    targetW = shoulderWidth * 0.5
-    targetH = shoulderWidth * 0.5
-    targetY = bodyCenterY - torsoHeight * 0.55
-  } else {
     targetW = shoulderWidth * 1.2
-    targetH = torsoHeight * 0.65
-    targetY = bodyCenterY - torsoHeight * 0.15
+    anchorY = bodyCenterY - torsoHeight * 0.35
+  } else if (t.includes('shoe') || t.includes('zapat') || t.includes('bota')) {
+    targetW = hipWidth * 0.35
+    anchorY = imageHeight * 0.9
+  } else if (t.includes('accesorio') || t.includes('sombrero') || t.includes('gorra') || t.includes('bolso')) {
+    targetW = shoulderWidth * 0.4
+    anchorY = bodyCenterY - torsoHeight * 0.55
+  } else {
+    targetW = shoulderWidth * 1.0
+    anchorY = bodyCenterY - torsoHeight * 0.15
   }
 
-  const ratio = targetW / garmentW
-  const scaledW = garmentW * ratio
-  const scaledH = garmentH * ratio
+  const targetH = targetW * garmentAspect
+  const scaleRatio = Math.min(targetW / garmentW, 1.5)
+  const w = garmentW * scaleRatio
+  const h = garmentH * scaleRatio
 
   return {
-    x: normX * imageWidth - scaledW / 2,
-    y: targetY - scaledH * 0.3,
-    w: scaledW,
-    h: scaledH,
-    rotation: torsoAngle * 0.6,
+    x: bodyCenterX - w / 2,
+    y: anchorY - h * 0.25,
+    w,
+    h,
+    rotation: torsoAngle * 0.5,
   }
 }
 
@@ -134,6 +126,8 @@ export async function renderComposite(
   canvas.height = ch
   const ctx = canvas.getContext('2d')!
 
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, cw, ch)
   ctx.drawImage(bodyImg, 0, 0, cw, ch)
 
   const visible = layers.filter(l => l.visible && l.processedUrl).sort((a, b) => a.zIndex - b.zIndex)
