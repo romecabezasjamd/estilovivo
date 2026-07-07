@@ -134,20 +134,27 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
         const dy = ny - g.ly
         g.lx = nx; g.ly = ny
         updateLayer(g.dragIdx, { x: l.x + dx, y: l.y + dy })
-      } else if (g.mode === 'resize') {
+      } else       if (g.mode === 'resize') {
         const { nx, ny } = screenToNatural(e.clientX, e.clientY)
         const rad = (-l.rotation * Math.PI) / 180
         const cos = Math.cos(rad), sin = Math.sin(rad)
         const dx = nx - g.centerNX, dy = ny - g.centerNY
         const localX = dx * cos - dy * sin
         const localY = dx * sin + dy * cos
-        const isTop = g.handle.includes('t')
-        const isLeft = g.handle.includes('l')
+        const isEdge = g.handle.startsWith('e')
         let newW = g.startW, newH = g.startH
-        if (isLeft) { newW = Math.max(40, g.startW - localX * 2) } else { newW = Math.max(40, g.startW + localX * 2) }
-        if (isTop) { newH = Math.max(40, g.startH - localY * 2) } else { newH = Math.max(40, g.startH + localY * 2) }
-        const ratio = g.startW / g.startH
-        newH = newW / ratio
+        if (isEdge) {
+          const axis = g.handle[1]
+          if (axis === 't' || axis === 'b') { newH = Math.max(40, Math.abs(localY) * 2) }
+          else { newW = Math.max(40, Math.abs(localX) * 2) }
+        } else {
+          const isTop = g.handle.includes('t')
+          const isLeft = g.handle.includes('l')
+          if (isLeft) { newW = Math.max(40, g.startW - localX * 2) } else { newW = Math.max(40, g.startW + localX * 2) }
+          if (isTop) { newH = Math.max(40, g.startH - localY * 2) } else { newH = Math.max(40, g.startH + localY * 2) }
+          const ratio = g.startW / g.startH
+          newH = newW / ratio
+        }
         const cx = g.startX + g.startW / 2
         const cy = g.startY + g.startH / 2
         updateLayer(g.dragIdx, { w: newW, h: newH, x: cx - newW / 2, y: cy - newH / 2 })
@@ -193,13 +200,20 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
           const dx = nx - g.centerNX, dy = ny - g.centerNY
           const localX = dx * cos - dy * sin
           const localY = dx * sin + dy * cos
-          const isTop = g.handle.includes('t')
-          const isLeft = g.handle.includes('l')
+          const isEdge = g.handle.startsWith('e')
           let newW = g.startW, newH = g.startH
-          if (isLeft) { newW = Math.max(40, g.startW - localX * 2) } else { newW = Math.max(40, g.startW + localX * 2) }
-          if (isTop) { newH = Math.max(40, g.startH - localY * 2) } else { newH = Math.max(40, g.startH + localY * 2) }
-          const ratio = g.startW / g.startH
-          newH = newW / ratio
+          if (isEdge) {
+            const axis = g.handle[1]
+            if (axis === 't' || axis === 'b') { newH = Math.max(40, Math.abs(localY) * 2) }
+            else { newW = Math.max(40, Math.abs(localX) * 2) }
+          } else {
+            const isTop = g.handle.includes('t')
+            const isLeft = g.handle.includes('l')
+            if (isLeft) { newW = Math.max(40, g.startW - localX * 2) } else { newW = Math.max(40, g.startW + localX * 2) }
+            if (isTop) { newH = Math.max(40, g.startH - localY * 2) } else { newH = Math.max(40, g.startH + localY * 2) }
+            const ratio = g.startW / g.startH
+            newH = newW / ratio
+          }
           const cx = g.startX + g.startW / 2
           const cy = g.startY + g.startH / 2
           updateLayer(g.dragIdx, { w: newW, h: newH, x: cx - newW / 2, y: cy - newH / 2 })
@@ -488,6 +502,13 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
               { h: 'br', x: halfW, y: halfH },
             ]
 
+            const edges = [
+              { h: 'et', x: 0, y: -halfH, cursor: 'ns-resize' },
+              { h: 'eb', x: 0, y: halfH, cursor: 'ns-resize' },
+              { h: 'el', x: -halfW, y: 0, cursor: 'ew-resize' },
+              { h: 'er', x: halfW, y: 0, cursor: 'ew-resize' },
+            ]
+
             return (
               <div className="absolute pointer-events-none" style={{
                 left: pct(l.x + l.w / 2, bw), top: pct(l.y + l.h / 2, bh),
@@ -512,6 +533,21 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
                       backgroundColor: 'white',
                       border: '2px solid var(--color-primary)',
                       cursor: c.h === 'tl' || c.h === 'br' ? 'nwse-resize' : 'nesw-resize',
+                      zIndex: 70,
+                    }}
+                  />
+                ))}
+                {edges.map(e => (
+                  <div key={e.h} data-handle={e.h}
+                    onMouseDown={ev => onHandleDown(ev, active, e.h)}
+                    onTouchStart={ev => onHandleTouch(ev, active, e.h)}
+                    className="absolute pointer-events-auto"
+                    style={{
+                      left: e.x - 6, top: e.y - 6, width: 12, height: 12,
+                      borderRadius: '50%',
+                      backgroundColor: 'white',
+                      border: '2px solid var(--color-primary)',
+                      cursor: e.cursor,
                       zIndex: 70,
                     }}
                   />
