@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { X, Camera, Image, RotateCcw, Save, ChevronUp, ChevronDown, Trash2, SlidersHorizontal } from 'lucide-react'
+import { X, Camera, Image, RotateCcw, Save, ChevronUp, ChevronDown, SlidersHorizontal } from 'lucide-react'
 import type { Garment } from '../types'
 import { autoPlace, drawCanvas, exportCanvas, removeBg, type GarmentTransform } from '../src/utils/tryOnEngine'
 import { detectBodyPose, smartAutoPlace, type BodyPose } from '../src/utils/poseDetection'
@@ -17,7 +17,7 @@ interface Layer {
   id: string
   garment: Garment
   url: string
-  t: GarmentTransform
+  t: GarmentTransform | null
 }
 
 const CATS = [
@@ -40,6 +40,10 @@ function matchGarment(g: Garment, c: string) {
   return m[c] ? m[c].test(t) : true
 }
 
+function placeGarment(pose: BodyPose | null, type: string, w: number, h: number): GarmentTransform {
+  return pose ? smartAutoPlace(pose, type, w, h) : autoPlace(type, w, h)
+}
+
 export default function VirtualTryOn({ garments, onClose }: Props) {
   const [step, setStep] = useState<'guide' | 'photo' | 'select' | 'tryon' | 'saving' | 'saved'>('guide')
   const [bodyUrl, setBodyUrl] = useState<string | null>(null)
@@ -51,16 +55,19 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
   const [busy, setBusy] = useState(false)
   const [bodyPose, setBodyPose] = useState<BodyPose | null>(null)
   const [detecting, setDetecting] = useState(false)
+  const [placed, setPlaced] = useState(false)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const layersRef = useRef<Layer[]>([])
   const activeRef = useRef(0)
   const rafRef = useRef(0)
   const bodyUrlRef = useRef<string | null>(null)
+  const poseRef = useRef<BodyPose | null>(null)
 
   layersRef.current = layers
   activeRef.current = active
   bodyUrlRef.current = bodyUrl
+  poseRef.current = bodyPose
 
   const filtered = garments.filter(g => !g.isWashing && matchGarment(g, filter))
 
@@ -69,11 +76,34 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     rafRef.current = requestAnimationFrame(() => {
       const c = canvasRef.current
       if (!c || !bodyUrlRef.current) return
-      drawCanvas(c, bodyUrlRef.current, layersRef.current.map(l => ({ url: l.url, t: l.t })), activeRef.current).catch(() => {})
+      const validLayers = layersRef.current.filter(l => l.t !== null) as Array<{ url: string; t: GarmentTransform }>
+      drawCanvas(c, bodyUrlRef.current, validLayers, activeRef.current).catch(() => {})
     })
   }, [])
 
   useEffect(() => { scheduleRedraw() }, [scheduleRedraw, layers, active, step])
+
+  // Auto-place layers once canvas is visible
+  useEffect(() => {
+    if (step !== 'tryon' || placed) return
+    const c = canvasRef.current
+    if (!c) return
+    const w = c.clientWidth || 300
+    const h = c.clientHeight || 400
+    if (w < 10 || h < 10) return
+
+    setLayers(p => {
+      let changed = false
+      const next = p.map(l => {
+        if (l.t) return l
+        changed = true
+        return { ...l, t: placeGarment(poseRef.current, l.garment.type, w, h) }
+      })
+      if (changed) { layersRef.current = next; return next }
+      return p
+    })
+    setPlaced(true)
+  }, [step, placed, layers])
 
   const pick = async (src: CameraSource) => {
     try {
@@ -102,11 +132,9 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     if (selIds.size === 0 || !bodyUrl) return
     setBusy(true)
     setDetecting(true)
+    setPlaced(false)
     setError(null)
     try {
-      const displayW = Math.min(window.innerWidth - 24, 500)
-      const displayH = Math.min(window.innerHeight - 300, 600)
-
       let pose = bodyPose
       if (!pose) {
         pose = await detectBodyPose(bodyUrl)
@@ -120,8 +148,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
         if (exists) { newLayers.push(exists); continue }
         let url = g.imageUrl
         try { url = await removeBg(g.imageUrl) } catch {}
-        const t = pose ? smartAutoPlace(pose, g.type, displayW, displayH) : autoPlace(g.type, displayW, displayH)
-        newLayers.push({ id: `${g.id}_${Date.now()}`, garment: g, url, t })
+        newLayers.push({ id: `${g.id}_${Date.now()}`, garment: g, url, t: null })
       }
       setLayers(p => { const merged = [...p, ...newLayers]; layersRef.current = merged; return merged })
       setStep('tryon')
@@ -132,14 +159,14 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     setBusy(false)
   }
 
-  // ─── Gesture handler: attaches once per tryon step ─────────────────
+  // ─── Gesture handler ───────────────────────────────────────────────
   useEffect(() => {
     if (step !== 'tryon') return
     const c = canvasRef.current
     if (!c) return
 
     const S = {
-      dragging: false, lx: 0, ly: 0,
+      dragging: false, dragIdx: -1, lx: 0, ly: 0,
       pinchDist: 0, pinchAngle: 0, pinchSavedW: 0, pinchSavedH: 0, pinchSavedRot: 0,
     }
 
@@ -156,6 +183,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
       const ls = layersRef.current
       for (let i = ls.length - 1; i >= 0; i--) {
         const t = ls[i].t
+        if (!t) continue
         if (cx >= t.x && cx <= t.x + t.width && cy >= t.y && cy <= t.y + t.height) return i
       }
       return -1
@@ -170,73 +198,86 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
         S.pinchDist = td(e.touches[0], e.touches[1])
         S.pinchAngle = ta(e.touches[0], e.touches[1])
         const l = layersRef.current[activeRef.current]
-        if (l) { S.pinchSavedW = l.t.width; S.pinchSavedH = l.t.height; S.pinchSavedRot = l.t.rotation }
+        if (l?.t) { S.pinchSavedW = l.t.width; S.pinchSavedH = l.t.height; S.pinchSavedRot = l.t.rotation }
       } else if (e.touches.length === 1) {
         const idx = hitTest(e.touches[0].clientX, e.touches[0].clientY)
         if (idx >= 0) {
           setActive(idx)
           activeRef.current = idx
+          S.dragging = true
+          S.dragIdx = idx
+        } else {
+          S.dragging = false
+          S.dragIdx = -1
         }
-        S.dragging = true
         S.lx = e.touches[0].clientX
         S.ly = e.touches[0].clientY
       }
     }
 
     const onTM = (e: TouchEvent) => {
-      const ai = activeRef.current
-      const ls = layersRef.current
-      if (e.touches.length === 2 && ai >= 0 && ai < ls.length) {
+      if (e.touches.length === 2 && S.dragIdx >= 0) {
         e.preventDefault()
         const d = td(e.touches[0], e.touches[1])
         const a = ta(e.touches[0], e.touches[1])
         const ratio = d / S.pinchDist
-        setLayers(p => p.map((l, i) => i === ai ? {
+        setLayers(p => p.map((l, i) => i === S.dragIdx && l.t ? {
           ...l, t: { ...l.t, width: Math.max(20, S.pinchSavedW * ratio), height: Math.max(20, S.pinchSavedH * ratio), rotation: S.pinchSavedRot + (a - S.pinchAngle) }
         } : l))
-      } else if (e.touches.length === 1 && S.dragging && ai >= 0 && ai < ls.length) {
+      } else if (e.touches.length === 1 && S.dragging && S.dragIdx >= 0) {
         e.preventDefault()
         const s = scale()
         const dx = (e.touches[0].clientX - S.lx) * s
         const dy = (e.touches[0].clientY - S.ly) * s
         S.lx = e.touches[0].clientX
         S.ly = e.touches[0].clientY
-        setLayers(p => p.map((l, i) => i === ai ? { ...l, t: { ...l.t, x: l.t.x + dx, y: l.t.y + dy } } : l))
+        setLayers(p => p.map((l, i) => i === S.dragIdx && l.t ? { ...l, t: { ...l.t, x: l.t.x + dx, y: l.t.y + dy } } : l))
       }
     }
 
-    const onTE = () => { S.dragging = false }
+    const onTE = () => { S.dragging = false; S.dragIdx = -1 }
 
     const onMD = (e: MouseEvent) => {
       const idx = hitTest(e.clientX, e.clientY)
       if (idx >= 0) {
         setActive(idx)
         activeRef.current = idx
+        S.dragging = true
+        S.dragIdx = idx
+      } else {
+        S.dragging = false
+        S.dragIdx = -1
       }
-      S.dragging = true; S.lx = e.clientX; S.ly = e.clientY
+      S.lx = e.clientX
+      S.ly = e.clientY
     }
 
     const onMM = (e: MouseEvent) => {
-      if (!S.dragging) return
-      const ai = activeRef.current
-      const ls = layersRef.current
-      if (ai < 0 || ai >= ls.length) return
+      if (!S.dragging || S.dragIdx < 0) return
       const s = scale()
       const dx = (e.clientX - S.lx) * s
       const dy = (e.clientY - S.ly) * s
       S.lx = e.clientX; S.ly = e.clientY
-      setLayers(p => p.map((l, i) => i === ai ? { ...l, t: { ...l.t, x: l.t.x + dx, y: l.t.y + dy } } : l))
+      setLayers(p => p.map((l, i) => i === S.dragIdx && l.t ? { ...l, t: { ...l.t, x: l.t.x + dx, y: l.t.y + dy } } : l))
     }
 
-    const onMU = () => { S.dragging = false }
+    const onMU = () => { S.dragging = false; S.dragIdx = -1 }
+
+    const onDblClick = (e: MouseEvent) => {
+      const idx = hitTest(e.clientX, e.clientY)
+      if (idx >= 0) {
+        setActive(idx)
+        activeRef.current = idx
+      }
+    }
 
     const onW = (e: WheelEvent) => {
       const ai = activeRef.current
       const ls = layersRef.current
-      if (ai < 0 || ai >= ls.length) return
+      if (ai < 0 || ai >= ls.length || !ls[ai].t) return
       e.preventDefault()
       const s = e.deltaY > 0 ? 0.95 : 1.05
-      setLayers(p => p.map((l, i) => i === ai ? {
+      setLayers(p => p.map((l, i) => i === ai && l.t ? {
         ...l, t: { ...l.t, width: Math.max(20, l.t.width * s), height: Math.max(20, l.t.height * s) }
       } : l))
     }
@@ -245,6 +286,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     c.addEventListener('touchmove', onTM, { passive: false })
     c.addEventListener('touchend', onTE)
     c.addEventListener('mousedown', onMD)
+    c.addEventListener('dblclick', onDblClick)
     window.addEventListener('mousemove', onMM)
     window.addEventListener('mouseup', onMU)
     c.addEventListener('wheel', onW, { passive: false })
@@ -254,6 +296,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
       c.removeEventListener('touchmove', onTM)
       c.removeEventListener('touchend', onTE)
       c.removeEventListener('mousedown', onMD)
+      c.removeEventListener('dblclick', onDblClick)
       window.removeEventListener('mousemove', onMM)
       window.removeEventListener('mouseup', onMU)
       c.removeEventListener('wheel', onW)
@@ -261,7 +304,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
   }, [step])
 
   const updateActiveOpacity = (opacity: number) => {
-    setLayers(p => p.map((l, i) => i === active ? { ...l, t: { ...l.t, opacity } } : l))
+    setLayers(p => p.map((l, i) => i === active && l.t ? { ...l, t: { ...l.t, opacity } } : l))
   }
 
   const moveLayer = (dir: -1 | 1) => {
@@ -287,8 +330,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     const h = c.clientHeight || 400
     setLayers(p => p.map((l, i) => {
       if (i !== active) return l
-      const t = bodyPose ? smartAutoPlace(bodyPose, l.garment.type, w, h) : autoPlace(l.garment.type, w, h)
-      return { ...l, t }
+      return { ...l, t: placeGarment(bodyPose, l.garment.type, w, h) }
     }))
   }
 
@@ -299,7 +341,8 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     const dh = c ? c.clientHeight : 600
     setStep('saving')
     try {
-      const dataUrl = await exportCanvas(bodyUrl, layers.map(l => ({ url: l.url, t: l.t })), dw, dh)
+      const validLayers = layers.filter(l => l.t) as Array<{ url: string; t: GarmentTransform }>
+      const dataUrl = await exportCanvas(bodyUrl, validLayers, dw, dh)
       const res = await fetch(dataUrl)
       const blob = await res.blob()
       await api.saveLookWithImage(`Look ${new Date().toLocaleDateString('es')}`, layers.map(l => l.garment.id), blob)
@@ -390,7 +433,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     return (
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="flex-1 mx-3 my-2 rounded-xl overflow-hidden relative" style={{ backgroundColor: '#f0f0f0', border: '1px solid var(--border-light)' }}>
-          <canvas ref={canvasRef} className="w-full h-full block" style={{ touchAction: 'none' }} />
+          <canvas ref={canvasRef} className="w-full h-full block" style={{ touchAction: 'none', cursor: 'grab' }} />
         </div>
 
         {error && (
@@ -420,7 +463,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
           </div>
         )}
 
-        {cur && (
+        {cur?.t && (
           <div className="px-3 mb-1 space-y-1.5">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-medium" style={{ color: 'var(--text-primary)' }}>{cur.garment.name}</span>
@@ -485,7 +528,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
       <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Look guardado</p>
       <div className="flex gap-2 w-full max-w-xs">
         <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-xs font-medium" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>Cerrar</button>
-        <button onClick={() => { setStep('select'); setLayers([]); setActive(0) }} className="flex-1 py-2.5 rounded-xl text-xs font-semibold text-white" style={{ backgroundColor: 'var(--color-primary)' }}>Nuevo look</button>
+        <button onClick={() => { setStep('select'); setLayers([]); setActive(0); setPlaced(false) }} className="flex-1 py-2.5 rounded-xl text-xs font-semibold text-white" style={{ backgroundColor: 'var(--color-primary)' }}>Nuevo look</button>
       </div>
     </div>
   )
