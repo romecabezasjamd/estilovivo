@@ -113,8 +113,16 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     const c = containerRef.current
     if (!c || !bodyDim) return { nx: sx, ny: sy }
     const rect = c.getBoundingClientRect()
-    const nx = ((sx - rect.left) / rect.width) * bodyDim.w
-    const ny = ((sy - rect.top) / rect.height) * bodyDim.h
+    const cW = rect.width, cH = rect.height
+    const bAspect = bodyDim.w / bodyDim.h
+    const cAspect = cW / cH
+    let rW: number, rH: number
+    if (cAspect > bAspect) { rH = cH; rW = cH * bAspect } else { rW = cW; rH = cW / bAspect }
+    const oX = (cW - rW) / 2, oY = (cH - rH) / 2
+    const lx = sx - rect.left - oX
+    const ly = sy - rect.top - oY
+    const nx = (lx / rW) * bodyDim.w
+    const ny = (ly / rH) * bodyDim.h
     return { nx, ny }
   }, [bodyDim])
 
@@ -476,122 +484,116 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     }
 
     const pct = (v: number, base: number) => `${(v / (base || 1)) * 100}%`
-    const bw = bodyDim?.w || 1, bh = bodyDim?.h || 1
 
     return (
       <div className="flex-1 flex flex-col overflow-hidden">
         <div ref={containerRef} onClick={onCanvasClick}
           className="flex-1 mx-3 my-2 rounded-xl overflow-hidden relative bg-gray-100"
           style={{ border: '1px solid var(--border-light)' }}>
-          {bodyUrl && (
-            <img src={bodyUrl} className="w-full h-full object-contain pointer-events-none" draggable={false}
-              style={{ transform: mirror ? 'scaleX(-1)' : undefined }} />
-          )}
-          {layers.map((l, i) => (
-            <img key={l.id} src={l.url} draggable={false}
-              onMouseDown={e => onGarmentDown(e, i)}
-              onTouchStart={e => onGarmentTouch(e, i)}
-              className="absolute pointer-events-auto"
-              style={{
-                left: pct(l.x, bw), top: pct(l.y, bh),
-                width: pct(l.w, bw), height: pct(l.h, bh),
-                transform: `rotate(${l.rotation}deg) scaleX(${l.flipX ? -1 : 1}) scaleY(${l.flipY ? -1 : 1})`,
-                opacity: l.opacity,
-                cursor: i === active ? 'grab' : 'pointer',
-                filter: i === active ? 'drop-shadow(0 0 3px rgba(255,77,148,0.6))' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))',
-                touchAction: 'none',
-                zIndex: i === active ? 50 : 10,
-              }}
-            />
-          ))}
-          {active >= 0 && active < layers.length && (() => {
-            const l = layers[active]
-            const cx = pct(l.x, bw), cy = pct(l.y, bh)
-            const cw = pct(l.w, bw), ch = pct(l.h, bh)
-            const hx = (v: number) => pct(v, bw)
-            const hy = (v: number) => pct(v, bh)
-            const rot = l.rotation
-            const rad = (-rot * Math.PI) / 180
-            const cos = Math.cos(rad), sin = Math.sin(rad)
-            const halfW = l.w / 2, halfH = l.h / 2
-            const rotLen = Math.min(30, l.h * 0.25)
-            const rotLineEndY = -halfH - rotLen
-            const rotCircleY = -halfH - rotLen - 10
-
-            const corners = [
-              { h: 'tl', x: -halfW, y: -halfH },
-              { h: 'tr', x: halfW, y: -halfH },
-              { h: 'bl', x: -halfW, y: halfH },
-              { h: 'br', x: halfW, y: halfH },
-            ]
-
-            const edges = [
-              { h: 'et', x: 0, y: -halfH, cursor: 'ns-resize' },
-              { h: 'eb', x: 0, y: halfH, cursor: 'ns-resize' },
-              { h: 'el', x: -halfW, y: 0, cursor: 'ew-resize' },
-              { h: 'er', x: halfW, y: 0, cursor: 'ew-resize' },
-            ]
-
+          {bodyUrl && bodyDim && (() => {
+            const cW = containerRef.current?.clientWidth || 300
+            const cH = containerRef.current?.clientHeight || 400
+            const bAspect = bodyDim.w / bodyDim.h
+            const cAspect = cW / cH
+            let rW: number, rH: number
+            if (cAspect > bAspect) { rH = cH; rW = cH * bAspect } else { rW = cW; rH = cW / bAspect }
+            const oX = (cW - rW) / 2, oY = (cH - rH) / 2
             return (
-              <div className="absolute pointer-events-none" style={{
-                left: pct(l.x + l.w / 2, bw), top: pct(l.y + l.h / 2, bh),
-                width: 0, height: 0,
-                transform: `rotate(${rot}deg)`,
-                zIndex: 60,
-              }}>
-                <div className="absolute" style={{
-                  left: -halfW, top: -halfH, width: l.w, height: l.h,
-                  border: '2px solid rgba(255,255,255,0.9)',
-                  boxShadow: '0 0 0 1px rgba(255,77,148,0.5)',
-                  borderRadius: '2px',
-                }} />
-                {corners.map(c => (
-                  <div key={c.h} data-handle={c.h}
-                    onMouseDown={e => onHandleDown(e, active, c.h)}
-                    onTouchStart={e => onHandleTouch(e, active, c.h)}
+              <div className="absolute" style={{ left: oX, top: oY, width: rW, height: rH }}>
+                <img src={bodyUrl} className="w-full h-full pointer-events-none" draggable={false}
+                  style={{ transform: mirror ? 'scaleX(-1)' : undefined }} />
+                {layers.map((l, i) => (
+                  <img key={l.id} src={l.url} draggable={false}
+                    onMouseDown={e => onGarmentDown(e, i)}
+                    onTouchStart={e => onGarmentTouch(e, i)}
                     className="absolute pointer-events-auto"
                     style={{
-                      left: c.x - 7, top: c.y - 7, width: 14, height: 14,
-                      borderRadius: '2px',
-                      backgroundColor: 'white',
-                      border: '2px solid var(--color-primary)',
-                      cursor: c.h === 'tl' || c.h === 'br' ? 'nwse-resize' : 'nesw-resize',
-                      zIndex: 70,
+                      left: pct(l.x, bodyDim.w), top: pct(l.y, bodyDim.h),
+                      width: pct(l.w, bodyDim.w), height: pct(l.h, bodyDim.h),
+                      transform: `rotate(${l.rotation}deg) scaleX(${l.flipX ? -1 : 1}) scaleY(${l.flipY ? -1 : 1})`,
+                      opacity: l.opacity,
+                      cursor: i === active ? 'grab' : 'pointer',
+                      filter: i === active ? 'drop-shadow(0 0 3px rgba(255,77,148,0.6))' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))',
+                      touchAction: 'none',
+                      zIndex: i === active ? 50 : 10,
                     }}
                   />
                 ))}
-                {edges.map(e => (
-                  <div key={e.h} data-handle={e.h}
-                    onMouseDown={ev => onHandleDown(ev, active, e.h)}
-                    onTouchStart={ev => onHandleTouch(ev, active, e.h)}
-                    className="absolute pointer-events-auto"
-                    style={{
-                      left: e.x - 6, top: e.y - 6, width: 12, height: 12,
-                      borderRadius: '50%',
-                      backgroundColor: 'white',
-                      border: '2px solid var(--color-primary)',
-                      cursor: e.cursor,
-                      zIndex: 70,
-                    }}
-                  />
-                ))}
-                <div className="absolute" style={{
-                  left: -1, top: -halfH - rotLen, width: 2, height: rotLen,
-                  backgroundColor: 'var(--color-primary)', opacity: 0.7,
-                }} />
-                <div data-handle="rotate"
-                  onMouseDown={e => onHandleDown(e, active, 'rotate')}
-                  onTouchStart={e => onHandleTouch(e, active, 'rotate')}
-                  className="absolute pointer-events-auto"
-                  style={{
-                    left: -8, top: -halfH - rotLen - 8, width: 16, height: 16,
-                    borderRadius: '50%',
-                    backgroundColor: 'white',
-                    border: '2px solid var(--color-primary)',
-                    cursor: 'grab',
-                    zIndex: 70,
-                  }}
-                />
+                {active >= 0 && active < layers.length && (() => {
+                  const l = layers[active]
+                  const rot = l.rotation
+                  const halfW = l.w / 2, halfH = l.h / 2
+                  const rotLen = Math.min(30, l.h * 0.25)
+                  const corners = [
+                    { h: 'tl', x: -halfW, y: -halfH },
+                    { h: 'tr', x: halfW, y: -halfH },
+                    { h: 'bl', x: -halfW, y: halfH },
+                    { h: 'br', x: halfW, y: halfH },
+                  ]
+                  const edges = [
+                    { h: 'et', x: 0, y: -halfH, cursor: 'ns-resize' },
+                    { h: 'eb', x: 0, y: halfH, cursor: 'ns-resize' },
+                    { h: 'el', x: -halfW, y: 0, cursor: 'ew-resize' },
+                    { h: 'er', x: halfW, y: 0, cursor: 'ew-resize' },
+                  ]
+                  return (
+                    <div className="absolute pointer-events-none" style={{
+                      left: pct(l.x + l.w / 2, bodyDim.w), top: pct(l.y + l.h / 2, bodyDim.h),
+                      width: 0, height: 0,
+                      transform: `rotate(${rot}deg)`,
+                      zIndex: 60,
+                    }}>
+                      <div className="absolute" style={{
+                        left: -halfW, top: -halfH, width: l.w, height: l.h,
+                        border: '2px solid rgba(255,255,255,0.9)',
+                        boxShadow: '0 0 0 1px rgba(255,77,148,0.5)',
+                        borderRadius: '2px',
+                      }} />
+                      {corners.map(c => (
+                        <div key={c.h} data-handle={c.h}
+                          onMouseDown={e => onHandleDown(e, active, c.h)}
+                          onTouchStart={e => onHandleTouch(e, active, c.h)}
+                          className="absolute pointer-events-auto"
+                          style={{
+                            left: c.x - 7, top: c.y - 7, width: 14, height: 14,
+                            borderRadius: '2px', backgroundColor: 'white',
+                            border: '2px solid var(--color-primary)',
+                            cursor: c.h === 'tl' || c.h === 'br' ? 'nwse-resize' : 'nesw-resize',
+                            zIndex: 70,
+                          }}
+                        />
+                      ))}
+                      {edges.map(e => (
+                        <div key={e.h} data-handle={e.h}
+                          onMouseDown={ev => onHandleDown(ev, active, e.h)}
+                          onTouchStart={ev => onHandleTouch(ev, active, e.h)}
+                          className="absolute pointer-events-auto"
+                          style={{
+                            left: e.x - 6, top: e.y - 6, width: 12, height: 12,
+                            borderRadius: '50%', backgroundColor: 'white',
+                            border: '2px solid var(--color-primary)',
+                            cursor: e.cursor, zIndex: 70,
+                          }}
+                        />
+                      ))}
+                      <div className="absolute" style={{
+                        left: -1, top: -halfH - rotLen, width: 2, height: rotLen,
+                        backgroundColor: 'var(--color-primary)', opacity: 0.7,
+                      }} />
+                      <div data-handle="rotate"
+                        onMouseDown={e => onHandleDown(e, active, 'rotate')}
+                        onTouchStart={e => onHandleTouch(e, active, 'rotate')}
+                        className="absolute pointer-events-auto"
+                        style={{
+                          left: -8, top: -halfH - rotLen - 8, width: 16, height: 16,
+                          borderRadius: '50%', backgroundColor: 'white',
+                          border: '2px solid var(--color-primary)',
+                          cursor: 'grab', zIndex: 70,
+                        }}
+                      />
+                    </div>
+                  )
+                })()}
               </div>
             )
           })()}
