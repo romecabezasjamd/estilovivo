@@ -17,6 +17,7 @@ interface WardrobeProps {
   onRemoveGarment: (id: string) => void;
   onUpdateGarment: (g: Garment) => void;
   looks: Look[];
+  onDeleteLook?: (id: string) => void;
   planner: PlannerEntry[];
   onUpdatePlanner: (e: PlannerEntry) => void;
   onNavigate: (tab: string, subTab?: string) => void;
@@ -55,6 +56,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
   onRemoveGarment,
   onUpdateGarment,
   looks,
+  onDeleteLook,
   planner,
   onUpdatePlanner,
   onNavigate,
@@ -67,6 +69,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
   const { t } = useLanguage();
   const [activeView, setActiveView] = useState<ViewType>('closet');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [confirmDeleteLookId, setConfirmDeleteLookId] = useState<string | null>(null);
   const [showCreateLook, setShowCreateLook] = useState(false);
 
   useEffect(() => {
@@ -842,6 +845,15 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                           <Sparkles size={28} />
                         </div>
                       )}
+                      {onDeleteLook && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setConfirmDeleteLookId(look.id); }}
+                          className="absolute top-2 left-2 p-1.5 rounded-full bg-black/40 text-white hover:bg-red-500/80 transition-colors"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      )}
                       {look.isPublic && (
                         <div className="absolute top-2 right-2 bg-[var(--bg-card)]/90 backdrop-blur-sm text-[10px] font-bold text-primary px-2 py-1 rounded-full">
                           Publico
@@ -1440,6 +1452,23 @@ const Wardrobe: React.FC<WardrobeProps> = ({
           }
         }}
         onCancel={() => setConfirmDeleteId(null)}
+      />
+
+      {/* Confirm Delete Look Dialog */}
+      <ConfirmDialog
+        open={!!confirmDeleteLookId}
+        title="Eliminar look"
+        message="¿Seguro que quieres eliminar este look? Esta acción no se puede deshacer."
+        confirmLabel="Eliminar"
+        cancelLabel="Cancelar"
+        destructive={true}
+        onConfirm={() => {
+          if (confirmDeleteLookId && onDeleteLook) {
+            onDeleteLook(confirmDeleteLookId);
+            setConfirmDeleteLookId(null);
+          }
+        }}
+        onCancel={() => setConfirmDeleteLookId(null)}
       />
     </div>
   );

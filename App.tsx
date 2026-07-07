@@ -105,6 +105,7 @@ const AppContent: React.FC = () => {
             onRemoveGarment={removeGarment}
             onUpdateGarment={updateGarment}
             looks={looks}
+            onDeleteLook={deleteLook}
             planner={planner}
             onUpdatePlanner={updatePlannerEntry}
             onNavigate={handleNavigate}
