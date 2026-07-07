@@ -22,6 +22,10 @@ const AppContent: React.FC = () => {
   const [wardrobeIntent, setWardrobeIntent] = useState<'looks' | 'createLook' | null>(null);
 
   const handleNavigate = useCallback((tab: string, subTab?: string) => {
+    const evt = new CustomEvent('profile-check-unsaved', { detail: { tab, subTab }, cancelable: true });
+    window.dispatchEvent(evt);
+    if (evt.defaultPrevented) return;
+
     if (tab === 'community') {
       setSocialSubTab(subTab || 'feed');
       setActiveTab('social');
@@ -47,7 +51,11 @@ const AppContent: React.FC = () => {
     const handleNavigateEvent = (e: CustomEvent) => {
       const { tab, subTab } = e.detail || {};
       if (tab) {
-        handleNavigate(tab, subTab);
+        const evt = new CustomEvent('profile-check-unsaved', { detail: { tab, subTab }, cancelable: true });
+        window.dispatchEvent(evt);
+        if (!evt.defaultPrevented) {
+          handleNavigate(tab, subTab);
+        }
       }
     };
     window.addEventListener('navigateTo', handleNavigateEvent as EventListener);

@@ -463,6 +463,20 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasChanges]);
 
+  // Intercept in-app navigation when unsaved settings changes
+  useEffect(() => {
+    const handler = (e: Event) => {
+      if (hasChanges && activeSection === 'settings') {
+        e.preventDefault();
+        const ce = e as CustomEvent;
+        pendingNavigationRef.current = ce.detail?.tab || null;
+        setShowUnsavedChangesModal(true);
+      }
+    };
+    window.addEventListener('profile-check-unsaved', handler);
+    return () => window.removeEventListener('profile-check-unsaved', handler);
+  }, [hasChanges, activeSection]);
+
   const handleConfirmDelete = async () => {
     setDeleting(true);
     try {

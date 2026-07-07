@@ -1,4 +1,4 @@
-import { loadPoseDetector, detectPose, type BodyDimensions, type DetectionResult } from './poseDetection'
+import { loadPoseDetector, detectPose, type BodyDimensions, type DetectionResult } from './moveNetDetection'
 import { segmentPerson, type SegmentationResult } from './bodySegmentationNew'
 
 export type { BodyDimensions, DetectionResult, SegmentationResult }
