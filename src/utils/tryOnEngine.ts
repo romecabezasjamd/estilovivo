@@ -1,44 +1,40 @@
-import { loadPoseDetector, detectPose, type BodyDimensions, type DetectionResult } from './moveNetDetection'
-import { segmentPerson, type SegmentationResult } from './bodySegmentationNew'
-
-export type { BodyDimensions, DetectionResult, SegmentationResult }
-
-export interface GarmentLayer {
-  id: string
-  garmentId: string
-  name: string
-  type: string
-  processedUrl: string
-  originalUrl: string
-  zIndex: number
-  visible: boolean
-  adjustments: GarmentAdjustments
-}
-
-export interface GarmentAdjustments {
-  scaleX: number
-  scaleY: number
+export interface GarmentTransform {
+  x: number
+  y: number
+  width: number
+  height: number
   rotation: number
-  offsetX: number
-  offsetY: number
-  opacity: number
 }
 
-const DEFAULT_ADJ: GarmentAdjustments = {
-  scaleX: 1, scaleY: 1, rotation: 0, offsetX: 0, offsetY: 0, opacity: 1,
-}
+export function autoPlaceGarment(
+  garmentType: string,
+  containerW: number,
+  containerH: number,
+): GarmentTransform {
+  const t = garmentType.toLowerCase()
+  let w: number, h: number, x: number, y: number
 
-export function defaultAdjustments(): GarmentAdjustments {
-  return { ...DEFAULT_ADJ }
-}
-
-export function defaultLayer(overrides: Partial<GarmentLayer> & Pick<GarmentLayer, 'id' | 'garmentId' | 'name' | 'type' | 'processedUrl' | 'originalUrl'>): GarmentLayer {
-  return {
-    zIndex: 0,
-    visible: true,
-    adjustments: defaultAdjustments(),
-    ...overrides,
+  if (t.includes('dress') || t.includes('vestido')) {
+    w = containerW * 0.6; h = containerH * 0.55
+    x = (containerW - w) / 2; y = containerH * 0.15
+  } else if (t.includes('bottom') || t.includes('pantal') || t.includes('falda') || t.includes('short') || t.includes('jean')) {
+    w = containerW * 0.5; h = containerH * 0.35
+    x = (containerW - w) / 2; y = containerH * 0.45
+  } else if (t.includes('outer') || t.includes('chaqueta') || t.includes('abrigo') || t.includes('saco') || t.includes('jacket')) {
+    w = containerW * 0.65; h = containerH * 0.4
+    x = (containerW - w) / 2; y = containerH * 0.12
+  } else if (t.includes('shoe') || t.includes('zapat') || t.includes('bota')) {
+    w = containerW * 0.25; h = containerH * 0.12
+    x = (containerW - w) / 2; y = containerH * 0.85
+  } else if (t.includes('accesorio') || t.includes('sombrero') || t.includes('gorra') || t.includes('bolso')) {
+    w = containerW * 0.3; h = containerH * 0.2
+    x = (containerW - w) / 2; y = containerH * 0.02
+  } else {
+    w = containerW * 0.55; h = containerH * 0.35
+    x = (containerW - w) / 2; y = containerH * 0.15
   }
+
+  return { x, y, width: w, height: h, rotation: 0 }
 }
 
 function loadImg(src: string): Promise<HTMLImageElement> {
@@ -51,181 +47,51 @@ function loadImg(src: string): Promise<HTMLImageElement> {
   })
 }
 
-export async function detectBody(imageUrl: string): Promise<DetectionResult> {
-  return detectPose(imageUrl)
-}
-
-export async function segmentBody(imageUrl: string): Promise<SegmentationResult> {
-  return segmentPerson(imageUrl)
-}
-
-export async function preprocessGarment(imageUrl: string): Promise<string> {
-  const { removeBackground } = await import('./garmentProcessor')
-  return removeBackground(imageUrl)
-}
-
-function estimateGarmentPlacement(
-  garmentType: string,
-  bodyDims: BodyDimensions,
-  garmentW: number,
-  garmentH: number,
-): { x: number; y: number; w: number; h: number; rotation: number } {
-  const { shoulderWidth, hipWidth, torsoHeight, bodyCenterX, bodyCenterY, waistY, torsoAngle, imageWidth, imageHeight } = bodyDims
-
-  const garmentAspect = garmentH / garmentW
-  let targetW: number
-  let anchorY: number
-
-  const t = garmentType.toLowerCase()
-  if (t.includes('dress') || t.includes('vestido')) {
-    targetW = Math.max(shoulderWidth, hipWidth) * 1.1
-    anchorY = bodyCenterY - torsoHeight * 0.3
-  } else if (t.includes('bottom') || t.includes('pantal') || t.includes('falda') || t.includes('short')) {
-    targetW = hipWidth * 1.15
-    anchorY = waistY
-  } else if (t.includes('outer') || t.includes('chaqueta') || t.includes('abrigo') || t.includes('saco')) {
-    targetW = shoulderWidth * 1.2
-    anchorY = bodyCenterY - torsoHeight * 0.35
-  } else if (t.includes('shoe') || t.includes('zapat') || t.includes('bota')) {
-    targetW = hipWidth * 0.35
-    anchorY = imageHeight * 0.9
-  } else if (t.includes('accesorio') || t.includes('sombrero') || t.includes('gorra') || t.includes('bolso')) {
-    targetW = shoulderWidth * 0.4
-    anchorY = bodyCenterY - torsoHeight * 0.55
-  } else {
-    targetW = shoulderWidth * 1.0
-    anchorY = bodyCenterY - torsoHeight * 0.15
-  }
-
-  const targetH = targetW * garmentAspect
-  const scaleRatio = Math.min(targetW / garmentW, 1.5)
-  const w = garmentW * scaleRatio
-  const h = garmentH * scaleRatio
-
-  return {
-    x: bodyCenterX - w / 2,
-    y: anchorY - h * 0.25,
-    w,
-    h,
-    rotation: torsoAngle * 0.5,
-  }
-}
-
-export async function renderComposite(
+export async function renderToCanvas(
   bodyPhotoUrl: string,
-  layers: GarmentLayer[],
-  segmentation: SegmentationResult | null,
-  bodyDims: BodyDimensions | null,
+  garments: Array<{ url: string; transform: GarmentTransform; opacity: number }>,
+  containerW: number,
+  containerH: number,
 ): Promise<string> {
   const bodyImg = await loadImg(bodyPhotoUrl)
-  const cw = bodyImg.naturalWidth
-  const ch = bodyImg.naturalHeight
+  const imgW = bodyImg.naturalWidth
+  const imgH = bodyImg.naturalHeight
+
+  const scaleX = imgW / containerW
+  const scaleY = imgH / containerH
 
   const canvas = document.createElement('canvas')
-  canvas.width = cw
-  canvas.height = ch
+  canvas.width = imgW
+  canvas.height = imgH
   const ctx = canvas.getContext('2d')!
 
   ctx.fillStyle = '#ffffff'
-  ctx.fillRect(0, 0, cw, ch)
-  ctx.drawImage(bodyImg, 0, 0, cw, ch)
+  ctx.fillRect(0, 0, imgW, imgH)
+  ctx.drawImage(bodyImg, 0, 0, imgW, imgH)
 
-  const visible = layers.filter(l => l.visible && l.processedUrl).sort((a, b) => a.zIndex - b.zIndex)
-
-  if (visible.length === 0) return canvas.toDataURL('image/png')
-
-  const garmentImgs = await Promise.allSettled(visible.map(l => loadImg(l.processedUrl)))
-
-  if (segmentation && segmentation.maskCanvas) {
-    const maskCanvas = segmentation.maskCanvas
-    const invertedMask = document.createElement('canvas')
-    invertedMask.width = cw
-    invertedMask.height = ch
-    const mctx = invertedMask.getContext('2d')!
-    mctx.drawImage(maskCanvas, 0, 0, cw, ch)
-    const maskData = mctx.getImageData(0, 0, cw, ch)
-    const md = maskData.data
-    for (let i = 3; i < md.length; i += 4) {
-      md[i] = 255 - md[i]
-    }
-    mctx.putImageData(maskData, 0, 0)
-
-    for (let i = 0; i < visible.length; i++) {
-      const r = garmentImgs[i]
-      if (r.status !== 'fulfilled') continue
-      const gImg = r.value
-      const layer = visible[i]
-      const adj = layer.adjustments
-
-      const placement = bodyDims
-        ? estimateGarmentPlacement(layer.type, bodyDims, gImg.naturalWidth, gImg.naturalHeight)
-        : { x: cw * 0.15, y: ch * 0.2, w: cw * 0.7, h: ch * 0.5, rotation: 0 }
-
-      const gw = placement.w * adj.scaleX
-      const gh = placement.h * adj.scaleY
-      const gx = placement.x + adj.offsetX
-      const gy = placement.y + adj.offsetY
+  for (const g of garments) {
+    try {
+      const gImg = await loadImg(g.url)
+      const gx = g.transform.x * scaleX
+      const gy = g.transform.y * scaleY
+      const gw = g.transform.width * scaleX
+      const gh = g.transform.height * scaleY
       const cx = gx + gw / 2
       const cy = gy + gh / 2
 
       ctx.save()
       ctx.translate(cx, cy)
-      ctx.rotate((adj.rotation + placement.rotation) * Math.PI / 180)
-      ctx.globalAlpha = adj.opacity
+      ctx.rotate((g.transform.rotation * Math.PI) / 180)
+      ctx.globalAlpha = g.opacity
       ctx.drawImage(gImg, -gw / 2, -gh / 2, gw, gh)
       ctx.restore()
-    }
-
-    ctx.save()
-    ctx.globalCompositeOperation = 'destination-in'
-    ctx.drawImage(maskCanvas, 0, 0, cw, ch)
-    ctx.restore()
-
-    ctx.save()
-    ctx.globalCompositeOperation = 'destination-over'
-    ctx.drawImage(bodyImg, 0, 0, cw, ch)
-    ctx.restore()
-  } else {
-    for (let i = 0; i < visible.length; i++) {
-      const r = garmentImgs[i]
-      if (r.status !== 'fulfilled') continue
-      const gImg = r.value
-      const layer = visible[i]
-      const adj = layer.adjustments
-
-      const placement = bodyDims
-        ? estimateGarmentPlacement(layer.type, bodyDims, gImg.naturalWidth, gImg.naturalHeight)
-        : { x: cw * 0.15, y: ch * 0.2, w: cw * 0.7, h: ch * 0.5, rotation: 0 }
-
-      const gw = placement.w * adj.scaleX
-      const gh = placement.h * adj.scaleY
-      const gx = placement.x + adj.offsetX
-      const gy = placement.y + adj.offsetY
-      const cx = gx + gw / 2
-      const cy = gy + gh / 2
-
-      ctx.save()
-      ctx.translate(cx, cy)
-      ctx.rotate((adj.rotation + placement.rotation) * Math.PI / 180)
-      ctx.globalAlpha = adj.opacity
-      ctx.drawImage(gImg, -gw / 2, -gh / 2, gw, gh)
-      ctx.restore()
-    }
+    } catch {}
   }
 
   return canvas.toDataURL('image/png')
 }
 
-export function computeGarmentTransform(
-  garmentType: string,
-  bodyDims: BodyDimensions | null,
-  garmentW: number,
-  garmentH: number,
-  canvasW: number,
-  canvasH: number,
-): { x: number; y: number; w: number; h: number; rotation: number } {
-  if (!bodyDims) {
-    return { x: canvasW * 0.15, y: canvasH * 0.2, w: canvasW * 0.7, h: canvasH * 0.5, rotation: 0 }
-  }
-  return estimateGarmentPlacement(garmentType, bodyDims, garmentW, garmentH)
+export async function removeGarmentBackground(imageUrl: string): Promise<string> {
+  const { removeBackground } = await import('./garmentProcessor')
+  return removeBackground(imageUrl)
 }

@@ -1,19 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { X, Camera, Image, RotateCcw, Save, Sparkles, Hand, Layers, AlertTriangle } from 'lucide-react'
-import Moveable from 'moveable'
+import { X, Camera, Image, RotateCcw, Save, Sparkles, Hand, Layers, AlertTriangle, Plus } from 'lucide-react'
 import type { Garment } from '../types'
-import {
-  detectBody,
-  segmentBody,
-  preprocessGarment,
-  renderComposite,
-  defaultLayer,
-  defaultAdjustments,
-  type GarmentLayer,
-  type BodyDimensions,
-  type SegmentationResult,
-  type GarmentAdjustments,
-} from '../src/utils/tryOnEngine'
+import { autoPlaceGarment, renderToCanvas, removeGarmentBackground, type GarmentTransform } from '../src/utils/tryOnEngine'
 import { pickPhoto, type CameraSource } from '../src/utils/cameraPhoto'
 import { successImpact, errorImpact } from '../src/utils/haptic'
 import PoseGuide from '../components/PoseGuide'
@@ -29,7 +17,14 @@ interface VirtualTryOnProps {
   onNavigate?: (tab: string, subTab?: string) => void
 }
 
-type Step = 'guide' | 'photo' | 'detecting' | 'select' | 'processing' | 'tryon' | 'saving' | 'saved'
+interface Layer {
+  id: string
+  garment: Garment
+  processedUrl: string
+  transform: GarmentTransform
+  opacity: number
+  zIndex: number
+}
 
 const CATEGORIES = [
   { key: 'all', label: 'Todo' },
@@ -45,151 +40,50 @@ function matchCategory(g: Garment, cat: string): boolean {
   if (cat === 'all') return true
   const t = g.type.toLowerCase()
   switch (cat) {
-    case 'top': return t.includes('top') || t.includes('camis') || t.includes('blusa') || t.includes('shirt') || t.includes('polo') || t.includes('sweater') || t.includes('jersey')
-    case 'bottom': return t.includes('bottom') || t.includes('pantal') || t.includes('falda') || t.includes('short') || t.includes('jean') || t.includes('trouser')
-    case 'dress': return t.includes('dress') || t.includes('vestido') || t.includes('enterizo')
-    case 'outer': return t.includes('outer') || t.includes('chaqueta') || t.includes('abrigo') || t.includes('saco') || t.includes('jacket') || t.includes('coat') || t.includes('cardigan')
-    case 'shoes': return t.includes('shoe') || t.includes('zapat') || t.includes('bota') || t.includes('sandal') || t.includes('boot')
-    case 'acc': return t.includes('accesorio') || t.includes('sombrero') || t.includes('gorra') || t.includes('bolso') || t.includes('gafas') || t.includes('collar') || t.includes('pulsera')
+    case 'top': return /top|camis|blusa|shirt|polo|sweater|jersey/.test(t)
+    case 'bottom': return /bottom|pantal|falda|short|jean|trouser/.test(t)
+    case 'dress': return /dress|vestido|enterizo/.test(t)
+    case 'outer': return /outer|chaqueta|abrigo|saco|jacket|coat|cardigan/.test(t)
+    case 'shoes': return /shoe|zapat|bota|sandal|boot/.test(t)
+    case 'acc': return /accesorio|sombrero|gorra|bolso|gafas|collar|pulsera/.test(t)
     default: return true
   }
 }
 
-function withTimeout<T>(p: Promise<T>, ms: number, msg: string): Promise<T> {
-  let tid: ReturnType<typeof setTimeout> | null = null
-  return new Promise<T>((resolve, reject) => {
-    tid = setTimeout(() => reject(new Error(msg)), ms)
-    p.then(resolve).catch(reject)
-  }).finally(() => { if (tid) clearTimeout(tid) })
-}
-
-export default function VirtualTryOn({
-  user,
-  garments,
-  initialGarment = null,
-  initialMode = 'ai',
-  onSaveLook,
-  onClose,
-  onNavigate,
-}: VirtualTryOnProps) {
-  const [step, setStep] = useState<Step>('guide')
-  const [mode, setMode] = useState<'ai' | 'manual'>(initialMode)
-
+export default function VirtualTryOn({ garments, onClose }: VirtualTryOnProps) {
+  const [step, setStep] = useState<'guide' | 'photo' | 'select' | 'tryon' | 'saving' | 'saved'>('guide')
   const [bodyPhotoUrl, setBodyPhotoUrl] = useState<string | null>(null)
-  const [bodyDims, setBodyDims] = useState<BodyDimensions | null>(null)
-  const [segmentation, setSegmentation] = useState<SegmentationResult | null>(null)
-
-  const [layers, setLayers] = useState<GarmentLayer[]>([])
-  const [activeLayerId, setActiveLayerId] = useState<string | null>(null)
-  const [resultUrl, setResultUrl] = useState<string | null>(null)
-
+  const [layers, setLayers] = useState<Layer[]>([])
+  const [activeId, setActiveId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [modelLoading, setModelLoading] = useState(false)
-  const [garmentFilter, setGarmentFilter] = useState('all')
+  const [filter, setFilter] = useState('all')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [processing, setProcessing] = useState(false)
 
   const containerRef = useRef<HTMLDivElement>(null)
-  const garmentRefs = useRef<Map<string, HTMLDivElement>>(new Map())
-  const moveableInstances = useRef<Map<string, Moveable>>(new Map())
   const renderLock = useRef(false)
-  const renderTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const DETECT_TIMEOUT = 12000
-  const RENDER_TIMEOUT = 20000
+  const filtered = garments.filter(g => !g.isWashing && matchCategory(g, filter))
+  const activeLayer = layers.find(l => l.id === activeId) || null
 
   useEffect(() => {
-    return () => {
-      if (renderTimer.current) clearTimeout(renderTimer.current)
-      moveableInstances.current.forEach(m => m.destroy())
-      moveableInstances.current.clear()
+    if (layers.length > 0 && !activeId) {
+      setActiveId(layers[layers.length - 1].id)
     }
+  }, [layers, activeId])
+
+  const updateTransform = useCallback((id: string, fn: (t: GarmentTransform) => GarmentTransform) => {
+    setLayers(prev => prev.map(l => l.id === id ? { ...l, transform: fn(l.transform) } : l))
   }, [])
-
-  const filteredGarments = garments.filter(g => !g.isWashing && matchCategory(g, garmentFilter))
-  const activeLayer = layers.find(l => l.id === activeLayerId) || null
-
-  const updateLayer = useCallback((id: string, fn: (adj: GarmentAdjustments) => GarmentAdjustments) => {
-    setLayers(prev => prev.map(l => l.id === id ? { ...l, adjustments: fn(l.adjustments) } : l))
-  }, [])
-
-  const doRender = useCallback(async (layersToRender?: GarmentLayer[]) => {
-    if (renderLock.current) return
-    if (!bodyPhotoUrl) return
-    const finalLayers = layersToRender ?? layers
-    if (finalLayers.length === 0) { setResultUrl(bodyPhotoUrl); return }
-    renderLock.current = true
-    try {
-      const url = await withTimeout(
-        renderComposite(bodyPhotoUrl, finalLayers, segmentation, bodyDims),
-        RENDER_TIMEOUT,
-        'La renderizacion tardo demasiado.',
-      )
-      setResultUrl(url)
-    } catch (e: any) {
-      console.warn('Render error:', e)
-      setError('Error al renderizar. Intenta de nuevo.')
-    } finally {
-      renderLock.current = false
-    }
-  }, [bodyPhotoUrl, segmentation, bodyDims, layers])
-
-  useEffect(() => {
-    if (step === 'tryon' && layers.length > 0) {
-      if (renderTimer.current) clearTimeout(renderTimer.current)
-      renderTimer.current = setTimeout(() => doRender(), 200)
-    }
-  }, [layers, step, doRender])
-
-  const attachMoveable = useCallback((layerId: string, targetEl: HTMLDivElement) => {
-    moveableInstances.current.get(layerId)?.destroy()
-
-    const moveable = new Moveable(targetEl.parentElement!, {
-      target: targetEl,
-      draggable: true,
-      scalable: true,
-      rotatable: true,
-      pinchable: true,
-      origin: false,
-      throttleDrag: 0,
-      throttleScale: 0,
-      throttleRotate: 0,
-    })
-
-    moveable.on('drag', ({ left, top }) => {
-      updateLayer(layerId, adj => ({ ...adj, offsetX: left, offsetY: top }))
-    })
-
-    moveable.on('scale', ({ scale: s }) => {
-      const val = Array.isArray(s) ? s[0] : s
-      updateLayer(layerId, adj => ({ ...adj, scaleX: val, scaleY: val }))
-    })
-
-    moveable.on('rotate', ({ rotate }) => {
-      updateLayer(layerId, adj => ({ ...adj, rotation: rotate }))
-    })
-
-    moveableInstances.current.set(layerId, moveable)
-  }, [updateLayer])
-
-  useEffect(() => {
-    if (step !== 'tryon') return
-    moveableInstances.current.forEach((m, id) => {
-      const el = garmentRefs.current.get(id)
-      if (el) m.updateTarget()
-    })
-  }, [layers, step])
 
   const handlePickPhoto = async (source: CameraSource) => {
     try {
       setError(null)
       const { dataUrl } = await pickPhoto(source)
       setBodyPhotoUrl(dataUrl)
-      setStep('detecting')
-      detectFn(dataUrl)
+      setStep('select')
     } catch (e: any) {
-      if (e?.message !== 'User cancelled') {
-        setError('No se pudo obtener la foto.')
-      }
+      if (e?.message !== 'User cancelled') setError('No se pudo obtener la foto.')
     }
   }
 
@@ -197,410 +91,345 @@ export default function VirtualTryOn({
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onloadend = () => {
-      const url = reader.result as string
-      setBodyPhotoUrl(url)
-      setStep('detecting')
-      detectFn(url)
-    }
+    reader.onloadend = () => { setBodyPhotoUrl(reader.result as string); setStep('select') }
     reader.readAsDataURL(file)
-  }
-
-  const detectFn = async (url: string) => {
-    setError(null)
-    setModelLoading(true)
-    setSegmentation(null)
-    setBodyDims(null)
-
-    try {
-      const poseResult = await withTimeout(detectBody(url), DETECT_TIMEOUT, 'La deteccion de cuerpo tardo demasiado.')
-      setModelLoading(false)
-      setBodyDims(poseResult.dimensions)
-      setStep('select')
-      segmentBody(url).then(seg => setSegmentation(seg)).catch(() => {})
-    } catch (err: any) {
-      setModelLoading(false)
-      setError('No se pudo detectar el cuerpo. Intenta con mejor iluminacion o usa modo manual.')
-      setBodyDims(null)
-      setStep('select')
-    }
   }
 
   const handleToggleGarment = (g: Garment) => {
     setSelectedIds(prev => {
       const next = new Set(prev)
-      if (next.has(g.id)) next.delete(g.id)
-      else next.add(g.id)
+      if (next.has(g.id)) next.delete(g.id); else next.add(g.id)
       return next
     })
   }
 
   const handleProcessSelected = async () => {
-    if (selectedIds.size === 0) return
-    setStep('processing')
+    if (selectedIds.size === 0 || !containerRef.current) return
+    setProcessing(true)
     setError(null)
 
+    const rect = containerRef.current.getBoundingClientRect()
+    const cw = rect.width
+    const ch = rect.height
+
     try {
-      const toProcess = garments.filter(g => selectedIds.has(g.id))
-      const newLayers: GarmentLayer[] = []
-
-      for (const g of toProcess) {
-        const existing = layers.find(l => l.garmentId === g.id)
+      const newLayers: Layer[] = []
+      for (const g of garments.filter(g => selectedIds.has(g.id))) {
+        const existing = layers.find(l => l.garment.id === g.id)
         if (existing) { newLayers.push(existing); continue }
+
+        let processedUrl = g.imageUrl
         try {
-          const processedUrl = await withTimeout(preprocessGarment(g.imageUrl), RENDER_TIMEOUT, 'El procesamiento tardo demasiado.')
-          newLayers.push(defaultLayer({
-            id: `layer_${g.id}_${Date.now()}`,
-            garmentId: g.id, name: g.name, type: g.type,
-            processedUrl, originalUrl: g.imageUrl,
-            zIndex: layers.length + newLayers.length,
-          }))
-        } catch {
-          newLayers.push(defaultLayer({
-            id: `layer_${g.id}_${Date.now()}`,
-            garmentId: g.id, name: g.name, type: g.type,
-            processedUrl: g.imageUrl, originalUrl: g.imageUrl,
-            zIndex: layers.length + newLayers.length,
-          }))
-        }
+          processedUrl = await removeGarmentBackground(g.imageUrl)
+        } catch {}
+
+        const transform = autoPlaceGarment(g.type, cw, ch)
+        newLayers.push({
+          id: `L${g.id}_${Date.now()}`,
+          garment: g,
+          processedUrl,
+          transform,
+          opacity: 1,
+          zIndex: layers.length + newLayers.length,
+        })
       }
 
-      const allLayers = [...layers, ...newLayers]
-      setLayers(allLayers)
-      if (allLayers.length > 0 && !activeLayerId) {
-        setActiveLayerId(allLayers[allLayers.length - 1].id)
-      }
+      setLayers(prev => [...prev, ...newLayers])
       setStep('tryon')
-      await doRender(allLayers)
-    } catch (err: any) {
-      setError(err?.message || 'No se pudo procesar la prenda. Intentalo de nuevo o usa modo manual.')
-      setStep('select')
+    } catch {
+      setError('No se pudo procesar. Intenta de nuevo.')
+    } finally {
+      setProcessing(false)
     }
   }
 
   const handleRemoveLayer = (id: string) => {
-    moveableInstances.current.get(id)?.destroy()
-    moveableInstances.current.delete(id)
-    garmentRefs.current.delete(id)
     const next = layers.filter(l => l.id !== id)
     setLayers(next)
-    if (activeLayerId === id) {
-      setActiveLayerId(next.length > 0 ? next[next.length - 1].id : null)
-    }
-    if (next.length === 0) { setResultUrl(null); setStep('select') }
+    if (activeId === id) setActiveId(next.length ? next[next.length - 1].id : null)
+    if (next.length === 0) setStep('select')
   }
 
-  const handleResetAdj = () => {
-    if (!activeLayerId) return
-    updateLayer(activeLayerId, () => defaultAdjustments())
+  const handleReset = () => {
+    if (!activeId || !containerRef.current) return
+    const rect = containerRef.current.getBoundingClientRect()
+    updateTransform(activeId, () => autoPlaceGarment(activeLayer?.garment.type || '', rect.width, rect.height))
   }
 
   const handleSave = async () => {
-    if (!resultUrl) return
+    if (!bodyPhotoUrl || !containerRef.current) return
     setStep('saving')
-    setError(null)
     try {
-      const res = await fetch(resultUrl)
+      const rect = containerRef.current.getBoundingClientRect()
+      const dataUrl = await renderToCanvas(
+        bodyPhotoUrl,
+        layers.map(l => ({ url: l.processedUrl, transform: l.transform, opacity: l.opacity })),
+        rect.width, rect.height,
+      )
+      const res = await fetch(dataUrl)
       const blob = await res.blob()
-      const name = `Look ${new Date().toLocaleDateString('es')}`
-      await api.saveLookWithImage(name, layers.map(l => l.garmentId), blob)
+      await api.saveLookWithImage(`Look ${new Date().toLocaleDateString('es')}`, layers.map(l => l.garment.id), blob)
       successImpact()
       setStep('saved')
     } catch {
       errorImpact()
-      setError('No se pudo guardar. Intenta de nuevo.')
+      setError('No se pudo guardar.')
       setStep('tryon')
     }
   }
 
-  const renderStepGuide = () => (
+  // ─── Touch gesture handler ────────────────────────────────────────────
+  useEffect(() => {
+    if (step !== 'tryon' || !containerRef.current) return
+    const el = containerRef.current
+
+    let dragging = false
+    let lastX = 0, lastY = 0
+    let pinchDist = 0, pinchAngle = 0
+    let startScale = 1, startRotation = 0
+
+    const dist = (a: Touch, b: Touch) => Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY)
+    const angle = (a: Touch, b: Touch) => Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX) * (180 / Math.PI)
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (!activeId) return
+      if (e.touches.length === 2) {
+        e.preventDefault()
+        pinchDist = dist(e.touches[0], e.touches[1])
+        pinchAngle = angle(e.touches[0], e.touches[1])
+        const layer = layers.find(l => l.id === activeId)
+        if (layer) { startScale = layer.transform.width; startRotation = layer.transform.rotation }
+      } else if (e.touches.length === 1) {
+        dragging = true
+        lastX = e.touches[0].clientX
+        lastY = e.touches[0].clientY
+      }
+    }
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!activeId) return
+      if (e.touches.length === 2) {
+        e.preventDefault()
+        const d = dist(e.touches[0], e.touches[1])
+        const a = angle(e.touches[0], e.touches[1])
+        const scaleRatio = d / pinchDist
+        updateTransform(activeId, t => ({
+          ...t,
+          width: Math.max(40, startScale * scaleRatio),
+          height: Math.max(40, (startScale * (t.height / Math.max(1, t.width))) * scaleRatio),
+          rotation: startRotation + (a - pinchAngle),
+        }))
+      } else if (e.touches.length === 1 && dragging) {
+        e.preventDefault()
+        const dx = e.touches[0].clientX - lastX
+        const dy = e.touches[0].clientY - lastY
+        lastX = e.touches[0].clientX
+        lastY = e.touches[0].clientY
+        updateTransform(activeId, t => ({ ...t, x: t.x + dx, y: t.y + dy }))
+      }
+    }
+
+    const onTouchEnd = () => { dragging = false }
+
+    const onMouseDown = (e: MouseEvent) => { dragging = true; lastX = e.clientX; lastY = e.clientY }
+    const onMouseMove = (e: MouseEvent) => {
+      if (!dragging || !activeId) return
+      updateTransform(activeId, t => ({ ...t, x: t.x + (e.clientX - lastX), y: t.y + (e.clientY - lastY) }))
+      lastX = e.clientX; lastY = e.clientY
+    }
+    const onMouseUp = () => { dragging = false }
+
+    const onWheel = (e: WheelEvent) => {
+      if (!activeId) return
+      e.preventDefault()
+      const delta = e.deltaY * 0.002
+      updateTransform(activeId, t => ({
+        ...t,
+        width: Math.max(40, t.width * (1 - delta)),
+        height: Math.max(40, t.height * (1 - delta)),
+      }))
+    }
+
+    el.addEventListener('touchstart', onTouchStart, { passive: false })
+    el.addEventListener('touchmove', onTouchMove, { passive: false })
+    el.addEventListener('touchend', onTouchEnd)
+    el.addEventListener('mousedown', onMouseDown)
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    el.addEventListener('wheel', onWheel, { passive: false })
+
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart)
+      el.removeEventListener('touchmove', onTouchMove)
+      el.removeEventListener('touchend', onTouchEnd)
+      el.removeEventListener('mousedown', onMouseDown)
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+      el.removeEventListener('wheel', onWheel)
+    }
+  }, [step, activeId, layers, updateTransform])
+
+  // ─── Render helpers ───────────────────────────────────────────────────
+  const Guide = () => (
     <div className="flex-1 overflow-y-auto p-4">
       <PoseGuide onStart={() => setStep('photo')} />
     </div>
   )
 
-  const renderStepPhoto = () => (
+  const Photo = () => (
     <div className="flex-1 flex flex-col items-center justify-center gap-4 p-4">
-      <div className="text-center mb-4">
-        <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Sube tu foto</h3>
-        <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Elige una foto de cuerpo entero</p>
-      </div>
+      <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Sube tu foto</h3>
+      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Foto de cuerpo entero</p>
       <div className="flex gap-3 w-full max-w-xs">
-        <button onClick={() => handlePickPhoto('camera')}
-          className="flex-1 flex flex-col items-center gap-2 py-5 rounded-xl active:opacity-80"
-          style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }}>
+        <button onClick={() => handlePickPhoto('camera')} className="flex-1 flex flex-col items-center gap-2 py-5 rounded-xl" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }}>
           <Camera size={28} style={{ color: 'var(--color-primary)' }} />
           <span className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>Camara</span>
         </button>
-        <button onClick={() => handlePickPhoto('gallery')}
-          className="flex-1 flex flex-col items-center gap-2 py-5 rounded-xl active:opacity-80"
-          style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }}>
+        <button onClick={() => handlePickPhoto('gallery')} className="flex-1 flex flex-col items-center gap-2 py-5 rounded-xl" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }}>
           <Image size={28} style={{ color: 'var(--color-primary)' }} />
           <span className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>Galeria</span>
         </button>
       </div>
       <label className="w-full max-w-xs">
         <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
-        <div className="w-full py-3 rounded-xl text-center text-xs font-medium cursor-pointer active:opacity-80"
-          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)', border: '1px dashed var(--border-light)' }}>
+        <div className="w-full py-3 rounded-xl text-center text-xs font-medium cursor-pointer" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)', border: '1px dashed var(--border-light)' }}>
           O selecciona un archivo
         </div>
       </label>
     </div>
   )
 
-  const renderStepDetecting = () => (
-    <div className="flex-1 flex flex-col items-center justify-center gap-4 p-4">
-      <div className="w-12 h-12 rounded-full border-3 border-t-transparent animate-spin" style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }} />
-      <div className="text-center">
-        <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Analizando tu foto...</p>
-        <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Detectando postura y silueta</p>
-      </div>
-      {error && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
-          <AlertTriangle size={14} />{error}
-        </div>
-      )}
-    </div>
-  )
-
-  const renderStepSelect = () => (
+  const Select = () => (
     <div className="flex-1 flex flex-col overflow-hidden">
       {bodyPhotoUrl && (
-        <div className="relative mx-auto w-full max-w-sm aspect-[3/4] rounded-xl overflow-hidden mb-3" style={{ border: '1px solid var(--border-light)' }}>
+        <div ref={containerRef} className="relative mx-auto w-full max-w-sm aspect-[3/4] rounded-xl overflow-hidden mb-3" style={{ border: '1px solid var(--border-light)' }}>
           <img src={bodyPhotoUrl} alt="Tu foto" className="w-full h-full object-cover" loading="eager" />
-          <button onClick={() => { setBodyPhotoUrl(null); setStep('photo'); setLayers([]); setResultUrl(null); setSegmentation(null); setBodyDims(null) }}
-            className="absolute top-2 right-2 p-1.5 rounded-full bg-black/40 text-white">
-            <X size={14} />
-          </button>
+          <button onClick={() => { setBodyPhotoUrl(null); setStep('photo'); setLayers([]) }}
+            className="absolute top-2 right-2 p-1.5 rounded-full bg-black/40 text-white"><X size={14} /></button>
         </div>
       )}
-      {error && (
-        <div className="flex items-center gap-2 px-3 py-2 mx-4 mb-2 rounded-lg text-xs" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
-          <AlertTriangle size={14} />{error}
-        </div>
-      )}
-      <div className="flex items-center gap-2 px-4 mb-2">
-        <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>Modo:</span>
-        {[{ k: 'ai' as const, icon: Sparkles, label: 'IA' }, { k: 'manual' as const, icon: Hand, label: 'Manual' }].map(({ k, icon: Icon, label }) => (
-          <button key={k} onClick={() => setMode(k)}
-            className="px-3 py-1 rounded-full text-xs font-medium"
-            style={{
-              backgroundColor: mode === k ? 'var(--color-primary)' : 'var(--bg-card)',
-              color: mode === k ? 'white' : 'var(--text-secondary)',
-              border: `1px solid ${mode === k ? 'var(--color-primary)' : 'var(--border-light)'}`,
-            }}>
-            <Icon size={10} className="inline mr-1" />{label}
-          </button>
-        ))}
-      </div>
       <div className="flex gap-1.5 px-4 mb-2 overflow-x-auto">
         {CATEGORIES.map(c => (
-          <button key={c.key} onClick={() => setGarmentFilter(c.key)}
-            className="px-2.5 py-1 rounded-full text-[10px] font-medium whitespace-nowrap"
-            style={{
-              backgroundColor: garmentFilter === c.key ? 'var(--color-primary)' : 'var(--bg-card)',
-              color: garmentFilter === c.key ? 'white' : 'var(--text-secondary)',
-              border: `1px solid ${garmentFilter === c.key ? 'var(--color-primary)' : 'var(--border-light)'}`,
-            }}>{c.label}</button>
+          <button key={c.key} onClick={() => setFilter(c.key)} className="px-2.5 py-1 rounded-full text-[10px] font-medium whitespace-nowrap"
+            style={{ backgroundColor: filter === c.key ? 'var(--color-primary)' : 'var(--bg-card)', color: filter === c.key ? 'white' : 'var(--text-secondary)', border: `1px solid ${filter === c.key ? 'var(--color-primary)' : 'var(--border-light)'}` }}>
+            {c.label}
+          </button>
         ))}
       </div>
       <div className="flex-1 overflow-y-auto px-4 pb-4">
         <div className="grid grid-cols-3 gap-2">
-          {filteredGarments.map(g => {
-            const selected = selectedIds.has(g.id)
-            return (
-              <button key={g.id} onClick={() => handleToggleGarment(g)}
-                className="relative rounded-xl overflow-hidden"
-                style={{ border: `2px solid ${selected ? 'var(--color-primary)' : 'var(--border-light)'}`, opacity: selected ? 1 : 0.7 }}>
-                <img src={g.imageUrl} alt={g.name} className="w-full aspect-square object-cover" loading="eager" />
-                {selected && (
-                  <div className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center text-white text-[8px] font-bold"
-                    style={{ backgroundColor: 'var(--color-primary)' }}>✓</div>
-                )}
-              </button>
-            )
-          })}
+          {filtered.map(g => (
+            <button key={g.id} onClick={() => handleToggleGarment(g)} className="relative rounded-xl overflow-hidden"
+              style={{ border: `2px solid ${selectedIds.has(g.id) ? 'var(--color-primary)' : 'var(--border-light)'}`, opacity: selectedIds.has(g.id) ? 1 : 0.7 }}>
+              <img src={g.imageUrl} alt={g.name} className="w-full aspect-square object-cover" loading="eager" />
+              {selectedIds.has(g.id) && <div className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center text-white text-[8px] font-bold" style={{ backgroundColor: 'var(--color-primary)' }}>✓</div>}
+            </button>
+          ))}
         </div>
       </div>
       <div className="p-4 border-t" style={{ borderColor: 'var(--border-light)' }}>
-        <button onClick={handleProcessSelected} disabled={selectedIds.size === 0}
-          className="w-full py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-40"
+        <button onClick={handleProcessSelected} disabled={selectedIds.size === 0 || processing}
+          className="w-full py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-40 flex items-center justify-center gap-2"
           style={{ backgroundColor: 'var(--color-primary)' }}>
-          Probar combinacion ({selectedIds.size})
+          {processing && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+          {processing ? 'Procesando...' : `Probar (${selectedIds.size})`}
         </button>
       </div>
     </div>
   )
 
-  const renderStepProcessing = () => (
-    <div className="flex-1 flex flex-col items-center justify-center gap-4 p-4">
-      <div className="w-12 h-12 rounded-full border-3 border-t-transparent animate-spin" style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }} />
-      <div className="text-center">
-        <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Procesando prenda...</p>
-        <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Recortando y ajustando</p>
-      </div>
-    </div>
-  )
-
-  const renderStepTryon = () => (
+  const Tryon = () => (
     <div className="flex-1 flex flex-col overflow-hidden">
-      <div ref={containerRef}
-        className="relative flex-1 mx-4 my-2 rounded-xl overflow-hidden"
-        style={{ border: '1px solid var(--border-light)', backgroundColor: '#ffffff' }}>
-        {bodyPhotoUrl && (
-          <img src={bodyPhotoUrl} alt="Tu foto" className="absolute inset-0 w-full h-full object-contain" draggable={false} loading="eager" />
-        )}
-        {layers.map(layer => {
-          const imgSrc = layer.processedUrl || layer.originalUrl
-          const adj = layer.adjustments
-          const isActive = activeLayerId === layer.id
-          return (
-            <div
-              key={layer.id}
-              ref={el => {
-                if (el) {
-                  garmentRefs.current.set(layer.id, el)
-                  if (mode === 'manual' && isActive) {
-                    requestAnimationFrame(() => attachMoveable(layer.id, el))
-                  }
-                }
-              }}
-              className="absolute"
-              style={{
-                left: '50%',
-                top: '50%',
-                transform: `translate(calc(-50% + ${adj.offsetX}px), calc(-50% + ${adj.offsetY}px)) scale(${adj.scaleX}) rotate(${adj.rotation}deg)`,
-                opacity: adj.opacity,
-                width: '70%',
-                cursor: mode === 'manual' && isActive ? 'grab' : 'default',
-                zIndex: isActive ? 10 : 1,
-                pointerEvents: mode === 'manual' ? 'auto' : 'none',
-              }}
-              onClick={() => setActiveLayerId(layer.id)}
-            >
-              <img src={imgSrc} alt={layer.name} className="w-full h-auto pointer-events-none select-none" draggable={false} loading="eager" />
-              {isActive && mode === 'manual' && (
-                <div className="absolute -top-6 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded text-[9px] font-medium whitespace-nowrap"
-                  style={{ backgroundColor: 'var(--color-primary)', color: 'white' }}>
-                  {layer.name}
-                </div>
-              )}
-            </div>
-          )
-        })}
+      <div ref={containerRef} className="relative flex-1 mx-4 my-2 rounded-xl overflow-hidden touch-none select-none" style={{ backgroundColor: '#fff', border: '1px solid var(--border-light)' }}>
+        {bodyPhotoUrl && <img src={bodyPhotoUrl} alt="" className="absolute inset-0 w-full h-full object-contain" draggable={false} loading="eager" />}
+        {layers.map(layer => (
+          <img key={layer.id} src={layer.processedUrl} alt={layer.garment.name} draggable={false} loading="eager"
+            onClick={(e) => { e.stopPropagation(); setActiveId(layer.id) }}
+            className="absolute select-none"
+            style={{
+              left: layer.transform.x,
+              top: layer.transform.y,
+              width: layer.transform.width,
+              height: layer.transform.height,
+              transform: `rotate(${layer.transform.rotation}deg)`,
+              opacity: layer.opacity,
+              zIndex: layer.id === activeId ? 20 : layer.zIndex + 1,
+              outline: layer.id === activeId ? '2px solid var(--color-primary)' : 'none',
+              outlineOffset: '2px',
+              cursor: 'grab',
+            }} />
+        ))}
       </div>
 
-      {error && (
-        <div className="flex items-center gap-2 px-3 py-2 mx-4 mb-2 rounded-lg text-xs" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
-          <AlertTriangle size={14} />{error}
-        </div>
-      )}
+      {error && <div className="flex items-center gap-2 px-3 py-2 mx-4 mb-2 rounded-lg text-xs" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444' }}><AlertTriangle size={14} />{error}</div>}
 
       {layers.length > 1 && (
-        <div className="px-4 mb-2">
-          <div className="flex items-center gap-1.5 mb-1">
-            <Layers size={12} style={{ color: 'var(--text-muted)' }} />
-            <span className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>Capas</span>
-          </div>
-          <div className="flex gap-1.5 overflow-x-auto pb-1">
-            {layers.map(l => (
-              <button key={l.id} onClick={() => setActiveLayerId(l.id)}
-                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium whitespace-nowrap"
-                style={{
-                  backgroundColor: activeLayerId === l.id ? 'var(--color-primary)' : 'var(--bg-card)',
-                  color: activeLayerId === l.id ? 'white' : 'var(--text-secondary)',
-                  border: `1px solid ${activeLayerId === l.id ? 'var(--color-primary)' : 'var(--border-light)'}`,
-                }}>
-                {l.name}
-                <X size={10} className="cursor-pointer opacity-60 hover:opacity-100"
-                  onClick={(e) => { e.stopPropagation(); handleRemoveLayer(l.id) }} />
-              </button>
-            ))}
-          </div>
+        <div className="px-4 mb-2 flex gap-1.5 overflow-x-auto">
+          {layers.map(l => (
+            <button key={l.id} onClick={() => setActiveId(l.id)} className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium whitespace-nowrap"
+              style={{ backgroundColor: activeId === l.id ? 'var(--color-primary)' : 'var(--bg-card)', color: activeId === l.id ? 'white' : 'var(--text-secondary)', border: `1px solid ${activeId === l.id ? 'var(--color-primary)' : 'var(--border-light)'}` }}>
+              {l.garment.name}
+              <X size={10} className="cursor-pointer opacity-60" onClick={(e) => { e.stopPropagation(); handleRemoveLayer(l.id) }} />
+            </button>
+          ))}
         </div>
       )}
 
-      {activeLayer && mode === 'manual' && (
-        <div className="px-4 mb-2">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>
-              Arrastra, pellizca o rota la prenda
-            </span>
-            <button onClick={handleResetAdj} className="text-[10px]" style={{ color: 'var(--color-primary)' }}>
-              <RotateCcw size={10} className="inline mr-0.5" />Reset
-            </button>
-          </div>
+      {activeLayer && (
+        <div className="px-4 mb-2 flex items-center justify-between">
+          <span className="text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>
+            Arrastra, pellizca o rota: {activeLayer.garment.name}
+          </span>
+          <button onClick={handleReset} className="text-[10px] flex items-center gap-1" style={{ color: 'var(--color-primary)' }}>
+            <RotateCcw size={10} />Reset
+          </button>
         </div>
       )}
 
       <div className="flex gap-2 p-4 border-t" style={{ borderColor: 'var(--border-light)' }}>
-        <button onClick={() => { setStep('select'); setResultUrl(null) }}
-          className="flex-1 py-2.5 rounded-xl text-xs font-medium active:opacity-80"
-          style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>
+        <button onClick={() => setStep('select')} className="flex-1 py-2.5 rounded-xl text-xs font-medium" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>
           Volver
         </button>
-        <button onClick={handleSave} disabled={!resultUrl}
-          className="flex-1 py-2.5 rounded-xl text-xs font-semibold text-white flex items-center justify-center gap-1.5 disabled:opacity-40"
-          style={{ backgroundColor: 'var(--color-primary)' }}>
+        <button onClick={handleSave} disabled={!bodyPhotoUrl} className="flex-1 py-2.5 rounded-xl text-xs font-semibold text-white flex items-center justify-center gap-1.5 disabled:opacity-40" style={{ backgroundColor: 'var(--color-primary)' }}>
           <Save size={12} />Guardar
         </button>
       </div>
     </div>
   )
 
-  const renderStepSaving = () => (
-    <div className="flex-1 flex flex-col items-center justify-center gap-4 p-4">
+  const Saving = () => (
+    <div className="flex-1 flex flex-col items-center justify-center gap-4">
       <div className="w-12 h-12 rounded-full border-3 border-t-transparent animate-spin" style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }} />
-      <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Guardando look...</p>
+      <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Guardando...</p>
     </div>
   )
 
-  const renderStepSaved = () => (
-    <div className="flex-1 flex flex-col items-center justify-center gap-4 p-4">
+  const Saved = () => (
+    <div className="flex-1 flex flex-col items-center justify-center gap-4">
       <div className="w-16 h-16 rounded-full flex items-center justify-center text-2xl" style={{ backgroundColor: 'rgba(34,197,94,0.1)' }}>✓</div>
-      <div className="text-center">
-        <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Look guardado</p>
-        <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>Se agrego a tu armario</p>
-      </div>
+      <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Look guardado</p>
       <div className="flex gap-2 w-full max-w-xs">
-        <button onClick={onClose}
-          className="flex-1 py-2.5 rounded-xl text-xs font-medium active:opacity-80"
-          style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>
-          Cerrar
-        </button>
-        <button onClick={() => { setStep('select'); setResultUrl(null); setSelectedIds(new Set()); setLayers([]); setActiveLayerId(null) }}
-          className="flex-1 py-2.5 rounded-xl text-xs font-semibold text-white active:opacity-80"
-          style={{ backgroundColor: 'var(--color-primary)' }}>
-          Nuevo look
-        </button>
+        <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-xs font-medium" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>Cerrar</button>
+        <button onClick={() => { setStep('select'); setLayers([]); setActiveId(null) }} className="flex-1 py-2.5 rounded-xl text-xs font-semibold text-white" style={{ backgroundColor: 'var(--color-primary)' }}>Nuevo look</button>
       </div>
     </div>
   )
 
-  const titles: Record<Step, string> = {
-    guide: 'Probador virtual', photo: 'Subir foto', detecting: 'Analizando...',
-    select: 'Elegir prendas', processing: 'Procesando...', tryon: 'Probador virtual',
-    saving: 'Guardando...', saved: 'Guardado',
-  }
+  const titles: Record<string, string> = { guide: 'Probador virtual', photo: 'Subir foto', select: 'Elegir prendas', tryon: 'Ajustar prenda', saving: 'Guardando...', saved: 'Guardado' }
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: 'var(--bg-primary)' }}>
       <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border-light)' }}>
-        <button onClick={onClose} className="p-1 rounded-lg active:opacity-70">
-          <X size={20} style={{ color: 'var(--text-primary)' }} />
-        </button>
+        <button onClick={onClose} className="p-1 rounded-lg"><X size={20} style={{ color: 'var(--text-primary)' }} /></button>
         <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{titles[step]}</h2>
         <div className="w-8" />
       </div>
-      {step === 'guide' && renderStepGuide()}
-      {step === 'photo' && renderStepPhoto()}
-      {step === 'detecting' && renderStepDetecting()}
-      {step === 'select' && renderStepSelect()}
-      {step === 'processing' && renderStepProcessing()}
-      {step === 'tryon' && renderStepTryon()}
-      {step === 'saving' && renderStepSaving()}
-      {step === 'saved' && renderStepSaved()}
+      {step === 'guide' && <Guide />}
+      {step === 'photo' && <Photo />}
+      {step === 'select' && <Select />}
+      {step === 'tryon' && <Tryon />}
+      {step === 'saving' && <Saving />}
+      {step === 'saved' && <Saved />}
     </div>
   )
 }
