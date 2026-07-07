@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { X, Camera, Image, RotateCcw, Save, ChevronUp, ChevronDown, Trash2, SlidersHorizontal } from 'lucide-react'
 import type { Garment } from '../types'
-import { autoPlace, drawCanvas, exportCanvas, removeBg, getImageNaturalSize, type GarmentTransform } from '../src/utils/tryOnEngine'
+import { autoPlace, drawCanvas, exportCanvas, removeBg, type GarmentTransform } from '../src/utils/tryOnEngine'
 import { detectBodyPose, smartAutoPlace, type BodyPose } from '../src/utils/poseDetection'
 import { pickPhoto, type CameraSource } from '../src/utils/cameraPhoto'
 import { successImpact, errorImpact } from '../src/utils/haptic'
@@ -43,7 +43,6 @@ function matchGarment(g: Garment, c: string) {
 export default function VirtualTryOn({ garments, onClose }: Props) {
   const [step, setStep] = useState<'guide' | 'photo' | 'select' | 'tryon' | 'saving' | 'saved'>('guide')
   const [bodyUrl, setBodyUrl] = useState<string | null>(null)
-  const [bodySize, setBodySize] = useState<{ w: number; h: number } | null>(null)
   const [layers, setLayers] = useState<Layer[]>([])
   const [active, setActive] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -105,12 +104,8 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     setDetecting(true)
     setError(null)
     try {
-      let sz = bodySize
-      if (!sz) {
-        sz = await getImageNaturalSize(bodyUrl)
-        setBodySize(sz)
-      }
-      const cw = sz.w, ch = sz.h
+      const displayW = Math.min(window.innerWidth - 24, 500)
+      const displayH = Math.min(window.innerHeight - 300, 600)
 
       let pose = bodyPose
       if (!pose) {
@@ -125,7 +120,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
         if (exists) { newLayers.push(exists); continue }
         let url = g.imageUrl
         try { url = await removeBg(g.imageUrl) } catch {}
-        const t = pose ? smartAutoPlace(pose, g.type, cw, ch) : autoPlace(g.type, cw, ch)
+        const t = pose ? smartAutoPlace(pose, g.type, displayW, displayH) : autoPlace(g.type, displayW, displayH)
         newLayers.push({ id: `${g.id}_${Date.now()}`, garment: g, url, t })
       }
       setLayers(p => { const merged = [...p, ...newLayers]; layersRef.current = merged; return merged })
@@ -286,19 +281,25 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
   }
 
   const resetPosition = () => {
-    if (!bodySize) return
+    const c = canvasRef.current
+    if (!c) return
+    const w = c.clientWidth || 300
+    const h = c.clientHeight || 400
     setLayers(p => p.map((l, i) => {
       if (i !== active) return l
-      const t = bodyPose ? smartAutoPlace(bodyPose, l.garment.type, bodySize.w, bodySize.h) : autoPlace(l.garment.type, bodySize.w, bodySize.h)
+      const t = bodyPose ? smartAutoPlace(bodyPose, l.garment.type, w, h) : autoPlace(l.garment.type, w, h)
       return { ...l, t }
     }))
   }
 
   const save = async () => {
     if (!bodyUrl) return
+    const c = canvasRef.current
+    const dw = c ? c.clientWidth : 400
+    const dh = c ? c.clientHeight : 600
     setStep('saving')
     try {
-      const dataUrl = await exportCanvas(bodyUrl, layers.map(l => ({ url: l.url, t: l.t })))
+      const dataUrl = await exportCanvas(bodyUrl, layers.map(l => ({ url: l.url, t: l.t })), dw, dh)
       const res = await fetch(dataUrl)
       const blob = await res.blob()
       await api.saveLookWithImage(`Look ${new Date().toLocaleDateString('es')}`, layers.map(l => l.garment.id), blob)
@@ -349,9 +350,9 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
   const SSelect = () => (
     <div className="flex-1 flex flex-col overflow-hidden">
       {bodyUrl && (
-        <div className="relative mx-auto w-full max-w-sm aspect-[3/4] rounded-xl overflow-hidden mb-3" style={{ border: '1px solid var(--border-light)' }}>
+        <div className="relative mx-auto w-32 aspect-[3/4] rounded-xl overflow-hidden mb-2 shrink-0" style={{ border: '1px solid var(--border-light)' }}>
           <img src={bodyUrl} className="w-full h-full object-cover" loading="eager" />
-          <button onClick={() => { setBodyUrl(null); setBodySize(null); setStep('photo'); setLayers([]) }} className="absolute top-2 right-2 p-1.5 rounded-full bg-black/40 text-white"><X size={14} /></button>
+          <button onClick={() => { setBodyUrl(null); setStep('photo'); setLayers([]) }} className="absolute top-1 right-1 p-1 rounded-full bg-black/40 text-white"><X size={12} /></button>
         </div>
       )}
       <div className="flex gap-1.5 px-4 mb-2 overflow-x-auto">

@@ -7,21 +7,21 @@ export interface GarmentTransform {
   opacity: number
 }
 
-export function autoPlace(type: string, bodyW: number, bodyH: number): GarmentTransform {
+export function autoPlace(type: string, canvasW: number, canvasH: number): GarmentTransform {
   const t = type.toLowerCase()
   let w: number, h: number, x: number, y: number
   if (/dress|vestido|enterizo/.test(t)) {
-    w = bodyW * 0.55; h = bodyH * 0.48; x = (bodyW - w) / 2; y = bodyH * 0.14
+    w = canvasW * 0.55; h = canvasH * 0.48; x = (canvasW - w) / 2; y = canvasH * 0.14
   } else if (/bottom|pantal|falda|short|jean|trouser/.test(t)) {
-    w = bodyW * 0.42; h = bodyH * 0.28; x = (bodyW - w) / 2; y = bodyH * 0.44
+    w = canvasW * 0.42; h = canvasH * 0.28; x = (canvasW - w) / 2; y = canvasH * 0.44
   } else if (/outer|chaqueta|abrigo|saco|jacket|coat/.test(t)) {
-    w = bodyW * 0.6; h = bodyH * 0.36; x = (bodyW - w) / 2; y = bodyH * 0.12
+    w = canvasW * 0.6; h = canvasH * 0.36; x = (canvasW - w) / 2; y = canvasH * 0.12
   } else if (/shoe|zapat|bota|sandal|boot/.test(t)) {
-    w = bodyW * 0.2; h = bodyH * 0.08; x = (bodyW - w) / 2; y = bodyH * 0.9
+    w = canvasW * 0.2; h = canvasH * 0.08; x = (canvasW - w) / 2; y = canvasH * 0.9
   } else if (/accesorio|sombrero|gorra|bolso|gafas|collar/.test(t)) {
-    w = bodyW * 0.25; h = bodyH * 0.15; x = (bodyW - w) / 2; y = bodyH * 0.01
+    w = canvasW * 0.25; h = canvasH * 0.15; x = (canvasW - w) / 2; y = canvasH * 0.01
   } else {
-    w = bodyW * 0.48; h = bodyH * 0.3; x = (bodyW - w) / 2; y = bodyH * 0.14
+    w = canvasW * 0.48; h = canvasH * 0.3; x = (canvasW - w) / 2; y = canvasH * 0.14
   }
   return { x, y, width: w, height: h, rotation: 0, opacity: 1 }
 }
@@ -36,6 +36,26 @@ function loadImg(src: string): Promise<HTMLImageElement> {
   })
 }
 
+function fitDraw(ctx: CanvasRenderingContext2D, img: HTMLImageElement, cw: number, ch: number) {
+  const ratio = Math.min(cw / img.naturalWidth, ch / img.naturalHeight)
+  const w = img.naturalWidth * ratio
+  const h = img.naturalHeight * ratio
+  const x = (cw - w) / 2
+  const y = (ch - h) / 2
+  ctx.drawImage(img, x, y, w, h)
+  return { x, y, w, h, ratio }
+}
+
+export function syncCanvasSize(canvas: HTMLCanvasElement): { displayW: number; displayH: number } {
+  const displayW = canvas.clientWidth || 300
+  const displayH = canvas.clientHeight || 400
+  if (canvas.width !== displayW || canvas.height !== displayH) {
+    canvas.width = displayW
+    canvas.height = displayH
+  }
+  return { displayW, displayH }
+}
+
 export async function drawCanvas(
   canvas: HTMLCanvasElement,
   bodyUrl: string,
@@ -43,18 +63,16 @@ export async function drawCanvas(
   activeIdx: number,
 ): Promise<void> {
   const body = await loadImg(bodyUrl)
-  if (canvas.width !== body.naturalWidth || canvas.height !== body.naturalHeight) {
-    canvas.width = body.naturalWidth
-    canvas.height = body.naturalHeight
-  }
+  const { displayW, displayH } = syncCanvasSize(canvas)
   const ctx = canvas.getContext('2d')!
-  ctx.clearRect(0, 0, canvas.width, canvas.height)
-  ctx.fillStyle = '#ffffff'
-  ctx.fillRect(0, 0, canvas.width, canvas.height)
-  ctx.drawImage(body, 0, 0)
 
-  const scale = canvas.width / (canvas.clientWidth || canvas.width)
-  const shadowSize = Math.max(6, canvas.width * 0.008)
+  ctx.clearRect(0, 0, displayW, displayH)
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, displayW, displayH)
+
+  const bodyFit = fitDraw(ctx, body, displayW, displayH)
+
+  const shadowSize = Math.max(4, displayW * 0.01)
 
   for (let i = 0; i < garments.length; i++) {
     const g = garments[i]
@@ -79,11 +97,11 @@ export async function drawCanvas(
         const hw = g.t.width / 2
         const hh = g.t.height / 2
         ctx.strokeStyle = 'rgba(255,255,255,0.9)'
-        ctx.lineWidth = Math.max(2, canvas.width * 0.003)
-        ctx.setLineDash([Math.max(4, canvas.width * 0.004), Math.max(3, canvas.width * 0.003)])
+        ctx.lineWidth = Math.max(2, displayW * 0.004)
+        ctx.setLineDash([Math.max(4, displayW * 0.005), Math.max(3, displayW * 0.004)])
         ctx.strokeRect(-hw - 4, -hh - 4, g.t.width + 8, g.t.height + 8)
         ctx.setLineDash([])
-        const corner = Math.max(4, canvas.width * 0.005)
+        const corner = Math.max(3, displayW * 0.006)
         ctx.fillStyle = 'rgba(255,255,255,0.95)'
         const corners = [[-hw, -hh], [hw, -hh], [-hw, hh], [hw, hh]]
         for (const [cx, cy] of corners) {
@@ -92,7 +110,7 @@ export async function drawCanvas(
           ctx.fill()
         }
         ctx.strokeStyle = '#ff4d94'
-        ctx.lineWidth = Math.max(1, canvas.width * 0.001)
+        ctx.lineWidth = Math.max(1, displayW * 0.002)
         for (const [cx, cy] of corners) {
           ctx.beginPath()
           ctx.arc(cx, cy, corner, 0, Math.PI * 2)
@@ -107,16 +125,23 @@ export async function drawCanvas(
 export async function exportCanvas(
   bodyUrl: string,
   garments: Array<{ url: string; t: GarmentTransform }>,
+  displayW: number,
+  displayH: number,
 ): Promise<string> {
   const body = await loadImg(bodyUrl)
+  const exportScale = Math.max(1, 1200 / Math.max(displayW, displayH))
+  const ew = Math.round(displayW * exportScale)
+  const eh = Math.round(displayH * exportScale)
+
   const c = document.createElement('canvas')
-  c.width = body.naturalWidth
-  c.height = body.naturalHeight
+  c.width = ew
+  c.height = eh
   const ctx = c.getContext('2d')!
   ctx.fillStyle = '#ffffff'
-  ctx.fillRect(0, 0, c.width, c.height)
-  ctx.drawImage(body, 0, 0)
-  const shadowSize = Math.max(6, c.width * 0.008)
+  ctx.fillRect(0, 0, ew, eh)
+  fitDraw(ctx, body, ew, eh)
+
+  const shadowSize = Math.max(4, ew * 0.01)
   for (const g of garments) {
     try {
       const img = await loadImg(g.url)
@@ -125,10 +150,14 @@ export async function exportCanvas(
       ctx.shadowBlur = shadowSize
       ctx.shadowOffsetX = shadowSize * 0.3
       ctx.shadowOffsetY = shadowSize * 0.5
-      ctx.translate(g.t.x + g.t.width / 2, g.t.y + g.t.height / 2)
+      const sx = g.t.x * exportScale
+      const sy = g.t.y * exportScale
+      const sw = g.t.width * exportScale
+      const sh = g.t.height * exportScale
+      ctx.translate(sx + sw / 2, sy + sh / 2)
       ctx.rotate((g.t.rotation * Math.PI) / 180)
       ctx.globalAlpha = g.t.opacity
-      ctx.drawImage(img, -g.t.width / 2, -g.t.height / 2, g.t.width, g.t.height)
+      ctx.drawImage(img, -sw / 2, -sh / 2, sw, sh)
       ctx.restore()
     } catch {}
   }
