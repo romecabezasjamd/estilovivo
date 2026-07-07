@@ -84,8 +84,11 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
 
   // ─── Global gesture state ────────────────────────────────────────
   const gesture = useRef({
-    dragging: false, dragIdx: -1, lx: 0, ly: 0,
-    pinch: false, pDist: 0, pAngle: 0, sW: 0, sH: 0, sR: 0, sX: 0, sY: 0,
+    mode: 'idle' as 'idle' | 'drag' | 'resize' | 'rotate',
+    dragIdx: -1, lx: 0, ly: 0,
+    handle: '' as string,
+    centerNX: 0, centerNY: 0, startW: 0, startH: 0, startR: 0, startX: 0, startY: 0,
+    pinch: false, pDist: 0, pAngle: 0, sW: 0, sH: 0, sR: 0,
   })
 
   const getScale = useCallback(() => {
@@ -93,6 +96,22 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     if (!c || !bodyDim) return 1
     return c.clientWidth / bodyDim.w
   }, [bodyDim])
+
+  const screenToNatural = useCallback((sx: number, sy: number) => {
+    const c = containerRef.current
+    if (!c || !bodyDim) return { nx: sx, ny: sy }
+    const rect = c.getBoundingClientRect()
+    const nx = ((sx - rect.left) / rect.width) * bodyDim.w
+    const ny = ((sy - rect.top) / rect.height) * bodyDim.h
+    return { nx, ny }
+  }, [bodyDim])
+
+  const rotatePoint = useCallback((px: number, py: number, cx: number, cy: number, deg: number) => {
+    const rad = (-deg * Math.PI) / 180
+    const cos = Math.cos(rad), sin = Math.sin(rad)
+    const dx = px - cx, dy = py - cy
+    return { x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos }
+  }, [])
 
   const updateLayer = useCallback((idx: number, patch: Partial<Layer>) => {
     setLayers(p => p.map((l, i) => i === idx ? { ...l, ...patch } : l))
@@ -104,18 +123,44 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     const g = gesture.current
 
     const onMM = (e: MouseEvent) => {
-      if (!g.dragging || g.dragIdx < 0) return
-      const s = getScale()
-      const dx = (e.clientX - g.lx) / s
-      const dy = (e.clientY - g.ly) / s
-      g.lx = e.clientX; g.ly = e.clientY
-      updateLayer(g.dragIdx, {
-        x: layersRef.current[g.dragIdx].x + dx,
-        y: layersRef.current[g.dragIdx].y + dy,
-      })
+      if (g.mode === 'idle' || g.dragIdx < 0) return
+      const ls = layersRef.current
+      const l = ls[g.dragIdx]
+      if (!l) return
+
+      if (g.mode === 'drag') {
+        const { nx, ny } = screenToNatural(e.clientX, e.clientY)
+        const dx = nx - g.lx
+        const dy = ny - g.ly
+        g.lx = nx; g.ly = ny
+        updateLayer(g.dragIdx, { x: l.x + dx, y: l.y + dy })
+      } else if (g.mode === 'resize') {
+        const { nx, ny } = screenToNatural(e.clientX, e.clientY)
+        const rad = (-l.rotation * Math.PI) / 180
+        const cos = Math.cos(rad), sin = Math.sin(rad)
+        const dx = nx - g.centerNX, dy = ny - g.centerNY
+        const localX = dx * cos - dy * sin
+        const localY = dx * sin + dy * cos
+        const isTop = g.handle.includes('t')
+        const isLeft = g.handle.includes('l')
+        let newW = g.startW, newH = g.startH
+        if (isLeft) { newW = Math.max(40, g.startW - localX * 2) } else { newW = Math.max(40, g.startW + localX * 2) }
+        if (isTop) { newH = Math.max(40, g.startH - localY * 2) } else { newH = Math.max(40, g.startH + localY * 2) }
+        const ratio = g.startW / g.startH
+        newH = newW / ratio
+        const cx = g.startX + g.startW / 2
+        const cy = g.startY + g.startH / 2
+        updateLayer(g.dragIdx, { w: newW, h: newH, x: cx - newW / 2, y: cy - newH / 2 })
+      } else if (g.mode === 'rotate') {
+        const { nx, ny } = screenToNatural(e.clientX, e.clientY)
+        const cx = l.x + l.w / 2, cy = l.y + l.h / 2
+        let angle = Math.atan2(ny - cy, nx - cx) * 180 / Math.PI + 90
+        if (e.shiftKey) { angle = Math.round(angle / 15) * 15 }
+        updateLayer(g.dragIdx, { rotation: angle })
+      }
     }
 
-    const onMU = () => { g.dragging = false; g.dragIdx = -1 }
+    const onMU = () => { g.mode = 'idle'; g.dragIdx = -1 }
 
     const onTM = (e: TouchEvent) => {
       if (e.touches.length === 2 && g.dragIdx >= 0) {
@@ -126,24 +171,48 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
         const ratio = d / g.pDist
         const rot = g.sR + (a - g.pAngle)
         updateLayer(g.dragIdx, {
-          w: Math.max(30, g.sW * ratio), h: Math.max(30, g.sH * ratio),
+          w: Math.max(40, g.sW * ratio), h: Math.max(40, g.sH * ratio),
           rotation: rot,
         })
-      } else if (e.touches.length === 1 && g.dragging && g.dragIdx >= 0) {
+      } else if (e.touches.length === 1 && g.mode !== 'idle' && g.dragIdx >= 0) {
         e.preventDefault()
         const t = e.touches[0]
-        const s = getScale()
-        const dx = (t.clientX - g.lx) / s
-        const dy = (t.clientY - g.ly) / s
-        g.lx = t.clientX; g.ly = t.clientY
-        updateLayer(g.dragIdx, {
-          x: layersRef.current[g.dragIdx].x + dx,
-          y: layersRef.current[g.dragIdx].y + dy,
-        })
+        const ls = layersRef.current
+        const l = ls[g.dragIdx]
+        if (!l) return
+
+        if (g.mode === 'drag') {
+          const { nx, ny } = screenToNatural(t.clientX, t.clientY)
+          const dx = nx - g.lx, dy = ny - g.ly
+          g.lx = nx; g.ly = ny
+          updateLayer(g.dragIdx, { x: l.x + dx, y: l.y + dy })
+        } else if (g.mode === 'resize') {
+          const { nx, ny } = screenToNatural(t.clientX, t.clientY)
+          const rad = (-l.rotation * Math.PI) / 180
+          const cos = Math.cos(rad), sin = Math.sin(rad)
+          const dx = nx - g.centerNX, dy = ny - g.centerNY
+          const localX = dx * cos - dy * sin
+          const localY = dx * sin + dy * cos
+          const isTop = g.handle.includes('t')
+          const isLeft = g.handle.includes('l')
+          let newW = g.startW, newH = g.startH
+          if (isLeft) { newW = Math.max(40, g.startW - localX * 2) } else { newW = Math.max(40, g.startW + localX * 2) }
+          if (isTop) { newH = Math.max(40, g.startH - localY * 2) } else { newH = Math.max(40, g.startH + localY * 2) }
+          const ratio = g.startW / g.startH
+          newH = newW / ratio
+          const cx = g.startX + g.startW / 2
+          const cy = g.startY + g.startH / 2
+          updateLayer(g.dragIdx, { w: newW, h: newH, x: cx - newW / 2, y: cy - newH / 2 })
+        } else if (g.mode === 'rotate') {
+          const { nx, ny } = screenToNatural(t.clientX, t.clientY)
+          const cx = l.x + l.w / 2, cy = l.y + l.h / 2
+          let angle = Math.atan2(ny - cy, nx - cx) * 180 / Math.PI + 90
+          updateLayer(g.dragIdx, { rotation: angle })
+        }
       }
     }
 
-    const onTE = () => { g.dragging = false; g.dragIdx = -1; g.pinch = false }
+    const onTE = () => { g.mode = 'idle'; g.dragIdx = -1; g.pinch = false }
 
     const onW = (e: WheelEvent) => {
       if (activeRef.current < 0) return
@@ -152,7 +221,10 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
       if (ai >= ls.length) return
       e.preventDefault()
       const f = e.deltaY > 0 ? 0.95 : 1.05
-      updateLayer(ai, { w: Math.max(30, ls[ai].w * f), h: Math.max(30, ls[ai].h * f) })
+      const l = ls[ai]
+      const newW = Math.max(40, l.w * f)
+      const newH = Math.max(40, l.h * f)
+      updateLayer(ai, { w: newW, h: newH, x: l.x + (l.w - newW) / 2, y: l.y + (l.h - newH) / 2 })
     }
 
     window.addEventListener('mousemove', onMM)
@@ -168,7 +240,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
       window.removeEventListener('touchend', onTE)
       window.removeEventListener('wheel', onW)
     }
-  }, [step, getScale, updateLayer])
+  }, [step, getScale, screenToNatural, rotatePoint, updateLayer])
 
   // ─── Actions ─────────────────────────────────────────────────────
   const pick = async (src: CameraSource) => {
@@ -305,13 +377,15 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
 
   const STryon = () => {
     const cur = active >= 0 ? layers[active] : null
-    const aspect = bodyDim ? `${bodyDim.w} / ${bodyDim.h}` : '3 / 4'
 
     const onGarmentDown = (e: React.MouseEvent, idx: number) => {
       e.stopPropagation()
       setActive(idx); activeRef.current = idx
+      const l = layersRef.current[idx]
       const g = gesture.current
-      g.dragging = true; g.dragIdx = idx; g.lx = e.clientX; g.ly = e.clientY
+      g.mode = 'drag'; g.dragIdx = idx
+      const { nx, ny } = screenToNatural(e.clientX, e.clientY)
+      g.lx = nx; g.ly = ny
     }
 
     const onGarmentTouch = (e: React.TouchEvent, idx: number) => {
@@ -325,14 +399,48 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
         g.pAngle = Math.atan2(t1.clientY - t.clientY, t1.clientX - t.clientX) * 180 / Math.PI
         g.sW = layersRef.current[idx].w; g.sH = layersRef.current[idx].h; g.sR = layersRef.current[idx].rotation
       } else {
-        g.dragging = true; g.dragIdx = idx; g.lx = t.clientX; g.ly = t.clientY
+        g.mode = 'drag'; g.dragIdx = idx
+        const { nx, ny } = screenToNatural(t.clientX, t.clientY)
+        g.lx = nx; g.ly = ny
+      }
+    }
+
+    const onHandleDown = (e: React.MouseEvent, idx: number, handle: string) => {
+      e.stopPropagation(); e.preventDefault()
+      setActive(idx); activeRef.current = idx
+      const l = layersRef.current[idx]
+      const g = gesture.current
+      if (handle === 'rotate') {
+        g.mode = 'rotate'; g.dragIdx = idx
+      } else {
+        g.mode = 'resize'; g.dragIdx = idx; g.handle = handle
+        g.centerNX = l.x + l.w / 2; g.centerNY = l.y + l.h / 2
+        g.startW = l.w; g.startH = l.h; g.startX = l.x; g.startY = l.y
+      }
+    }
+
+    const onHandleTouch = (e: React.TouchEvent, idx: number, handle: string) => {
+      e.stopPropagation(); e.preventDefault()
+      setActive(idx); activeRef.current = idx
+      const l = layersRef.current[idx]
+      const g = gesture.current
+      if (handle === 'rotate') {
+        g.mode = 'rotate'; g.dragIdx = idx
+      } else {
+        g.mode = 'resize'; g.dragIdx = idx; g.handle = handle
+        g.centerNX = l.x + l.w / 2; g.centerNY = l.y + l.h / 2
+        g.startW = l.w; g.startH = l.h; g.startX = l.x; g.startY = l.y
       }
     }
 
     const onCanvasClick = (e: React.MouseEvent) => {
-      if ((e.target as HTMLElement).tagName === 'IMG') return
+      const tag = (e.target as HTMLElement).tagName
+      if (tag === 'IMG' || (e.target as HTMLElement).dataset.handle) return
       setActive(-1); activeRef.current = -1
     }
+
+    const pct = (v: number, base: number) => `${(v / (base || 1)) * 100}%`
+    const bw = bodyDim?.w || 1, bh = bodyDim?.h || 1
 
     return (
       <div className="flex-1 flex flex-col overflow-hidden">
@@ -348,10 +456,8 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
               onTouchStart={e => onGarmentTouch(e, i)}
               className="absolute pointer-events-auto"
               style={{
-                left: `${(l.x / (bodyDim?.w || 1)) * 100}%`,
-                top: `${(l.y / (bodyDim?.h || 1)) * 100}%`,
-                width: `${(l.w / (bodyDim?.w || 1)) * 100}%`,
-                height: `${(l.h / (bodyDim?.h || 1)) * 100}%`,
+                left: pct(l.x, bw), top: pct(l.y, bh),
+                width: pct(l.w, bw), height: pct(l.h, bh),
                 transform: `rotate(${l.rotation}deg)`,
                 opacity: l.opacity,
                 cursor: i === active ? 'grab' : 'pointer',
@@ -363,17 +469,71 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
           ))}
           {active >= 0 && active < layers.length && (() => {
             const l = layers[active]
+            const cx = pct(l.x, bw), cy = pct(l.y, bh)
+            const cw = pct(l.w, bw), ch = pct(l.h, bh)
+            const hx = (v: number) => pct(v, bw)
+            const hy = (v: number) => pct(v, bh)
+            const rot = l.rotation
+            const rad = (-rot * Math.PI) / 180
+            const cos = Math.cos(rad), sin = Math.sin(rad)
+            const halfW = l.w / 2, halfH = l.h / 2
+            const rotLen = Math.min(30, l.h * 0.25)
+            const rotLineEndY = -halfH - rotLen
+            const rotCircleY = -halfH - rotLen - 10
+
+            const corners = [
+              { h: 'tl', x: -halfW, y: -halfH },
+              { h: 'tr', x: halfW, y: -halfH },
+              { h: 'bl', x: -halfW, y: halfH },
+              { h: 'br', x: halfW, y: halfH },
+            ]
+
             return (
               <div className="absolute pointer-events-none" style={{
-                left: `${(l.x / (bodyDim?.w || 1)) * 100}%`,
-                top: `${(l.y / (bodyDim?.h || 1)) * 100}%`,
-                width: `${(l.w / (bodyDim?.w || 1)) * 100}%`,
-                height: `${(l.h / (bodyDim?.h || 1)) * 100}%`,
-                transform: `rotate(${l.rotation}deg)`,
-                border: '2px dashed rgba(255,255,255,0.8)',
-                borderRadius: '4px',
+                left: pct(l.x + l.w / 2, bw), top: pct(l.y + l.h / 2, bh),
+                width: 0, height: 0,
+                transform: `rotate(${rot}deg)`,
                 zIndex: 60,
-              }} />
+              }}>
+                <div className="absolute" style={{
+                  left: -halfW, top: -halfH, width: l.w, height: l.h,
+                  border: '2px solid rgba(255,255,255,0.9)',
+                  boxShadow: '0 0 0 1px rgba(255,77,148,0.5)',
+                  borderRadius: '2px',
+                }} />
+                {corners.map(c => (
+                  <div key={c.h} data-handle={c.h}
+                    onMouseDown={e => onHandleDown(e, active, c.h)}
+                    onTouchStart={e => onHandleTouch(e, active, c.h)}
+                    className="absolute pointer-events-auto"
+                    style={{
+                      left: c.x - 7, top: c.y - 7, width: 14, height: 14,
+                      borderRadius: '2px',
+                      backgroundColor: 'white',
+                      border: '2px solid var(--color-primary)',
+                      cursor: c.h === 'tl' || c.h === 'br' ? 'nwse-resize' : 'nesw-resize',
+                      zIndex: 70,
+                    }}
+                  />
+                ))}
+                <div className="absolute" style={{
+                  left: -1, top: -halfH - rotLen, width: 2, height: rotLen,
+                  backgroundColor: 'var(--color-primary)', opacity: 0.7,
+                }} />
+                <div data-handle="rotate"
+                  onMouseDown={e => onHandleDown(e, active, 'rotate')}
+                  onTouchStart={e => onHandleTouch(e, active, 'rotate')}
+                  className="absolute pointer-events-auto"
+                  style={{
+                    left: -8, top: -halfH - rotLen - 8, width: 16, height: 16,
+                    borderRadius: '50%',
+                    backgroundColor: 'white',
+                    border: '2px solid var(--color-primary)',
+                    cursor: 'grab',
+                    zIndex: 70,
+                  }}
+                />
+              </div>
             )
           })()}
         </div>
