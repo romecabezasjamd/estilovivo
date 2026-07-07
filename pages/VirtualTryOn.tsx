@@ -318,13 +318,13 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
   // ─── Sub-screens ───────────────────────────────────────────────────
 
   const SGuide = () => (
-    <div className="flex-1 overflow-y-auto p-4">
+    <div className="flex-1 overflow-y-auto p-4 pb-24">
       <PoseGuide onStart={() => setStep('photo')} />
     </div>
   )
 
   const SPhoto = () => (
-    <div className="flex-1 flex flex-col items-center justify-center gap-4 p-4">
+    <div className="flex-1 flex flex-col items-center justify-center gap-4 p-4 pb-24">
       <h3 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Sube tu foto</h3>
       <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Foto de cuerpo entero</p>
       <div className="flex gap-3 w-full max-w-xs">
@@ -492,8 +492,8 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
   const titles: Record<string, string> = { guide: 'Probador virtual', photo: 'Subir foto', select: 'Elegir prendas', tryon: 'Ajustar', saving: 'Guardando...', saved: 'Listo' }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: 'var(--bg-primary)' }}>
-      <div className="flex items-center justify-between px-4 py-3 border-b shrink-0" style={{ borderColor: 'var(--border-light)' }}>
+    <div className="fixed inset-0 z-[200] flex flex-col bg-white">
+      <div className="flex items-center justify-between px-4 py-3 border-b shrink-0 bg-white" style={{ borderColor: 'var(--border-light)' }}>
         <button onClick={onClose} className="p-1 rounded-lg"><X size={20} style={{ color: 'var(--text-primary)' }} /></button>
         <h2 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{titles[step]}</h2>
         <div className="w-8" />

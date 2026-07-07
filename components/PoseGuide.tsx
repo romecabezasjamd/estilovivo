@@ -93,11 +93,11 @@ export default function PoseGuide({ onStart }: PoseGuideProps) {
         </p>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2">
         {poses.map(({ Component, label, tip }) => (
-          <div key={label} className="flex flex-col items-center gap-1.5">
+          <div key={label} className="flex flex-col items-center gap-1">
             <div
-              className="w-full aspect-[3/5] p-2 rounded-xl flex items-center justify-center overflow-hidden"
+              className="w-full aspect-[2/3] p-1.5 rounded-xl flex items-center justify-center overflow-hidden"
               style={{
                 backgroundColor: 'var(--bg-card)',
                 border: '1px solid var(--border-light)',
