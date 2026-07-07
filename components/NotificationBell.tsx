@@ -49,7 +49,9 @@ const NotificationBell: React.FC = () => {
         const newSocket = io(getSocketOrigin(), {
             withCredentials: true,
             autoConnect: true,
-            transports: ['polling']
+            transports: ['polling'],
+            reconnectionAttempts: 3,
+            reconnectionDelay: 5000,
         });
 
         setSocket(newSocket);

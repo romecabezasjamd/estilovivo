@@ -618,7 +618,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
       if (chatSocket) { chatSocket.disconnect(); setChatSocket(null); }
       return;
     }
-    const newSocket = io(getSocketOrigin(), { withCredentials: true, transports: ['polling'] });
+    const newSocket = io(getSocketOrigin(), { withCredentials: true, transports: ['polling'], reconnectionAttempts: 3, reconnectionDelay: 5000 });
     setChatSocket(newSocket);
 
     newSocket.on('new_message', (message: ChatMessage) => {
