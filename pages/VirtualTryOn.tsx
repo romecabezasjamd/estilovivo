@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { X, Camera, Image, RotateCcw, Save, ChevronUp, ChevronDown, Trash2, SlidersHorizontal } from 'lucide-react'
 import type { Garment } from '../types'
 import { autoPlace, drawCanvas, exportCanvas, removeBg, getImageNaturalSize, type GarmentTransform } from '../src/utils/tryOnEngine'
+import { detectBodyPose, smartAutoPlace, type BodyPose } from '../src/utils/poseDetection'
 import { pickPhoto, type CameraSource } from '../src/utils/cameraPhoto'
 import { successImpact, errorImpact } from '../src/utils/haptic'
 import PoseGuide from '../components/PoseGuide'
@@ -49,6 +50,8 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
   const [filter, setFilter] = useState('all')
   const [selIds, setSelIds] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
+  const [bodyPose, setBodyPose] = useState<BodyPose | null>(null)
+  const [detecting, setDetecting] = useState(false)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const layersRef = useRef<Layer[]>([])
@@ -99,6 +102,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
   const process = async () => {
     if (selIds.size === 0 || !bodyUrl) return
     setBusy(true)
+    setDetecting(true)
     setError(null)
     try {
       let sz = bodySize
@@ -107,17 +111,27 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
         setBodySize(sz)
       }
       const cw = sz.w, ch = sz.h
+
+      let pose = bodyPose
+      if (!pose) {
+        pose = await detectBodyPose(bodyUrl)
+        if (pose) setBodyPose(pose)
+      }
+      setDetecting(false)
+
       const newLayers: Layer[] = []
       for (const g of garments.filter(g => selIds.has(g.id))) {
         const exists = layers.find(l => l.garment.id === g.id)
         if (exists) { newLayers.push(exists); continue }
         let url = g.imageUrl
         try { url = await removeBg(g.imageUrl) } catch {}
-        newLayers.push({ id: `${g.id}_${Date.now()}`, garment: g, url, t: autoPlace(g.type, cw, ch) })
+        const t = pose ? smartAutoPlace(pose, g.type, cw, ch) : autoPlace(g.type, cw, ch)
+        newLayers.push({ id: `${g.id}_${Date.now()}`, garment: g, url, t })
       }
       setLayers(p => { const merged = [...p, ...newLayers]; layersRef.current = merged; return merged })
       setStep('tryon')
     } catch {
+      setDetecting(false)
       setError('Error procesando prendas.')
     }
     setBusy(false)
@@ -273,7 +287,11 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
 
   const resetPosition = () => {
     if (!bodySize) return
-    setLayers(p => p.map((l, i) => i === active ? { ...l, t: autoPlace(l.garment.type, bodySize.w, bodySize.h) } : l))
+    setLayers(p => p.map((l, i) => {
+      if (i !== active) return l
+      const t = bodyPose ? smartAutoPlace(bodyPose, l.garment.type, bodySize.w, bodySize.h) : autoPlace(l.garment.type, bodySize.w, bodySize.h)
+      return { ...l, t }
+    }))
   }
 
   const save = async () => {
@@ -359,8 +377,8 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
         <button onClick={process} disabled={selIds.size === 0 || busy}
           className="w-full py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-40 flex items-center justify-center gap-2"
           style={{ backgroundColor: 'var(--color-primary)' }}>
-          {busy && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-          {busy ? 'Procesando...' : `Probar (${selIds.size})`}
+          {(busy || detecting) && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+          {detecting ? 'Detectando pose...' : busy ? 'Procesando prendas...' : `Probar (${selIds.size})`}
         </button>
       </div>
     </div>

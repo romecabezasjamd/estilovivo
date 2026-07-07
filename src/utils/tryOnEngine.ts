@@ -53,11 +53,19 @@ export async function drawCanvas(
   ctx.fillRect(0, 0, canvas.width, canvas.height)
   ctx.drawImage(body, 0, 0)
 
+  const scale = canvas.width / (canvas.clientWidth || canvas.width)
+  const shadowSize = Math.max(6, canvas.width * 0.008)
+
   for (let i = 0; i < garments.length; i++) {
     const g = garments[i]
     try {
       const img = await loadImg(g.url)
+
       ctx.save()
+      ctx.shadowColor = 'rgba(0,0,0,0.25)'
+      ctx.shadowBlur = shadowSize
+      ctx.shadowOffsetX = shadowSize * 0.3
+      ctx.shadowOffsetY = shadowSize * 0.5
       ctx.translate(g.t.x + g.t.width / 2, g.t.y + g.t.height / 2)
       ctx.rotate((g.t.rotation * Math.PI) / 180)
       ctx.globalAlpha = g.t.opacity
@@ -83,7 +91,7 @@ export async function drawCanvas(
           ctx.arc(cx, cy, corner, 0, Math.PI * 2)
           ctx.fill()
         }
-        ctx.strokeStyle = 'var(--color-primary)'
+        ctx.strokeStyle = '#ff4d94'
         ctx.lineWidth = Math.max(1, canvas.width * 0.001)
         for (const [cx, cy] of corners) {
           ctx.beginPath()
@@ -108,10 +116,15 @@ export async function exportCanvas(
   ctx.fillStyle = '#ffffff'
   ctx.fillRect(0, 0, c.width, c.height)
   ctx.drawImage(body, 0, 0)
+  const shadowSize = Math.max(6, c.width * 0.008)
   for (const g of garments) {
     try {
       const img = await loadImg(g.url)
       ctx.save()
+      ctx.shadowColor = 'rgba(0,0,0,0.2)'
+      ctx.shadowBlur = shadowSize
+      ctx.shadowOffsetX = shadowSize * 0.3
+      ctx.shadowOffsetY = shadowSize * 0.5
       ctx.translate(g.t.x + g.t.width / 2, g.t.y + g.t.height / 2)
       ctx.rotate((g.t.rotation * Math.PI) / 180)
       ctx.globalAlpha = g.t.opacity
