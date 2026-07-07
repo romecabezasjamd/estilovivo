@@ -273,18 +273,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
       {showVirtualTryOn && ReactDOM.createPortal(
         <Suspense fallback={null}>
           <VirtualTryOn
-            user={user}
             garments={garments}
-            initialGarment={virtualTryOnInitialGarment}
-            initialMode={virtualTryOnInitialMode}
-            onSaveLook={async (look) => {
-              window.dispatchEvent(new CustomEvent('navigateTo', { detail: { tab: 'wardrobe', subTab: 'looks' } }))
-            }}
             onClose={() => setShowVirtualTryOn(false)}
-            onNavigate={(tab, subTab) => {
-              setShowVirtualTryOn(false)
-              window.dispatchEvent(new CustomEvent('navigateTo', { detail: { tab, subTab } }))
-            }}
           />
         </Suspense>,
         document.body
