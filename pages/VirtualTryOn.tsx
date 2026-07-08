@@ -25,6 +25,25 @@ const CATS = [
   { k: 'shoes', l: 'Zapatos' }, { k: 'acc', l: 'Accesorios' },
 ]
 
+const OCCASIONS = [
+  { k: 'casual', l: 'Casual', icon: '👟' },
+  { k: 'formal', l: 'Formal', icon: '👔' },
+  { k: 'sport', l: 'Deporte', icon: '⚽' },
+  { k: 'party', l: 'Fiesta', icon: '🎉' },
+]
+
+function matchOccasion(g: Garment, occ: string): boolean {
+  if (occ === 'all') return true
+  const t = g.type.toLowerCase()
+  const rules: Record<string, RegExp> = {
+    casual: /top|camis|blusa|shirt|polo|bottom|pantal|falda|short|jean|shoe|zapat|sandal/,
+    formal: /dress|vestido|outer|chaqueta|saco|jacket|shirt|blusa|top/,
+    sport: /top|camis|polo|bottom|short|jean|shoe|zapat|deport/,
+    party: /dress|vestido|enterizo|top|blusa|shoe|zapat|acc/,
+  }
+  return rules[occ] ? rules[occ].test(t) : true
+}
+
 const RES_OPTIONS: { k: ExportResolution; l: string; desc: string }[] = [
   { k: 'hd', l: 'HD', desc: '1200px' },
   { k: '2k', l: '2K', desc: '2400px' },
@@ -71,6 +90,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
   const [active, setActive] = useState(-1)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState('all')
+  const [occasion, setOccasion] = useState('all')
   const [selIds, setSelIds] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
   const [bodyPose, setBodyPose] = useState<BodyPose | null>(null)
@@ -109,7 +129,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
   historyRef.current = history
   histIdxRef.current = histIdx
 
-  const filtered = garments.filter(g => !g.isWashing && matchG(g, filter))
+  const filtered = garments.filter(g => !g.isWashing && matchG(g, filter) && matchOccasion(g, occasion))
 
   const pushHistory = useCallback((next: Layer[]) => {
     const h = historyRef.current.slice(0, histIdxRef.current + 1)
@@ -542,6 +562,28 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     } catch { errorImpact(); setError('No se pudo descargar.') }
   }
 
+  const shareOutfit = async () => {
+    if (!bodyUrl || !bodyDim || layers.length === 0) return
+    try {
+      const dataUrl = await exportCanvas(bodyUrl, layers.map(l => ({
+        url: l.url, t: { x: l.x, y: l.y, width: l.w, height: l.h, rotation: l.rotation, opacity: l.opacity, flipX: l.flipX, flipY: l.flipY }
+      })), bodyDim.w, bodyDim.h, { transparent: false, mirror, resolution: 'hd' })
+      const res = await fetch(dataUrl); const blob = await res.blob()
+      const file = new File([blob], 'outfit.png', { type: 'image/png' })
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], text: 'Mira mi outfit en EstiloVivo!' })
+      } else {
+        const url = URL.createObjectURL(blob)
+        window.open(`https://wa.me/?text=Mira%20mi%20outfit!&media=${url}`, '_blank')
+        setTimeout(() => URL.revokeObjectURL(url), 5000)
+      }
+      successImpact()
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') return
+      errorImpact(); setError('No se pudo compartir.')
+    }
+  }
+
   const resetPos = () => {
     if (active < 0 || !bodyDim) return
     const p = autoPos(bodyPose, layers[active].garment.type, bodyDim.w, bodyDim.h)
@@ -653,6 +695,12 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
         {CATS.map(c => (
           <button key={c.k} onClick={() => setFilter(c.k)} className="px-2.5 py-1 rounded-full text-[10px] font-medium whitespace-nowrap"
             style={{ backgroundColor: filter === c.k ? 'var(--color-primary)' : 'var(--bg-card)', color: filter === c.k ? 'white' : 'var(--text-secondary)', border: `1px solid ${filter === c.k ? 'var(--color-primary)' : 'var(--border-light)'}` }}>{c.l}</button>
+        ))}
+      </div>
+      <div className="flex gap-1.5 px-4 mb-2 overflow-x-auto">
+        {OCCASIONS.map(o => (
+          <button key={o.k} onClick={() => setOccasion(o.k)} className="px-2.5 py-1 rounded-full text-[10px] font-medium whitespace-nowrap"
+            style={{ backgroundColor: occasion === o.k ? 'var(--color-primary)' : 'var(--bg-card)', color: occasion === o.k ? 'white' : 'var(--text-secondary)', border: `1px solid ${occasion === o.k ? 'var(--color-primary)' : 'var(--border-light)'}` }}>{o.icon} {o.l}</button>
         ))}
       </div>
       <div className="flex-1 overflow-y-auto px-4 pb-4">
@@ -1006,6 +1054,9 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
           </button>
           <button onClick={downloadImage} disabled={!bodyUrl || layers.length === 0} className="py-2.5 px-3 rounded-xl text-xs font-medium disabled:opacity-40" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }} title="Descargar imagen">
             <Download size={14} />
+          </button>
+          <button onClick={shareOutfit} disabled={!bodyUrl || layers.length === 0} className="py-2.5 px-3 rounded-xl text-xs font-medium disabled:opacity-40" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }} title="Compartir outfit">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
           </button>
           <button onClick={() => { if (!showNameInput) { setShowNameInput(true) } else { save(false) } }} disabled={!bodyUrl || layers.length === 0} className="py-2.5 px-3 rounded-xl text-xs font-semibold text-white disabled:opacity-40" style={{ backgroundColor: 'var(--color-primary)' }}><Save size={12} /></button>
           <button onClick={() => { setLookName(''); save(true) }} disabled={!bodyUrl || layers.length === 0} className="py-2.5 px-3 rounded-xl text-[10px] font-medium disabled:opacity-40" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }} title="Guardar sin fondo">PNG</button>
