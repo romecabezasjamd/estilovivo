@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { X, Camera, Image, RotateCcw, Save, ChevronUp, ChevronDown, SlidersHorizontal, Undo2, Redo2, Magnet, ChevronLeft, ChevronRight } from 'lucide-react'
+import { X, Camera, Image, RotateCcw, Save, ChevronUp, ChevronDown, SlidersHorizontal, Undo2, Redo2, Magnet, Moon, Sun, ZoomIn, ZoomOut, Columns } from 'lucide-react'
 import type { Garment } from '../types'
 import { removeBg, exportCanvas, type GarmentTransform, type ExportResolution } from '../src/utils/tryOnEngine'
 import { detectBodyPose, smartAutoPlace, type BodyPose } from '../src/utils/poseDetection'
@@ -92,6 +92,11 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
   const [comparePos, setComparePos] = useState(50)
   const [snapEnabled, setSnapEnabled] = useState(true)
   const [exportRes, setExportRes] = useState<ExportResolution>('hd')
+  const [darkBg, setDarkBg] = useState(false)
+  const [zoom, setZoom] = useState(1)
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const [savedLook, setSavedLook] = useState<{ layers: Layer[]; bodyUrl: string } | null>(null)
+  const [compareView, setCompareView] = useState(false)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const layersRef = useRef<Layer[]>([])
@@ -377,6 +382,80 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     }
   }, [step, getScale, screenToNatural, updateLayer, snapEnabled, bodyDim, bodyPose, pushHistory])
 
+  // ─── Zoom/pan handlers (container-level) ──────────────────────
+  const pinchRef = useRef({ dist: 0, zoom: 1 })
+  const lastTapRef = useRef(0)
+  const panStartRef = useRef({ x: 0, y: 0, px: 0, py: 0 })
+
+  useEffect(() => {
+    if (step !== 'tryon' || !containerRef.current) return
+    const el = containerRef.current
+
+    const onTouchStart = (e: TouchEvent) => {
+      const target = e.target as HTMLElement
+      const onGarment = target?.closest('[data-garment]') || target?.closest('[data-handle]')
+
+      if (e.touches.length === 2 && !onGarment) {
+        e.preventDefault()
+        const t0 = e.touches[0], t1 = e.touches[1]
+        pinchRef.current = { dist: Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY), zoom }
+      } else if (e.touches.length === 1 && !onGarment) {
+        const now = Date.now()
+        if (now - lastTapRef.current < 300) {
+          e.preventDefault()
+          lastTapRef.current = 0
+          if (zoom > 1) { setZoom(1); setPan({ x: 0, y: 0 }) }
+          else { setZoom(2); setPan({ x: 0, y: 0 }) }
+          return
+        }
+        lastTapRef.current = now
+        if (zoom > 1) {
+          panStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, px: pan.x, py: pan.y }
+        }
+      }
+    }
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && pinchRef.current.dist > 0) {
+        e.preventDefault()
+        const t0 = e.touches[0], t1 = e.touches[1]
+        const d = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY)
+        const newZoom = Math.min(3, Math.max(1, pinchRef.current.zoom * (d / pinchRef.current.dist)))
+        setZoom(newZoom)
+        if (newZoom <= 1) setPan({ x: 0, y: 0 })
+      } else if (e.touches.length === 1 && zoom > 1 && gesture.current.mode === 'idle' && !(e.target as HTMLElement)?.closest?.('[data-garment]')) {
+        const dx = e.touches[0].clientX - panStartRef.current.x
+        const dy = e.touches[0].clientY - panStartRef.current.y
+        setPan({ x: panStartRef.current.px + dx / zoom, y: panStartRef.current.py + dy / zoom })
+      }
+    }
+
+    const onTouchEnd = () => { pinchRef.current.dist = 0 }
+
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault()
+        const delta = e.deltaY > 0 ? 0.9 : 1.1
+        setZoom(z => {
+          const nz = Math.min(3, Math.max(1, z * delta))
+          if (nz <= 1) setPan({ x: 0, y: 0 })
+          return nz
+        })
+      }
+    }
+
+    el.addEventListener('touchstart', onTouchStart, { passive: false })
+    el.addEventListener('touchmove', onTouchMove, { passive: false })
+    el.addEventListener('touchend', onTouchEnd)
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart)
+      el.removeEventListener('touchmove', onTouchMove)
+      el.removeEventListener('touchend', onTouchEnd)
+      el.removeEventListener('wheel', onWheel)
+    }
+  }, [step, zoom, pan])
+
   const pick = async (src: CameraSource) => {
     try {
       setError(null)
@@ -620,7 +699,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     return (
       <div className="flex-1 flex flex-col overflow-hidden">
         <div ref={containerRef} onClick={onCanvasClick}
-          className="flex-1 mx-3 my-2 rounded-xl overflow-hidden relative bg-gray-100"
+          className={`flex-1 mx-3 my-2 rounded-xl overflow-hidden relative ${darkBg ? 'bg-gray-900' : 'bg-gray-100'}`}
           style={{ border: '1px solid var(--border-light)' }}>
           {bodyUrl && bodyDim && (() => {
             const cW = containerRef.current?.clientWidth || 300
@@ -631,11 +710,11 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
             if (cAspect > bAspect) { rH = cH; rW = cH * bAspect } else { rW = cW; rH = cW / bAspect }
             const oX = (cW - rW) / 2, oY = (cH - rH) / 2
             return (
-              <div className="absolute" style={{ left: oX, top: oY, width: rW, height: rH }}>
+              <div className="absolute" style={{ left: oX, top: oY, width: rW, height: rH, transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`, transformOrigin: 'center center', transition: 'transform 0.1s ease-out' }}>
                 <img src={bodyUrl} className="w-full h-full pointer-events-none" draggable={false}
                   style={{ transform: mirror ? 'scaleX(-1)' : undefined }} />
                 {layers.map((l, i) => (
-                  <img key={l.id} src={l.url} draggable={false}
+                  <img key={l.id} src={l.url} draggable={false} data-garment="1"
                     onMouseDown={e => onGarmentDown(e, i)}
                     onTouchStart={e => onGarmentTouch(e, i)}
                     className="absolute pointer-events-auto"
@@ -795,6 +874,10 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
           <button onClick={undo} disabled={histIdx <= 0} className="p-1.5 rounded-lg disabled:opacity-30" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }} title="Deshacer (Ctrl+Z)"><Undo2 size={12} style={{ color: 'var(--text-secondary)' }} /></button>
           <button onClick={redo} disabled={histIdx >= history.length - 1} className="p-1.5 rounded-lg disabled:opacity-30" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }} title="Rehacer (Ctrl+Shift+Z)"><Redo2 size={12} style={{ color: 'var(--text-secondary)' }} /></button>
           <button onClick={() => setSnapEnabled(!snapEnabled)} className="p-1.5 rounded-lg" style={{ backgroundColor: snapEnabled ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: snapEnabled ? 'white' : 'var(--text-secondary)' }} title="Snap al cuerpo"><Magnet size={12} /></button>
+          <button onClick={() => { setDarkBg(!darkBg); setZoom(1); setPan({ x: 0, y: 0 }) }} className="p-1.5 rounded-lg" style={{ backgroundColor: darkBg ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: darkBg ? 'white' : 'var(--text-secondary)' }} title={darkBg ? 'Fondo claro' : 'Fondo oscuro'}>{darkBg ? <Sun size={12} /> : <Moon size={12} />}</button>
+          {zoom > 1 && <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }) }} className="p-1.5 rounded-lg" style={{ backgroundColor: 'var(--color-primary)', border: '1px solid var(--color-primary)', color: 'white' }} title="Reset zoom"><ZoomOut size={12} /></button>}
+          {zoom > 1 && <span className="px-1.5 py-0.5 rounded-lg text-[9px] font-medium" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>{Math.round(zoom * 100)}%</span>}
+          <button onClick={() => { if (savedLook) { setCompareView(true) } else { setSavedLook({ layers: layers.map(l => ({ ...l })), bodyUrl: bodyUrl! }); successImpact() } }} className="p-1.5 rounded-lg" style={{ backgroundColor: savedLook ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: savedLook ? 'white' : 'var(--text-secondary)' }} title={savedLook ? 'Comparar looks' : 'Guardar Look A'}><Columns size={12} /></button>
           <div className="flex-1" />
           {RES_OPTIONS.map(r => (
             <button key={r.k} onClick={() => setExportRes(r.k)} className="px-2 py-1 rounded-lg text-[9px] font-medium" style={{ backgroundColor: exportRes === r.k ? 'var(--color-primary)' : 'var(--bg-card)', border: `1px solid ${exportRes === r.k ? 'var(--color-primary)' : 'var(--border-light)'}`, color: exportRes === r.k ? 'white' : 'var(--text-secondary)' }} title={r.desc}>{r.l}</button>
@@ -815,6 +898,45 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
           </button>
           <button onClick={() => save(false)} disabled={!bodyUrl || layers.length === 0} className="py-2.5 px-3 rounded-xl text-xs font-semibold text-white disabled:opacity-40" style={{ backgroundColor: 'var(--color-primary)' }}><Save size={12} /></button>
           <button onClick={() => save(true)} disabled={!bodyUrl || layers.length === 0} className="py-2.5 px-3 rounded-xl text-[10px] font-medium disabled:opacity-40" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }} title="Guardar sin fondo">PNG</button>
+        </div>
+      </div>
+    )
+  }
+
+  const SCompare = () => {
+    if (!savedLook || !bodyUrl || !bodyDim) return null
+    const pct = (v: number, base: number) => `${(v / (base || 1)) * 100}%`
+    const renderLook = (lookLayers: Layer[], mirrorLook: boolean) => (
+      <div className="flex-1 relative overflow-hidden bg-gray-100">
+        <img src={bodyUrl} className="w-full h-full object-contain pointer-events-none" draggable={false}
+          style={{ transform: mirrorLook ? 'scaleX(-1)' : undefined }} />
+        {lookLayers.map((l) => (
+          <img key={l.id} src={l.url} draggable={false} className="absolute pointer-events-none"
+            style={{
+              left: pct(l.x, bodyDim.w), top: pct(l.y, bodyDim.h),
+              width: pct(l.w, bodyDim.w), height: pct(l.h, bodyDim.h),
+              transform: `rotate(${l.rotation}deg) scaleX(${l.flipX ? -1 : 1}) scaleY(${l.flipY ? -1 : 1})`,
+              opacity: l.opacity,
+              filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))',
+            }}
+          />
+        ))}
+      </div>
+    )
+    return (
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex gap-0.5 mx-3 my-2 rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-light)' }}>
+          {renderLook(savedLook.layers, mirror)}
+          <div className="w-0.5 bg-white z-10" />
+          {renderLook(layers, mirror)}
+        </div>
+        <div className="px-3 mb-1 flex items-center gap-2">
+          <div className="flex-1 text-center text-[10px] font-medium py-1 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>Look A (guardado)</div>
+          <div className="flex-1 text-center text-[10px] font-medium py-1 rounded-lg" style={{ backgroundColor: 'var(--color-primary)', border: '1px solid var(--color-primary)', color: 'white' }}>Look B (actual)</div>
+        </div>
+        <div className="flex gap-2 p-3 border-t" style={{ borderColor: 'var(--border-light)' }}>
+          <button onClick={() => setCompareView(false)} className="flex-1 py-2.5 rounded-xl text-xs font-medium" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>Volver</button>
+          <button onClick={() => { setCompareView(false); setSavedLook(null) }} className="flex-1 py-2.5 rounded-xl text-xs font-semibold text-white" style={{ backgroundColor: 'var(--color-primary)' }}>Confirmar</button>
         </div>
       </div>
     )
@@ -850,7 +972,8 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
       {step === 'guide' && <SGuide />}
       {step === 'photo' && <SPhoto />}
       {step === 'select' && <SSelect />}
-      {step === 'tryon' && <STryon />}
+      {step === 'tryon' && !compareView && <STryon />}
+      {step === 'tryon' && compareView && <SCompare />}
       {step === 'saving' && <SSaving />}
       {step === 'saved' && <SSaved />}
     </div>
