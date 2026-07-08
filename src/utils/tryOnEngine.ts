@@ -38,26 +38,16 @@ function loadImg(src: string): Promise<HTMLImageElement> {
   })
 }
 
-function fitDraw(ctx: CanvasRenderingContext2D, img: HTMLImageElement, cw: number, ch: number) {
-  const ratio = Math.min(cw / img.naturalWidth, ch / img.naturalHeight)
-  const w = img.naturalWidth * ratio
-  const h = img.naturalHeight * ratio
-  const x = (cw - w) / 2
-  const y = (ch - h) / 2
-  ctx.drawImage(img, x, y, w, h)
-  return { x, y, w, h, ratio }
-}
-
 export type ExportResolution = 'hd' | '2k' | 'full'
 
-function getExportSize(displayW: number, displayH: number, res: ExportResolution): { ew: number; eh: number; scale: number } {
+function getExportSize(displayW: number, displayH: number, res: ExportResolution): { ew: number; eh: number } {
   const maxDim = Math.max(displayW, displayH)
   let target: number
   if (res === '2k') target = 2400
   else if (res === 'full') target = maxDim
   else target = 1200
   const scale = Math.max(1, target / maxDim)
-  return { ew: Math.round(displayW * scale), eh: Math.round(displayH * scale), scale }
+  return { ew: Math.round(displayW * scale), eh: Math.round(displayH * scale) }
 }
 
 function drawContactShadow(ctx: CanvasRenderingContext2D, sx: number, sy: number, sw: number, sh: number, rotation: number) {
@@ -85,7 +75,7 @@ export async function exportCanvas(
 ): Promise<string> {
   const body = await loadImg(bodyUrl)
   const res = options?.resolution || 'hd'
-  const { ew, eh, scale } = getExportSize(displayW, displayH, res)
+  const { ew, eh } = getExportSize(displayW, displayH, res)
 
   const c = document.createElement('canvas')
   c.width = ew
@@ -97,41 +87,53 @@ export async function exportCanvas(
     ctx.fillRect(0, 0, ew, eh)
   }
 
+  const sx = ew / displayW
+  const sy = eh / displayH
+
   ctx.save()
   if (options?.mirror) {
     ctx.translate(ew, 0)
-    ctx.scale(-1, 1)
+    ctx.scale(-sx, sy)
+  } else {
+    ctx.scale(sx, sy)
   }
-  fitDraw(ctx, body, ew, eh)
-  ctx.restore()
 
-  for (const g of garments) {
-    try {
-      const img = await loadImg(g.url)
-      const sx = g.t.x * scale
-      const sy = g.t.y * scale
-      const sw = g.t.width * scale
-      const sh = g.t.height * scale
+  ctx.drawImage(body, 0, 0, displayW, displayH)
 
-      if (!options?.transparent) {
-        drawContactShadow(ctx, sx, sy, sw, sh, g.t.rotation)
-      }
-
-      ctx.save()
-      if (!options?.transparent) {
+  if (!options?.transparent) {
+    for (const g of garments) {
+      try {
+        const img = await loadImg(g.url)
+        drawContactShadow(ctx, g.t.x, g.t.y, g.t.width, g.t.height, g.t.rotation)
+        ctx.save()
         ctx.shadowColor = 'rgba(0,0,0,0.15)'
-        ctx.shadowBlur = Math.max(3, sw * 0.02)
+        ctx.shadowBlur = Math.max(3, g.t.width * 0.02)
         ctx.shadowOffsetX = 0
-        ctx.shadowOffsetY = Math.max(2, sh * 0.015)
-      }
-      ctx.translate(sx + sw / 2, sy + sh / 2)
-      ctx.rotate((g.t.rotation * Math.PI) / 180)
-      ctx.scale(g.t.flipX ? -1 : 1, g.t.flipY ? -1 : 1)
-      ctx.globalAlpha = g.t.opacity
-      ctx.drawImage(img, -sw / 2, -sh / 2, sw, sh)
-      ctx.restore()
-    } catch {}
+        ctx.shadowOffsetY = Math.max(2, g.t.height * 0.015)
+        ctx.translate(g.t.x + g.t.width / 2, g.t.y + g.t.height / 2)
+        ctx.rotate((g.t.rotation * Math.PI) / 180)
+        ctx.scale(g.t.flipX ? -1 : 1, g.t.flipY ? -1 : 1)
+        ctx.globalAlpha = g.t.opacity
+        ctx.drawImage(img, -g.t.width / 2, -g.t.height / 2, g.t.width, g.t.height)
+        ctx.restore()
+      } catch {}
+    }
+  } else {
+    for (const g of garments) {
+      try {
+        const img = await loadImg(g.url)
+        ctx.save()
+        ctx.translate(g.t.x + g.t.width / 2, g.t.y + g.t.height / 2)
+        ctx.rotate((g.t.rotation * Math.PI) / 180)
+        ctx.scale(g.t.flipX ? -1 : 1, g.t.flipY ? -1 : 1)
+        ctx.globalAlpha = g.t.opacity
+        ctx.drawImage(img, -g.t.width / 2, -g.t.height / 2, g.t.width, g.t.height)
+        ctx.restore()
+      } catch {}
+    }
   }
+
+  ctx.restore()
   return c.toDataURL('image/png')
 }
 

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { X, Camera, Image, RotateCcw, Save, ChevronUp, ChevronDown, SlidersHorizontal, Undo2, Redo2, Magnet, Moon, Sun, ZoomIn, ZoomOut, Columns } from 'lucide-react'
+import { X, Camera, Image, RotateCcw, Save, ChevronUp, ChevronDown, SlidersHorizontal, Undo2, Redo2, Moon, Sun, ZoomIn, ZoomOut, Columns } from 'lucide-react'
 import type { Garment } from '../types'
 import { removeBg, exportCanvas, type GarmentTransform, type ExportResolution } from '../src/utils/tryOnEngine'
 import { detectBodyPose, smartAutoPlace, type BodyPose } from '../src/utils/poseDetection'
@@ -60,19 +60,6 @@ function autoPos(pose: BodyPose | null, type: string, pw: number, ph: number): {
   return r
 }
 
-function snapToBody(l: Layer, bodyDim: { w: number; h: number }, pose: BodyPose | null): Partial<Layer> {
-  const cx = (bodyDim.w - l.w) / 2
-  const dist = Math.abs(l.x - cx)
-  if (dist > bodyDim.w * 0.3) return {}
-  const t = l.garment.type.toLowerCase()
-  const ideal = autoPos(pose, l.garment.type, bodyDim.w, bodyDim.h)
-  const snapStrength = 0.6
-  return {
-    x: l.x + (cx - l.x) * snapStrength,
-    y: l.y + (ideal.y + (ideal.h - l.h) / 2 - l.y) * snapStrength * 0.5,
-  }
-}
-
 const MAX_HISTORY = 50
 
 export default function VirtualTryOn({ garments, onClose }: Props) {
@@ -90,7 +77,6 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
   const [mirror, setMirror] = useState(false)
   const [compareMode, setCompareMode] = useState(false)
   const [comparePos, setComparePos] = useState(50)
-  const [snapEnabled, setSnapEnabled] = useState(true)
   const [exportRes, setExportRes] = useState<ExportResolution>('hd')
   const [darkBg, setDarkBg] = useState(false)
   const [zoom, setZoom] = useState(1)
@@ -255,20 +241,6 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     }
 
     const onMU = () => {
-      if (g.mode === 'drag' && g.dragIdx >= 0 && snapEnabled && bodyDim) {
-        const ls = layersRef.current
-        const l = ls[g.dragIdx]
-        if (l && g.wasDragged) {
-          const snap = snapToBody(l, bodyDim, bodyPose)
-          if (Object.keys(snap).length > 0) {
-            const newL = { ...l, ...snap }
-            const newLayers = ls.map((layer, i) => i === g.dragIdx ? newL : layer)
-            setLayers(newLayers)
-            layersRef.current = newLayers
-            pushHistory(newLayers)
-          }
-        }
-      }
       if (g.wasDragged && g.dragIdx >= 0) {
         pushHistory(layersRef.current)
       }
@@ -334,20 +306,6 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     }
 
     const onTE = () => {
-      if (g.mode === 'drag' && g.dragIdx >= 0 && snapEnabled && bodyDim) {
-        const ls = layersRef.current
-        const l = ls[g.dragIdx]
-        if (l && g.wasDragged) {
-          const snap = snapToBody(l, bodyDim, bodyPose)
-          if (Object.keys(snap).length > 0) {
-            const newL = { ...l, ...snap }
-            const newLayers = ls.map((layer, i) => i === g.dragIdx ? newL : layer)
-            setLayers(newLayers)
-            layersRef.current = newLayers
-            pushHistory(newLayers)
-          }
-        }
-      }
       if (g.wasDragged && g.dragIdx >= 0) {
         pushHistory(layersRef.current)
       }
@@ -380,7 +338,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
       window.removeEventListener('touchend', onTE)
       window.removeEventListener('wheel', onW)
     }
-  }, [step, getScale, screenToNatural, updateLayer, snapEnabled, bodyDim, bodyPose, pushHistory])
+  }, [step, getScale, screenToNatural, updateLayer, bodyDim, bodyPose, pushHistory])
 
   // ─── Zoom/pan handlers (container-level) ──────────────────────
   const pinchRef = useRef({ dist: 0, zoom: 1 })
@@ -864,16 +822,17 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
               <button onClick={() => updateLayer(active, { flipY: !cur.flipY })} className="p-1.5 rounded-lg" style={{ backgroundColor: cur.flipY ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: cur.flipY ? 'white' : 'var(--text-secondary)' }} title="Voltear vertical">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 8V5a2 2 0 012-2h14a2 2 0 012 2v3M3 16v3a2 2 0 002 2h14a2 2 0 002-2v-3M4 12h16"/></svg>
               </button>
-              <div className="flex-1" />
-              <button onClick={() => setStep('select')} className="px-2 py-1 rounded-lg text-[10px] font-medium" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>+ Mas prendas</button>
             </div>
           </div>
         )}
 
+        <div className="px-3 mb-1">
+          <button onClick={() => setStep('select')} className="w-full py-2 rounded-xl text-[10px] font-medium" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>+ Mas prendas</button>
+        </div>
+
         <div className="flex gap-1.5 px-3 mb-1">
           <button onClick={undo} disabled={histIdx <= 0} className="p-1.5 rounded-lg disabled:opacity-30" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }} title="Deshacer (Ctrl+Z)"><Undo2 size={12} style={{ color: 'var(--text-secondary)' }} /></button>
           <button onClick={redo} disabled={histIdx >= history.length - 1} className="p-1.5 rounded-lg disabled:opacity-30" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }} title="Rehacer (Ctrl+Shift+Z)"><Redo2 size={12} style={{ color: 'var(--text-secondary)' }} /></button>
-          <button onClick={() => setSnapEnabled(!snapEnabled)} className="p-1.5 rounded-lg" style={{ backgroundColor: snapEnabled ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: snapEnabled ? 'white' : 'var(--text-secondary)' }} title="Snap al cuerpo"><Magnet size={12} /></button>
           <button onClick={() => { setDarkBg(!darkBg); setZoom(1); setPan({ x: 0, y: 0 }) }} className="p-1.5 rounded-lg" style={{ backgroundColor: darkBg ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: darkBg ? 'white' : 'var(--text-secondary)' }} title={darkBg ? 'Fondo claro' : 'Fondo oscuro'}>{darkBg ? <Sun size={12} /> : <Moon size={12} />}</button>
           {zoom > 1 && <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }) }} className="p-1.5 rounded-lg" style={{ backgroundColor: 'var(--color-primary)', border: '1px solid var(--color-primary)', color: 'white' }} title="Reset zoom"><ZoomOut size={12} /></button>}
           {zoom > 1 && <span className="px-1.5 py-0.5 rounded-lg text-[9px] font-medium" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>{Math.round(zoom * 100)}%</span>}
