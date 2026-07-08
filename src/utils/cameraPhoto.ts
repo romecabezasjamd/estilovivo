@@ -1,6 +1,11 @@
+import { Capacitor } from '@capacitor/core';
+import { Camera, CameraResultType, CameraSource as CapCameraSource } from '@capacitor/camera';
+
 export type CameraSourceType = 'camera' | 'gallery';
 export const CameraSource = { Camera: 'camera' as const, Photos: 'gallery' as const };
 export type CameraSource = (typeof CameraSource)[keyof typeof CameraSource];
+
+const isNative = () => Capacitor.isNativePlatform();
 
 export const createFileInput = (accept: string = 'image/*'): HTMLInputElement => {
   const existing = document.getElementById('__ev_file_input') as HTMLInputElement;
@@ -38,6 +43,19 @@ export const readFileAsDataUrl = (file: File): Promise<string> => {
   });
 };
 
+const pickPhotoNative = async (source: 'camera' | 'gallery'): Promise<{ dataUrl: string; file: File }> => {
+  const photo = await Camera.getPhoto({
+    quality: 95,
+    width: 1024,
+    resultType: CameraResultType.DataUrl,
+    source: source === 'camera' ? CapCameraSource.Camera : CapCameraSource.Photos,
+    correctOrientation: true,
+  });
+  if (!photo.dataUrl) throw new Error('No se obtuvo la imagen.');
+  const file = dataUrlToFile(photo.dataUrl, `photo_${Date.now()}.jpg`);
+  return { dataUrl: photo.dataUrl, file };
+};
+
 export const pickPhotoFromFileInput = (capture?: boolean): Promise<{ dataUrl: string; file: File }> => {
   return new Promise((resolve, reject) => {
     const input = createFileInput('image/*');
@@ -66,5 +84,6 @@ export const pickPhotoFromFileInput = (capture?: boolean): Promise<{ dataUrl: st
 };
 
 export const pickPhoto = async (source: 'camera' | 'gallery'): Promise<{ dataUrl: string; file: File }> => {
+  if (isNative()) return pickPhotoNative(source);
   return pickPhotoFromFileInput(source === 'camera');
 };
