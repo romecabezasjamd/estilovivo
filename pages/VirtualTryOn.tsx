@@ -119,10 +119,11 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
 
   const [photoList, setPhotoList] = useState<string[]>([])
 
-  const [presets, setPresets] = useState<Array<{ id: string; name: string; thumbnail: string; layers: Layer[] }>>(() => {
+  const [presets, setPresets] = useState<Array<{ id: string; name: string; thumbnail: string; layers: Layer[]; rating?: number }>>(() => {
     try { return JSON.parse(localStorage.getItem('tryon_presets') || '[]') } catch { return [] }
   })
   const [showPresets, setShowPresets] = useState(false)
+  const [savingRating, setSavingRating] = useState(0)
 
   const [collections, setCollections] = useState<Array<{ id: string; name: string; presetIds: string[] }>>(() => {
     try { return JSON.parse(localStorage.getItem('tryon_collections') || '[]') } catch { return [] }
@@ -591,6 +592,22 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     }
   }
 
+  const shareToSocial = async () => {
+    if (!bodyUrl || !bodyDim || layers.length === 0) return
+    try {
+      const dataUrl = await exportCanvas(bodyUrl, layers.map(l => ({
+        url: l.url, t: { x: l.x, y: l.y, width: l.w, height: l.h, rotation: l.rotation, opacity: l.opacity, flipX: l.flipX, flipY: l.flipY }
+      })), bodyDim.w, bodyDim.h, { transparent: false, mirror, resolution: 'hd' })
+      const res = await fetch(dataUrl); const blob = await res.blob()
+      const name = lookName.trim() || `Look ${Date.now()}`
+      const garmentIds = layers.map(l => l.garment.id)
+      await api.saveLookWithImage(name, garmentIds, blob)
+      successImpact()
+      setError(null)
+      setStep('saved')
+    } catch { errorImpact(); setError('No se pudo compartir en social.') }
+  }
+
   const resetPos = () => {
     if (active < 0 || !bodyDim) return
     const p = autoPos(bodyPose, layers[active].garment.type, bodyDim.w, bodyDim.h)
@@ -612,10 +629,11 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
       if (bAspect > 120 / 160) { dh = 120 / bAspect } else { dw = 160 * bAspect }
       ctx.drawImage(img, (120 - dw) / 2, (160 - dh) / 2, dw, dh)
       const thumbnail = canvas.toDataURL('image/jpeg', 0.6)
-      const preset = { id: `preset_${Date.now()}`, name, thumbnail, layers: layers.map(l => ({ ...l })) }
+      const preset = { id: `preset_${Date.now()}`, name, thumbnail, layers: layers.map(l => ({ ...l })), rating: savingRating || undefined }
       const next = [...presets, preset]
       setPresets(next)
       localStorage.setItem('tryon_presets', JSON.stringify(next))
+      setSavingRating(0)
       successImpact()
     }
     img.src = bodyUrl
@@ -1069,6 +1087,11 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
                     <button onClick={() => loadPreset(p)} className="block rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-light)' }}>
                       <img src={p.thumbnail} className="w-12 h-16 object-cover" />
                     </button>
+                    {p.rating && p.rating > 0 && (
+                      <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-center" style={{ fontSize: '6px' }}>
+                        {'⭐'.repeat(p.rating)}
+                      </div>
+                    )}
                     <button onClick={() => deletePreset(p.id)} className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ fontSize: '8px' }}>
                       <X size={8} />
                     </button>
@@ -1095,9 +1118,21 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
               </div>
             </div>
           )}
-          <button onClick={() => { if (layers.length > 0) { const name = lookName.trim() || `Look ${presets.length + 1}`; savePreset(name) } }} disabled={layers.length === 0} className="w-full py-1.5 rounded-xl text-[10px] font-medium disabled:opacity-40 mb-1.5" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>
-            {layers.length > 0 ? `Guardar como preset (${presets.length})` : 'Sin prendas para guardar'}
-          </button>
+          <div className="mb-1.5">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[9px] font-medium" style={{ color: 'var(--text-muted)' }}>¿Cuánto te gusta?</span>
+              <div className="flex gap-0.5">
+                {[1, 2, 3, 4, 5].map(star => (
+                  <button key={star} onClick={() => setSavingRating(savingRating === star ? 0 : star)} className="text-[12px]">
+                    {star <= savingRating ? '⭐' : '☆'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button onClick={() => { if (layers.length > 0) { const name = lookName.trim() || `Look ${presets.length + 1}`; savePreset(name) } }} disabled={layers.length === 0} className="w-full py-1.5 rounded-xl text-[10px] font-medium disabled:opacity-40" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>
+              {layers.length > 0 ? `Guardar como preset (${presets.length})` : 'Sin prendas para guardar'}
+            </button>
+          </div>
           {collections.length > 0 && (
             <div className="mb-1.5">
               <div className="flex items-center justify-between mb-1">
@@ -1189,6 +1224,9 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
           </button>
           <button onClick={shareOutfit} disabled={!bodyUrl || layers.length === 0} className="py-2.5 px-3 rounded-xl text-xs font-medium disabled:opacity-40" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }} title="Compartir outfit">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          </button>
+          <button onClick={shareToSocial} disabled={!bodyUrl || layers.length === 0} className="py-2.5 px-3 rounded-xl text-xs font-medium disabled:opacity-40" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }} title="Compartir en social">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
           </button>
           <button onClick={() => { if (!showNameInput) { setShowNameInput(true) } else { save(false) } }} disabled={!bodyUrl || layers.length === 0} className="py-2.5 px-3 rounded-xl text-xs font-semibold text-white disabled:opacity-40" style={{ backgroundColor: 'var(--color-primary)' }}><Save size={12} /></button>
           <button onClick={() => { setLookName(''); save(true) }} disabled={!bodyUrl || layers.length === 0} className="py-2.5 px-3 rounded-xl text-[10px] font-medium disabled:opacity-40" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }} title="Guardar sin fondo">PNG</button>
