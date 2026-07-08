@@ -549,22 +549,6 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     pushHistory(layersRef.current)
   }
 
-  const duplicateLayer = () => {
-    if (active < 0 || active >= layers.length) return
-    const src = layers[active]
-    const dup: Layer = { ...src, id: `l_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, x: src.x + 20, y: src.y + 20 }
-    setLayers(p => { const arr = [...p]; arr.splice(active + 1, 0, dup); pushHistory(arr); return arr })
-    setActive(active + 1); activeRef.current = active + 1
-    successImpact()
-  }
-
-  const centerGarment = () => {
-    if (active < 0 || !bodyDim) return
-    const l = layers[active]
-    updateLayer(active, { x: (bodyDim.w - l.w) / 2, y: (bodyDim.h - l.h) / 2 })
-    pushHistory(layersRef.current)
-  }
-
   const savePreset = (name: string) => {
     if (!bodyUrl || layers.length === 0) return
     const canvas = document.createElement('canvas')
@@ -905,12 +889,6 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
             </div>
             <div className="flex items-center gap-1 mt-2">
               <button onClick={resetPos} className="p-1.5 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }} title="Reset posición"><RotateCcw size={12} style={{ color: 'var(--text-secondary)' }} /></button>
-              <button onClick={centerGarment} className="p-1.5 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }} title="Centrar en cuerpo">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
-              </button>
-              <button onClick={duplicateLayer} className="p-1.5 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }} title="Duplicar capa">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2h2"/></svg>
-              </button>
               <button onClick={() => updateLayer(active, { flipX: !cur.flipX })} className="p-1.5 rounded-lg" style={{ backgroundColor: cur.flipX ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: cur.flipX ? 'white' : 'var(--text-secondary)' }} title="Voltear horizontal">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3H5a2 2 0 00-2 2v14a2 2 0 002 2h3M16 3h3a2 2 0 012 2v14a2 2 0 01-2 2h-3M12 20V4"/></svg>
               </button>
