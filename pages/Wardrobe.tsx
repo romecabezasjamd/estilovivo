@@ -496,51 +496,52 @@ const Wardrobe: React.FC<WardrobeProps> = ({
   return (
     <div className="h-full flex flex-col relative bg-gray-50">
       {/* Top Section */}
-      <div className="bg-[var(--bg-card)] pb-2 pt-6 sticky top-0 z-20 shadow-sm rounded-b-3xl mb-4">
-        <div className="flex justify-between items-center px-6 mb-4">
-          {searchOpen ? (
-            <div className="flex-1 flex items-center gap-2">
-              <button onClick={toggleSearch}>
-                <ArrowLeft size={20} className="text-[var(--text-secondary)]" />
-              </button>
+      <div className="bg-[var(--bg-card)] pb-3 pt-6 sticky top-0 z-20 shadow-sm rounded-b-3xl mb-4">
+        <div className="px-6 mb-3">
+          <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-3">{t('wardrobe')}</h1>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 flex items-center bg-gray-50 rounded-full px-4 py-2">
+              <Search size={16} className="text-[var(--text-muted)] mr-2 shrink-0" />
               <input
                 ref={searchRef}
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Buscar prenda, color, marca..."
-                className="flex-1 bg-gray-50 rounded-full px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                className="flex-1 bg-transparent text-sm outline-none"
               />
               {searchQuery && (
                 <button onClick={() => setSearchQuery('')}>
-                  <X size={18} className="text-[var(--text-muted)]" />
+                  <X size={16} className="text-[var(--text-muted)]" />
                 </button>
               )}
             </div>
-          ) : (
-            <>
-              <h1 className="text-2xl font-bold text-[var(--text-primary)]">{t('wardrobe')}</h1>
-              {activeView === 'closet' && (
-                <div className="flex space-x-2">
-                  <button
-                    onClick={toggleSearch}
-                    className="p-2 bg-gray-50 rounded-full border border-[var(--border-light)] text-[var(--text-secondary)] hover:bg-gray-100 transition"
-                  >
-                    <Search size={20} />
-                  </button>
-                  <button
-                    onClick={() => setFilterPanelOpen(!filterPanelOpen)}
-                    className={`p-2 rounded-full border transition ${filterPanelOpen || seasonFilter !== 'all' || sortBy !== 'recent'
-                      ? 'bg-primary/10 border-primary/20 text-primary'
-                      : 'bg-gray-50 border-[var(--border-light)] text-[var(--text-secondary)] hover:bg-gray-100'
-                      }`}
-                  >
-                    <SlidersHorizontal size={20} />
-                  </button>
-                </div>
-              )}
-            </>
-          )}
+            <button
+              onClick={() => setFilterPanelOpen(!filterPanelOpen)}
+              className={`p-2.5 rounded-full border transition ${filterPanelOpen || seasonFilter !== 'all' || sortBy !== 'recent'
+                ? 'bg-primary/10 border-primary/20 text-primary'
+                : 'bg-gray-50 border-[var(--border-light)] text-[var(--text-secondary)] hover:bg-gray-100'
+                }`}
+            >
+              <SlidersHorizontal size={18} />
+            </button>
+          </div>
         </div>
+        {activeView === 'closet' && (
+          <div className="px-6 mb-2">
+            <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+              {availableColors.slice(0, 8).map(c => (
+                <button
+                  key={c}
+                  onClick={() => setColorFilter(c)}
+                  className={`px-3 py-1 rounded-full text-[10px] font-medium whitespace-nowrap transition ${colorFilter === c ? 'bg-primary text-white' : 'bg-gray-100 text-[var(--text-secondary)]'
+                    }`}
+                >
+                  {c === 'all' ? 'Todos' : c}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Pill Selector */}
         <div className="px-6">
