@@ -20,7 +20,7 @@ import CycleDayMarker from '../src/components/CycleDayMarker';
 interface HomeProps {
   user: UserState;
   onMoodChange: (mood: string) => void;
-  onNavigate: (tab: string, subTab?: string) => void;
+  onNavigate: (tab: string, subTab?: string, date?: string) => void;
   plannerEntries: PlannerEntry[];
   looks: Look[];
   garments: Garment[];
@@ -255,8 +255,10 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
                   <CycleDayMarker />
                 </button>
               ) : (
-                <div
-                  className={`w-14 h-14 rounded-2xl border-2 flex items-center justify-center relative overflow-hidden ${
+                <button
+                  type="button"
+                  onClick={() => onNavigate('planner', undefined, day.date)}
+                  className={`w-14 h-14 rounded-2xl border-2 flex items-center justify-center relative overflow-hidden transition-all hover:scale-105 ${
                     day.isToday
                       ? 'border-accent shadow-md'
                       : day.lookImage
@@ -267,17 +269,11 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
                   {day.lookImage ? (
                     <img src={day.lookImage} className="w-full h-full object-cover" alt={day.lookName || 'Look'} loading="lazy" />
                   ) : day.isToday ? (
-                    <button
-                      type="button"
-                      onClick={() => onNavigate('planner')}
-                      className="w-full h-full flex items-center justify-center"
-                    >
-                      <span className="text-gray-300 text-[10px] text-center leading-none px-1">Planear</span>
-                    </button>
+                    <span className="text-gray-300 text-[10px] text-center leading-none px-1">Planear</span>
                   ) : (
                     <div className="w-2 h-2 rounded-full bg-gray-200" />
                   )}
-                </div>
+                </button>
               )}
             </div>
           ))}

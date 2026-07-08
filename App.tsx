@@ -20,8 +20,9 @@ const AppContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState('home');
   const [socialSubTab, setSocialSubTab] = useState<string | null>(null);
   const [wardrobeIntent, setWardrobeIntent] = useState<'looks' | 'createLook' | null>(null);
+  const [plannerDate, setPlannerDate] = useState<string | undefined>(undefined);
 
-  const handleNavigate = useCallback((tab: string, subTab?: string) => {
+  const handleNavigate = useCallback((tab: string, subTab?: string, extra?: string) => {
     const evt = new CustomEvent('profile-check-unsaved', { detail: { tab, subTab }, cancelable: true });
     window.dispatchEvent(evt);
     if (evt.defaultPrevented) return;
@@ -35,6 +36,11 @@ const AppContent: React.FC = () => {
       setSocialSubTab('chat');
       setActiveTab('social');
       return;
+    }
+    if (tab === 'planner' && extra) {
+      setPlannerDate(extra);
+    } else {
+      setPlannerDate(undefined);
     }
     const resolved = resolveNavigation(tab, subTab);
     setActiveTab(resolved.tab);
@@ -125,6 +131,7 @@ const AppContent: React.FC = () => {
             looks={looks}
             plannerEntries={planner}
             onUpdateEntry={updatePlannerEntry}
+            initialDate={plannerDate}
           />
         );
       case 'social':

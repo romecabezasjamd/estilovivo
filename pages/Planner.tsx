@@ -11,17 +11,18 @@ interface PlannerProps {
     looks: Look[];
     plannerEntries: PlannerEntry[];
     onUpdateEntry: (entry: PlannerEntry) => void;
+    initialDate?: string;
 }
 
-const Planner: React.FC<PlannerProps> = ({ looks, plannerEntries, onUpdateEntry }) => {
+const Planner: React.FC<PlannerProps> = ({ looks, plannerEntries, onUpdateEntry, initialDate }) => {
     const { t } = useLanguage();
     const [weekOffset, setWeekOffset] = useState(0);
     const [monthOffset, setMonthOffset] = useState(0);
-    const [selectedDate, setSelectedDate] = useState<string | null>(null);
+    const [selectedDate, setSelectedDate] = useState<string | null>(initialDate || null);
     const [eventNoteInput, setEventNoteInput] = useState('');
     const [editingNote, setEditingNote] = useState<string | null>(null);
-    const [viewMode, setViewMode] = useState<'monthly' | 'weekly' | 'daily'>('weekly');
-    const [dailyViewDate, setDailyViewDate] = useState('');
+    const [viewMode, setViewMode] = useState<'monthly' | 'weekly' | 'daily'>(initialDate ? 'daily' : 'weekly');
+    const [dailyViewDate, setDailyViewDate] = useState(initialDate || '');
     const [monthlyClickedDay, setMonthlyClickedDay] = useState<string | null>(null);
 
     const weekDays = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
