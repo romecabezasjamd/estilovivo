@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { X, Camera, Image, RotateCcw, Save, ChevronUp, ChevronDown, SlidersHorizontal, Undo2, Redo2, Moon, Sun, ZoomIn, ZoomOut, Columns, Lock, Unlock, Download } from 'lucide-react'
+import { X, Camera, Image, RotateCcw, Save, ChevronUp, ChevronDown, SlidersHorizontal, Undo2, Redo2, Moon, Sun, ZoomIn, ZoomOut, Columns, Lock, Unlock, Download, Layers, Eye, EyeOff, GripVertical } from 'lucide-react'
 import type { Garment } from '../types'
 import { removeBg, exportCanvas, type GarmentTransform, type ExportResolution } from '../src/utils/tryOnEngine'
 import { detectBodyPose, smartAutoPlace, type BodyPose } from '../src/utils/poseDetection'
@@ -86,6 +86,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
   const [compareView, setCompareView] = useState(false)
   const [lookName, setLookName] = useState('')
   const [showNameInput, setShowNameInput] = useState(false)
+  const [showLayers, setShowLayers] = useState(false)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const layersRef = useRef<Layer[]>([])
@@ -193,6 +194,18 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
   const updateLayer = useCallback((idx: number, patch: Partial<Layer>) => {
     setLayers(p => p.map((l, i) => i === idx ? { ...l, ...patch } : l))
   }, [])
+
+  const moveLayerUp = useCallback(() => {
+    if (active < 0 || active >= layers.length - 1) return
+    setLayers(p => { const arr = [...p]; [arr[active], arr[active + 1]] = [arr[active + 1], arr[active]]; return arr })
+    setActive(active + 1); activeRef.current = active + 1
+  }, [active, layers.length])
+
+  const moveLayerDown = useCallback(() => {
+    if (active <= 0) return
+    setLayers(p => { const arr = [...p]; [arr[active], arr[active - 1]] = [arr[active - 1], arr[active]]; return arr })
+    setActive(active - 1); activeRef.current = active - 1
+  }, [active])
 
   useEffect(() => {
     if (step !== 'tryon') return
@@ -814,35 +827,33 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
 
         {error && <div className="flex items-center gap-2 px-3 py-2 mx-3 mb-1 rounded-lg text-xs" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444' }}><X size={14} />{error}</div>}
 
-        {layers.length > 0 && (
-          <div className="px-3 mb-1">
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-              {layers.map((l, i) => (
-                <button key={l.id} onClick={() => { setActive(i); activeRef.current = i }}
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium whitespace-nowrap shrink-0"
-                  style={{ backgroundColor: active === i ? 'var(--color-primary)' : 'var(--bg-card)', color: active === i ? 'white' : 'var(--text-secondary)', border: `1px solid ${active === i ? 'var(--color-primary)' : 'var(--border-light)'}` }}>
-                  {l.garment.name}
-                  <span onClick={(e) => { e.stopPropagation(); removeLayer(i) }} className="ml-0.5 opacity-60 hover:opacity-100"><X size={10} /></span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
         {cur && (
-          <div className="px-3 mb-1 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-medium" style={{ color: 'var(--text-primary)' }}>{cur.garment.name}</span>
-              <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{Math.round(cur.opacity * 100)}%</span>
+          <div className="px-3 py-2 border-t" style={{ borderColor: 'var(--border-light)' }}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-medium truncate" style={{ color: 'var(--text-primary)' }}>{cur.garment.name}</p>
+                <p className="text-[9px] truncate" style={{ color: 'var(--text-muted)' }}>{cur.garment.brand || 'Sin marca'}</p>
+              </div>
+              <div className="flex gap-1">
+                {active > 0 && <button onClick={moveLayerDown} className="p-1 rounded" style={{ border: '1px solid var(--border-light)' }} title="Enviar atrás"><ChevronDown size={10} style={{ color: 'var(--text-secondary)' }} /></button>}
+                {active < layers.length - 1 && <button onClick={moveLayerUp} className="p-1 rounded" style={{ border: '1px solid var(--border-light)' }} title="Traer al frente"><ChevronUp size={10} style={{ color: 'var(--text-secondary)' }} /></button>}
+                <button onClick={() => updateLayer(active, { opacity: cur.opacity === 1 ? 0.5 : 1 })} className="p-1 rounded" style={{ border: '1px solid var(--border-light)' }} title="Opacidad">
+                  {cur.opacity === 1 ? <Eye size={10} style={{ color: 'var(--text-secondary)' }} /> : <EyeOff size={10} style={{ color: 'var(--color-primary)' }} />}
+                </button>
+                <button onClick={() => updateLayer(active, { locked: !cur.locked })} className="p-1 rounded" style={{ border: '1px solid var(--border-light)' }} title={cur.locked ? 'Desbloquear' : 'Bloquear'}>
+                  {cur.locked ? <Lock size={10} style={{ color: 'var(--color-primary)' }} /> : <Unlock size={10} style={{ color: 'var(--text-secondary)' }} />}
+                </button>
+              </div>
             </div>
             <div className="flex items-center gap-2">
-              <SlidersHorizontal size={12} style={{ color: 'var(--text-muted)' }} />
-              <input type="range" min="0.2" max="1" step="0.05" value={cur.opacity} onChange={e => updateOpacity(parseFloat(e.target.value))} className="flex-1 h-1 accent-[var(--color-primary)]" />
+              <span className="text-[9px]" style={{ color: 'var(--text-muted)' }}>Opacidad</span>
+              <input type="range" min="0.1" max="1" step="0.05" value={cur.opacity}
+                onChange={e => updateLayer(active, { opacity: parseFloat(e.target.value) })}
+                className="flex-1 h-1" style={{ accentColor: 'var(--color-primary)' }} />
+              <span className="text-[9px] w-6 text-right" style={{ color: 'var(--text-secondary)' }}>{Math.round(cur.opacity * 100)}%</span>
             </div>
-            <div className="flex items-center gap-1">
-              <button onClick={() => moveLayer(-1)} disabled={active === 0} className="p-1.5 rounded-lg disabled:opacity-30" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }}><ChevronUp size={12} style={{ color: 'var(--text-secondary)' }} /></button>
-              <button onClick={() => moveLayer(1)} disabled={active === layers.length - 1} className="p-1.5 rounded-lg disabled:opacity-30" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }}><ChevronDown size={12} style={{ color: 'var(--text-secondary)' }} /></button>
-              <button onClick={resetPos} className="p-1.5 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }}><RotateCcw size={12} style={{ color: 'var(--text-secondary)' }} /></button>
+            <div className="flex items-center gap-1 mt-2">
+              <button onClick={resetPos} className="p-1.5 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }} title="Reset posición"><RotateCcw size={12} style={{ color: 'var(--text-secondary)' }} /></button>
               <button onClick={() => updateLayer(active, { flipX: !cur.flipX })} className="p-1.5 rounded-lg" style={{ backgroundColor: cur.flipX ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: cur.flipX ? 'white' : 'var(--text-secondary)' }} title="Voltear horizontal">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3H5a2 2 0 00-2 2v14a2 2 0 002 2h3M16 3h3a2 2 0 012 2v14a2 2 0 01-2 2h-3M12 20V4"/></svg>
               </button>
@@ -853,7 +864,40 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
           </div>
         )}
 
-        <div className="px-3 mb-1">
+        <div className="px-3 py-1.5 border-t" style={{ borderColor: 'var(--border-light)' }}>
+          <button onClick={() => setShowLayers(!showLayers)} className="w-full flex items-center justify-between py-1.5">
+            <div className="flex items-center gap-1.5">
+              <Layers size={11} style={{ color: 'var(--text-secondary)' }} />
+              <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>Capas ({layers.length})</span>
+            </div>
+            <ChevronUp size={10} style={{ color: 'var(--text-secondary)', transform: showLayers ? 'rotate(0)' : 'rotate(180deg)', transition: 'transform 0.2s' }} />
+          </button>
+          {showLayers && (
+            <div className="max-h-32 overflow-y-auto mb-1 space-y-1">
+              {[...layers].reverse().map((l, ri) => {
+                const idx = layers.length - 1 - ri
+                return (
+                  <div key={l.id} onClick={() => { setActive(idx); activeRef.current = idx }}
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer"
+                    style={{ backgroundColor: idx === active ? 'rgba(255,77,148,0.1)' : 'transparent', border: idx === active ? '1px solid rgba(255,77,148,0.3)' : '1px solid transparent' }}>
+                    <GripVertical size={10} style={{ color: 'var(--text-muted)', cursor: 'grab' }} />
+                    <img src={l.url} className="w-6 h-6 rounded object-cover" style={{ border: '1px solid var(--border-light)' }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[9px] font-medium truncate" style={{ color: 'var(--text-primary)' }}>{l.garment.name}</p>
+                    </div>
+                    <div className="flex gap-0.5">
+                      <button onClick={e => { e.stopPropagation(); updateLayer(idx, { locked: !l.locked }) }} className="p-0.5">
+                        {l.locked ? <Lock size={8} style={{ color: 'var(--color-primary)' }} /> : <Unlock size={8} style={{ color: 'var(--text-muted)' }} />}
+                      </button>
+                      <button onClick={e => { e.stopPropagation(); setLayers(p => p.filter((_, i) => i !== idx)); if (active >= layers.length - 1) setActive(Math.max(0, layers.length - 2)) }} className="p-0.5">
+                        <X size={8} style={{ color: 'var(--text-muted)' }} />
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
           <button onClick={() => setStep('select')} className="w-full py-2 rounded-xl text-[10px] font-medium" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>+ Mas prendas</button>
         </div>
 
@@ -864,11 +908,6 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
           {zoom > 1 && <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }) }} className="p-1.5 rounded-lg" style={{ backgroundColor: 'var(--color-primary)', border: '1px solid var(--color-primary)', color: 'white' }} title="Reset zoom"><ZoomOut size={12} /></button>}
           {zoom > 1 && <span className="px-1.5 py-0.5 rounded-lg text-[9px] font-medium" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>{Math.round(zoom * 100)}%</span>}
           <button onClick={() => { if (savedLook) { setCompareView(true) } else { setSavedLook({ layers: layers.map(l => ({ ...l })), bodyUrl: bodyUrl! }); successImpact() } }} className="p-1.5 rounded-lg" style={{ backgroundColor: savedLook ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: savedLook ? 'white' : 'var(--text-secondary)' }} title={savedLook ? 'Comparar looks' : 'Guardar Look A'}><Columns size={12} /></button>
-          {active >= 0 && active < layers.length && (
-            <button onClick={() => updateLayer(active, { locked: !layers[active].locked })} className="p-1.5 rounded-lg" style={{ backgroundColor: layers[active].locked ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: layers[active].locked ? 'white' : 'var(--text-secondary)' }} title={layers[active].locked ? 'Desbloquear' : 'Bloquear'}>
-              {layers[active].locked ? <Lock size={12} /> : <Unlock size={12} />}
-            </button>
-          )}
           <div className="flex-1" />
           {RES_OPTIONS.map(r => (
             <button key={r.k} onClick={() => setExportRes(r.k)} className="px-2 py-1 rounded-lg text-[9px] font-medium" style={{ backgroundColor: exportRes === r.k ? 'var(--color-primary)' : 'var(--bg-card)', border: `1px solid ${exportRes === r.k ? 'var(--color-primary)' : 'var(--border-light)'}`, color: exportRes === r.k ? 'white' : 'var(--text-secondary)' }} title={r.desc}>{r.l}</button>
