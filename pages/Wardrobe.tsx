@@ -216,6 +216,23 @@ const Wardrobe: React.FC<WardrobeProps> = ({
     return ['all', ...Array.from(colors).sort()];
   }, [garments]);
 
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: garments.length };
+    garments.forEach(g => {
+      const t = (g.type || '').toLowerCase();
+      if (/top|camis|blusa|shirt|polo|sweater|jersey/.test(t)) counts.top = (counts.top || 0) + 1;
+      else if (/bottom|pantal|falda|short|jean|trouser/.test(t)) counts.bottom = (counts.bottom || 0) + 1;
+      else if (/shoe|zapat|bota|sandal|boot/.test(t)) counts.shoes = (counts.shoes || 0) + 1;
+      else if (/outer|chaqueta|abrigo|saco|jacket|coat/.test(t)) counts.outerwear = (counts.outerwear || 0) + 1;
+      else if (/accesorio|sombrero|gorra|bolso|gafas|collar/.test(t)) counts.accessories = (counts.accessories || 0) + 1;
+      else if (/dress|vestido|enterizo/.test(t)) counts.dress = (counts.dress || 0) + 1;
+      else if (/conjunto|set/.test(t)) counts.set = (counts.set || 0) + 1;
+      else if (/baño|swim/.test(t)) counts.swimwear = (counts.swimwear || 0) + 1;
+      else if (/deport|sport|activ/.test(t)) counts.activewear = (counts.activewear || 0) + 1;
+    });
+    return counts;
+  }, [garments]);
+
   const topUsedItems = useMemo(
     () => [...garments].sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0)).slice(0, 5),
     [garments]
@@ -631,20 +648,28 @@ const Wardrobe: React.FC<WardrobeProps> = ({
       {/* VIEW: CLOSET */}
       {activeView === 'closet' && (
         <div className="px-6 flex-1 overflow-y-auto no-scrollbar pb-24">
-          {/* Category pills */}
+          {/* Category pills with counts */}
           <div className="flex space-x-2 overflow-x-auto no-scrollbar mb-4 pb-2">
-            {CATEGORIES.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => setFilter(cat.id)}
-                className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-colors border ${filter === cat.id
-                  ? 'bg-primary text-white border-primary shadow-md shadow-primary/20'
-                  : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-light)]'
-                  }`}
-              >
-                {cat.label}
-              </button>
-            ))}
+            {CATEGORIES.map((cat) => {
+              const count = categoryCounts[cat.id] || 0;
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => setFilter(cat.id)}
+                  className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-colors border flex items-center gap-1.5 ${filter === cat.id
+                    ? 'bg-primary text-white border-primary shadow-md shadow-primary/20'
+                    : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border-light)]'
+                    }`}
+                >
+                  {cat.label}
+                  {count > 0 && (
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${filter === cat.id ? 'bg-white/20' : 'bg-gray-100'}`}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           {/* Removed inline Washing Machine - moved to Layout nav bubbles */}
@@ -701,22 +726,42 @@ const Wardrobe: React.FC<WardrobeProps> = ({
 
           {/* Empty state */}
           {filteredItems.length === 0 && (
-            <div className="text-center py-16">
-              <Shirt size={48} className="mx-auto text-gray-200 mb-3" />
+            <div className="text-center py-16 px-8">
+              <div className="w-20 h-20 rounded-full bg-gray-50 flex items-center justify-center mx-auto mb-4">
+                <Shirt size={32} className="text-gray-300" />
+              </div>
               {searchQuery ? (
                 <>
-                  <p className="text-[var(--text-muted)] text-sm">Sin resultados para "{searchQuery}"</p>
+                  <p className="text-[var(--text-primary)] font-medium mb-1">Sin resultados</p>
+                  <p className="text-xs text-[var(--text-muted)] mb-4">No encontramos prendas para "{searchQuery}"</p>
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="mt-3 text-primary text-sm font-medium"
+                    className="px-4 py-2 rounded-full text-xs font-medium bg-primary text-white"
                   >
                     Limpiar búsqueda
                   </button>
                 </>
+              ) : filter !== 'all' ? (
+                <>
+                  <p className="text-[var(--text-primary)] font-medium mb-1">Sin prendas en esta categoría</p>
+                  <p className="text-xs text-[var(--text-muted)] mb-4">Añade prendas de tipo "{CATEGORIES.find(c => c.id === filter)?.label}" o prueba otro filtro</p>
+                  <button
+                    onClick={() => setFilter('all')}
+                    className="px-4 py-2 rounded-full text-xs font-medium bg-primary text-white"
+                  >
+                    Ver todas
+                  </button>
+                </>
               ) : (
                 <>
-                  <p className="text-[var(--text-muted)] text-sm">Tu armario está vacío</p>
-                  <p className="text-xs text-gray-300 mt-1">Añade tu primera prenda</p>
+                  <p className="text-[var(--text-primary)] font-medium mb-1">Tu armario está vacío</p>
+                  <p className="text-xs text-[var(--text-muted)] mb-4">Añade tu primera prenda para empezar a crear outfits</p>
+                  <button
+                    onClick={() => setIsAdding(true)}
+                    className="px-4 py-2 rounded-full text-xs font-medium bg-primary text-white inline-flex items-center gap-1.5"
+                  >
+                    <Plus size={14} /> Añadir prenda
+                  </button>
                 </>
               )}
             </div>
@@ -906,10 +951,16 @@ const Wardrobe: React.FC<WardrobeProps> = ({
           </div>
 
           {salesItems.length === 0 ? (
-            <div className="text-center py-16">
-              <ShoppingBag size={48} className="mx-auto text-gray-200 mb-3" />
-              <p className="text-[var(--text-muted)] text-sm">No tienes prendas en venta</p>
-              <p className="text-xs text-gray-300 mt-1">Vende lo que ya no uses</p>
+            <div className="text-center py-16 px-8">
+              <div className="w-20 h-20 rounded-full bg-gray-50 flex items-center justify-center mx-auto mb-4">
+                <ShoppingBag size={32} className="text-gray-300" />
+              </div>
+              <p className="text-[var(--text-primary)] font-medium mb-1">Ventas próximamente</p>
+              <p className="text-xs text-[var(--text-muted)] mb-4">Estamos trabajando con nuevas marcas para que puedas vender y comprar prendas directamente desde la app</p>
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gray-50 text-[10px] font-medium text-[var(--text-muted)]">
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                Próximamente
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-4">
