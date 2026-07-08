@@ -2,7 +2,7 @@
 import React, { useMemo, useEffect, useRef } from 'react';
 import { UserState, MoodOption, Look, PlannerEntry, Garment } from '../types';
 import {
-  Sun, TrendingUp, Heart, Sparkles, ChevronRight, RefreshCcw, Shirt, AlertTriangle
+  Sun, TrendingUp, Heart, Sparkles, ChevronRight, Shirt
 } from 'lucide-react';
 import { useLanguage } from '../src/context/LanguageContext';
 import Logo from '../components/Logo';
@@ -72,23 +72,6 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
     }
   }, [cycleActiveToday, user.mood, onMoodChange]);
 
-  // Real stats
-  const mostUsedGarment = useMemo(
-    () => [...garments].filter(g => !!g).sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0))[0],
-    [garments]
-  );
-  const topUsedGarments = useMemo(
-    () => [...garments].filter(g => !!g).sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0)).slice(0, 3),
-    [garments]
-  );
-  const lowUsageGarments = useMemo(
-    () => garments.filter(g => g && (g.usageCount || 0) < 2).slice(0, 3),
-    [garments]
-  );
-  const lowUsageCount = useMemo(
-    () => garments.filter(g => g && (g.usageCount || 0) < 2).length,
-    [garments]
-  );
   const totalGarments = garments.length;
   const totalLooks = looks.length;
 
@@ -298,98 +281,6 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
           <span className="text-2xl font-bold text-[var(--text-primary)]">{totalLooks}</span>
           <span className="text-xs text-[var(--text-muted)] ml-1">creados</span>
         </div>
-      </section>
-
-      {/* Sustainability / Usage Stats */}
-      <section className="bg-[var(--bg-card)] p-5 rounded-3xl border border-[var(--border-light)] shadow-sm space-y-4">
-        <div className="flex items-center space-x-2 text-primary">
-          <RefreshCcw size={18} />
-          <h3 className="font-bold">Armario Consciente</h3>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="stagger-child bg-lavender-50 p-3 rounded-2xl hover:shadow-md transition-all">
-            <p className="text-xs text-[var(--text-secondary)] mb-1">Más usada</p>
-            <div className="flex items-center space-x-2">
-              {mostUsedGarment ? (
-                <>
-                  <img src={mostUsedGarment.imageUrl} className="w-8 h-8 rounded-full object-cover" alt={mostUsedGarment.type} />
-                  <div>
-                    <span className="text-[10px] font-semibold text-[var(--text-primary)] line-clamp-1 capitalize">{mostUsedGarment.name || mostUsedGarment.type}</span>
-                    <span className="text-[10px] text-[var(--text-muted)] block">{mostUsedGarment.usageCount} usos</span>
-                  </div>
-                </>
-              ) : (
-                <span className="text-[10px] text-[var(--text-muted)]">Sin datos aún</span>
-              )}
-            </div>
-          </div>
-          <div className="stagger-child bg-orange-50 p-3 rounded-2xl hover:shadow-md transition-all">
-            <p className="text-xs text-[var(--text-secondary)] mb-1">Baja rotación</p>
-            <div className="flex items-center space-x-2">
-              {lowUsageCount > 0 ? (
-                <>
-                  <AlertTriangle size={18} className="text-accent" />
-                  <div>
-                    <span className="text-xl font-bold text-accent">{lowUsageCount}</span>
-                    <span className="text-[10px] text-[var(--text-secondary)] block leading-tight">prendas olvidadas</span>
-                  </div>
-                </>
-              ) : (
-                <span className="text-[10px] text-[var(--text-secondary)]">Todas en rotación</span>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Most Used Garments */}
-      <section className="bg-[var(--bg-card)] p-5 rounded-3xl border border-[var(--border-light)] shadow-sm animate-fade-in-up">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-bold text-[var(--text-primary)]">Tus prendas mas usadas</h3>
-          <button onClick={() => onNavigate('wardrobe')} className="text-xs text-primary font-semibold">
-            Ver armario
-          </button>
-        </div>
-        {topUsedGarments.length === 0 ? (
-          <p className="text-sm text-[var(--text-muted)]">Aun no hay suficiente uso registrado.</p>
-        ) : (
-          <div className="space-y-3">
-            {topUsedGarments.map(item => (
-              <div key={item.id} className="flex items-center gap-3">
-                <img src={item.imageUrl} alt={item.name || item.type} className="w-12 h-12 rounded-xl object-cover" />
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{item.name || item.type}</p>
-                  <p className="text-xs text-[var(--text-muted)] capitalize">{item.color} · {item.usageCount || 0} usos</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* Low Usage Garments */}
-      <section className="bg-[var(--bg-card)] p-5 rounded-3xl border border-[var(--border-light)] shadow-sm animate-fade-in-up">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-bold text-[var(--text-primary)]">Prendas olvidadas</h3>
-          <button onClick={() => onNavigate('wardrobe')} className="text-xs text-primary font-semibold">
-            Reactivar
-          </button>
-        </div>
-        {lowUsageGarments.length === 0 ? (
-          <p className="text-sm text-[var(--text-muted)]">Todo tu armario esta en rotacion.</p>
-        ) : (
-          <div className="space-y-3">
-            {lowUsageGarments.map(item => (
-              <div key={item.id} className="flex items-center gap-3">
-                <img src={item.imageUrl} alt={item.name || item.type} className="w-12 h-12 rounded-xl object-cover" />
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{item.name || item.type}</p>
-                  <p className="text-xs text-[var(--text-muted)] capitalize">{item.color} · {item.usageCount || 0} usos</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </section>
 
       {/* Quick Access Grid */}
