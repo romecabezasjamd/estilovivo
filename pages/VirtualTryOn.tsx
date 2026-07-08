@@ -585,6 +585,24 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     localStorage.setItem('tryon_presets', JSON.stringify(next))
   }
 
+  const randomOutfit = () => {
+    if (garments.length === 0 || !bodyDim) return
+    const count = Math.min(garments.length, 2 + Math.floor(Math.random() * 2))
+    const shuffled = [...garments].sort(() => Math.random() - 0.5).slice(0, count)
+    const newLayers: Layer[] = shuffled.map((g, i) => {
+      const p = autoPos(bodyPose, g.type, bodyDim.w, bodyDim.h)
+      return {
+        id: `rl_${Date.now()}_${i}`, garment: g, url: g.imageUrl,
+        x: p.x, y: p.y, w: p.w, h: p.h,
+        rotation: 0, opacity: 1, flipX: false, flipY: false, locked: false,
+      }
+    })
+    setLayers(newLayers)
+    setActive(-1); activeRef.current = -1
+    pushHistory(newLayers)
+    successImpact()
+  }
+
   const SGuide = () => (
     <div className="flex-1 overflow-y-auto p-4 pb-24"><PoseGuide onStart={() => setStep('photo')} /></div>
   )
@@ -957,7 +975,12 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
           <button onClick={() => { if (layers.length > 0) { const name = lookName.trim() || `Look ${presets.length + 1}`; savePreset(name) } }} disabled={layers.length === 0} className="w-full py-1.5 rounded-xl text-[10px] font-medium disabled:opacity-40 mb-1.5" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>
             {layers.length > 0 ? `Guardar como preset (${presets.length})` : 'Sin prendas para guardar'}
           </button>
-          <button onClick={() => setStep('select')} className="w-full py-2 rounded-xl text-[10px] font-medium" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>+ Mas prendas</button>
+          <div className="flex gap-1.5">
+            <button onClick={randomOutfit} disabled={garments.length === 0} className="flex-1 py-2 rounded-xl text-[10px] font-medium disabled:opacity-40" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }} title="Outfit aleatorio">
+              <span className="mr-1">🎲</span> Outfit random
+            </button>
+            <button onClick={() => setStep('select')} className="flex-1 py-2 rounded-xl text-[10px] font-medium" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>+ Mas prendas</button>
+          </div>
         </div>
 
         <div className="flex gap-1.5 px-3 mb-1">
