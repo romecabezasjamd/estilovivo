@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { X, Camera, Image, RotateCcw, Save, ChevronUp, ChevronDown, SlidersHorizontal, Undo2, Redo2, Moon, Sun, ZoomIn, ZoomOut, Columns } from 'lucide-react'
+import { X, Camera, Image, RotateCcw, Save, ChevronUp, ChevronDown, SlidersHorizontal, Undo2, Redo2, Moon, Sun, ZoomIn, ZoomOut, Columns, Lock, Unlock, Download } from 'lucide-react'
 import type { Garment } from '../types'
 import { removeBg, exportCanvas, type GarmentTransform, type ExportResolution } from '../src/utils/tryOnEngine'
 import { detectBodyPose, smartAutoPlace, type BodyPose } from '../src/utils/poseDetection'
@@ -16,6 +16,7 @@ interface Layer {
   x: number; y: number; w: number; h: number
   rotation: number; opacity: number
   flipX: boolean; flipY: boolean
+  locked: boolean
 }
 
 const CATS = [
@@ -83,6 +84,8 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [savedLook, setSavedLook] = useState<{ layers: Layer[]; bodyUrl: string } | null>(null)
   const [compareView, setCompareView] = useState(false)
+  const [lookName, setLookName] = useState('')
+  const [showNameInput, setShowNameInput] = useState(false)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const layersRef = useRef<Layer[]>([])
@@ -476,7 +479,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
         newLayers.push({
           id: `${g.id}_${Date.now()}`, garment: g, url,
           x: p.x, y: p.y, w: p.w, h: p.h,
-          rotation: 0, opacity: 1, flipX: false, flipY: false,
+          rotation: 0, opacity: 1, flipX: false, flipY: false, locked: false,
         })
       }
       const merged = [...layers.filter(l => !selIds.has(l.garment.id) || newLayers.some(n => n.garment.id === l.garment.id)), ...newLayers.filter(n => !layers.some(l => l.garment.id === n.garment.id))]
@@ -492,13 +495,33 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     if (!bodyUrl || !bodyDim) return
     setStep('saving')
     try {
+      const name = lookName.trim() || `Look ${new Date().toLocaleDateString('es')}`
       const dataUrl = await exportCanvas(bodyUrl, layers.map(l => ({
         url: l.url, t: { x: l.x, y: l.y, width: l.w, height: l.h, rotation: l.rotation, opacity: l.opacity, flipX: l.flipX, flipY: l.flipY }
       })), bodyDim.w, bodyDim.h, { transparent, mirror, resolution: exportRes })
       const res = await fetch(dataUrl); const blob = await res.blob()
-      await api.saveLookWithImage(`Look ${new Date().toLocaleDateString('es')}`, layers.map(l => l.garment.id), blob)
+      await api.saveLookWithImage(name, layers.map(l => l.garment.id), blob)
       successImpact(); setStep('saved')
     } catch { errorImpact(); setError('No se pudo guardar.'); setStep('tryon') }
+  }
+
+  const downloadImage = async () => {
+    if (!bodyUrl || !bodyDim) return
+    try {
+      const dataUrl = await exportCanvas(bodyUrl, layers.map(l => ({
+        url: l.url, t: { x: l.x, y: l.y, width: l.w, height: l.h, rotation: l.rotation, opacity: l.opacity, flipX: l.flipX, flipY: l.flipY }
+      })), bodyDim.w, bodyDim.h, { transparent: false, mirror, resolution: exportRes })
+      const res = await fetch(dataUrl); const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${lookName.trim() || 'look'}_${Date.now()}.png`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      successImpact()
+    } catch { errorImpact(); setError('No se pudo descargar.') }
   }
 
   const updateOpacity = (v: number) => { if (active >= 0) { updateLayer(active, { opacity: v }); pushHistory(layersRef.current) } }
@@ -593,6 +616,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
 
     const onGarmentDown = (e: React.MouseEvent, idx: number) => {
       e.stopPropagation()
+      if (layersRef.current[idx]?.locked) return
       setActive(idx); activeRef.current = idx
       const l = layersRef.current[idx]
       const g = gesture.current
@@ -603,6 +627,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
 
     const onGarmentTouch = (e: React.TouchEvent, idx: number) => {
       e.stopPropagation()
+      if (layersRef.current[idx]?.locked) return
       setActive(idx); activeRef.current = idx
       const t = e.touches[0]
       const g = gesture.current
@@ -620,6 +645,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
 
     const onHandleDown = (e: React.MouseEvent, idx: number, handle: string) => {
       e.stopPropagation(); e.preventDefault()
+      if (layersRef.current[idx]?.locked) return
       setActive(idx); activeRef.current = idx
       const l = layersRef.current[idx]
       const g = gesture.current
@@ -634,6 +660,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
 
     const onHandleTouch = (e: React.TouchEvent, idx: number, handle: string) => {
       e.stopPropagation(); e.preventDefault()
+      if (layersRef.current[idx]?.locked) return
       setActive(idx); activeRef.current = idx
       const l = layersRef.current[idx]
       const g = gesture.current
@@ -681,7 +708,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
                       width: pct(l.w, bodyDim.w), height: pct(l.h, bodyDim.h),
                       transform: `rotate(${l.rotation}deg) scaleX(${l.flipX ? -1 : 1}) scaleY(${l.flipY ? -1 : 1})`,
                       opacity: l.opacity,
-                      cursor: i === active ? 'grab' : 'pointer',
+                      cursor: l.locked ? 'not-allowed' : (i === active ? 'grab' : 'pointer'),
                       filter: i === active ? 'drop-shadow(0 0 3px rgba(255,77,148,0.6))' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))',
                       touchAction: 'none',
                       zIndex: i === active ? 50 : 10,
@@ -837,6 +864,11 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
           {zoom > 1 && <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }) }} className="p-1.5 rounded-lg" style={{ backgroundColor: 'var(--color-primary)', border: '1px solid var(--color-primary)', color: 'white' }} title="Reset zoom"><ZoomOut size={12} /></button>}
           {zoom > 1 && <span className="px-1.5 py-0.5 rounded-lg text-[9px] font-medium" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>{Math.round(zoom * 100)}%</span>}
           <button onClick={() => { if (savedLook) { setCompareView(true) } else { setSavedLook({ layers: layers.map(l => ({ ...l })), bodyUrl: bodyUrl! }); successImpact() } }} className="p-1.5 rounded-lg" style={{ backgroundColor: savedLook ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: savedLook ? 'white' : 'var(--text-secondary)' }} title={savedLook ? 'Comparar looks' : 'Guardar Look A'}><Columns size={12} /></button>
+          {active >= 0 && active < layers.length && (
+            <button onClick={() => updateLayer(active, { locked: !layers[active].locked })} className="p-1.5 rounded-lg" style={{ backgroundColor: layers[active].locked ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: layers[active].locked ? 'white' : 'var(--text-secondary)' }} title={layers[active].locked ? 'Desbloquear' : 'Bloquear'}>
+              {layers[active].locked ? <Lock size={12} /> : <Unlock size={12} />}
+            </button>
+          )}
           <div className="flex-1" />
           {RES_OPTIONS.map(r => (
             <button key={r.k} onClick={() => setExportRes(r.k)} className="px-2 py-1 rounded-lg text-[9px] font-medium" style={{ backgroundColor: exportRes === r.k ? 'var(--color-primary)' : 'var(--bg-card)', border: `1px solid ${exportRes === r.k ? 'var(--color-primary)' : 'var(--border-light)'}`, color: exportRes === r.k ? 'white' : 'var(--text-secondary)' }} title={r.desc}>{r.l}</button>
@@ -851,13 +883,23 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
           <button onClick={() => { setCompareMode(!compareMode); setComparePos(50) }} className="py-2.5 px-3 rounded-xl text-xs font-medium" style={{ backgroundColor: compareMode ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: compareMode ? 'white' : 'var(--text-secondary)' }} title="Comparar">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
           </button>
-          <button onClick={() => { clearBodyPhoto(); setBodyUrl(null); setBodyDim(null); setLayers([]); setActive(-1); setStep('photo') }}
-            className="py-2.5 px-3 rounded-xl text-xs font-medium" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>
-            <Camera size={14} />
+          <button onClick={downloadImage} disabled={!bodyUrl || layers.length === 0} className="py-2.5 px-3 rounded-xl text-xs font-medium disabled:opacity-40" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }} title="Descargar imagen">
+            <Download size={14} />
           </button>
-          <button onClick={() => save(false)} disabled={!bodyUrl || layers.length === 0} className="py-2.5 px-3 rounded-xl text-xs font-semibold text-white disabled:opacity-40" style={{ backgroundColor: 'var(--color-primary)' }}><Save size={12} /></button>
-          <button onClick={() => save(true)} disabled={!bodyUrl || layers.length === 0} className="py-2.5 px-3 rounded-xl text-[10px] font-medium disabled:opacity-40" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }} title="Guardar sin fondo">PNG</button>
+          <button onClick={() => { if (!showNameInput) { setShowNameInput(true) } else { save(false) } }} disabled={!bodyUrl || layers.length === 0} className="py-2.5 px-3 rounded-xl text-xs font-semibold text-white disabled:opacity-40" style={{ backgroundColor: 'var(--color-primary)' }}><Save size={12} /></button>
+          <button onClick={() => { setLookName(''); save(true) }} disabled={!bodyUrl || layers.length === 0} className="py-2.5 px-3 rounded-xl text-[10px] font-medium disabled:opacity-40" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }} title="Guardar sin fondo">PNG</button>
         </div>
+        {showNameInput && (
+          <div className="px-3 pb-2">
+            <div className="flex gap-2">
+              <input type="text" value={lookName} onChange={e => setLookName(e.target.value)} placeholder="Nombre del look..." autoFocus
+                onKeyDown={e => { if (e.key === 'Enter') { save(false); setShowNameInput(false) } if (e.key === 'Escape') setShowNameInput(false) }}
+                className="flex-1 px-3 py-2 rounded-xl text-xs" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-primary)' }} />
+              <button onClick={() => { save(false); setShowNameInput(false) }} className="px-3 py-2 rounded-xl text-xs font-semibold text-white" style={{ backgroundColor: 'var(--color-primary)' }}>Guardar</button>
+              <button onClick={() => setShowNameInput(false)} className="px-3 py-2 rounded-xl text-xs" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>Cancelar</button>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
