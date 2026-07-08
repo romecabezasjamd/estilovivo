@@ -99,6 +99,11 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
 
   const [photoList, setPhotoList] = useState<string[]>([])
 
+  const [presets, setPresets] = useState<Array<{ id: string; name: string; thumbnail: string; layers: Layer[] }>>(() => {
+    try { return JSON.parse(localStorage.getItem('tryon_presets') || '[]') } catch { return [] }
+  })
+  const [showPresets, setShowPresets] = useState(false)
+
   layersRef.current = layers
   activeRef.current = active
   historyRef.current = history
@@ -537,17 +542,63 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     } catch { errorImpact(); setError('No se pudo descargar.') }
   }
 
-  const updateOpacity = (v: number) => { if (active >= 0) { updateLayer(active, { opacity: v }); pushHistory(layersRef.current) } }
-  const moveLayer = (d: -1 | 1) => {
-    const t = active + d; if (t < 0 || t >= layers.length) return
-    setLayers(p => { const a = [...p]; [a[active], a[t]] = [a[t], a[active]]; pushHistory(a); return a }); setActive(t)
-  }
-  const removeLayer = (i: number) => { setLayers(p => { const n = p.filter((_, j) => j !== i); if (!n.length) setStep('select'); pushHistory(n); return n }); setActive(-1) }
   const resetPos = () => {
     if (active < 0 || !bodyDim) return
     const p = autoPos(bodyPose, layers[active].garment.type, bodyDim.w, bodyDim.h)
     updateLayer(active, { x: p.x, y: p.y, w: p.w, h: p.h, rotation: 0 })
     pushHistory(layersRef.current)
+  }
+
+  const duplicateLayer = () => {
+    if (active < 0 || active >= layers.length) return
+    const src = layers[active]
+    const dup: Layer = { ...src, id: `l_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, x: src.x + 20, y: src.y + 20 }
+    setLayers(p => { const arr = [...p]; arr.splice(active + 1, 0, dup); pushHistory(arr); return arr })
+    setActive(active + 1); activeRef.current = active + 1
+    successImpact()
+  }
+
+  const centerGarment = () => {
+    if (active < 0 || !bodyDim) return
+    const l = layers[active]
+    updateLayer(active, { x: (bodyDim.w - l.w) / 2, y: (bodyDim.h - l.h) / 2 })
+    pushHistory(layersRef.current)
+  }
+
+  const savePreset = (name: string) => {
+    if (!bodyUrl || layers.length === 0) return
+    const canvas = document.createElement('canvas')
+    canvas.width = 120; canvas.height = 160
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.fillStyle = '#f0f0f0'; ctx.fillRect(0, 0, 120, 160)
+    const img = new window.Image(); img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      const bAspect = img.width / img.height
+      let dw = 120, dh = 160
+      if (bAspect > 120 / 160) { dh = 120 / bAspect } else { dw = 160 * bAspect }
+      ctx.drawImage(img, (120 - dw) / 2, (160 - dh) / 2, dw, dh)
+      const thumbnail = canvas.toDataURL('image/jpeg', 0.6)
+      const preset = { id: `preset_${Date.now()}`, name, thumbnail, layers: layers.map(l => ({ ...l })) }
+      const next = [...presets, preset]
+      setPresets(next)
+      localStorage.setItem('tryon_presets', JSON.stringify(next))
+      successImpact()
+    }
+    img.src = bodyUrl
+  }
+
+  const loadPreset = (preset: typeof presets[0]) => {
+    setLayers(preset.layers.map(l => ({ ...l })))
+    setActive(-1); activeRef.current = -1
+    pushHistory(preset.layers.map(l => ({ ...l })))
+    successImpact()
+  }
+
+  const deletePreset = (id: string) => {
+    const next = presets.filter(p => p.id !== id)
+    setPresets(next)
+    localStorage.setItem('tryon_presets', JSON.stringify(next))
   }
 
   const SGuide = () => (
@@ -854,6 +905,12 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
             </div>
             <div className="flex items-center gap-1 mt-2">
               <button onClick={resetPos} className="p-1.5 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }} title="Reset posición"><RotateCcw size={12} style={{ color: 'var(--text-secondary)' }} /></button>
+              <button onClick={centerGarment} className="p-1.5 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }} title="Centrar en cuerpo">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+              </button>
+              <button onClick={duplicateLayer} className="p-1.5 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }} title="Duplicar capa">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2h2"/></svg>
+              </button>
               <button onClick={() => updateLayer(active, { flipX: !cur.flipX })} className="p-1.5 rounded-lg" style={{ backgroundColor: cur.flipX ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: cur.flipX ? 'white' : 'var(--text-secondary)' }} title="Voltear horizontal">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3H5a2 2 0 00-2 2v14a2 2 0 002 2h3M16 3h3a2 2 0 012 2v14a2 2 0 01-2 2h-3M12 20V4"/></svg>
               </button>
@@ -898,6 +955,30 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
               })}
             </div>
           )}
+          {presets.length > 0 && (
+            <div className="mb-1.5">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[9px] font-medium" style={{ color: 'var(--text-muted)' }}>Looks guardados</span>
+                <button onClick={() => setShowPresets(!showPresets)} className="text-[9px]" style={{ color: 'var(--color-primary)' }}>{showPresets ? 'Ocultar' : 'Ver todos'}</button>
+              </div>
+              <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+                {(showPresets ? presets : presets.slice(0, 5)).map(p => (
+                  <div key={p.id} className="relative shrink-0 group">
+                    <button onClick={() => loadPreset(p)} className="block rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-light)' }}>
+                      <img src={p.thumbnail} className="w-12 h-16 object-cover" />
+                    </button>
+                    <button onClick={() => deletePreset(p.id)} className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ fontSize: '8px' }}>
+                      <X size={8} />
+                    </button>
+                    <p className="text-[7px] text-center mt-0.5 truncate w-12" style={{ color: 'var(--text-muted)' }}>{p.name}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <button onClick={() => { if (layers.length > 0) { const name = lookName.trim() || `Look ${presets.length + 1}`; savePreset(name) } }} disabled={layers.length === 0} className="w-full py-1.5 rounded-xl text-[10px] font-medium disabled:opacity-40 mb-1.5" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>
+            {layers.length > 0 ? `Guardar como preset (${presets.length})` : 'Sin prendas para guardar'}
+          </button>
           <button onClick={() => setStep('select')} className="w-full py-2 rounded-xl text-[10px] font-medium" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>+ Mas prendas</button>
         </div>
 
