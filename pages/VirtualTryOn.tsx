@@ -300,16 +300,12 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
   const toggle = (g: Garment) => setSelIds(p => { const n = new Set(p); n.has(g.id) ? n.delete(g.id) : n.add(g.id); return n })
 
   const process = async () => {
-    if (selIds.size === 0 || !bodyUrl) return
+    if (selIds.size === 0 || !bodyUrl || !bodyDim) return
     setBusy(true); setDetecting(true); setError(null)
     try {
       let pose = bodyPose
       if (!pose) { pose = await detectBodyPose(bodyUrl); if (pose) setBodyPose(pose) }
       setDetecting(false)
-
-      const cw = containerRef.current?.clientWidth || 300
-      const ch = containerRef.current?.clientHeight || 400
-      const sc = bodyDim ? cw / bodyDim.w : 1
 
       const newLayers: Layer[] = []
       for (const g of garments.filter(g => selIds.has(g.id))) {
@@ -317,7 +313,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
         if (exists) { newLayers.push(exists); continue }
         let url = g.imageUrl
         try { url = await removeBg(g.imageUrl) } catch {}
-        const p = autoPos(pose, g.type, cw / sc, ch / sc)
+        const p = autoPos(pose, g.type, bodyDim.w, bodyDim.h)
         newLayers.push({
           id: `${g.id}_${Date.now()}`, garment: g, url,
           x: p.x, y: p.y, w: p.w, h: p.h,
@@ -522,8 +518,9 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
                 {active >= 0 && active < layers.length && (() => {
                   const l = layers[active]
                   const rot = l.rotation
-                  const halfW = l.w / 2, halfH = l.h / 2
-                  const rotLen = Math.min(30, l.h * 0.25)
+                  const rs = rW / bodyDim.w
+                  const halfW = l.w * rs / 2, halfH = l.h * rs / 2
+                  const rotLen = Math.min(30, halfH * 0.5)
                   const corners = [
                     { h: 'tl', x: -halfW, y: -halfH },
                     { h: 'tr', x: halfW, y: -halfH },
@@ -544,7 +541,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
                       zIndex: 60,
                     }}>
                       <div className="absolute" style={{
-                        left: -halfW, top: -halfH, width: l.w, height: l.h,
+                        left: -halfW, top: -halfH, width: l.w * rs, height: l.h * rs,
                         border: '2px solid rgba(255,255,255,0.9)',
                         boxShadow: '0 0 0 1px rgba(255,77,148,0.5)',
                         borderRadius: '2px',
