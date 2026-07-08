@@ -151,9 +151,16 @@ export const SYNC_KEYS = {
 } as const
 
 const BODY_PHOTO_KEY = 'tryon_body_photo'
+const BODY_PHOTOS_KEY = 'tryon_body_photos'
 
 export async function saveBodyPhoto(dataUrl: string): Promise<void> {
   await idbSet(BODY_PHOTO_KEY, dataUrl)
+  const photos = await loadBodyPhotos()
+  if (!photos.includes(dataUrl)) {
+    photos.unshift(dataUrl)
+    if (photos.length > 10) photos.pop()
+    await idbSet(BODY_PHOTOS_KEY, JSON.stringify(photos))
+  }
 }
 
 export async function loadBodyPhoto(): Promise<string | null> {
@@ -162,4 +169,20 @@ export async function loadBodyPhoto(): Promise<string | null> {
 
 export async function clearBodyPhoto(): Promise<void> {
   await idbSet(BODY_PHOTO_KEY, '')
+}
+
+export async function loadBodyPhotos(): Promise<string[]> {
+  const raw = await idbGet(BODY_PHOTOS_KEY)
+  if (!raw) return []
+  try { return JSON.parse(raw) } catch { return [] }
+}
+
+export async function removeBodyPhoto(dataUrl: string): Promise<void> {
+  const photos = await loadBodyPhotos()
+  const filtered = photos.filter(p => p !== dataUrl)
+  await idbSet(BODY_PHOTOS_KEY, JSON.stringify(filtered))
+  const current = await loadBodyPhoto()
+  if (current === dataUrl) {
+    await idbSet(BODY_PHOTO_KEY, filtered[0] || '')
+  }
 }

@@ -48,17 +48,44 @@ function fitDraw(ctx: CanvasRenderingContext2D, img: HTMLImageElement, cw: numbe
   return { x, y, w, h, ratio }
 }
 
+export type ExportResolution = 'hd' | '2k' | 'full'
+
+function getExportSize(displayW: number, displayH: number, res: ExportResolution): { ew: number; eh: number; scale: number } {
+  const maxDim = Math.max(displayW, displayH)
+  let target: number
+  if (res === '2k') target = 2400
+  else if (res === 'full') target = maxDim
+  else target = 1200
+  const scale = Math.max(1, target / maxDim)
+  return { ew: Math.round(displayW * scale), eh: Math.round(displayH * scale), scale }
+}
+
+function drawContactShadow(ctx: CanvasRenderingContext2D, sx: number, sy: number, sw: number, sh: number, rotation: number) {
+  ctx.save()
+  ctx.translate(sx + sw / 2, sy + sh / 2)
+  ctx.rotate((rotation * Math.PI) / 180)
+  const shadowH = sh * 0.12
+  const grad = ctx.createLinearGradient(0, sh / 2, 0, sh / 2 + shadowH)
+  grad.addColorStop(0, 'rgba(0,0,0,0.18)')
+  grad.addColorStop(0.5, 'rgba(0,0,0,0.08)')
+  grad.addColorStop(1, 'rgba(0,0,0,0)')
+  ctx.fillStyle = grad
+  ctx.beginPath()
+  ctx.ellipse(0, sh / 2 + shadowH / 2, sw * 0.42, shadowH / 2, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.restore()
+}
+
 export async function exportCanvas(
   bodyUrl: string,
   garments: Array<{ url: string; t: GarmentTransform }>,
   displayW: number,
   displayH: number,
-  options?: { transparent?: boolean; mirror?: boolean },
+  options?: { transparent?: boolean; mirror?: boolean; resolution?: ExportResolution },
 ): Promise<string> {
   const body = await loadImg(bodyUrl)
-  const exportScale = Math.max(1, 1200 / Math.max(displayW, displayH))
-  const ew = Math.round(displayW * exportScale)
-  const eh = Math.round(displayH * exportScale)
+  const res = options?.resolution || 'hd'
+  const { ew, eh, scale } = getExportSize(displayW, displayH, res)
 
   const c = document.createElement('canvas')
   c.width = ew
@@ -78,21 +105,25 @@ export async function exportCanvas(
   fitDraw(ctx, body, ew, eh)
   ctx.restore()
 
-  const shadowSize = Math.max(4, ew * 0.01)
   for (const g of garments) {
     try {
       const img = await loadImg(g.url)
+      const sx = g.t.x * scale
+      const sy = g.t.y * scale
+      const sw = g.t.width * scale
+      const sh = g.t.height * scale
+
+      if (!options?.transparent) {
+        drawContactShadow(ctx, sx, sy, sw, sh, g.t.rotation)
+      }
+
       ctx.save()
       if (!options?.transparent) {
-        ctx.shadowColor = 'rgba(0,0,0,0.2)'
-        ctx.shadowBlur = shadowSize
-        ctx.shadowOffsetX = shadowSize * 0.3
-        ctx.shadowOffsetY = shadowSize * 0.5
+        ctx.shadowColor = 'rgba(0,0,0,0.15)'
+        ctx.shadowBlur = Math.max(3, sw * 0.02)
+        ctx.shadowOffsetX = 0
+        ctx.shadowOffsetY = Math.max(2, sh * 0.015)
       }
-      const sx = g.t.x * exportScale
-      const sy = g.t.y * exportScale
-      const sw = g.t.width * exportScale
-      const sh = g.t.height * exportScale
       ctx.translate(sx + sw / 2, sy + sh / 2)
       ctx.rotate((g.t.rotation * Math.PI) / 180)
       ctx.scale(g.t.flipX ? -1 : 1, g.t.flipY ? -1 : 1)

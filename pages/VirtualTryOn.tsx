@@ -1,13 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { X, Camera, Image, RotateCcw, Save, ChevronUp, ChevronDown, SlidersHorizontal } from 'lucide-react'
+import { X, Camera, Image, RotateCcw, Save, ChevronUp, ChevronDown, SlidersHorizontal, Undo2, Redo2, Magnet, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { Garment } from '../types'
-import { removeBg, exportCanvas, type GarmentTransform } from '../src/utils/tryOnEngine'
+import { removeBg, exportCanvas, type GarmentTransform, type ExportResolution } from '../src/utils/tryOnEngine'
 import { detectBodyPose, smartAutoPlace, type BodyPose } from '../src/utils/poseDetection'
 import { pickPhoto, type CameraSource } from '../src/utils/cameraPhoto'
 import { successImpact, errorImpact } from '../src/utils/haptic'
 import PoseGuide from '../components/PoseGuide'
 import { api } from '../services/api'
-import { saveBodyPhoto, loadBodyPhoto, clearBodyPhoto } from '../src/utils/syncStore'
+import { saveBodyPhoto, loadBodyPhoto, clearBodyPhoto, loadBodyPhotos, removeBodyPhoto } from '../src/utils/syncStore'
 
 interface Props { garments: Garment[]; onClose: () => void }
 
@@ -22,6 +22,12 @@ const CATS = [
   { k: 'all', l: 'Todo' }, { k: 'top', l: 'Top' }, { k: 'bottom', l: 'Bottom' },
   { k: 'dress', l: 'Vestido' }, { k: 'outer', l: 'Exterior' },
   { k: 'shoes', l: 'Zapatos' }, { k: 'acc', l: 'Accesorios' },
+]
+
+const RES_OPTIONS: { k: ExportResolution; l: string; desc: string }[] = [
+  { k: 'hd', l: 'HD', desc: '1200px' },
+  { k: '2k', l: '2K', desc: '2400px' },
+  { k: 'full', l: 'Original', desc: 'Tamaño original' },
 ]
 
 function matchG(g: Garment, c: string) {
@@ -54,6 +60,21 @@ function autoPos(pose: BodyPose | null, type: string, pw: number, ph: number): {
   return r
 }
 
+function snapToBody(l: Layer, bodyDim: { w: number; h: number }, pose: BodyPose | null): Partial<Layer> {
+  const cx = (bodyDim.w - l.w) / 2
+  const dist = Math.abs(l.x - cx)
+  if (dist > bodyDim.w * 0.3) return {}
+  const t = l.garment.type.toLowerCase()
+  const ideal = autoPos(pose, l.garment.type, bodyDim.w, bodyDim.h)
+  const snapStrength = 0.6
+  return {
+    x: l.x + (cx - l.x) * snapStrength,
+    y: l.y + (ideal.y + (ideal.h - l.h) / 2 - l.y) * snapStrength * 0.5,
+  }
+}
+
+const MAX_HISTORY = 50
+
 export default function VirtualTryOn({ garments, onClose }: Props) {
   const [step, setStep] = useState<'guide' | 'photo' | 'select' | 'tryon' | 'saving' | 'saved'>('guide')
   const [bodyUrl, setBodyUrl] = useState<string | null>(null)
@@ -69,17 +90,73 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
   const [mirror, setMirror] = useState(false)
   const [compareMode, setCompareMode] = useState(false)
   const [comparePos, setComparePos] = useState(50)
+  const [snapEnabled, setSnapEnabled] = useState(true)
+  const [exportRes, setExportRes] = useState<ExportResolution>('hd')
 
   const containerRef = useRef<HTMLDivElement>(null)
   const layersRef = useRef<Layer[]>([])
   const activeRef = useRef(-1)
 
+  const [history, setHistory] = useState<Layer[][]>([[]])
+  const [histIdx, setHistIdx] = useState(0)
+  const historyRef = useRef<Layer[][]>([[]])
+  const histIdxRef = useRef(0)
+
+  const [photoList, setPhotoList] = useState<string[]>([])
+
   layersRef.current = layers
   activeRef.current = active
+  historyRef.current = history
+  histIdxRef.current = histIdx
 
   const filtered = garments.filter(g => !g.isWashing && matchG(g, filter))
 
-  // ─── Load body photo dimensions ──────────────────────────────────
+  const pushHistory = useCallback((next: Layer[]) => {
+    const h = historyRef.current.slice(0, histIdxRef.current + 1)
+    h.push(next.map(l => ({ ...l })))
+    if (h.length > MAX_HISTORY) h.shift()
+    historyRef.current = h
+    setHistory(h)
+    setHistIdx(h.length - 1)
+    histIdxRef.current = h.length - 1
+  }, [])
+
+  const undo = useCallback(() => {
+    const idx = histIdxRef.current
+    if (idx <= 0) return
+    const prev = historyRef.current[idx - 1]
+    setLayers(prev.map(l => ({ ...l })))
+    layersRef.current = prev
+    setHistIdx(idx - 1)
+    histIdxRef.current = idx - 1
+  }, [])
+
+  const redo = useCallback(() => {
+    const idx = histIdxRef.current
+    if (idx >= historyRef.current.length - 1) return
+    const next = historyRef.current[idx + 1]
+    setLayers(next.map(l => ({ ...l })))
+    layersRef.current = next
+    setHistIdx(idx + 1)
+    histIdxRef.current = idx + 1
+  }, [])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo() }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'Z' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo() }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [undo, redo])
+
+  useEffect(() => {
+    loadBodyPhoto().then(saved => {
+      if (saved) { setBodyUrl(saved); setStep('select') }
+    })
+    loadBodyPhotos().then(setPhotoList)
+  }, [])
+
   useEffect(() => {
     if (!bodyUrl) { setBodyDim(null); return }
     const img = new window.Image()
@@ -87,20 +164,13 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     img.src = bodyUrl
   }, [bodyUrl])
 
-  // ─── Load saved body photo on mount ──────────────────────────────
-  useEffect(() => {
-    loadBodyPhoto().then(saved => {
-      if (saved) { setBodyUrl(saved); setStep('select') }
-    })
-  }, [])
-
-  // ─── Global gesture state ────────────────────────────────────────
   const gesture = useRef({
     mode: 'idle' as 'idle' | 'drag' | 'resize' | 'rotate',
     dragIdx: -1, lx: 0, ly: 0,
     handle: '' as string,
     centerNX: 0, centerNY: 0, startW: 0, startH: 0, startR: 0, startX: 0, startY: 0,
     pinch: false, pDist: 0, pAngle: 0, sW: 0, sH: 0, sR: 0,
+    wasDragged: false,
   })
 
   const getScale = useCallback(() => {
@@ -126,18 +196,10 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     return { nx, ny }
   }, [bodyDim])
 
-  const rotatePoint = useCallback((px: number, py: number, cx: number, cy: number, deg: number) => {
-    const rad = (-deg * Math.PI) / 180
-    const cos = Math.cos(rad), sin = Math.sin(rad)
-    const dx = px - cx, dy = py - cy
-    return { x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos }
-  }, [])
-
   const updateLayer = useCallback((idx: number, patch: Partial<Layer>) => {
     setLayers(p => p.map((l, i) => i === idx ? { ...l, ...patch } : l))
   }, [])
 
-  // ─── Touch/mouse handlers (window-level) ─────────────────────────
   useEffect(() => {
     if (step !== 'tryon') return
     const g = gesture.current
@@ -147,14 +209,14 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
       const ls = layersRef.current
       const l = ls[g.dragIdx]
       if (!l) return
+      g.wasDragged = true
 
       if (g.mode === 'drag') {
         const { nx, ny } = screenToNatural(e.clientX, e.clientY)
-        const dx = nx - g.lx
-        const dy = ny - g.ly
+        const dx = nx - g.lx, dy = ny - g.ly
         g.lx = nx; g.ly = ny
         updateLayer(g.dragIdx, { x: l.x + dx, y: l.y + dy })
-      } else       if (g.mode === 'resize') {
+      } else if (g.mode === 'resize') {
         const { nx, ny } = screenToNatural(e.clientX, e.clientY)
         const rad = (-l.rotation * Math.PI) / 180
         const cos = Math.cos(rad), sin = Math.sin(rad)
@@ -187,7 +249,26 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
       }
     }
 
-    const onMU = () => { g.mode = 'idle'; g.dragIdx = -1 }
+    const onMU = () => {
+      if (g.mode === 'drag' && g.dragIdx >= 0 && snapEnabled && bodyDim) {
+        const ls = layersRef.current
+        const l = ls[g.dragIdx]
+        if (l && g.wasDragged) {
+          const snap = snapToBody(l, bodyDim, bodyPose)
+          if (Object.keys(snap).length > 0) {
+            const newL = { ...l, ...snap }
+            const newLayers = ls.map((layer, i) => i === g.dragIdx ? newL : layer)
+            setLayers(newLayers)
+            layersRef.current = newLayers
+            pushHistory(newLayers)
+          }
+        }
+      }
+      if (g.wasDragged && g.dragIdx >= 0) {
+        pushHistory(layersRef.current)
+      }
+      g.mode = 'idle'; g.dragIdx = -1; g.wasDragged = false
+    }
 
     const onTM = (e: TouchEvent) => {
       if (e.touches.length === 2 && g.dragIdx >= 0) {
@@ -207,6 +288,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
         const ls = layersRef.current
         const l = ls[g.dragIdx]
         if (!l) return
+        g.wasDragged = true
 
         if (g.mode === 'drag') {
           const { nx, ny } = screenToNatural(t.clientX, t.clientY)
@@ -246,7 +328,26 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
       }
     }
 
-    const onTE = () => { g.mode = 'idle'; g.dragIdx = -1; g.pinch = false }
+    const onTE = () => {
+      if (g.mode === 'drag' && g.dragIdx >= 0 && snapEnabled && bodyDim) {
+        const ls = layersRef.current
+        const l = ls[g.dragIdx]
+        if (l && g.wasDragged) {
+          const snap = snapToBody(l, bodyDim, bodyPose)
+          if (Object.keys(snap).length > 0) {
+            const newL = { ...l, ...snap }
+            const newLayers = ls.map((layer, i) => i === g.dragIdx ? newL : layer)
+            setLayers(newLayers)
+            layersRef.current = newLayers
+            pushHistory(newLayers)
+          }
+        }
+      }
+      if (g.wasDragged && g.dragIdx >= 0) {
+        pushHistory(layersRef.current)
+      }
+      g.mode = 'idle'; g.dragIdx = -1; g.pinch = false; g.wasDragged = false
+    }
 
     const onW = (e: WheelEvent) => {
       if (activeRef.current < 0) return
@@ -274,15 +375,15 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
       window.removeEventListener('touchend', onTE)
       window.removeEventListener('wheel', onW)
     }
-  }, [step, getScale, screenToNatural, rotatePoint, updateLayer])
+  }, [step, getScale, screenToNatural, updateLayer, snapEnabled, bodyDim, bodyPose, pushHistory])
 
-  // ─── Actions ─────────────────────────────────────────────────────
   const pick = async (src: CameraSource) => {
     try {
       setError(null)
       const { dataUrl } = await pickPhoto(src)
       setBodyUrl(dataUrl)
       saveBodyPhoto(dataUrl)
+      loadBodyPhotos().then(setPhotoList)
       setStep('select')
     } catch (e: any) { if (e?.message !== 'User cancelled') setError('No se pudo obtener la foto.') }
   }
@@ -293,8 +394,29 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
       const url = r.result as string
       setBodyUrl(url)
       saveBodyPhoto(url)
+      loadBodyPhotos().then(setPhotoList)
       setStep('select')
     }; r.readAsDataURL(f)
+  }
+
+  const selectPhoto = (url: string) => {
+    setBodyUrl(url)
+    saveBodyPhoto(url)
+    setStep('select')
+  }
+
+  const deletePhoto = async (url: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    await removeBodyPhoto(url)
+    const updated = await loadBodyPhotos()
+    setPhotoList(updated)
+    if (bodyUrl === url && updated.length > 0) {
+      setBodyUrl(updated[0])
+    } else if (updated.length === 0) {
+      setBodyUrl(null)
+      setBodyDim(null)
+      setStep('photo')
+    }
   }
 
   const toggle = (g: Garment) => setSelIds(p => { const n = new Set(p); n.has(g.id) ? n.delete(g.id) : n.add(g.id); return n })
@@ -320,7 +442,10 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
           rotation: 0, opacity: 1, flipX: false, flipY: false,
         })
       }
-      setLayers(p => { const m = [...p, ...newLayers]; layersRef.current = m; return m })
+      const merged = [...layers.filter(l => !selIds.has(l.garment.id) || newLayers.some(n => n.garment.id === l.garment.id)), ...newLayers.filter(n => !layers.some(l => l.garment.id === n.garment.id))]
+      setLayers(merged)
+      layersRef.current = merged
+      pushHistory(merged)
       setStep('tryon')
     } catch { setDetecting(false); setError('Error procesando prendas.') }
     setBusy(false)
@@ -332,28 +457,26 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     try {
       const dataUrl = await exportCanvas(bodyUrl, layers.map(l => ({
         url: l.url, t: { x: l.x, y: l.y, width: l.w, height: l.h, rotation: l.rotation, opacity: l.opacity, flipX: l.flipX, flipY: l.flipY }
-      })), bodyDim.w, bodyDim.h, { transparent, mirror })
+      })), bodyDim.w, bodyDim.h, { transparent, mirror, resolution: exportRes })
       const res = await fetch(dataUrl); const blob = await res.blob()
       await api.saveLookWithImage(`Look ${new Date().toLocaleDateString('es')}`, layers.map(l => l.garment.id), blob)
       successImpact(); setStep('saved')
     } catch { errorImpact(); setError('No se pudo guardar.'); setStep('tryon') }
   }
 
-  const updateOpacity = (v: number) => { if (active >= 0) updateLayer(active, { opacity: v }) }
+  const updateOpacity = (v: number) => { if (active >= 0) { updateLayer(active, { opacity: v }); pushHistory(layersRef.current) } }
   const moveLayer = (d: -1 | 1) => {
     const t = active + d; if (t < 0 || t >= layers.length) return
-    setLayers(p => { const a = [...p]; [a[active], a[t]] = [a[t], a[active]]; return a }); setActive(t)
+    setLayers(p => { const a = [...p]; [a[active], a[t]] = [a[t], a[active]]; pushHistory(a); return a }); setActive(t)
   }
-  const removeLayer = (i: number) => { setLayers(p => { const n = p.filter((_, j) => j !== i); if (!n.length) setStep('select'); return n }); setActive(-1) }
+  const removeLayer = (i: number) => { setLayers(p => { const n = p.filter((_, j) => j !== i); if (!n.length) setStep('select'); pushHistory(n); return n }); setActive(-1) }
   const resetPos = () => {
     if (active < 0 || !bodyDim) return
-    const cw = containerRef.current?.clientWidth || 300
-    const sc = cw / bodyDim.w
-    const p = autoPos(bodyPose, layers[active].garment.type, cw / sc, bodyDim.h)
+    const p = autoPos(bodyPose, layers[active].garment.type, bodyDim.w, bodyDim.h)
     updateLayer(active, { x: p.x, y: p.y, w: p.w, h: p.h, rotation: 0 })
+    pushHistory(layersRef.current)
   }
 
-  // ─── Sub-screens ─────────────────────────────────────────────────
   const SGuide = () => (
     <div className="flex-1 overflow-y-auto p-4 pb-24"><PoseGuide onStart={() => setStep('photo')} /></div>
   )
@@ -376,6 +499,19 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
         <input type="file" accept="image/*" className="hidden" onChange={onFile} />
         <div className="w-full py-3 rounded-xl text-center text-xs font-medium cursor-pointer" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)', border: '1px dashed var(--border-light)' }}>O selecciona un archivo</div>
       </label>
+      {photoList.length > 0 && (
+        <div className="w-full max-w-xs mt-2">
+          <p className="text-[10px] font-medium mb-2" style={{ color: 'var(--text-muted)' }}>Fotos anteriores</p>
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            {photoList.map((p, i) => (
+              <div key={i} className="relative shrink-0 w-16 h-20 rounded-lg overflow-hidden cursor-pointer" style={{ border: bodyUrl === p ? '2px solid var(--color-primary)' : '1px solid var(--border-light)' }} onClick={() => selectPhoto(p)}>
+                <img src={p} className="w-full h-full object-cover" />
+                <button onClick={e => deletePhoto(p, e)} className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/50 text-white flex items-center justify-center"><X size={8} /></button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 
@@ -423,7 +559,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
       setActive(idx); activeRef.current = idx
       const l = layersRef.current[idx]
       const g = gesture.current
-      g.mode = 'drag'; g.dragIdx = idx
+      g.mode = 'drag'; g.dragIdx = idx; g.wasDragged = false
       const { nx, ny } = screenToNatural(e.clientX, e.clientY)
       g.lx = nx; g.ly = ny
     }
@@ -439,7 +575,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
         g.pAngle = Math.atan2(t1.clientY - t.clientY, t1.clientX - t.clientX) * 180 / Math.PI
         g.sW = layersRef.current[idx].w; g.sH = layersRef.current[idx].h; g.sR = layersRef.current[idx].rotation
       } else {
-        g.mode = 'drag'; g.dragIdx = idx
+        g.mode = 'drag'; g.dragIdx = idx; g.wasDragged = false
         const { nx, ny } = screenToNatural(t.clientX, t.clientY)
         g.lx = nx; g.ly = ny
       }
@@ -654,6 +790,16 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
             </div>
           </div>
         )}
+
+        <div className="flex gap-1.5 px-3 mb-1">
+          <button onClick={undo} disabled={histIdx <= 0} className="p-1.5 rounded-lg disabled:opacity-30" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }} title="Deshacer (Ctrl+Z)"><Undo2 size={12} style={{ color: 'var(--text-secondary)' }} /></button>
+          <button onClick={redo} disabled={histIdx >= history.length - 1} className="p-1.5 rounded-lg disabled:opacity-30" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }} title="Rehacer (Ctrl+Shift+Z)"><Redo2 size={12} style={{ color: 'var(--text-secondary)' }} /></button>
+          <button onClick={() => setSnapEnabled(!snapEnabled)} className="p-1.5 rounded-lg" style={{ backgroundColor: snapEnabled ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: snapEnabled ? 'white' : 'var(--text-secondary)' }} title="Snap al cuerpo"><Magnet size={12} /></button>
+          <div className="flex-1" />
+          {RES_OPTIONS.map(r => (
+            <button key={r.k} onClick={() => setExportRes(r.k)} className="px-2 py-1 rounded-lg text-[9px] font-medium" style={{ backgroundColor: exportRes === r.k ? 'var(--color-primary)' : 'var(--bg-card)', border: `1px solid ${exportRes === r.k ? 'var(--color-primary)' : 'var(--border-light)'}`, color: exportRes === r.k ? 'white' : 'var(--text-secondary)' }} title={r.desc}>{r.l}</button>
+          ))}
+        </div>
 
         <div className="flex gap-2 p-3 border-t" style={{ borderColor: 'var(--border-light)' }}>
           <button onClick={() => { setStep('select'); setActive(-1) }} className="flex-1 py-2.5 rounded-xl text-xs font-medium" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>Volver</button>
