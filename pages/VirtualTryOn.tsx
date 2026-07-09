@@ -196,19 +196,26 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
   }, [bodyUrl])
 
   useEffect(() => {
-    api.getTryonPresets().then(presets => {
-      setLooks(presets.map((p: any) => ({
-        id: p.id,
-        name: p.name,
-        thumbnail: p.thumbnail || '',
-        layers: (p.layers || []).map((l: any) => ({
-          ...l,
-          garment: garments.find((g: any) => g.id === l.garmentId) || l.garment || { id: '', name: '', imageUrl: l.url, type: 'top' },
-        })),
-        rating: p.rating,
-        occasion: p.occasion,
-      })))
-    }).catch(() => {})
+    const fetchPresets = () => {
+      api.getTryonPresets().then(presets => {
+        setLooks(presets.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          thumbnail: p.thumbnail || '',
+          layers: (p.layers || []).map((l: any) => ({
+            ...l,
+            garment: garments.find((g: any) => g.id === l.garmentId) || l.garment || { id: '', name: '', imageUrl: l.url, type: 'top' },
+          })),
+          rating: p.rating,
+          occasion: p.occasion,
+        })))
+      }).catch(() => {})
+    };
+    const token = localStorage.getItem('beyour_token');
+    if (token) fetchPresets();
+    const onUserLoaded = () => fetchPresets();
+    window.addEventListener('ev:user-loaded', onUserLoaded);
+    return () => window.removeEventListener('ev:user-loaded', onUserLoaded);
   }, [])
 
   useEffect(() => {
