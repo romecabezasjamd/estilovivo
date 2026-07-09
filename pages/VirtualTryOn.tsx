@@ -640,12 +640,23 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
       const res = await fetch(dataUrl); const blob = await res.blob()
       const name = lookName.trim() || `Look ${Date.now()}`
       const garmentIds = layers.map(l => l.garment.id)
-      await api.saveLookWithImage(name, garmentIds, blob)
+      const saved = await api.saveLookWithImage(name, garmentIds, blob)
+      const lookId = saved?.id
+      const shareUrl = lookId ? `${window.location.origin}/look/${lookId}` : `${window.location.origin}/social`
+      const shareText = `Mira mi outfit en EstiloVivo! ${shareUrl}`
+      if (navigator.share) {
+        await navigator.share({ title: name, text: shareText, url: shareUrl })
+      } else {
+        window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank')
+      }
       successImpact()
       setError(null)
-      setToast('Compartido en social')
+      setToast('Link copiado')
       setTimeout(() => setToast(null), 2000)
-    } catch { errorImpact(); setError('No se pudo compartir en social.') }
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') return
+      errorImpact(); setError('No se pudo compartir.')
+    }
   }
 
   const resetPos = () => {
@@ -1140,6 +1151,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
                         {longPressId === p.id && (
                           <div className="absolute inset-0 rounded-xl flex flex-col items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
                             <button onClick={e => { e.stopPropagation(); setEditingLookId(p.id); setEditingLookName(p.name); setLongPressId(null); setPreviewLook(null) }} className="px-2 py-1 rounded-lg text-[8px] font-medium bg-blue-500 text-white mb-1">Editar</button>
+                            <button onClick={e => { e.stopPropagation(); const url = `${window.location.origin}/look/${p.id}`; const text = `Mira mi look "${p.name}" en EstiloVivo! ${url}`; if (navigator.share) { navigator.share({ title: p.name, text, url }) } else { window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank') }; setLongPressId(null); setPreviewLook(null) }} className="px-2 py-1 rounded-lg text-[8px] font-medium bg-green-500 text-white mb-1">Compartir</button>
                             <button onClick={e => { e.stopPropagation(); deleteLook(p.id); setLongPressId(null); setPreviewLook(null) }} className="px-2 py-1 rounded-lg text-[8px] font-medium bg-red-500 text-white mb-1">Eliminar</button>
                             <button onClick={e => { e.stopPropagation(); setLongPressId(null); setPreviewLook(null) }} className="px-2 py-1 rounded-lg text-[8px] font-medium bg-white/20 text-white">Cerrar</button>
                           </div>
@@ -1295,6 +1307,9 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
                       </button>
                       <button onClick={(e) => { e.stopPropagation(); setEditingLookId(p.id); setEditingLookName(p.name) }} className="absolute -top-1 -left-1 w-4 h-4 rounded-full bg-blue-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ fontSize: '8px' }}>
                         ✏️
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); const url = `${window.location.origin}/look/${p.id}`; const text = `Mira mi look "${p.name}" en EstiloVivo! ${url}`; if (navigator.share) { navigator.share({ title: p.name, text, url }) } else { window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank') } }} className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-green-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ fontSize: '8px' }}>
+                        🔗
                       </button>
                       {editingLookId === p.id ? (
                         <input type="text" value={editingLookName} onChange={e => setEditingLookName(e.target.value)}

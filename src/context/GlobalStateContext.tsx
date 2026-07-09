@@ -160,6 +160,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
                     userData = await api.getMe();
                     setUser(userData);
                     await syncSet(SYNC_KEYS.USER, userData);
+                    window.dispatchEvent(new CustomEvent('ev:user-loaded', { detail: userData }));
                 } catch (error) {
                     const tokenStillPresent = !!localStorage.getItem(AUTH_TOKEN_KEY);
                     if (!tokenStillPresent) {
@@ -241,6 +242,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     const handleAuthSuccess = useCallback(async (userData: UserState, remember: boolean = true) => {
         setUser(userData);
+        window.dispatchEvent(new CustomEvent('ev:user-loaded', { detail: userData }));
         if (remember) {
             syncSet(SYNC_KEYS.USER, userData);
         } else {
@@ -293,6 +295,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const handleUpdateUser = useCallback(async (updatedUser: UserState) => {
         setUser(updatedUser);
         syncSet(SYNC_KEYS.USER, updatedUser);
+        window.dispatchEvent(new CustomEvent('ev:user-loaded', { detail: updatedUser }));
         try {
             await api.updateProfile(updatedUser);
         } catch (error) {
