@@ -239,12 +239,45 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     // ── Auth ─────────────────────────────────────────────────────────────────
 
-    const handleAuthSuccess = useCallback((userData: UserState, remember: boolean = true) => {
+    const handleAuthSuccess = useCallback(async (userData: UserState, remember: boolean = true) => {
         setUser(userData);
         if (remember) {
             syncSet(SYNC_KEYS.USER, userData);
         } else {
             clearPersistedSession();
+        }
+
+        try {
+            const [fetchedGarments, fetchedLooks, fetchedPlanner, fetchedTrips] =
+                await Promise.allSettled([
+                    api.getGarments(),
+                    api.getLooks(),
+                    api.getPlanner(),
+                    api.getTrips(),
+                ]);
+
+            if (fetchedGarments.status === 'fulfilled') {
+                const sanitized = sanitize<Garment>(fetchedGarments.value);
+                setGarments(sanitized);
+                syncSet(SYNC_KEYS.GARMENTS, sanitized);
+            }
+            if (fetchedLooks.status === 'fulfilled') {
+                const sanitized = sanitize<Look>(fetchedLooks.value);
+                setLooks(sanitized);
+                syncSet(SYNC_KEYS.LOOKS, sanitized);
+            }
+            if (fetchedPlanner.status === 'fulfilled') {
+                const sanitized = sanitize<PlannerEntry>(fetchedPlanner.value);
+                setPlanner(sanitized);
+                syncSet(SYNC_KEYS.PLANNER, sanitized);
+            }
+            if (fetchedTrips.status === 'fulfilled') {
+                const sanitized = sanitize<Trip>(fetchedTrips.value);
+                setTrips(sanitized);
+                syncSet(SYNC_KEYS.TRIPS, sanitized);
+            }
+        } catch (e) {
+            console.warn('Failed to fetch data after auth:', e);
         }
     }, []);
 
