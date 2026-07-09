@@ -119,18 +119,11 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
 
   const [photoList, setPhotoList] = useState<string[]>([])
 
-  const [presets, setPresets] = useState<Array<{ id: string; name: string; thumbnail: string; layers: Layer[]; rating?: number }>>(() => {
+  const [looks, setLooks] = useState<Array<{ id: string; name: string; thumbnail: string; layers: Layer[]; rating?: number }>>(() => {
     try { return JSON.parse(localStorage.getItem('tryon_presets') || '[]') } catch { return [] }
   })
   const [showPresets, setShowPresets] = useState(false)
   const [savingRating, setSavingRating] = useState(0)
-
-  const [collections, setCollections] = useState<Array<{ id: string; name: string; presetIds: string[] }>>(() => {
-    try { return JSON.parse(localStorage.getItem('tryon_collections') || '[]') } catch { return [] }
-  })
-  const [showCollections, setShowCollections] = useState(false)
-  const [editingCollection, setEditingCollection] = useState<string | null>(null)
-  const [newCollectionName, setNewCollectionName] = useState('')
 
   layersRef.current = layers
   activeRef.current = active
@@ -615,7 +608,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     pushHistory(layersRef.current)
   }
 
-  const savePreset = (name: string) => {
+  const saveLook = (name: string) => {
     if (!bodyUrl || layers.length === 0) return
     const canvas = document.createElement('canvas')
     canvas.width = 120; canvas.height = 160
@@ -630,8 +623,8 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
       ctx.drawImage(img, (120 - dw) / 2, (160 - dh) / 2, dw, dh)
       const thumbnail = canvas.toDataURL('image/jpeg', 0.6)
       const preset = { id: `preset_${Date.now()}`, name, thumbnail, layers: layers.map(l => ({ ...l })), rating: savingRating || undefined }
-      const next = [...presets, preset]
-      setPresets(next)
+      const next = [...looks, preset]
+      setLooks(next)
       localStorage.setItem('tryon_presets', JSON.stringify(next))
       setSavingRating(0)
       successImpact()
@@ -639,73 +632,20 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     img.src = bodyUrl
   }
 
-  const loadPreset = (preset: typeof presets[0]) => {
+  const loadLook = (preset: typeof looks[0]) => {
     setLayers(preset.layers.map(l => ({ ...l })))
     setActive(-1); activeRef.current = -1
     pushHistory(preset.layers.map(l => ({ ...l })))
     successImpact()
   }
 
-  const deletePreset = (id: string) => {
-    const next = presets.filter(p => p.id !== id)
+  const deleteLook = (id: string) => {
+    const next = looks.filter(p => p.id !== id)
     setPresets(next)
     localStorage.setItem('tryon_presets', JSON.stringify(next))
   }
 
-  const randomOutfit = () => {
-    if (garments.length === 0 || !bodyDim) return
-    const count = Math.min(garments.length, 2 + Math.floor(Math.random() * 2))
-    const shuffled = [...garments].sort(() => Math.random() - 0.5).slice(0, count)
-    const newLayers: Layer[] = shuffled.map((g, i) => {
-      const p = autoPos(bodyPose, g.type, bodyDim.w, bodyDim.h)
-      return {
-        id: `rl_${Date.now()}_${i}`, garment: g, url: g.imageUrl,
-        x: p.x, y: p.y, w: p.w, h: p.h,
-        rotation: 0, opacity: 1, flipX: false, flipY: false, locked: false,
-      }
-    })
-    setLayers(newLayers)
-    setActive(-1); activeRef.current = -1
-    pushHistory(newLayers)
-    successImpact()
-  }
-
-  const createCollection = () => {
-    const name = newCollectionName.trim() || `Colección ${collections.length + 1}`
-    const col = { id: `col_${Date.now()}`, name, presetIds: [] }
-    const next = [...collections, col]
-    setCollections(next)
-    localStorage.setItem('tryon_collections', JSON.stringify(next))
-    setNewCollectionName('')
-    setEditingCollection(col.id)
-    successImpact()
-  }
-
-  const renameCollection = (id: string, name: string) => {
-    const next = collections.map(c => c.id === id ? { ...c, name } : c)
-    setCollections(next)
-    localStorage.setItem('tryon_collections', JSON.stringify(next))
-  }
-
-  const deleteCollection = (id: string) => {
-    const next = collections.filter(c => c.id !== id)
-    setCollections(next)
-    localStorage.setItem('tryon_collections', JSON.stringify(next))
-  }
-
-  const addToCollection = (colId: string, presetId: string) => {
-    const next = collections.map(c => c.id === colId ? { ...c, presetIds: [...new Set([...c.presetIds, presetId])] } : c)
-    setCollections(next)
-    localStorage.setItem('tryon_collections', JSON.stringify(next))
-  }
-
-  const removeFromCollection = (colId: string, presetId: string) => {
-    const next = collections.map(c => c.id === colId ? { ...c, presetIds: c.presetIds.filter(id => id !== presetId) } : c)
-    setCollections(next)
-    localStorage.setItem('tryon_collections', JSON.stringify(next))
-  }
-
-  const exportForChallenge = async (preset: typeof presets[0]) => {
+  const exportForChallenge = async (preset: typeof looks[0]) => {
     if (!bodyUrl || !bodyDim) return
     try {
       const dataUrl = await exportCanvas(bodyUrl, preset.layers.map(l => ({
@@ -1075,16 +1015,16 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
               })}
             </div>
           )}
-          {presets.length > 0 && (
+          {looks.length > 0 && (
             <div className="mb-1.5">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[9px] font-medium" style={{ color: 'var(--text-muted)' }}>Looks guardados</span>
                 <button onClick={() => setShowPresets(!showPresets)} className="text-[9px]" style={{ color: 'var(--color-primary)' }}>{showPresets ? 'Ocultar' : 'Ver todos'}</button>
               </div>
               <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-                {(showPresets ? presets : presets.slice(0, 5)).map(p => (
+                {(showPresets ? looks : looks.slice(0, 5)).map(p => (
                   <div key={p.id} className="relative shrink-0 group">
-                    <button onClick={() => loadPreset(p)} className="block rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-light)' }}>
+                    <button onClick={() => loadLook(p)} className="block rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-light)' }}>
                       <img src={p.thumbnail} className="w-12 h-16 object-cover" />
                     </button>
                     {p.rating && p.rating > 0 && (
@@ -1092,27 +1032,10 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
                         {'⭐'.repeat(p.rating)}
                       </div>
                     )}
-                    <button onClick={() => deletePreset(p.id)} className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ fontSize: '8px' }}>
+                    <button onClick={() => deleteLook(p.id)} className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ fontSize: '8px' }}>
                       <X size={8} />
                     </button>
                     <p className="text-[7px] text-center mt-0.5 truncate w-12" style={{ color: 'var(--text-muted)' }}>{p.name}</p>
-                    {collections.length > 0 && (
-                      <div className="absolute bottom-4 left-0 right-0 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <div className="relative">
-                          <button className="w-4 h-4 rounded-full flex items-center justify-center text-white" style={{ backgroundColor: 'var(--color-primary)', fontSize: '8px' }}>+</button>
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block z-10">
-                            <div className="rounded-lg p-1 shadow-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }}>
-                              {collections.map(col => (
-                                <button key={col.id} onClick={(e) => { e.stopPropagation(); addToCollection(col.id, p.id) }}
-                                  className="block w-full text-left px-2 py-1 rounded text-[7px] hover:bg-gray-100 truncate" style={{ color: 'var(--text-primary)' }}>
-                                  {col.name}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>
@@ -1129,73 +1052,11 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
                 ))}
               </div>
             </div>
-            <button onClick={() => { if (layers.length > 0) { const name = lookName.trim() || `Look ${presets.length + 1}`; savePreset(name) } }} disabled={layers.length === 0} className="w-full py-1.5 rounded-xl text-[10px] font-medium disabled:opacity-40" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>
-              {layers.length > 0 ? `Guardar como preset (${presets.length})` : 'Sin prendas para guardar'}
+            <button onClick={() => { if (layers.length > 0) { const name = lookName.trim() || `Look ${looks.length + 1}`; saveLook(name) } }} disabled={layers.length === 0} className="w-full py-1.5 rounded-xl text-[10px] font-medium disabled:opacity-40" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>
+              {layers.length > 0 ? `Guardar como look (${looks.length})` : 'Sin prendas para guardar'}
             </button>
           </div>
-          {collections.length > 0 && (
-            <div className="mb-1.5">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[9px] font-medium" style={{ color: 'var(--text-muted)' }}>Colecciones</span>
-                <button onClick={() => setShowCollections(!showCollections)} className="text-[9px]" style={{ color: 'var(--color-primary)' }}>{showCollections ? 'Ocultar' : 'Ver'}</button>
-              </div>
-              {showCollections && (
-                <div className="space-y-1.5">
-                  {collections.map(col => (
-                    <div key={col.id} className="rounded-lg p-2" style={{ border: '1px solid var(--border-light)' }}>
-                      <div className="flex items-center gap-2 mb-1">
-                        {editingCollection === col.id ? (
-                          <input type="text" value={newCollectionName} onChange={e => setNewCollectionName(e.target.value)}
-                            onBlur={() => { renameCollection(col.id, newCollectionName); setEditingCollection(null) }}
-                            onKeyDown={e => { if (e.key === 'Enter') { renameCollection(col.id, newCollectionName); setEditingCollection(null) } }}
-                            className="flex-1 px-1.5 py-0.5 rounded text-[9px]" autoFocus
-                            style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-primary)' }} />
-                        ) : (
-                          <span className="flex-1 text-[9px] font-medium truncate" style={{ color: 'var(--text-primary)' }}>{col.name}</span>
-                        )}
-                        <span className="text-[8px]" style={{ color: 'var(--text-muted)' }}>{col.presetIds.length}</span>
-                        <button onClick={() => { setEditingCollection(col.id); setNewCollectionName(col.name) }} className="text-[8px]" style={{ color: 'var(--text-muted)' }}>✏️</button>
-                        <button onClick={() => deleteCollection(col.id)} className="text-[8px]" style={{ color: 'var(--text-muted)' }}>🗑️</button>
-                      </div>
-                      <div className="flex gap-1 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-                        {col.presetIds.map(pid => {
-                          const p = presets.find(pr => pr.id === pid)
-                          if (!p) return null
-                          return (
-                            <div key={pid} className="relative shrink-0 group">
-                              <button onClick={() => loadPreset(p)} className="block rounded overflow-hidden" style={{ border: '1px solid var(--border-light)' }}>
-                                <img src={p.thumbnail} className="w-8 h-10 object-cover" />
-                              </button>
-                              <button onClick={() => removeFromCollection(col.id, pid)} className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100" style={{ fontSize: '6px' }}>
-                                <X size={6} />
-                              </button>
-                            </div>
-                          )
-                        })}
-                        <button onClick={() => {}} className="w-8 h-10 rounded flex items-center justify-center shrink-0" style={{ border: '1px dashed var(--border-light)', color: 'var(--text-muted)' }}>
-                          <span style={{ fontSize: '10px' }}>+</span>
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <button onClick={createCollection} className="w-full py-1.5 rounded-xl text-[10px] font-medium mt-1" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>
-                + Nueva colección
-              </button>
-            </div>
-          )}
-          {collections.length === 0 && (
-            <button onClick={createCollection} className="w-full py-1.5 rounded-xl text-[10px] font-medium mb-1.5" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>
-              + Crear colección
-            </button>
-          )}
-          <div className="flex gap-1.5">
-            <button onClick={randomOutfit} disabled={garments.length === 0} className="flex-1 py-2 rounded-xl text-[10px] font-medium disabled:opacity-40" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }} title="Outfit aleatorio">
-              <span className="mr-1">🎲</span> Outfit random
-            </button>
-            <button onClick={() => setStep('select')} className="flex-1 py-2 rounded-xl text-[10px] font-medium" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>+ Mas prendas</button>
-          </div>
+          <button onClick={() => setStep('select')} className="w-full py-2 rounded-xl text-[10px] font-medium" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>+ Mas prendas</button>
         </div>
 
         <div className="flex gap-1.5 px-3 mb-1">
@@ -1229,7 +1090,6 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
           </button>
           <button onClick={() => { if (!showNameInput) { setShowNameInput(true) } else { save(false) } }} disabled={!bodyUrl || layers.length === 0} className="py-2.5 px-3 rounded-xl text-xs font-semibold text-white disabled:opacity-40" style={{ backgroundColor: 'var(--color-primary)' }}><Save size={12} /></button>
-          <button onClick={() => { setLookName(''); save(true) }} disabled={!bodyUrl || layers.length === 0} className="py-2.5 px-3 rounded-xl text-[10px] font-medium disabled:opacity-40" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }} title="Guardar sin fondo">PNG</button>
         </div>
         {showNameInput && (
           <div className="px-3 pb-2">
