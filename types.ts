@@ -78,6 +78,8 @@ export interface UserState {
   birthDate?: string;
   experiencePoints?: number;
   level?: number;
+  themePreset?: string;
+  customColor?: string;
 }
 
 export interface MoodOption {

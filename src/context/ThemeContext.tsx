@@ -13,6 +13,7 @@ import {
   saveCustomColor,
   savePresetTheme,
 } from '../utils/theme';
+import { api } from '../../services/api';
 
 interface ThemeContextValue {
   presetTheme: ThemeColor;
@@ -41,6 +42,24 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setCustomColorState(prefs.customColor);
       setIsCustom(prefs.isCustom);
       setIsReady(true);
+
+      // Try to load theme from server (overrides localStorage if logged in)
+      try {
+        const user = await api.getMe();
+        if (!mounted) return;
+        if (user.themePreset) {
+          setPresetThemeState(user.themePreset as ThemeColor);
+          await savePresetTheme(user.themePreset as ThemeColor);
+        }
+        if (user.customColor) {
+          setCustomColorState(user.customColor);
+          await saveCustomColor(user.customColor);
+          setIsCustom(true);
+        } else if (user.themePreset) {
+          setIsCustom(false);
+          setCustomColorState(null);
+        }
+      } catch {}
     })();
     return () => {
       mounted = false;
@@ -52,12 +71,16 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setPresetThemeState(theme);
     setCustomColorState(null);
     setIsCustom(false);
+    // Sync to server
+    try { await api.updateProfile({ themePreset: theme, customColor: null } as any); } catch {}
   }, []);
 
   const setCustomColor = useCallback(async (hex: string) => {
     const saved = await saveCustomColor(hex);
     setCustomColorState(saved);
     setIsCustom(true);
+    // Sync to server
+    try { await api.updateProfile({ customColor: saved } as any); } catch {}
   }, []);
 
   const resetToDefault = useCallback(async () => {
@@ -65,6 +88,8 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setPresetThemeState('pink');
     setCustomColorState(null);
     setIsCustom(false);
+    // Sync to server
+    try { await api.updateProfile({ themePreset: 'pink', customColor: null } as any); } catch {}
   }, []);
 
   return (

@@ -605,6 +605,40 @@ export const api = {
         await handleResponse(res);
     },
 
+    // ============= TRYON PRESETS =============
+    getTryonPresets: async (): Promise<any[]> => {
+        const res = await fetch(`${API_BASE}/tryon-presets`, { headers: getHeaders(), credentials: 'include' });
+        return handleResponse(res);
+    },
+
+    saveTryonPreset: async (preset: { name: string; thumbnail?: string; layers: any[]; rating?: number; occasion?: string }): Promise<any> => {
+        const res = await fetch(`${API_BASE}/tryon-presets`, {
+            method: 'POST',
+            headers: { ...getHeaders(), 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(preset),
+        });
+        return handleResponse(res);
+    },
+
+    updateTryonPreset: async (id: string, data: Partial<{ name: string; thumbnail?: string; layers: any[]; rating?: number; occasion?: string }>): Promise<any> => {
+        const res = await fetch(`${API_BASE}/tryon-presets/${id}`, {
+            method: 'PUT',
+            headers: { ...getHeaders(), 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(data),
+        });
+        return handleResponse(res);
+    },
+
+    deleteTryonPreset: async (id: string): Promise<void> => {
+        const res = await fetch(`${API_BASE}/tryon-presets/${id}`, {
+            credentials: 'include', method: 'DELETE',
+            headers: getHeaders()
+        });
+        await handleResponse(res);
+    },
+
     // ============= PLANNER =============
     getPlanner: async (): Promise<PlannerEntry[]> => {
         const res = await fetch(`${API_BASE}/planner/me`, { headers: getHeaders(), credentials: 'include' });

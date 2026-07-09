@@ -1088,7 +1088,7 @@ app.get('/api/auth/me', authenticateToken, async (req: any, res: Response) => {
 
 app.put('/api/auth/profile', authenticateToken, upload.fields([{ name: 'avatar', maxCount: 1 }, { name: 'fullBodyAvatar', maxCount: 1 }]), validate(updateProfileSchema), async (req: any, res: Response) => {
   try {
-    const { name, bio, mood, cycleTracking, musicSync, emailNotifications, emailChat, emailFollows, emailWashing, emailChallenges, gender, birthDate } = req.body;
+    const { name, bio, mood, cycleTracking, musicSync, emailNotifications, emailChat, emailFollows, emailWashing, emailChallenges, gender, birthDate, themePreset, customColor } = req.body;
     const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
     const avatarFile = files?.['avatar']?.[0];
     const fullBodyFile = files?.['fullBodyAvatar']?.[0];
@@ -1097,6 +1097,8 @@ app.put('/api/auth/profile', authenticateToken, upload.fields([{ name: 'avatar',
     if (name !== undefined) updateData.name = name;
     if (bio !== undefined) updateData.bio = bio;
     if (mood !== undefined) updateData.mood = mood;
+    if (themePreset !== undefined) updateData.themePreset = themePreset;
+    if (customColor !== undefined) updateData.customColor = customColor;
     if (cycleTracking !== undefined) updateData.cycleTracking = cycleTracking === 'true' || cycleTracking === true;
     if (musicSync !== undefined) updateData.musicSync = musicSync === 'true' || musicSync === true;
     if (emailNotifications !== undefined) updateData.emailNotifications = emailNotifications === 'true' || emailNotifications === true;
@@ -1538,6 +1540,98 @@ app.delete('/api/looks/:id', authenticateToken, async (req: any, res: Response) 
   } catch (error) {
     logger.error('Error occurred', { error });
     res.status(500).json({ error: 'Error deleting look' });
+  }
+});
+
+// ============= TRYON PRESETS =============
+
+app.get('/api/tryon-presets', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const presets = await prisma.tryonPreset.findMany({
+      where: { userId: req.user.userId },
+      orderBy: { createdAt: 'asc' },
+    });
+    res.json(presets.map(p => ({
+      id: p.id,
+      name: p.name,
+      thumbnail: p.thumbnail,
+      layers: JSON.parse(p.layers || '[]'),
+      rating: p.rating,
+      occasion: p.occasion,
+    })));
+  } catch (error) {
+    logger.error('Error fetching tryon presets', { error });
+    res.status(500).json({ error: 'Error fetching presets' });
+  }
+});
+
+app.post('/api/tryon-presets', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const { name, thumbnail, layers, rating, occasion } = req.body;
+    const preset = await prisma.tryonPreset.create({
+      data: {
+        userId: req.user.userId,
+        name: name || 'Look',
+        thumbnail: thumbnail || null,
+        layers: JSON.stringify(layers || []),
+        rating: rating || null,
+        occasion: occasion || null,
+      },
+    });
+    res.json({
+      id: preset.id,
+      name: preset.name,
+      thumbnail: preset.thumbnail,
+      layers: JSON.parse(preset.layers || '[]'),
+      rating: preset.rating,
+      occasion: preset.occasion,
+    });
+  } catch (error) {
+    logger.error('Error creating tryon preset', { error });
+    res.status(500).json({ error: 'Error creating preset' });
+  }
+});
+
+app.put('/api/tryon-presets/:id', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const { id } = req.params;
+    const existing = await prisma.tryonPreset.findUnique({ where: { id } });
+    if (!existing || existing.userId !== req.user.userId) return res.status(403).json({ error: 'Not authorized' });
+    const { name, thumbnail, layers, rating, occasion } = req.body;
+    const preset = await prisma.tryonPreset.update({
+      where: { id },
+      data: {
+        ...(name !== undefined && { name }),
+        ...(thumbnail !== undefined && { thumbnail }),
+        ...(layers !== undefined && { layers: JSON.stringify(layers) }),
+        ...(rating !== undefined && { rating }),
+        ...(occasion !== undefined && { occasion }),
+      },
+    });
+    res.json({
+      id: preset.id,
+      name: preset.name,
+      thumbnail: preset.thumbnail,
+      layers: JSON.parse(preset.layers || '[]'),
+      rating: preset.rating,
+      occasion: preset.occasion,
+    });
+  } catch (error) {
+    logger.error('Error updating tryon preset', { error });
+    res.status(500).json({ error: 'Error updating preset' });
+  }
+});
+
+app.delete('/api/tryon-presets/:id', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const { id } = req.params;
+    const existing = await prisma.tryonPreset.findUnique({ where: { id } });
+    if (!existing || existing.userId !== req.user.userId) return res.status(403).json({ error: 'Not authorized' });
+    await prisma.tryonPreset.delete({ where: { id } });
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Error deleting tryon preset', { error });
+    res.status(500).json({ error: 'Error deleting preset' });
   }
 });
 
