@@ -89,6 +89,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
   const [layers, setLayers] = useState<Layer[]>([])
   const [active, setActive] = useState(-1)
   const [error, setError] = useState<string | null>(null)
+  const [containerSize, setContainerSize] = useState<{ w: number; h: number }>({ w: 300, h: 400 })
   const [filter, setFilter] = useState('all')
   const [occasion, setOccasion] = useState('all')
   const [selIds, setSelIds] = useState<Set<string>>(new Set())
@@ -193,6 +194,19 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     img.onload = () => setBodyDim({ w: img.naturalWidth, h: img.naturalHeight })
     img.src = bodyUrl
   }, [bodyUrl])
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const obs = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect
+        if (width > 0 && height > 0) setContainerSize({ w: width, h: height })
+      }
+    })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [step])
 
   const gesture = useRef({
     mode: 'idle' as 'idle' | 'drag' | 'resize' | 'rotate',
@@ -851,10 +865,10 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     return (
       <div className="flex-1 flex flex-col overflow-hidden">
         <div ref={containerRef} onClick={onCanvasClick}
-          className="mx-3 mt-2 rounded-xl overflow-hidden relative flex-[3] min-h-0" style={{ border: '1px solid var(--border-light)', backgroundColor: darkBg ? '#111' : '#f3f4f6' }}>
+          className="mx-3 mt-2 rounded-xl overflow-hidden relative shrink-0" style={{ height: '38vh', minHeight: 180, border: '1px solid var(--border-light)', backgroundColor: darkBg ? '#111' : '#f3f4f6' }}>
           {bodyUrl && bodyDim && (() => {
-            const cW = containerRef.current?.clientWidth || 300
-            const cH = containerRef.current?.clientHeight || 400
+            const cW = containerSize.w || 300
+            const cH = containerSize.h || 400
             const bAspect = bodyDim.w / bodyDim.h
             const cAspect = cW / cH
             let rW: number, rH: number
