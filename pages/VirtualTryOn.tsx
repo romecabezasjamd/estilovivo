@@ -851,8 +851,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     return (
       <div className="flex-1 flex flex-col overflow-hidden">
         <div ref={containerRef} onClick={onCanvasClick}
-          className={`flex-1 mx-3 my-2 rounded-xl overflow-hidden relative ${darkBg ? 'bg-gray-900' : 'bg-gray-100'}`}
-          style={{ border: '1px solid var(--border-light)' }}>
+          className="mx-3 mt-2 rounded-xl overflow-hidden relative flex-[3] min-h-0" style={{ border: '1px solid var(--border-light)', backgroundColor: darkBg ? '#111' : '#f3f4f6' }}>
           {bodyUrl && bodyDim && (() => {
             const cW = containerRef.current?.clientWidth || 300
             const cH = containerRef.current?.clientHeight || 400
@@ -979,164 +978,157 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
           )}
         </div>
 
-        {error && <div className="flex items-center gap-2 px-3 py-2 mx-3 mb-1 rounded-lg text-xs" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444' }}><X size={14} />{error}</div>}
+        {error && <div className="flex items-center gap-2 px-3 py-2 mx-3 mb-1 rounded-lg text-xs shrink-0" style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444' }}><X size={14} />{error}</div>}
 
-        {cur && (
-          <div className="px-3 py-2 border-t" style={{ borderColor: 'var(--border-light)' }}>
-            <div className="flex items-center gap-2 mb-2">
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-medium truncate" style={{ color: 'var(--text-primary)' }}>{cur.garment.name}</p>
-                <p className="text-[9px] truncate" style={{ color: 'var(--text-muted)' }}>{cur.garment.brand || 'Sin marca'}</p>
+        <div className="flex-1 overflow-y-auto min-h-0" style={{ scrollbarWidth: 'thin' }}>
+          {cur && (
+            <div className="px-3 py-2 border-b" style={{ borderColor: 'var(--border-light)' }}>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-medium truncate" style={{ color: 'var(--text-primary)' }}>{cur.garment.name}</p>
+                  <p className="text-[9px] truncate" style={{ color: 'var(--text-muted)' }}>{cur.garment.brand || 'Sin marca'}</p>
+                </div>
+                <div className="flex gap-1">
+                  {active > 0 && <button onClick={moveLayerDown} className="p-1 rounded" style={{ border: '1px solid var(--border-light)' }} title="Enviar atrás"><ChevronDown size={10} style={{ color: 'var(--text-secondary)' }} /></button>}
+                  {active < layers.length - 1 && <button onClick={moveLayerUp} className="p-1 rounded" style={{ border: '1px solid var(--border-light)' }} title="Traer al frente"><ChevronUp size={10} style={{ color: 'var(--text-secondary)' }} /></button>}
+                  <button onClick={() => updateLayer(active, { locked: !cur.locked })} className="p-1 rounded" style={{ border: '1px solid var(--border-light)' }} title={cur.locked ? 'Desbloquear' : 'Bloquear'}>
+                    {cur.locked ? <Lock size={10} style={{ color: 'var(--color-primary)' }} /> : <Unlock size={10} style={{ color: 'var(--text-secondary)' }} />}
+                  </button>
+                </div>
               </div>
-              <div className="flex gap-1">
-                {active > 0 && <button onClick={moveLayerDown} className="p-1 rounded" style={{ border: '1px solid var(--border-light)' }} title="Enviar atrás"><ChevronDown size={10} style={{ color: 'var(--text-secondary)' }} /></button>}
-                {active < layers.length - 1 && <button onClick={moveLayerUp} className="p-1 rounded" style={{ border: '1px solid var(--border-light)' }} title="Traer al frente"><ChevronUp size={10} style={{ color: 'var(--text-secondary)' }} /></button>}
-                <button onClick={() => updateLayer(active, { opacity: cur.opacity === 1 ? 0.5 : 1 })} className="p-1 rounded" style={{ border: '1px solid var(--border-light)' }} title="Opacidad">
-                  {cur.opacity === 1 ? <Eye size={10} style={{ color: 'var(--text-secondary)' }} /> : <EyeOff size={10} style={{ color: 'var(--color-primary)' }} />}
+              <div className="flex items-center gap-1 mt-1.5">
+                <button onClick={resetPos} className="p-1.5 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }} title="Reset posición"><RotateCcw size={12} style={{ color: 'var(--text-secondary)' }} /></button>
+                <button onClick={() => updateLayer(active, { flipX: !cur.flipX })} className="p-1.5 rounded-lg" style={{ backgroundColor: cur.flipX ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: cur.flipX ? 'white' : 'var(--text-secondary)' }} title="Voltear horizontal">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3H5a2 2 0 00-2 2v14a2 2 0 002 2h3M16 3h3a2 2 0 012 2v14a2 2 0 01-2 2h-3M12 20V4"/></svg>
                 </button>
-                <button onClick={() => updateLayer(active, { locked: !cur.locked })} className="p-1 rounded" style={{ border: '1px solid var(--border-light)' }} title={cur.locked ? 'Desbloquear' : 'Bloquear'}>
-                  {cur.locked ? <Lock size={10} style={{ color: 'var(--color-primary)' }} /> : <Unlock size={10} style={{ color: 'var(--text-secondary)' }} />}
+                <button onClick={() => updateLayer(active, { flipY: !cur.flipY })} className="p-1.5 rounded-lg" style={{ backgroundColor: cur.flipY ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: cur.flipY ? 'white' : 'var(--text-secondary)' }} title="Voltear vertical">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 8V5a2 2 0 012-2h14a2 2 0 012 2v3M3 16v3a2 2 0 002 2h14a2 2 0 002-2v-3M4 12h16"/></svg>
+                </button>
+                <button onClick={() => exportSingleLayer(cur)} className="p-1.5 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }} title="Exportar prenda">
+                  <Download size={12} style={{ color: 'var(--text-secondary)' }} />
                 </button>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[9px]" style={{ color: 'var(--text-muted)' }}>Opacidad</span>
-              <input type="range" min="0.1" max="1" step="0.05" value={cur.opacity}
-                onChange={e => updateLayer(active, { opacity: parseFloat(e.target.value) })}
-                className="flex-1 h-1" style={{ accentColor: 'var(--color-primary)' }} />
-              <span className="text-[9px] w-6 text-right" style={{ color: 'var(--text-secondary)' }}>{Math.round(cur.opacity * 100)}%</span>
-            </div>
-            <div className="flex items-center gap-1 mt-2">
-              <button onClick={resetPos} className="p-1.5 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }} title="Reset posición"><RotateCcw size={12} style={{ color: 'var(--text-secondary)' }} /></button>
-              <button onClick={() => updateLayer(active, { flipX: !cur.flipX })} className="p-1.5 rounded-lg" style={{ backgroundColor: cur.flipX ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: cur.flipX ? 'white' : 'var(--text-secondary)' }} title="Voltear horizontal">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3H5a2 2 0 00-2 2v14a2 2 0 002 2h3M16 3h3a2 2 0 012 2v14a2 2 0 01-2 2h-3M12 20V4"/></svg>
-              </button>
-              <button onClick={() => updateLayer(active, { flipY: !cur.flipY })} className="p-1.5 rounded-lg" style={{ backgroundColor: cur.flipY ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: cur.flipY ? 'white' : 'var(--text-secondary)' }} title="Voltear vertical">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 8V5a2 2 0 012-2h14a2 2 0 012 2v3M3 16v3a2 2 0 002 2h14a2 2 0 002-2v-3M4 12h16"/></svg>
-              </button>
-              <button onClick={() => exportSingleLayer(cur)} className="p-1.5 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }} title="Exportar prenda">
-                <Download size={12} style={{ color: 'var(--text-secondary)' }} />
-              </button>
-            </div>
-          </div>
-        )}
-
-        <div className="px-3 py-1.5 border-t" style={{ borderColor: 'var(--border-light)' }}>
-          <button onClick={() => setShowLayers(!showLayers)} className="w-full flex items-center justify-between py-1.5">
-            <div className="flex items-center gap-1.5">
-              <Layers size={11} style={{ color: 'var(--text-secondary)' }} />
-              <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>Capas ({layers.length})</span>
-            </div>
-            <ChevronUp size={10} style={{ color: 'var(--text-secondary)', transform: showLayers ? 'rotate(0)' : 'rotate(180deg)', transition: 'transform 0.2s' }} />
-          </button>
-          {showLayers && (
-            <div className="max-h-32 overflow-y-auto mb-1 space-y-1">
-              {[...layers].reverse().map((l, ri) => {
-                const idx = layers.length - 1 - ri
-                return (
-                  <div key={l.id} onClick={() => { setActive(idx); activeRef.current = idx }}
-                    className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer"
-                    style={{ backgroundColor: idx === active ? 'rgba(255,77,148,0.1)' : 'transparent', border: idx === active ? '1px solid rgba(255,77,148,0.3)' : '1px solid transparent' }}>
-                    <GripVertical size={10} style={{ color: 'var(--text-muted)', cursor: 'grab' }} />
-                    <img src={l.url} className="w-6 h-6 rounded object-cover" style={{ border: '1px solid var(--border-light)' }} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[9px] font-medium truncate" style={{ color: 'var(--text-primary)' }}>{l.garment.name}</p>
-                    </div>
-                    <div className="flex gap-0.5">
-                      <button onClick={e => { e.stopPropagation(); updateLayer(idx, { locked: !l.locked }) }} className="p-0.5">
-                        {l.locked ? <Lock size={8} style={{ color: 'var(--color-primary)' }} /> : <Unlock size={8} style={{ color: 'var(--text-muted)' }} />}
-                      </button>
-                      <button onClick={e => { e.stopPropagation(); setLayers(p => p.filter((_, i) => i !== idx)); if (active >= layers.length - 1) setActive(Math.max(0, layers.length - 2)) }} className="p-0.5">
-                        <X size={8} style={{ color: 'var(--text-muted)' }} />
-                      </button>
-                    </div>
-                  </div>
-                )
-              })}
             </div>
           )}
-          {looks.length > 0 && (
+
+          <div className="px-3 py-1.5">
+            <button onClick={() => setShowLayers(!showLayers)} className="w-full flex items-center justify-between py-1.5">
+              <div className="flex items-center gap-1.5">
+                <Layers size={11} style={{ color: 'var(--text-secondary)' }} />
+                <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>Capas ({layers.length})</span>
+              </div>
+              <ChevronUp size={10} style={{ color: 'var(--text-secondary)', transform: showLayers ? 'rotate(0)' : 'rotate(180deg)', transition: 'transform 0.2s' }} />
+            </button>
+            {showLayers && (
+              <div className="max-h-32 overflow-y-auto mb-1 space-y-1">
+                {[...layers].reverse().map((l, ri) => {
+                  const idx = layers.length - 1 - ri
+                  return (
+                    <div key={l.id} onClick={() => { setActive(idx); activeRef.current = idx }}
+                      className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer"
+                      style={{ backgroundColor: idx === active ? 'rgba(255,77,148,0.1)' : 'transparent', border: idx === active ? '1px solid rgba(255,77,148,0.3)' : '1px solid transparent' }}>
+                      <GripVertical size={10} style={{ color: 'var(--text-muted)', cursor: 'grab' }} />
+                      <img src={l.url} className="w-6 h-6 rounded object-cover" style={{ border: '1px solid var(--border-light)' }} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[9px] font-medium truncate" style={{ color: 'var(--text-primary)' }}>{l.garment.name}</p>
+                      </div>
+                      <div className="flex gap-0.5">
+                        <button onClick={e => { e.stopPropagation(); updateLayer(idx, { locked: !l.locked }) }} className="p-0.5">
+                          {l.locked ? <Lock size={8} style={{ color: 'var(--color-primary)' }} /> : <Unlock size={8} style={{ color: 'var(--text-muted)' }} />}
+                        </button>
+                        <button onClick={e => { e.stopPropagation(); setLayers(p => p.filter((_, i) => i !== idx)); if (active >= layers.length - 1) setActive(Math.max(0, layers.length - 2)) }} className="p-0.5">
+                          <X size={8} style={{ color: 'var(--text-muted)' }} />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            {looks.length > 0 && (
+              <div className="mb-1.5">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[9px] font-medium" style={{ color: 'var(--text-muted)' }}>Looks guardados</span>
+                  <button onClick={() => setShowPresets(!showPresets)} className="text-[9px]" style={{ color: 'var(--color-primary)' }}>{showPresets ? 'Ocultar' : 'Ver todos'}</button>
+                </div>
+                <div className="flex gap-1 mb-1 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+                  {['', 'casual', 'formal', 'deporte', 'fiesta'].map(o => (
+                    <button key={o} onClick={() => setFilterOccasion(filterOccasion === o ? '' : o)} className="shrink-0 px-2 py-0.5 rounded-full text-[8px] font-medium" style={{ backgroundColor: filterOccasion === o ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: filterOccasion === o ? 'white' : 'var(--text-muted)' }}>
+                      {o || 'Todos'}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+                  {(showPresets ? looks : looks.slice(0, 5)).filter(l => !filterOccasion || l.occasion === filterOccasion).map(p => (
+                    <div key={p.id} className="relative shrink-0 group">
+                      <button onClick={() => loadLook(p)}
+                        onPointerDown={e => {
+                          const timer = setTimeout(() => { setLongPressId(p.id); setPreviewLook(p) }, 500)
+                          setLongPressTimer(timer)
+                        }}
+                        onPointerUp={() => { if (longPressTimer) clearTimeout(longPressTimer); if (longPressId !== p.id) return; setLongPressId(null); setPreviewLook(null) }}
+                        onPointerLeave={() => { if (longPressTimer) clearTimeout(longPressTimer); setLongPressId(null); setPreviewLook(null) }}
+                        className="block rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-light)' }}>
+                        <img src={p.thumbnail} className="w-12 h-16 object-cover" />
+                      </button>
+                      {p.rating && p.rating > 0 && (
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-center" style={{ fontSize: '6px' }}>
+                          {'⭐'.repeat(p.rating)}
+                        </div>
+                      )}
+                      {p.occasion && (
+                        <div className="absolute top-0 left-0 right-0 bg-black/50 text-center" style={{ fontSize: '5px', color: 'white' }}>
+                          {p.occasion}
+                        </div>
+                      )}
+                      <button onClick={(e) => { e.stopPropagation(); deleteLook(p.id) }} className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ fontSize: '8px' }}>
+                        <X size={8} />
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); setEditingLookId(p.id); setEditingLookName(p.name) }} className="absolute -top-1 -left-1 w-4 h-4 rounded-full bg-blue-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ fontSize: '8px' }}>
+                        ✏️
+                      </button>
+                      {editingLookId === p.id ? (
+                        <input type="text" value={editingLookName} onChange={e => setEditingLookName(e.target.value)}
+                          onBlur={() => { renameLook(p.id, editingLookName); setEditingLookId(null) }}
+                          onKeyDown={e => { if (e.key === 'Enter') { renameLook(p.id, editingLookName); setEditingLookId(null) } }}
+                          className="w-12 text-[7px] text-center px-0.5 py-0.5 rounded border-none outline-none" autoFocus
+                          style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-primary)' }} />
+                      ) : (
+                        <p className="text-[7px] text-center mt-0.5 truncate w-12" style={{ color: 'var(--text-muted)' }}>{p.name}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="mb-1.5">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[9px] font-medium" style={{ color: 'var(--text-muted)' }}>Looks guardados</span>
-                <button onClick={() => setShowPresets(!showPresets)} className="text-[9px]" style={{ color: 'var(--color-primary)' }}>{showPresets ? 'Ocultar' : 'Ver todos'}</button>
-              </div>
-              <div className="flex gap-1 mb-1 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-                {['', 'casual', 'formal', 'deporte', 'fiesta'].map(o => (
-                  <button key={o} onClick={() => setFilterOccasion(filterOccasion === o ? '' : o)} className="shrink-0 px-2 py-0.5 rounded-full text-[8px] font-medium" style={{ backgroundColor: filterOccasion === o ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: filterOccasion === o ? 'white' : 'var(--text-muted)' }}>
-                    {o || 'Todos'}
-                  </button>
-                ))}
-              </div>
-              <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-                {(showPresets ? looks : looks.slice(0, 5)).filter(l => !filterOccasion || l.occasion === filterOccasion).map(p => (
-                  <div key={p.id} className="relative shrink-0 group">
-                    <button onClick={() => loadLook(p)}
-                      onPointerDown={e => {
-                        const timer = setTimeout(() => { setLongPressId(p.id); setPreviewLook(p) }, 500)
-                        setLongPressTimer(timer)
-                      }}
-                      onPointerUp={() => { if (longPressTimer) clearTimeout(longPressTimer); if (longPressId !== p.id) return; setLongPressId(null); setPreviewLook(null) }}
-                      onPointerLeave={() => { if (longPressTimer) clearTimeout(longPressTimer); setLongPressId(null); setPreviewLook(null) }}
-                      className="block rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-light)' }}>
-                      <img src={p.thumbnail} className="w-12 h-16 object-cover" />
+                <span className="text-[9px] font-medium" style={{ color: 'var(--text-muted)' }}>¿Cuánto te gusta?</span>
+                <div className="flex gap-0.5">
+                  {[1, 2, 3, 4, 5].map(star => (
+                    <button key={star} onClick={() => setSavingRating(savingRating === star ? 0 : star)} className="text-[12px]">
+                      {star <= savingRating ? '⭐' : '☆'}
                     </button>
-                    {p.rating && p.rating > 0 && (
-                      <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-center" style={{ fontSize: '6px' }}>
-                        {'⭐'.repeat(p.rating)}
-                      </div>
-                    )}
-                    {p.occasion && (
-                      <div className="absolute top-0 left-0 right-0 bg-black/50 text-center" style={{ fontSize: '5px', color: 'white' }}>
-                        {p.occasion}
-                      </div>
-                    )}
-                    <button onClick={(e) => { e.stopPropagation(); deleteLook(p.id) }} className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ fontSize: '8px' }}>
-                      <X size={8} />
-                    </button>
-                    <button onClick={(e) => { e.stopPropagation(); setEditingLookId(p.id); setEditingLookName(p.name) }} className="absolute -top-1 -left-1 w-4 h-4 rounded-full bg-blue-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ fontSize: '8px' }}>
-                      ✏️
-                    </button>
-                    {editingLookId === p.id ? (
-                      <input type="text" value={editingLookName} onChange={e => setEditingLookName(e.target.value)}
-                        onBlur={() => { renameLook(p.id, editingLookName); setEditingLookId(null) }}
-                        onKeyDown={e => { if (e.key === 'Enter') { renameLook(p.id, editingLookName); setEditingLookId(null) } }}
-                        className="w-12 text-[7px] text-center px-0.5 py-0.5 rounded border-none outline-none" autoFocus
-                        style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-primary)' }} />
-                    ) : (
-                      <p className="text-[7px] text-center mt-0.5 truncate w-12" style={{ color: 'var(--text-muted)' }}>{p.name}</p>
-                    )}
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-          <div className="mb-1.5">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[9px] font-medium" style={{ color: 'var(--text-muted)' }}>¿Cuánto te gusta?</span>
-              <div className="flex gap-0.5">
-                {[1, 2, 3, 4, 5].map(star => (
-                  <button key={star} onClick={() => setSavingRating(savingRating === star ? 0 : star)} className="text-[12px]">
-                    {star <= savingRating ? '⭐' : '☆'}
+              <button onClick={() => { if (layers.length > 0) { const name = lookName.trim() || `Look ${looks.length + 1}`; saveLook(name) } }} disabled={layers.length === 0} className="w-full py-1.5 rounded-xl text-[10px] font-medium disabled:opacity-40" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>
+                {layers.length > 0 ? `Guardar como look (${looks.length})` : 'Sin prendas para guardar'}
+              </button>
+              <div className="flex gap-1 mt-1">
+                {['casual', 'formal', 'deporte', 'fiesta'].map(o => (
+                  <button key={o} onClick={() => setSaveOccasion(saveOccasion === o ? '' : o)} className="flex-1 py-1 rounded-lg text-[8px] font-medium capitalize" style={{ backgroundColor: saveOccasion === o ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: saveOccasion === o ? 'white' : 'var(--text-muted)' }}>
+                    {o}
                   </button>
                 ))}
               </div>
             </div>
-            <button onClick={() => { if (layers.length > 0) { const name = lookName.trim() || `Look ${looks.length + 1}`; saveLook(name) } }} disabled={layers.length === 0} className="w-full py-1.5 rounded-xl text-[10px] font-medium disabled:opacity-40" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>
-              {layers.length > 0 ? `Guardar como look (${looks.length})` : 'Sin prendas para guardar'}
-            </button>
-            <div className="flex gap-1 mt-1">
-              {['casual', 'formal', 'deporte', 'fiesta'].map(o => (
-                <button key={o} onClick={() => setSaveOccasion(saveOccasion === o ? '' : o)} className="flex-1 py-1 rounded-lg text-[8px] font-medium capitalize" style={{ backgroundColor: saveOccasion === o ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: saveOccasion === o ? 'white' : 'var(--text-muted)' }}>
-                  {o}
-                </button>
-              ))}
-            </div>
+            <button onClick={() => setStep('select')} className="w-full py-2 rounded-xl text-[10px] font-medium" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>+ Mas prendas</button>
+            <div className="h-2" />
           </div>
-          <button onClick={() => setStep('select')} className="w-full py-2 rounded-xl text-[10px] font-medium" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>+ Mas prendas</button>
         </div>
 
-        <div className="flex gap-1.5 px-3 mb-1">
+        <div className="flex gap-1.5 px-3 py-1.5 shrink-0">
           <button onClick={undo} disabled={histIdx <= 0} className="p-1.5 rounded-lg disabled:opacity-30" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }} title="Deshacer (Ctrl+Z)"><Undo2 size={12} style={{ color: 'var(--text-secondary)' }} /></button>
           <button onClick={redo} disabled={histIdx >= history.length - 1} className="p-1.5 rounded-lg disabled:opacity-30" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }} title="Rehacer (Ctrl+Shift+Z)"><Redo2 size={12} style={{ color: 'var(--text-secondary)' }} /></button>
           <button onClick={() => { setDarkBg(!darkBg); setZoom(1); setPan({ x: 0, y: 0 }) }} className="p-1.5 rounded-lg" style={{ backgroundColor: darkBg ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: darkBg ? 'white' : 'var(--text-secondary)' }} title={darkBg ? 'Fondo claro' : 'Fondo oscuro'}>{darkBg ? <Sun size={12} /> : <Moon size={12} />}</button>
@@ -1149,7 +1141,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
           ))}
         </div>
 
-        <div className="flex gap-2 p-3 border-t" style={{ borderColor: 'var(--border-light)' }}>
+        <div className="flex gap-2 p-3 border-t shrink-0" style={{ borderColor: 'var(--border-light)' }}>
           <button onClick={() => { setStep('select'); setActive(-1) }} className="flex-1 py-2.5 rounded-xl text-xs font-medium" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>Volver</button>
           <button onClick={() => setMirror(!mirror)} className="py-2.5 px-3 rounded-xl text-xs font-medium" style={{ backgroundColor: mirror ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: mirror ? 'white' : 'var(--text-secondary)' }} title="Espejo">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3v18M17 7l-5-4-5 4"/></svg>
@@ -1166,7 +1158,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
           <button onClick={() => { if (!showNameInput) { setShowNameInput(true) } else { save(false) } }} disabled={!bodyUrl || layers.length === 0} className="py-2.5 px-3 rounded-xl text-xs font-semibold text-white disabled:opacity-40" style={{ backgroundColor: 'var(--color-primary)' }}><Save size={12} /></button>
         </div>
         {showShareOptions && (
-          <div className="px-3 pb-2">
+          <div className="px-3 pb-2 shrink-0">
             <div className="rounded-xl p-2 flex gap-1.5" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }}>
               <button onClick={() => { shareOutfit(); setShowShareOptions(false) }} className="flex-1 py-2 rounded-lg text-[10px] font-medium" style={{ backgroundColor: 'var(--color-primary)', color: 'white' }}>
                 Compartir imagen
@@ -1178,7 +1170,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
           </div>
         )}
         {showNameInput && (
-          <div className="px-3 pb-2">
+          <div className="px-3 pb-2 shrink-0">
             <div className="flex gap-2">
               <input type="text" value={lookName} onChange={e => setLookName(e.target.value)} placeholder="Nombre del look..." autoFocus
                 onKeyDown={e => { if (e.key === 'Enter') { save(false); setShowNameInput(false) } if (e.key === 'Escape') setShowNameInput(false) }}
