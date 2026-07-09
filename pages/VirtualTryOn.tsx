@@ -124,6 +124,9 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
   })
   const [showPresets, setShowPresets] = useState(false)
   const [savingRating, setSavingRating] = useState(0)
+  const [editingLookId, setEditingLookId] = useState<string | null>(null)
+  const [editingLookName, setEditingLookName] = useState('')
+  const [showShareOptions, setShowShareOptions] = useState(false)
 
   layersRef.current = layers
   activeRef.current = active
@@ -641,7 +644,13 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
 
   const deleteLook = (id: string) => {
     const next = looks.filter(p => p.id !== id)
-    setPresets(next)
+    setLooks(next)
+    localStorage.setItem('tryon_presets', JSON.stringify(next))
+  }
+
+  const renameLook = (id: string, name: string) => {
+    const next = looks.map(l => l.id === id ? { ...l, name } : l)
+    setLooks(next)
     localStorage.setItem('tryon_presets', JSON.stringify(next))
   }
 
@@ -1035,7 +1044,18 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
                     <button onClick={() => deleteLook(p.id)} className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ fontSize: '8px' }}>
                       <X size={8} />
                     </button>
-                    <p className="text-[7px] text-center mt-0.5 truncate w-12" style={{ color: 'var(--text-muted)' }}>{p.name}</p>
+                    <button onClick={() => { setEditingLookId(p.id); setEditingLookName(p.name) }} className="absolute -top-1 -left-1 w-4 h-4 rounded-full bg-blue-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ fontSize: '8px' }}>
+                      ✏️
+                    </button>
+                    {editingLookId === p.id ? (
+                      <input type="text" value={editingLookName} onChange={e => setEditingLookName(e.target.value)}
+                        onBlur={() => { renameLook(p.id, editingLookName); setEditingLookId(null) }}
+                        onKeyDown={e => { if (e.key === 'Enter') { renameLook(p.id, editingLookName); setEditingLookId(null) } }}
+                        className="w-12 text-[7px] text-center px-0.5 py-0.5 rounded border-none outline-none" autoFocus
+                        style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-primary)' }} />
+                    ) : (
+                      <p className="text-[7px] text-center mt-0.5 truncate w-12" style={{ color: 'var(--text-muted)' }}>{p.name}</p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1083,14 +1103,23 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
           <button onClick={downloadImage} disabled={!bodyUrl || layers.length === 0} className="py-2.5 px-3 rounded-xl text-xs font-medium disabled:opacity-40" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }} title="Descargar imagen">
             <Download size={14} />
           </button>
-          <button onClick={shareOutfit} disabled={!bodyUrl || layers.length === 0} className="py-2.5 px-3 rounded-xl text-xs font-medium disabled:opacity-40" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }} title="Compartir outfit">
+          <button onClick={() => setShowShareOptions(!showShareOptions)} disabled={!bodyUrl || layers.length === 0} className="py-2.5 px-3 rounded-xl text-xs font-medium disabled:opacity-40" style={{ backgroundColor: showShareOptions ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: showShareOptions ? 'white' : 'var(--text-secondary)' }} title="Compartir">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-          </button>
-          <button onClick={shareToSocial} disabled={!bodyUrl || layers.length === 0} className="py-2.5 px-3 rounded-xl text-xs font-medium disabled:opacity-40" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }} title="Compartir en social">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
           </button>
           <button onClick={() => { if (!showNameInput) { setShowNameInput(true) } else { save(false) } }} disabled={!bodyUrl || layers.length === 0} className="py-2.5 px-3 rounded-xl text-xs font-semibold text-white disabled:opacity-40" style={{ backgroundColor: 'var(--color-primary)' }}><Save size={12} /></button>
         </div>
+        {showShareOptions && (
+          <div className="px-3 pb-2">
+            <div className="rounded-xl p-2 flex gap-1.5" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }}>
+              <button onClick={() => { shareOutfit(); setShowShareOptions(false) }} className="flex-1 py-2 rounded-lg text-[10px] font-medium" style={{ backgroundColor: 'var(--color-primary)', color: 'white' }}>
+                Compartir imagen
+              </button>
+              <button onClick={() => { shareToSocial(); setShowShareOptions(false) }} className="flex-1 py-2 rounded-lg text-[10px] font-medium" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>
+                Compartir link
+              </button>
+            </div>
+          </div>
+        )}
         {showNameInput && (
           <div className="px-3 pb-2">
             <div className="flex gap-2">
