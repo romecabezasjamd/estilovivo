@@ -43,27 +43,52 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setIsCustom(prefs.isCustom);
       setIsReady(true);
 
-      // Try to load theme from server (overrides localStorage if logged in)
-      try {
-        const user = await api.getMe();
-        if (!mounted) return;
-        if (user.themePreset) {
-          setPresetThemeState(user.themePreset as ThemeColor);
-          await savePresetTheme(user.themePreset as ThemeColor);
-        }
-        if (user.customColor) {
-          setCustomColorState(user.customColor);
-          await saveCustomColor(user.customColor);
-          setIsCustom(true);
-        } else if (user.themePreset) {
-          setIsCustom(false);
-          setCustomColorState(null);
-        }
-      } catch {}
+      // Try to load theme from server (only if auth token exists)
+      const token = localStorage.getItem('beyour_token');
+      if (token) {
+        try {
+          const user = await api.getMe();
+          if (!mounted) return;
+          if (user.themePreset) {
+            setPresetThemeState(user.themePreset as ThemeColor);
+            await savePresetTheme(user.themePreset as ThemeColor);
+          }
+          if (user.customColor) {
+            setCustomColorState(user.customColor);
+            await saveCustomColor(user.customColor);
+            setIsCustom(true);
+          } else if (user.themePreset) {
+            setIsCustom(false);
+            setCustomColorState(null);
+          }
+        } catch {}
+      }
     })();
     return () => {
       mounted = false;
     };
+  }, []);
+
+  // Sync theme from user data when it changes in localStorage
+  useEffect(() => {
+    const handler = (e: StorageEvent) => {
+      if (e.key === 'ev_sync_user' && e.newValue) {
+        try {
+          const { value: user } = JSON.parse(e.newValue);
+          if (user?.themePreset) {
+            setPresetThemeState(user.themePreset as ThemeColor);
+            savePresetTheme(user.themePreset as ThemeColor);
+          }
+          if (user?.customColor) {
+            setCustomColorState(user.customColor);
+            saveCustomColor(user.customColor);
+            setIsCustom(true);
+          }
+        } catch {}
+      }
+    };
+    window.addEventListener('storage', handler);
+    return () => window.removeEventListener('storage', handler);
   }, []);
 
   const setPresetTheme = useCallback(async (theme: ThemeColor) => {

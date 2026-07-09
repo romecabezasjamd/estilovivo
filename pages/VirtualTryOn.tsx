@@ -583,7 +583,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
       const name = lookName.trim() || `Look ${new Date().toLocaleDateString('es')}`
       const dataUrl = await exportCanvas(bodyUrl, layers.map(l => ({
         url: l.url, t: { x: l.x, y: l.y, width: l.w, height: l.h, rotation: l.rotation, opacity: l.opacity, flipX: l.flipX, flipY: l.flipY }
-      })), bodyDim.w, bodyDim.h, { transparent, mirror, resolution: exportRes })
+      })), bodyDim.w, bodyDim.h, { transparent, mirror, resolution: exportRes, backgroundColor: darkBg ? '#111' : undefined })
       const res = await fetch(dataUrl); const blob = await res.blob()
       await api.saveLookWithImage(name, layers.map(l => l.garment.id), blob)
       successImpact(); setStep('saved')
@@ -595,7 +595,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     try {
       const dataUrl = await exportCanvas(bodyUrl, layers.map(l => ({
         url: l.url, t: { x: l.x, y: l.y, width: l.w, height: l.h, rotation: l.rotation, opacity: l.opacity, flipX: l.flipX, flipY: l.flipY }
-      })), bodyDim.w, bodyDim.h, { transparent: false, mirror, resolution: exportRes })
+      })), bodyDim.w, bodyDim.h, { transparent: false, mirror, resolution: exportRes, backgroundColor: darkBg ? '#111' : undefined })
       const res = await fetch(dataUrl); const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -614,7 +614,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     try {
       const dataUrl = await exportCanvas(bodyUrl, layers.map(l => ({
         url: l.url, t: { x: l.x, y: l.y, width: l.w, height: l.h, rotation: l.rotation, opacity: l.opacity, flipX: l.flipX, flipY: l.flipY }
-      })), bodyDim.w, bodyDim.h, { transparent: false, mirror, resolution: 'hd' })
+      })), bodyDim.w, bodyDim.h, { transparent: false, mirror, resolution: 'hd', backgroundColor: darkBg ? '#111' : undefined })
       const res = await fetch(dataUrl); const blob = await res.blob()
       const file = new File([blob], 'outfit.png', { type: 'image/png' })
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
@@ -636,14 +636,15 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     try {
       const dataUrl = await exportCanvas(bodyUrl, layers.map(l => ({
         url: l.url, t: { x: l.x, y: l.y, width: l.w, height: l.h, rotation: l.rotation, opacity: l.opacity, flipX: l.flipX, flipY: l.flipY }
-      })), bodyDim.w, bodyDim.h, { transparent: false, mirror, resolution: 'hd' })
+      })), bodyDim.w, bodyDim.h, { transparent: false, mirror, resolution: 'hd', backgroundColor: darkBg ? '#111' : undefined })
       const res = await fetch(dataUrl); const blob = await res.blob()
       const name = lookName.trim() || `Look ${Date.now()}`
       const garmentIds = layers.map(l => l.garment.id)
       await api.saveLookWithImage(name, garmentIds, blob)
       successImpact()
       setError(null)
-      setStep('saved')
+      setToast('Compartido en social')
+      setTimeout(() => setToast(null), 2000)
     } catch { errorImpact(); setError('No se pudo compartir en social.') }
   }
 
@@ -733,7 +734,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     try {
       const dataUrl = await exportCanvas(bodyUrl, preset.layers.map(l => ({
         url: l.url, t: { x: l.x, y: l.y, width: l.w, height: l.h, rotation: l.rotation, opacity: l.opacity, flipX: l.flipX, flipY: l.flipY }
-      })), bodyDim.w, bodyDim.h, { transparent: false, mirror, resolution: 'hd' })
+      })), bodyDim.w, bodyDim.h, { transparent: false, mirror, resolution: 'hd', backgroundColor: darkBg ? '#111' : undefined })
       const res = await fetch(dataUrl); const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -1138,6 +1139,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
                         {p.occasion && <span className="absolute top-0.5 right-0.5 text-[7px] px-1 rounded-full" style={{ backgroundColor: 'var(--color-primary)', color: 'white' }}>{OCCASIONS.find(o => o.k === p.occasion)?.icon}</span>}
                         {longPressId === p.id && (
                           <div className="absolute inset-0 rounded-xl flex flex-col items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
+                            <button onClick={e => { e.stopPropagation(); setEditingLookId(p.id); setEditingLookName(p.name); setLongPressId(null); setPreviewLook(null) }} className="px-2 py-1 rounded-lg text-[8px] font-medium bg-blue-500 text-white mb-1">Editar</button>
                             <button onClick={e => { e.stopPropagation(); deleteLook(p.id); setLongPressId(null); setPreviewLook(null) }} className="px-2 py-1 rounded-lg text-[8px] font-medium bg-red-500 text-white mb-1">Eliminar</button>
                             <button onClick={e => { e.stopPropagation(); setLongPressId(null); setPreviewLook(null) }} className="px-2 py-1 rounded-lg text-[8px] font-medium bg-white/20 text-white">Cerrar</button>
                           </div>
@@ -1149,8 +1151,19 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
                 </div>
               )}
 
+              {editingLookId && (
+                <div className="flex gap-2 items-center rounded-xl p-2" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-light)' }}>
+                  <input type="text" value={editingLookName} onChange={e => setEditingLookName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { renameLook(editingLookId, editingLookName); setEditingLookId(null) } if (e.key === 'Escape') setEditingLookId(null) }}
+                    autoFocus className="flex-1 px-2 py-1 rounded-lg text-[11px]" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-primary)' }} />
+                  <button onClick={() => { renameLook(editingLookId, editingLookName); setEditingLookId(null) }} className="px-2 py-1 rounded-lg text-[10px] font-medium text-white" style={{ backgroundColor: 'var(--color-primary)' }}>OK</button>
+                  <button onClick={() => setEditingLookId(null)} className="px-2 py-1 rounded-lg text-[10px]" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>X</button>
+                </div>
+              )}
+
               <div className="flex gap-2">
                 <input type="text" value={lookName} onChange={e => setLookName(e.target.value)} placeholder="Nombre del look..."
+                  autoFocus autoComplete="off" inputMode="text"
                   className="flex-1 px-3 py-2 rounded-xl text-[11px]" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-light)', color: 'var(--text-primary)' }} />
                 <button onClick={() => { save(false); setShowControls(false) }} disabled={!bodyUrl || layers.length === 0} className="px-4 py-2 rounded-xl text-[11px] font-semibold text-white disabled:opacity-40" style={{ backgroundColor: 'var(--color-primary)' }}><Save size={12} /></button>
               </div>

@@ -71,7 +71,7 @@ export async function exportCanvas(
   garments: Array<{ url: string; t: GarmentTransform }>,
   displayW: number,
   displayH: number,
-  options?: { transparent?: boolean; mirror?: boolean; resolution?: ExportResolution },
+  options?: { transparent?: boolean; mirror?: boolean; resolution?: ExportResolution; backgroundColor?: string },
 ): Promise<string> {
   const body = await loadImg(bodyUrl)
   const res = options?.resolution || 'hd'
@@ -83,7 +83,7 @@ export async function exportCanvas(
   const ctx = c.getContext('2d')!
 
   if (!options?.transparent) {
-    ctx.fillStyle = '#ffffff'
+    ctx.fillStyle = options?.backgroundColor || '#ffffff'
     ctx.fillRect(0, 0, ew, eh)
   }
 
