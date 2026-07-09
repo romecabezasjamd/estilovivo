@@ -119,7 +119,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
 
   const [photoList, setPhotoList] = useState<string[]>([])
 
-  const [looks, setLooks] = useState<Array<{ id: string; name: string; thumbnail: string; layers: Layer[]; rating?: number }>>(() => {
+  const [looks, setLooks] = useState<Array<{ id: string; name: string; thumbnail: string; layers: Layer[]; rating?: number; occasion?: string }>>(() => {
     try { return JSON.parse(localStorage.getItem('tryon_presets') || '[]') } catch { return [] }
   })
   const [showPresets, setShowPresets] = useState(false)
@@ -127,6 +127,12 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
   const [editingLookId, setEditingLookId] = useState<string | null>(null)
   const [editingLookName, setEditingLookName] = useState('')
   const [showShareOptions, setShowShareOptions] = useState(false)
+  const [longPressId, setLongPressId] = useState<string | null>(null)
+  const [longPressTimer, setLongPressTimer] = useState<ReturnType<typeof setTimeout> | null>(null)
+  const [previewLook, setPreviewLook] = useState<typeof looks[0] | null>(null)
+  const [saveOccasion, setSaveOccasion] = useState<string>('')
+  const [filterOccasion, setFilterOccasion] = useState<string>('')
+  const [toast, setToast] = useState<string | null>(null)
 
   layersRef.current = layers
   activeRef.current = active
@@ -625,12 +631,16 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
       if (bAspect > 120 / 160) { dh = 120 / bAspect } else { dw = 160 * bAspect }
       ctx.drawImage(img, (120 - dw) / 2, (160 - dh) / 2, dw, dh)
       const thumbnail = canvas.toDataURL('image/jpeg', 0.6)
-      const preset = { id: `preset_${Date.now()}`, name, thumbnail, layers: layers.map(l => ({ ...l })), rating: savingRating || undefined }
+      const preset = { id: `preset_${Date.now()}`, name, thumbnail, layers: layers.map(l => ({ ...l })), rating: savingRating || undefined, occasion: saveOccasion || undefined }
       const next = [...looks, preset]
       setLooks(next)
       localStorage.setItem('tryon_presets', JSON.stringify(next))
       setSavingRating(0)
+      setSaveOccasion('')
+      setShowNameInput(false)
       successImpact()
+      setToast('Look guardado')
+      setTimeout(() => setToast(null), 2000)
     }
     img.src = bodyUrl
   }
@@ -652,6 +662,24 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
     const next = looks.map(l => l.id === id ? { ...l, name } : l)
     setLooks(next)
     localStorage.setItem('tryon_presets', JSON.stringify(next))
+  }
+
+  const exportSingleLayer = async (layer: Layer) => {
+    if (!bodyUrl || !bodyDim) return
+    try {
+      const dataUrl = await exportCanvas(bodyUrl, [{
+        url: layer.url, t: { x: layer.x, y: layer.y, width: layer.w, height: layer.h, rotation: layer.rotation, opacity: layer.opacity, flipX: layer.flipX, flipY: layer.flipY }
+      }], bodyDim.w, bodyDim.h, { transparent: true, mirror, resolution: 'hd' })
+      const res = await fetch(dataUrl); const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = `${layer.garment.name || 'prenda'}_${Date.now()}.png`
+      document.body.appendChild(a); a.click(); document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      successImpact()
+      setToast('Prenda exportada')
+      setTimeout(() => setToast(null), 2000)
+    } catch { errorImpact() }
   }
 
   const exportForChallenge = async (preset: typeof looks[0]) => {
@@ -986,6 +1014,9 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
               <button onClick={() => updateLayer(active, { flipY: !cur.flipY })} className="p-1.5 rounded-lg" style={{ backgroundColor: cur.flipY ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: cur.flipY ? 'white' : 'var(--text-secondary)' }} title="Voltear vertical">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 8V5a2 2 0 012-2h14a2 2 0 012 2v3M3 16v3a2 2 0 002 2h14a2 2 0 002-2v-3M4 12h16"/></svg>
               </button>
+              <button onClick={() => exportSingleLayer(cur)} className="p-1.5 rounded-lg" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }} title="Exportar prenda">
+                <Download size={12} style={{ color: 'var(--text-secondary)' }} />
+              </button>
             </div>
           </div>
         )}
@@ -1030,10 +1061,24 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
                 <span className="text-[9px] font-medium" style={{ color: 'var(--text-muted)' }}>Looks guardados</span>
                 <button onClick={() => setShowPresets(!showPresets)} className="text-[9px]" style={{ color: 'var(--color-primary)' }}>{showPresets ? 'Ocultar' : 'Ver todos'}</button>
               </div>
+              <div className="flex gap-1 mb-1 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+                {['', 'casual', 'formal', 'deporte', 'fiesta'].map(o => (
+                  <button key={o} onClick={() => setFilterOccasion(filterOccasion === o ? '' : o)} className="shrink-0 px-2 py-0.5 rounded-full text-[8px] font-medium" style={{ backgroundColor: filterOccasion === o ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: filterOccasion === o ? 'white' : 'var(--text-muted)' }}>
+                    {o || 'Todos'}
+                  </button>
+                ))}
+              </div>
               <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-                {(showPresets ? looks : looks.slice(0, 5)).map(p => (
+                {(showPresets ? looks : looks.slice(0, 5)).filter(l => !filterOccasion || l.occasion === filterOccasion).map(p => (
                   <div key={p.id} className="relative shrink-0 group">
-                    <button onClick={() => loadLook(p)} className="block rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-light)' }}>
+                    <button onClick={() => loadLook(p)}
+                      onPointerDown={e => {
+                        const timer = setTimeout(() => { setLongPressId(p.id); setPreviewLook(p) }, 500)
+                        setLongPressTimer(timer)
+                      }}
+                      onPointerUp={() => { if (longPressTimer) clearTimeout(longPressTimer); if (longPressId !== p.id) return; setLongPressId(null); setPreviewLook(null) }}
+                      onPointerLeave={() => { if (longPressTimer) clearTimeout(longPressTimer); setLongPressId(null); setPreviewLook(null) }}
+                      className="block rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-light)' }}>
                       <img src={p.thumbnail} className="w-12 h-16 object-cover" />
                     </button>
                     {p.rating && p.rating > 0 && (
@@ -1041,10 +1086,15 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
                         {'⭐'.repeat(p.rating)}
                       </div>
                     )}
-                    <button onClick={() => deleteLook(p.id)} className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ fontSize: '8px' }}>
+                    {p.occasion && (
+                      <div className="absolute top-0 left-0 right-0 bg-black/50 text-center" style={{ fontSize: '5px', color: 'white' }}>
+                        {p.occasion}
+                      </div>
+                    )}
+                    <button onClick={(e) => { e.stopPropagation(); deleteLook(p.id) }} className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ fontSize: '8px' }}>
                       <X size={8} />
                     </button>
-                    <button onClick={() => { setEditingLookId(p.id); setEditingLookName(p.name) }} className="absolute -top-1 -left-1 w-4 h-4 rounded-full bg-blue-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ fontSize: '8px' }}>
+                    <button onClick={(e) => { e.stopPropagation(); setEditingLookId(p.id); setEditingLookName(p.name) }} className="absolute -top-1 -left-1 w-4 h-4 rounded-full bg-blue-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" style={{ fontSize: '8px' }}>
                       ✏️
                     </button>
                     {editingLookId === p.id ? (
@@ -1075,6 +1125,13 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
             <button onClick={() => { if (layers.length > 0) { const name = lookName.trim() || `Look ${looks.length + 1}`; saveLook(name) } }} disabled={layers.length === 0} className="w-full py-1.5 rounded-xl text-[10px] font-medium disabled:opacity-40" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>
               {layers.length > 0 ? `Guardar como look (${looks.length})` : 'Sin prendas para guardar'}
             </button>
+            <div className="flex gap-1 mt-1">
+              {['casual', 'formal', 'deporte', 'fiesta'].map(o => (
+                <button key={o} onClick={() => setSaveOccasion(saveOccasion === o ? '' : o)} className="flex-1 py-1 rounded-lg text-[8px] font-medium capitalize" style={{ backgroundColor: saveOccasion === o ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: saveOccasion === o ? 'white' : 'var(--text-muted)' }}>
+                  {o}
+                </button>
+              ))}
+            </div>
           </div>
           <button onClick={() => setStep('select')} className="w-full py-2 rounded-xl text-[10px] font-medium" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>+ Mas prendas</button>
         </div>
@@ -1208,6 +1265,19 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
       {step === 'tryon' && compareView && <SCompare />}
       {step === 'saving' && <SSaving />}
       {step === 'saved' && <SSaved />}
+      {toast && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl text-xs font-medium text-white z-[210] shadow-lg" style={{ backgroundColor: 'var(--color-primary)' }}>
+          {toast}
+        </div>
+      )}
+      {previewLook && (
+        <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/60" onClick={() => { setPreviewLook(null); setLongPressId(null) }}>
+          <div className="rounded-xl overflow-hidden shadow-2xl" style={{ border: '2px solid var(--color-primary)' }}>
+            <img src={previewLook.thumbnail} className="w-40 h-56 object-cover" />
+          </div>
+          <p className="absolute bottom-10 text-white text-xs font-medium">{previewLook.name}</p>
+        </div>
+      )}
     </div>
   )
 }
