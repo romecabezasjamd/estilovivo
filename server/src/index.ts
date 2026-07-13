@@ -385,7 +385,7 @@ app.use(cors({
       callback(null, true);
     } else {
       logger.warn(`CORS blocked origin: ${origin}`);
-      callback(null, true); // Allow anyway in production to avoid issues
+      callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
@@ -397,7 +397,7 @@ const io = new Server(httpServer, {
       if (!origin || allowedOrigins.some(allowed => origin.startsWith(allowed || ''))) {
         callback(null, true);
       } else {
-        callback(null, true); // Allow all for simplicity inside the proxy
+        callback(new Error('Not allowed by CORS'));
       }
     },
     credentials: true,
@@ -408,8 +408,14 @@ io.on('connection', (socket) => {
   logger.info(`Socket connected: ${socket.id}`);
 
   socket.on('join_user', (userId) => {
-    socket.join(`user_${userId}`);
-    logger.info(`User ${userId} joined their personal room`);
+    const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.replace('Bearer ', '');
+    if (!token) return socket.emit('error', { message: 'Authentication required' });
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET) as any;
+      if (decoded.userId !== userId) return socket.emit('error', { message: 'Cannot join another user room' });
+      socket.join(`user_${userId}`);
+      logger.info(`User ${userId} joined their personal room`);
+    } catch { socket.emit('error', { message: 'Invalid token' }); }
   });
 
   socket.on('join_room', (roomId) => {
@@ -513,7 +519,8 @@ app.get('/api/health', async (req: Request, res: Response) => {
   }
 });
 
-app.get('/api/debug-db', async (req: Request, res: Response) => {
+app.get('/api/debug-db', authenticateToken, async (req: any, res: Response) => {
+  if (req.user.userId !== 'admin') return res.status(403).json({ error: 'Admin only' });
   try {
     const results = [];
     try {
@@ -546,7 +553,8 @@ app.get('/api/debug-db', async (req: Request, res: Response) => {
   }
 });
 
-app.get('/api/server-logs', async (req: Request, res: Response) => {
+app.get('/api/server-logs', authenticateToken, async (req: any, res: Response) => {
+  if (req.user.userId !== 'admin') return res.status(403).json({ error: 'Admin only' });
   try {
     const logFile = path.join(process.cwd(), 'combined.log'); // Typical winston log file
     const errFile = path.join(process.cwd(), 'error.log');
@@ -847,7 +855,8 @@ app.post('/api/auth/change-password', authenticateToken, validate(changePassword
   }
 });
 
-app.post('/api/auth/test-email', validate(testEmailSchema), async (req: Request, res: Response) => {
+app.post('/api/auth/test-email', authenticateToken, validate(testEmailSchema), async (req: any, res: Response) => {
+  if (req.user.userId !== 'admin') return res.status(403).json({ error: 'Admin only' });
   if (!transporter) return res.status(503).json({ error: 'SMTP not configured. Set SMTP_HOST, SMTP_USER, SMTP_PASS.' });
   try {
     await transporter.verify();
@@ -2090,6 +2099,7 @@ app.delete('/api/challenges/submissions/:id', authenticateToken, async (req: any
 });
 
 app.post('/api/challenges/force-rotate', authenticateToken, async (req: any, res: Response) => {
+  if (req.user.userId !== 'admin') return res.status(403).json({ error: 'Admin only' });
   try {
     const now = new Date();
     const startOfToday = new Date(now);
@@ -2658,6 +2668,10 @@ app.post('/api/chat/messages', authenticateToken, validate(messageSchema), async
   try {
     const { conversationId, content, otherUserId, imageUrl, productId } = req.body;
     if (!content && !imageUrl) return res.status(400).json({ error: 'content or imageUrl required' });
+    const participant = await prisma.conversationParticipant.findFirst({
+      where: { conversationId, userId: req.user.userId }
+    });
+    if (!participant) return res.status(403).json({ error: 'Not a participant in this conversation' });
     const message = await prisma.message.create({
       data: { conversationId, content: content || '', senderId: req.user.userId, imageUrl: imageUrl || null, productId: productId || null },
       include: { sender: { select: { id: true, name: true, avatar: true } } }

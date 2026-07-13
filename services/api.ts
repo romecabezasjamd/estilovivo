@@ -211,15 +211,11 @@ export const parseApiErrorMessage = async (res: Response): Promise<string> => {
         const body = await res.json().catch(() => ({}));
         if (typeof body?.error === 'string') return body.error;
         if (typeof body?.message === 'string') return body.message;
+        if (typeof body?.detail === 'string') return body.detail;
+        return `Error ${res.status}`;
     }
     const text = await res.text().catch(() => '');
     if (text) {
-        try {
-            const parsed = JSON.parse(text);
-            if (typeof parsed?.error === 'string') return parsed.error;
-        } catch {
-            /* texto plano */
-        }
         return text.length > 200 ? `Error ${res.status}` : text;
     }
     return `Error ${res.status}: no se pudo procesar la respuesta del servidor`;

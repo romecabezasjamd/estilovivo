@@ -701,13 +701,13 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
           occasion: saveOccasion || undefined,
         })
         setLooks(prev => [...prev, { ...saved, layers: layers.map(l => ({ ...l })) }])
-      } catch {}
-      setSavingRating(0)
-      setSaveOccasion('')
-      setShowNameInput(false)
-      successImpact()
-      setToast('Look guardado')
-      setTimeout(() => setToast(null), 2000)
+        setSavingRating(0)
+        setSaveOccasion('')
+        setShowNameInput(false)
+        successImpact()
+        setToast('Look guardado')
+        setTimeout(() => setToast(null), 2000)
+      } catch { errorImpact(); setToast('Error al guardar'); setTimeout(() => setToast(null), 2000) }
     }
     img.src = bodyUrl
   }
@@ -1127,7 +1127,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
                           <button onClick={e => { e.stopPropagation(); updateLayer(idx, { locked: !l.locked }) }} className="p-1">
                             {l.locked ? <Lock size={10} style={{ color: 'var(--color-primary)' }} /> : <Unlock size={10} style={{ color: 'var(--text-muted)' }} />}
                           </button>
-                          <button onClick={e => { e.stopPropagation(); setLayers(p => p.filter((_, i) => i !== idx)); if (active >= layers.length - 1) setActive(Math.max(0, layers.length - 2)) }} className="p-1">
+                          <button onClick={e => { e.stopPropagation(); setLayers(p => p.filter((_, i) => i !== idx)); if (active >= layers.length - 1) setActive(Math.max(-1, Math.min(active, layers.length - 2))) }} className="p-1">
                             <X size={10} style={{ color: 'var(--text-muted)' }} />
                           </button>
                         </div>
@@ -1146,7 +1146,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
                   <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
                     {(showPresets ? looks : looks.slice(0, 4)).map(p => (
                       <div key={p.id} className="relative shrink-0 group"
-                        onClick={() => loadLook(p)}
+                        onClick={() => { if (!longPressId) loadLook(p) }}
                         onMouseDown={() => { const t = setTimeout(() => { setLongPressId(p.id); setPreviewLook(p) }, 500); setLongPressTimer(t) }}
                         onMouseUp={() => { clearTimeout(longPressTimer); setLongPressId(null) }}
                         onTouchStart={() => { const t = setTimeout(() => { setLongPressId(p.id); setPreviewLook(p) }, 500); setLongPressTimer(t) }}
@@ -1264,7 +1264,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
                         <button onClick={e => { e.stopPropagation(); updateLayer(idx, { locked: !l.locked }) }} className="p-0.5">
                           {l.locked ? <Lock size={8} style={{ color: 'var(--color-primary)' }} /> : <Unlock size={8} style={{ color: 'var(--text-muted)' }} />}
                         </button>
-                        <button onClick={e => { e.stopPropagation(); setLayers(p => p.filter((_, i) => i !== idx)); if (active >= layers.length - 1) setActive(Math.max(0, layers.length - 2)) }} className="p-0.5">
+                        <button onClick={e => { e.stopPropagation(); setLayers(p => p.filter((_, i) => i !== idx)); if (active >= layers.length - 1) setActive(Math.max(-1, Math.min(active, layers.length - 2))) }} className="p-0.5">
                           <X size={8} style={{ color: 'var(--text-muted)' }} />
                         </button>
                       </div>
@@ -1280,7 +1280,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
                   <button onClick={() => setShowPresets(!showPresets)} className="text-[9px]" style={{ color: 'var(--color-primary)' }}>{showPresets ? 'Ocultar' : 'Ver todos'}</button>
                 </div>
                 <div className="flex gap-1 mb-1 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-                  {['', 'casual', 'formal', 'deporte', 'fiesta'].map(o => (
+                  {['', 'casual', 'formal', 'sport', 'party'].map(o => (
                     <button key={o} onClick={() => setFilterOccasion(filterOccasion === o ? '' : o)} className="shrink-0 px-2 py-0.5 rounded-full text-[8px] font-medium" style={{ backgroundColor: filterOccasion === o ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: filterOccasion === o ? 'white' : 'var(--text-muted)' }}>
                       {o || 'Todos'}
                     </button>
@@ -1289,7 +1289,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
                 <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
                   {(showPresets ? looks : looks.slice(0, 5)).filter(l => !filterOccasion || l.occasion === filterOccasion).map(p => (
                     <div key={p.id} className="relative shrink-0 group">
-                      <button onClick={() => loadLook(p)}
+                      <button onClick={() => { if (!longPressId) loadLook(p) }}
                         onPointerDown={e => {
                           const timer = setTimeout(() => { setLongPressId(p.id); setPreviewLook(p) }, 500)
                           setLongPressTimer(timer)
@@ -1347,7 +1347,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
                 {layers.length > 0 ? `Guardar como look (${looks.length})` : 'Sin prendas para guardar'}
               </button>
               <div className="flex gap-1 mt-1">
-                {['casual', 'formal', 'deporte', 'fiesta'].map(o => (
+                {['casual', 'formal', 'sport', 'party'].map(o => (
                   <button key={o} onClick={() => setSaveOccasion(saveOccasion === o ? '' : o)} className="flex-1 py-1 rounded-lg text-[8px] font-medium capitalize" style={{ backgroundColor: saveOccasion === o ? 'var(--color-primary)' : 'var(--bg-card)', border: '1px solid var(--border-light)', color: saveOccasion === o ? 'white' : 'var(--text-muted)' }}>
                     {o}
                   </button>
