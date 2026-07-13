@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense, useCallback } from 'react';
+import React, { useState, useEffect, lazy, Suspense, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Layout from './components/Layout';
 const Home = lazy(() => import('./pages/Home'));
@@ -17,10 +17,60 @@ import { DarkModeProvider } from './src/context/DarkModeContext';
 import { resolveNavigation } from './src/utils/navigation';
 
 const AppContent: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('home');
+  const getInitialTab = () => {
+    const path = window.location.pathname;
+    const tabMap: Record<string, string> = {
+      '/home': 'home',
+      '/wardrobe': 'wardrobe',
+      '/planner': 'planner',
+      '/social': 'social',
+      '/profile': 'profile',
+      '/wishlist': 'wishlist',
+      '/suitcase': 'suitcase',
+      '/tryon': 'tryon',
+    };
+    return tabMap[path] || 'home';
+  };
+
+  const [activeTab, setActiveTab] = useState(getInitialTab);
   const [socialSubTab, setSocialSubTab] = useState<string | null>(null);
   const [wardrobeIntent, setWardrobeIntent] = useState<'looks' | 'createLook' | null>(null);
   const [plannerDate, setPlannerDate] = useState<string | undefined>(undefined);
+  const skipHistory = useRef(false);
+
+  const pushHistory = useCallback((tab: string) => {
+    if (skipHistory.current) { skipHistory.current = false; return; }
+    const url = tab === 'home' ? '/' : `/${tab}`;
+    if (window.location.pathname !== url) {
+      window.history.pushState({}, '', url);
+    }
+  }, []);
+
+  useEffect(() => {
+    const onPopState = () => {
+      const path = window.location.pathname;
+      if (path.startsWith('/look/')) {
+        skipHistory.current = true;
+        setSocialSubTab('feed');
+        setActiveTab('social');
+        return;
+      }
+      const tabMap: Record<string, string> = {
+        '/home': 'home',
+        '/wardrobe': 'wardrobe',
+        '/planner': 'planner',
+        '/social': 'social',
+        '/profile': 'profile',
+        '/wishlist': 'wishlist',
+        '/suitcase': 'suitcase',
+        '/tryon': 'tryon',
+      };
+      skipHistory.current = true;
+      setActiveTab(tabMap[path] || 'home');
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
 
   const handleNavigate = useCallback((tab: string, subTab?: string, extra?: string) => {
     const evt = new CustomEvent('profile-check-unsaved', { detail: { tab, subTab }, cancelable: true });
@@ -30,11 +80,13 @@ const AppContent: React.FC = () => {
     if (tab === 'community') {
       setSocialSubTab(subTab || 'feed');
       setActiveTab('social');
+      pushHistory('social');
       return;
     }
     if (tab === 'chat') {
       setSocialSubTab('chat');
       setActiveTab('social');
+      pushHistory('social');
       return;
     }
     if (tab === 'planner' && extra) {
@@ -44,13 +96,14 @@ const AppContent: React.FC = () => {
     }
     const resolved = resolveNavigation(tab, subTab);
     setActiveTab(resolved.tab);
+    pushHistory(resolved.tab);
     if (resolved.wardrobeIntent) {
       setWardrobeIntent(resolved.wardrobeIntent);
     } else if (resolved.tab !== 'wardrobe') {
       setWardrobeIntent(null);
     }
     if (subTab && resolved.tab === 'social') setSocialSubTab(subTab);
-  }, []);
+  }, [pushHistory]);
 
   // Listen for global navigation events (e.g. from notification clicks)
   useEffect(() => {

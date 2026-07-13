@@ -38,6 +38,9 @@ model User {
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
   
+  @@index([resetToken])
+  @@index([verificationToken])
+  
   products          Product[]
   looks             Look[]
   plannerEntries    PlannerEntry[]
@@ -169,6 +172,8 @@ model Trip {
   user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   items       TripItem[]
   garments    TripGarment[]
+
+  @@index([userId])
 }
 
 model TripItem {
@@ -178,6 +183,8 @@ model TripItem {
   isEssential Boolean @default(false)
   tripId      String
   trip        Trip    @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId])
 }
 
 model TripGarment {

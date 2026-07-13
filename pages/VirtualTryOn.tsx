@@ -82,6 +82,135 @@ function autoPos(pose: BodyPose | null, type: string, pw: number, ph: number): {
 
 const MAX_HISTORY = 50
 
+interface SelectionHandlesProps {
+  layer: Layer; bodyDim: { w: number; h: number }; containerW: number
+  onHandleDown: (e: React.MouseEvent, handle: string) => void
+  onHandleTouch: (e: React.TouchEvent, handle: string) => void
+}
+
+const SelectionHandles = React.memo(({ layer, bodyDim, containerW, onHandleDown, onHandleTouch }: SelectionHandlesProps) => {
+  const l = layer
+  const rs = containerW / bodyDim.w
+  const halfW = l.w * rs / 2, halfH = l.h * rs / 2
+  const rotLen = Math.min(30, halfH * 0.5)
+  const pct = (v: number, base: number) => `${(v / (base || 1)) * 100}%`
+  const corners = [
+    { h: 'tl', x: -halfW, y: -halfH },
+    { h: 'tr', x: halfW, y: -halfH },
+    { h: 'bl', x: -halfW, y: halfH },
+    { h: 'br', x: halfW, y: halfH },
+  ]
+  const edges = [
+    { h: 'et', x: 0, y: -halfH, cursor: 'ns-resize' },
+    { h: 'eb', x: 0, y: halfH, cursor: 'ns-resize' },
+    { h: 'el', x: -halfW, y: 0, cursor: 'ew-resize' },
+    { h: 'er', x: halfW, y: 0, cursor: 'ew-resize' },
+  ]
+  return (
+    <div className="absolute pointer-events-none" style={{
+      left: pct(l.x + l.w / 2, bodyDim.w), top: pct(l.y + l.h / 2, bodyDim.h),
+      width: 0, height: 0, transform: `rotate(${l.rotation}deg)`, zIndex: 60,
+    }}>
+      <div className="absolute" style={{
+        left: -halfW, top: -halfH, width: l.w * rs, height: l.h * rs,
+        border: '2px solid rgba(255,255,255,0.9)', boxShadow: '0 0 0 1px rgba(255,77,148,0.5)', borderRadius: '2px',
+      }} />
+      {corners.map(c => (
+        <div key={c.h} data-handle={c.h}
+          onMouseDown={e => onHandleDown(e, c.h)}
+          onTouchStart={e => onHandleTouch(e, c.h)}
+          className="absolute pointer-events-auto"
+          style={{
+            left: c.x - 12, top: c.y - 12, width: 24, height: 24,
+            borderRadius: '2px', backgroundColor: 'white',
+            border: '2px solid var(--color-primary)',
+            cursor: c.h === 'tl' || c.h === 'br' ? 'nwse-resize' : 'nesw-resize', zIndex: 70,
+          }}
+        />
+      ))}
+      {edges.map(e => (
+        <div key={e.h} data-handle={e.h}
+          onMouseDown={ev => onHandleDown(ev, e.h)}
+          onTouchStart={ev => onHandleTouch(ev, e.h)}
+          className="absolute pointer-events-auto"
+          style={{
+            left: e.x - 10, top: e.y - 10, width: 20, height: 20,
+            borderRadius: '50%', backgroundColor: 'white',
+            border: '2px solid var(--color-primary)', cursor: e.cursor, zIndex: 70,
+          }}
+        />
+      ))}
+      <div className="absolute" style={{ left: -1, top: -halfH - rotLen, width: 2, height: rotLen, backgroundColor: 'var(--color-primary)', opacity: 0.7 }} />
+      <div data-handle="rotate"
+        onMouseDown={e => onHandleDown(e, 'rotate')}
+        onTouchStart={e => onHandleTouch(e, 'rotate')}
+        className="absolute pointer-events-auto"
+        style={{
+          left: -8, top: -halfH - rotLen - 8, width: 16, height: 16,
+          borderRadius: '50%', backgroundColor: 'white',
+          border: '2px solid var(--color-primary)', cursor: 'grab', zIndex: 70,
+        }}
+      />
+    </div>
+  )
+})
+
+interface LayersPanelProps {
+  layers: Layer[]; active: number; isMobile: boolean
+  showLayers: boolean; onToggleLayers: () => void
+  onSelect: (idx: number) => void
+  onToggleLock: (idx: number) => void
+  onDelete: (idx: number) => void
+  onMoveUp?: () => void; onMoveDown?: () => void
+}
+
+const LayersPanel = React.memo(({ layers, active, isMobile, showLayers, onToggleLayers, onSelect, onToggleLock, onDelete, onMoveUp, onMoveDown }: LayersPanelProps) => {
+  const sz = isMobile ? 32 : 24
+  return (
+    <>
+      <button onClick={onToggleLayers} className="w-full flex items-center justify-between py-2 px-3 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-light)' }}>
+        <div className="flex items-center gap-2">
+          <Layers size={isMobile ? 13 : 11} style={{ color: 'var(--text-secondary)' }} />
+          <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>Capas ({layers.length})</span>
+        </div>
+        <ChevronUp size={isMobile ? 12 : 10} style={{ color: 'var(--text-secondary)', transform: showLayers ? 'rotate(0)' : 'rotate(180deg)', transition: 'transform 0.2s' }} />
+      </button>
+      {showLayers && (
+        <div className="max-h-40 overflow-y-auto space-y-1">
+          {[...layers].reverse().map((l, ri) => {
+            const idx = layers.length - 1 - ri
+            return (
+              <div key={l.id} onClick={() => onSelect(idx)}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl cursor-pointer"
+                style={{ backgroundColor: idx === active ? 'rgba(255,77,148,0.1)' : 'transparent', border: idx === active ? '1px solid rgba(255,77,148,0.3)' : '1px solid transparent' }}>
+                {isMobile ? <img src={l.url} className="w-8 h-8 rounded-lg object-cover" style={{ border: '1px solid var(--border-light)' }} /> : <GripVertical size={10} style={{ color: 'var(--text-muted)', cursor: 'grab' }} />}
+                {!isMobile && <img src={l.url} className="w-6 h-6 rounded object-cover" style={{ border: '1px solid var(--border-light)' }} />}
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-medium truncate" style={{ color: 'var(--text-primary)' }}>{l.garment.name}</p>
+                </div>
+                <div className="flex gap-1">
+                  {isMobile && onMoveUp && onMoveDown && (
+                    <>
+                      {idx > 0 && <button onClick={e => { e.stopPropagation(); onMoveDown() }} className="p-1"><ChevronDown size={10} style={{ color: 'var(--text-muted)' }} /></button>}
+                      {idx < layers.length - 1 && <button onClick={e => { e.stopPropagation(); onMoveUp() }} className="p-1"><ChevronUp size={10} style={{ color: 'var(--text-muted)' }} /></button>}
+                    </>
+                  )}
+                  <button onClick={e => { e.stopPropagation(); onToggleLock(idx) }} className="p-1">
+                    {l.locked ? <Lock size={isMobile ? 10 : 8} style={{ color: 'var(--color-primary)' }} /> : <Unlock size={isMobile ? 10 : 8} style={{ color: 'var(--text-muted)' }} />}
+                  </button>
+                  <button onClick={e => { e.stopPropagation(); onDelete(idx) }} className="p-1">
+                    <X size={isMobile ? 10 : 8} style={{ color: 'var(--text-muted)' }} />
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </>
+  )
+})
+
 export default function VirtualTryOn({ garments, onClose }: Props) {
   const [step, setStep] = useState<'guide' | 'photo' | 'select' | 'tryon' | 'saving' | 'saved'>('guide')
   const [bodyUrl, setBodyUrl] = useState<string | null>(null)
@@ -946,82 +1075,15 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
                     }}
                   />
                 ))}
-                {active >= 0 && active < layers.length && (() => {
-                  const l = layers[active]
-                  const rot = l.rotation
-                  const rs = rW / bodyDim.w
-                  const halfW = l.w * rs / 2, halfH = l.h * rs / 2
-                  const rotLen = Math.min(30, halfH * 0.5)
-                  const corners = [
-                    { h: 'tl', x: -halfW, y: -halfH },
-                    { h: 'tr', x: halfW, y: -halfH },
-                    { h: 'bl', x: -halfW, y: halfH },
-                    { h: 'br', x: halfW, y: halfH },
-                  ]
-                  const edges = [
-                    { h: 'et', x: 0, y: -halfH, cursor: 'ns-resize' },
-                    { h: 'eb', x: 0, y: halfH, cursor: 'ns-resize' },
-                    { h: 'el', x: -halfW, y: 0, cursor: 'ew-resize' },
-                    { h: 'er', x: halfW, y: 0, cursor: 'ew-resize' },
-                  ]
-                  return (
-                    <div className="absolute pointer-events-none" style={{
-                      left: pct(l.x + l.w / 2, bodyDim.w), top: pct(l.y + l.h / 2, bodyDim.h),
-                      width: 0, height: 0,
-                      transform: `rotate(${rot}deg)`,
-                      zIndex: 60,
-                    }}>
-                      <div className="absolute" style={{
-                        left: -halfW, top: -halfH, width: l.w * rs, height: l.h * rs,
-                        border: '2px solid rgba(255,255,255,0.9)',
-                        boxShadow: '0 0 0 1px rgba(255,77,148,0.5)',
-                        borderRadius: '2px',
-                      }} />
-                      {corners.map(c => (
-                        <div key={c.h} data-handle={c.h}
-                          onMouseDown={e => onHandleDown(e, active, c.h)}
-                          onTouchStart={e => onHandleTouch(e, active, c.h)}
-                          className="absolute pointer-events-auto"
-                          style={{
-                            left: c.x - 12, top: c.y - 12, width: 24, height: 24,
-                            borderRadius: '2px', backgroundColor: 'white',
-                            border: '2px solid var(--color-primary)',
-                            cursor: c.h === 'tl' || c.h === 'br' ? 'nwse-resize' : 'nesw-resize',
-                            zIndex: 70,
-                          }}
-                        />
-                      ))}
-                      {edges.map(e => (
-                        <div key={e.h} data-handle={e.h}
-                          onMouseDown={ev => onHandleDown(ev, active, e.h)}
-                          onTouchStart={ev => onHandleTouch(ev, active, e.h)}
-                          className="absolute pointer-events-auto"
-                          style={{
-                            left: e.x - 10, top: e.y - 10, width: 20, height: 20,
-                            borderRadius: '50%', backgroundColor: 'white',
-                            border: '2px solid var(--color-primary)',
-                            cursor: e.cursor, zIndex: 70,
-                          }}
-                        />
-                      ))}
-                      <div className="absolute" style={{
-                        left: -1, top: -halfH - rotLen, width: 2, height: rotLen,
-                        backgroundColor: 'var(--color-primary)', opacity: 0.7,
-                      }} />
-                      <div data-handle="rotate"
-                        onMouseDown={e => onHandleDown(e, active, 'rotate')}
-                        onTouchStart={e => onHandleTouch(e, active, 'rotate')}
-                        className="absolute pointer-events-auto"
-                        style={{
-                          left: -8, top: -halfH - rotLen - 8, width: 16, height: 16,
-                          borderRadius: '50%', backgroundColor: 'white',
-                          border: '2px solid var(--color-primary)',
-                          cursor: 'grab', zIndex: 70,
-                        }}
-                      />
-                    </div>
-                  )
-                })()}
+                {active >= 0 && active < layers.length && (
+                  <SelectionHandles
+                    layer={layers[active]}
+                    bodyDim={bodyDim}
+                    containerW={rW}
+                    onHandleDown={(e, handle) => onHandleDown(e, active, handle)}
+                    onHandleTouch={(e, handle) => onHandleTouch(e, active, handle)}
+                  />
+                )}
               </div>
             )
           })()}
@@ -1104,38 +1166,14 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
                 ))}
               </div>
 
-              <button onClick={() => setShowLayers(!showLayers)} className="w-full flex items-center justify-between py-2 px-3 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-light)' }}>
-                <div className="flex items-center gap-2">
-                  <Layers size={13} style={{ color: 'var(--text-secondary)' }} />
-                  <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>Capas ({layers.length})</span>
-                </div>
-                <ChevronUp size={12} style={{ color: 'var(--text-secondary)', transform: showLayers ? 'rotate(0)' : 'rotate(180deg)', transition: 'transform 0.2s' }} />
-              </button>
-              {showLayers && (
-                <div className="max-h-40 overflow-y-auto space-y-1">
-                  {[...layers].reverse().map((l, ri) => {
-                    const idx = layers.length - 1 - ri
-                    return (
-                      <div key={l.id} onClick={() => { setActive(idx); activeRef.current = idx }}
-                        className="flex items-center gap-2 px-3 py-2 rounded-xl cursor-pointer"
-                        style={{ backgroundColor: idx === active ? 'rgba(255,77,148,0.1)' : 'transparent', border: idx === active ? '1px solid rgba(255,77,148,0.3)' : '1px solid transparent' }}>
-                        <img src={l.url} className="w-8 h-8 rounded-lg object-cover" style={{ border: '1px solid var(--border-light)' }} />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[10px] font-medium truncate" style={{ color: 'var(--text-primary)' }}>{l.garment.name}</p>
-                        </div>
-                        <div className="flex gap-1">
-                          <button onClick={e => { e.stopPropagation(); updateLayer(idx, { locked: !l.locked }) }} className="p-1">
-                            {l.locked ? <Lock size={10} style={{ color: 'var(--color-primary)' }} /> : <Unlock size={10} style={{ color: 'var(--text-muted)' }} />}
-                          </button>
-                          <button onClick={e => { e.stopPropagation(); setLayers(p => p.filter((_, i) => i !== idx)); if (active >= layers.length - 1) setActive(Math.max(-1, Math.min(active, layers.length - 2))) }} className="p-1">
-                            <X size={10} style={{ color: 'var(--text-muted)' }} />
-                          </button>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
+              <LayersPanel
+                layers={layers} active={active} isMobile showLayers={showLayers}
+                onToggleLayers={() => setShowLayers(!showLayers)}
+                onSelect={idx => { setActive(idx); activeRef.current = idx }}
+                onToggleLock={idx => updateLayer(idx, { locked: !layers[idx].locked })}
+                onDelete={idx => { setLayers(p => p.filter((_, i) => i !== idx)); if (active >= layers.length - 1) setActive(Math.max(-1, Math.min(active, layers.length - 2))) }}
+                onMoveUp={moveLayerUp} onMoveDown={moveLayerDown}
+              />
 
               {looks.length > 0 && (
                 <div>
@@ -1240,39 +1278,13 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
           )}
 
           <div className="px-3 py-1.5">
-            <button onClick={() => setShowLayers(!showLayers)} className="w-full flex items-center justify-between py-1.5">
-              <div className="flex items-center gap-1.5">
-                <Layers size={11} style={{ color: 'var(--text-secondary)' }} />
-                <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>Capas ({layers.length})</span>
-              </div>
-              <ChevronUp size={10} style={{ color: 'var(--text-secondary)', transform: showLayers ? 'rotate(0)' : 'rotate(180deg)', transition: 'transform 0.2s' }} />
-            </button>
-            {showLayers && (
-              <div className="max-h-32 overflow-y-auto mb-1 space-y-1">
-                {[...layers].reverse().map((l, ri) => {
-                  const idx = layers.length - 1 - ri
-                  return (
-                    <div key={l.id} onClick={() => { setActive(idx); activeRef.current = idx }}
-                      className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer"
-                      style={{ backgroundColor: idx === active ? 'rgba(255,77,148,0.1)' : 'transparent', border: idx === active ? '1px solid rgba(255,77,148,0.3)' : '1px solid transparent' }}>
-                      <GripVertical size={10} style={{ color: 'var(--text-muted)', cursor: 'grab' }} />
-                      <img src={l.url} className="w-6 h-6 rounded object-cover" style={{ border: '1px solid var(--border-light)' }} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[9px] font-medium truncate" style={{ color: 'var(--text-primary)' }}>{l.garment.name}</p>
-                      </div>
-                      <div className="flex gap-0.5">
-                        <button onClick={e => { e.stopPropagation(); updateLayer(idx, { locked: !l.locked }) }} className="p-0.5">
-                          {l.locked ? <Lock size={8} style={{ color: 'var(--color-primary)' }} /> : <Unlock size={8} style={{ color: 'var(--text-muted)' }} />}
-                        </button>
-                        <button onClick={e => { e.stopPropagation(); setLayers(p => p.filter((_, i) => i !== idx)); if (active >= layers.length - 1) setActive(Math.max(-1, Math.min(active, layers.length - 2))) }} className="p-0.5">
-                          <X size={8} style={{ color: 'var(--text-muted)' }} />
-                        </button>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+            <LayersPanel
+              layers={layers} active={active} isMobile={false} showLayers={showLayers}
+              onToggleLayers={() => setShowLayers(!showLayers)}
+              onSelect={idx => { setActive(idx); activeRef.current = idx }}
+              onToggleLock={idx => updateLayer(idx, { locked: !layers[idx].locked })}
+              onDelete={idx => { setLayers(p => p.filter((_, i) => i !== idx)); if (active >= layers.length - 1) setActive(Math.max(-1, Math.min(active, layers.length - 2))) }}
+            />
             {looks.length > 0 && (
               <div className="mb-1.5">
                 <div className="flex items-center justify-between mb-1">
