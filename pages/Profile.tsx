@@ -6,7 +6,7 @@ import {
   ShoppingBag, Shirt, Calendar, Star, TrendingUp, ChevronRight,
   Eye, Bookmark, Bell, Shield, Moon, BarChart3, Download,
   HelpCircle, Lock, Palette, Languages, Globe, AlertCircle, FileText,
-  Award, Flame, Trophy, Gem
+  Award, Flame, Trophy, Gem, Crown
 } from 'lucide-react';
 import { ThemeColor, THEMES } from '../src/utils/theme';
 import { useTheme } from '../src/context/ThemeContext';
@@ -1639,6 +1639,21 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                 )}
               </div>
             </div>
+
+            {/* Premium Upgrade */}
+            <button
+              onClick={() => onNavigate('premium')}
+              className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl p-4 flex items-center gap-3 shadow-sm"
+            >
+              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                <Crown size={20} className="text-white" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-bold text-white">Estilo Vivo Premium</p>
+                <p className="text-[10px] text-white/80">Desbloquea todo el potencial</p>
+              </div>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
 
             {/* Privacy & Security Settings */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">

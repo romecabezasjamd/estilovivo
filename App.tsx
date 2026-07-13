@@ -12,6 +12,7 @@ const Wishlist = lazy(() => import('./pages/Wishlist'));
 const VirtualTryOn = lazy(() => import('./pages/VirtualTryOn'));
 const Privacy = lazy(() => import('./pages/Privacy'));
 const Onboarding = lazy(() => import('./pages/Onboarding'));
+const Premium = lazy(() => import('./pages/Premium'));
 import { GlobalStateProvider, useGlobalState } from './src/context/GlobalStateContext';
 import { LanguageProvider } from './src/context/LanguageContext';
 import { ThemeProvider } from './src/context/ThemeContext';
@@ -31,6 +32,8 @@ const AppContent: React.FC = () => {
       '/wishlist': 'wishlist',
       '/suitcase': 'suitcase',
       '/tryon': 'tryon',
+      '/privacy': 'privacy',
+      '/premium': 'premium',
     };
     return tabMap[path] || 'home';
   };
@@ -71,6 +74,7 @@ const AppContent: React.FC = () => {
         '/suitcase': 'suitcase',
         '/tryon': 'tryon',
         '/privacy': 'privacy',
+        '/premium': 'premium',
       };
       skipHistory.current = true;
       setActiveTab(tabMap[path] || 'home');
@@ -168,6 +172,8 @@ const AppContent: React.FC = () => {
     switch (activeTab) {
       case 'privacy':
         return <Privacy onBack={() => { window.history.pushState({}, '', '/'); setActiveTab('home') }} />;
+      case 'premium':
+        return <Premium onBack={() => { window.history.pushState({}, '', '/'); setActiveTab('home') }} />;
       case 'home':
         return (
           <Home
