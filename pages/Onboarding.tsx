@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronRight, Shirt, Camera, Users, Sparkles } from 'lucide-react';
+import StyleQuiz from '../components/StyleQuiz';
 
 interface Props {
   onComplete: () => void;
@@ -30,7 +31,12 @@ const STEPS = [
 
 export default function Onboarding({ onComplete }: Props) {
   const [step, setStep] = useState(0);
+  const [showQuiz, setShowQuiz] = useState(false);
   const current = STEPS[step];
+
+  if (showQuiz) {
+    return <StyleQuiz onComplete={() => onComplete()} onSkip={() => onComplete()} />;
+  }
 
   return (
     <div className="fixed inset-0 z-[200] flex flex-col bg-[var(--bg-base)]">
@@ -65,7 +71,7 @@ export default function Onboarding({ onComplete }: Props) {
             if (step < STEPS.length - 1) {
               setStep(step + 1);
             } else {
-              onComplete();
+              setShowQuiz(true);
             }
           }}
           className="w-full py-4 rounded-2xl text-white font-bold text-sm flex items-center justify-center gap-2"
@@ -77,13 +83,13 @@ export default function Onboarding({ onComplete }: Props) {
               <ChevronRight size={18} />
             </>
           ) : (
-            'Comenzar'
+            'Personalizar estilo'
           )}
         </button>
 
         {step < STEPS.length - 1 && (
           <button
-            onClick={onComplete}
+            onClick={() => setShowQuiz(true)}
             className="w-full py-3 text-xs font-medium mt-2"
             style={{ color: 'var(--text-muted)' }}
           >

@@ -437,6 +437,14 @@ export const api = {
         return normalizeUser(updated);
     },
 
+    updateUserPreferences: async (preferences: Record<string, unknown>): Promise<void> => {
+        await fetch(`${API_BASE}/auth/preferences`, {
+            credentials: 'include', method: 'PUT',
+            headers: getHeaders(),
+            body: JSON.stringify(preferences)
+        });
+    },
+
 
     // ============= GARMENTS / PRODUCTS =============
     getGarments: async (): Promise<Garment[]> => {

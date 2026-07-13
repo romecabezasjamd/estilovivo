@@ -213,6 +213,8 @@ const Planner: React.FC<PlannerProps> = ({ looks, plannerEntries, onUpdateEntry,
                                 }
                                 const dayNum = parseInt(dateStr.split('-')[2], 10);
                                 const entry = getEntry(dateStr);
+                                const look = entry ? getLook(entry.lookId) : null;
+                                const lookImg = getLookImage(look || undefined);
                                 const isToday = dateStr === todayStr;
                                 const hasEntry = !!entry;
                                 const isClicked = dateStr === monthlyClickedDay;
@@ -227,7 +229,11 @@ const Planner: React.FC<PlannerProps> = ({ looks, plannerEntries, onUpdateEntry,
                                         `}
                                     >
                                         <span className="relative z-10">{dayNum}</span>
-                                        {hasEntry && <span className="w-1.5 h-1.5 rounded-full bg-primary mt-0.5 relative z-10" />}
+                                        {hasEntry && lookImg ? (
+                                            <img src={lookImg} className="w-5 h-5 rounded object-cover mt-0.5 relative z-10" alt="" />
+                                        ) : hasEntry ? (
+                                            <span className="w-1.5 h-1.5 rounded-full bg-primary mt-0.5 relative z-10" />
+                                        ) : null}
                                         {_isCycleDay && <CycleDayMarker />}
                                     </button>
                                 );

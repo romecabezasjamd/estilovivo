@@ -7,6 +7,7 @@ import {
 import { useLanguage } from '../src/context/LanguageContext';
 import Logo from '../components/Logo';
 import LevelProgress from '../components/LevelProgress';
+import WeatherWidget from '../components/WeatherWidget';
 import {
   getCyclePeriod,
   isDateInCycle,
@@ -163,6 +164,9 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
         );
         })}
       </section>
+
+      {/* Weather & Outfit Suggestions */}
+      <WeatherWidget garments={garments} onNavigate={onNavigate} />
 
       {/* Today's Look or CTA */}
       <section>
