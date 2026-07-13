@@ -5,6 +5,9 @@ import { useNotification } from './NotificationContext';
 import { useLanguage } from './LanguageContext';
 import { prepareGarmentUpload } from '../utils/garmentProcessor';
 import { syncGet, syncSet, SYNC_KEYS } from '../utils/syncStore';
+import { analytics, crashlytics } from '../utils/firebase';
+import { trackSession } from '../utils/review';
+import { registerForPushNotifications, setupNotificationListeners } from '../utils/notifications';
 
 const AUTH_TOKEN_KEY = 'beyour_token';
 const REMEMBER_ME_KEY = 'beyour_remember_me';
@@ -243,6 +246,17 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const handleAuthSuccess = useCallback(async (userData: UserState, remember: boolean = true) => {
         setUser(userData);
         window.dispatchEvent(new CustomEvent('ev:user-loaded', { detail: userData }));
+
+        analytics.setUserId(userData.id);
+        analytics.logEvent('login', { method: 'email' });
+        crashlytics.setUserId(userData.id);
+        trackSession();
+        registerForPushNotifications();
+        setupNotificationListeners(
+            (title, body) => console.log('Notification received:', title, body),
+            (data) => console.log('Notification tapped:', data)
+        );
+
         if (remember) {
             syncSet(SYNC_KEYS.USER, userData);
         } else {
@@ -346,6 +360,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 return updated;
             });
 
+            analytics.logEvent('add_garment', { category: garment.type });
             notify(`✓ ${t('garmentAdded')}`, 'success');
         } catch (error) {
             setGarments(prev => {
@@ -421,6 +436,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 return updated;
             });
 
+            analytics.logEvent('save_look', { garment_count: look.garments?.length || 0 });
             notify(`✓ ${t('lookSaved')}`, 'success');
             onAfterSave?.();
         } catch (error) {

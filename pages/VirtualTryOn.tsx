@@ -5,6 +5,7 @@ import { removeBg, exportCanvas, type GarmentTransform, type ExportResolution } 
 import { detectBodyPose, smartAutoPlace, type BodyPose } from '../src/utils/poseDetection'
 import { pickPhoto, type CameraSource } from '../src/utils/cameraPhoto'
 import { successImpact, errorImpact } from '../src/utils/haptic'
+import { requestReview } from '../src/utils/review'
 import PoseGuide from '../components/PoseGuide'
 import { api } from '../services/api'
 import { saveBodyPhoto, loadBodyPhoto, clearBodyPhoto, loadBodyPhotos, removeBodyPhoto } from '../src/utils/syncStore'
@@ -723,6 +724,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
       const res = await fetch(dataUrl); const blob = await res.blob()
       await api.saveLookWithImage(name, layers.map(l => l.garment.id), blob)
       successImpact(); setStep('saved')
+      requestReview()
     } catch { errorImpact(); setError('No se pudo guardar.'); setStep('tryon') }
   }
 

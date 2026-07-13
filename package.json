@@ -17,6 +17,10 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@capacitor-community/in-app-review": "^8.0.0",
+    "@capacitor-firebase/analytics": "^8.3.0",
+    "@capacitor-firebase/crashlytics": "^8.3.0",
+    "@capacitor-firebase/messaging": "^8.3.0",
     "@capacitor/android": "^8.3.4",
     "@capacitor/camera": "^8.2.0",
     "@capacitor/core": "^8.3.4",

@@ -1935,6 +1935,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
 
                     <h4 className="font-bold text-gray-800 text-sm pt-2">4. Privacidad y Datos</h4>
                     <p>Los datos personales proporcionados se gestionan conforme a nuestra política de privacidad. No compartimos información personal con terceros sin consentimiento, salvo obligación legal.</p>
+                    <button onClick={() => onNavigate('privacy')} className="text-primary text-xs font-semibold underline">Ver Política de Privacidad completa</button>
 
                     <h4 className="font-bold text-gray-800 text-sm pt-2">5. Limitación de Responsabilidad</h4>
                     <p>Estilo Vivo no se hace responsable por daños directos o indirectos derivados del uso de la plataforma, incluyendo pérdida de datos o interrupción del servicio.</p>

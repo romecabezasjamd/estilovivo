@@ -5,14 +5,18 @@ const config: CapacitorConfig = {
   appName: 'EstiloVivo',
   webDir: 'dist',
   server: {
-    cleartext: true,
+    cleartext: false,
     androidScheme: 'https',
   },
   android: {
-    allowMixedContent: true,
+    allowMixedContent: false,
     backgroundColor: '#F8F9FA',
   },
-  plugins: {},
+  plugins: {
+    PushNotifications: {
+      presentationOptions: ['badge', 'sound', 'alert'],
+    },
+  },
 };
 
 export default config;

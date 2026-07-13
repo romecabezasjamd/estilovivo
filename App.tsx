@@ -11,6 +11,7 @@ const AuthPage = lazy(() => import('./pages/AuthPage'));
 const Wishlist = lazy(() => import('./pages/Wishlist'));
 const VirtualTryOn = lazy(() => import('./pages/VirtualTryOn'));
 const Privacy = lazy(() => import('./pages/Privacy'));
+const Onboarding = lazy(() => import('./pages/Onboarding'));
 import { GlobalStateProvider, useGlobalState } from './src/context/GlobalStateContext';
 import { LanguageProvider } from './src/context/LanguageContext';
 import { ThemeProvider } from './src/context/ThemeContext';
@@ -38,6 +39,9 @@ const AppContent: React.FC = () => {
   const [socialSubTab, setSocialSubTab] = useState<string | null>(null);
   const [wardrobeIntent, setWardrobeIntent] = useState<'looks' | 'createLook' | null>(null);
   const [plannerDate, setPlannerDate] = useState<string | undefined>(undefined);
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    return !localStorage.getItem('ev_onboarding_complete');
+  });
   const skipHistory = useRef(false);
 
   const pushHistory = useCallback((tab: string) => {
@@ -150,6 +154,14 @@ const AppContent: React.FC = () => {
       );
     }
     return <AuthPage onAuthSuccess={handleAuthSuccess} />;
+  }
+
+  if (showOnboarding) {
+    return (
+      <Suspense fallback={<div className="min-h-screen bg-[var(--bg-base)] flex items-center justify-center"><div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin" /></div>}>
+        <Onboarding onComplete={() => { localStorage.setItem('ev_onboarding_complete', 'true'); setShowOnboarding(false) }} />
+      </Suspense>
+    );
   }
 
   const renderActivePage = () => {
