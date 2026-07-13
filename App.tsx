@@ -10,6 +10,7 @@ const Suitcase = lazy(() => import('./pages/Suitcase'));
 const AuthPage = lazy(() => import('./pages/AuthPage'));
 const Wishlist = lazy(() => import('./pages/Wishlist'));
 const VirtualTryOn = lazy(() => import('./pages/VirtualTryOn'));
+const Privacy = lazy(() => import('./pages/Privacy'));
 import { GlobalStateProvider, useGlobalState } from './src/context/GlobalStateContext';
 import { LanguageProvider } from './src/context/LanguageContext';
 import { ThemeProvider } from './src/context/ThemeContext';
@@ -19,6 +20,7 @@ import { resolveNavigation } from './src/utils/navigation';
 const AppContent: React.FC = () => {
   const getInitialTab = () => {
     const path = window.location.pathname;
+    if (path === '/privacy') return 'privacy';
     const tabMap: Record<string, string> = {
       '/home': 'home',
       '/wardrobe': 'wardrobe',
@@ -64,6 +66,7 @@ const AppContent: React.FC = () => {
         '/wishlist': 'wishlist',
         '/suitcase': 'suitcase',
         '/tryon': 'tryon',
+        '/privacy': 'privacy',
       };
       skipHistory.current = true;
       setActiveTab(tabMap[path] || 'home');
@@ -139,11 +142,20 @@ const AppContent: React.FC = () => {
   }
 
   if (!user) {
+    if (activeTab === 'privacy') {
+      return (
+        <Suspense fallback={<div className="min-h-screen bg-[var(--bg-base)] flex items-center justify-center"><div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin" /></div>}>
+          <Privacy onBack={() => { window.history.pushState({}, '', '/'); setActiveTab('home') }} />
+        </Suspense>
+      );
+    }
     return <AuthPage onAuthSuccess={handleAuthSuccess} />;
   }
 
   const renderActivePage = () => {
     switch (activeTab) {
+      case 'privacy':
+        return <Privacy onBack={() => { window.history.pushState({}, '', '/'); setActiveTab('home') }} />;
       case 'home':
         return (
           <Home

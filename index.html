@@ -4,6 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Tu armario digital y comunidad de estilo. Organiza tu ropa, crea looks y comparte tu estilo.">
   <meta name="theme-color" content="#0F172A">
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
@@ -29,23 +30,7 @@
   }
 }
 </script>
-  <script>
-    // Force clear old service workers and caches
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function(registrations) {
-        for(let registration of registrations) {
-          registration.unregister();
-        }
-      });
-    }
-    if ('caches' in window) {
-      caches.keys().then(function(names) {
-        for(let name of names) {
-          caches.delete(name);
-        }
-      });
-    }
-  </script>
+
 </head>
 
 <body>

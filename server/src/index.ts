@@ -386,7 +386,7 @@ app.use(cors({
     if (!origin) return callback(null, true);
 
     // Check if origin is in allowed list
-    if (allowedOrigins.some(allowed => origin.startsWith(allowed || ''))) {
+    if (allowedOrigins.some(allowed => origin === allowed)) {
       callback(null, true);
     } else {
       logger.warn(`CORS blocked origin: ${origin}`);
@@ -399,7 +399,7 @@ app.use(cors({
 const io = new Server(httpServer, {
   cors: {
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.some(allowed => origin.startsWith(allowed || ''))) {
+      if (!origin || allowedOrigins.some(allowed => origin === allowed)) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'));
