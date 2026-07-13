@@ -361,7 +361,12 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
+const imageFileFilter = (_: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+  cb(null, allowed.includes(file.mimetype));
+};
+
+const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 }, fileFilter: imageFileFilter });
 
 // Middleware - CORS configuration
 const allowedOrigins = [
@@ -1138,7 +1143,7 @@ app.put('/api/auth/profile', authenticateToken, upload.fields([{ name: 'avatar',
 app.get('/api/products', authenticateToken, async (req: any, res: Response) => {
   try {
     const { cursor, limit = '20' } = req.query;
-    const take = parseInt(limit as string) + 1;
+    const take = Math.min(100, parseInt(limit as string) || 20) + 1;
 
     const products = await prisma.product.findMany({
       where: { userId: req.user.userId },
@@ -1356,6 +1361,8 @@ app.delete('/api/products/:id', authenticateToken, async (req: any, res: Respons
 
 app.post('/api/products/:id/wear', authenticateToken, async (req: any, res: Response) => {
   try {
+    const existing = await prisma.product.findUnique({ where: { id: req.params.id } });
+    if (!existing || existing.userId !== req.user.userId) return res.status(403).json({ error: 'Not authorized' });
     const product = await prisma.product.update({
       where: { id: req.params.id },
       data: { usageCount: { increment: 1 }, lastWorn: new Date() },
@@ -1373,7 +1380,7 @@ app.post('/api/products/:id/wear', authenticateToken, async (req: any, res: Resp
 app.get('/api/looks', authenticateToken, async (req: any, res: Response) => {
   try {
     const { cursor, limit = '20' } = req.query;
-    const take = parseInt(limit as string) + 1;
+    const take = Math.min(100, parseInt(limit as string) || 20) + 1;
 
     const looks = await prisma.look.findMany({
       where: { userId: req.user.userId },
@@ -1412,7 +1419,7 @@ app.get('/api/looks', authenticateToken, async (req: any, res: Response) => {
 app.get('/api/looks/feed', authenticateToken, async (req: any, res: Response) => {
   try {
     const { cursor, limit = '20' } = req.query;
-    const take = parseInt(limit as string) + 1;
+    const take = Math.min(100, parseInt(limit as string) || 20) + 1;
 
     const looks = await prisma.look.findMany({
       where: { isPublic: true, products: { none: { forSale: true } } },
@@ -1460,6 +1467,7 @@ app.post('/api/looks', authenticateToken, upload.array('images', 10), validate(l
     const { title, productIds, isPublic, mood } = req.body;
     const files = req.files as Express.Multer.File[] | undefined;
     const parsedIds = productIds ? (typeof productIds === 'string' ? JSON.parse(productIds) : productIds) : [];
+    if (!Array.isArray(parsedIds)) return res.status(400).json({ error: 'Invalid productIds' });
 
     // Process images with sharp
     const processedImages = [];
@@ -1526,7 +1534,10 @@ app.put('/api/looks/:id', authenticateToken, validate(lookSchema), async (req: a
     if (title !== undefined) updateData.title = title;
     if (isPublic !== undefined) updateData.isPublic = isPublic === 'true' || isPublic === true;
     if (mood !== undefined) updateData.mood = mood;
-    if (productIds) updateData.products = { set: JSON.parse(productIds).map((pid: string) => ({ id: pid })) };
+    if (productIds) {
+      try { updateData.products = { set: JSON.parse(productIds).map((pid: string) => ({ id: pid })) }; }
+      catch { return res.status(400).json({ error: 'Invalid productIds JSON' }); }
+    }
 
     const look = await prisma.look.update({
       where: { id }, data: updateData,
@@ -2433,6 +2444,8 @@ app.delete('/api/trips/:id', authenticateToken, async (req: any, res: Response) 
 
 app.put('/api/trips/:tripId/items/:itemId', authenticateToken, async (req: any, res: Response) => {
   try {
+    const trip = await prisma.trip.findUnique({ where: { id: req.params.tripId } });
+    if (!trip || trip.userId !== req.user.userId) return res.status(403).json({ error: 'Not authorized' });
     const { checked, label, isEssential } = req.body;
     const item = await prisma.tripItem.update({
       where: { id: req.params.itemId },
@@ -2447,6 +2460,8 @@ app.put('/api/trips/:tripId/items/:itemId', authenticateToken, async (req: any, 
 
 app.post('/api/trips/:tripId/items', authenticateToken, async (req: any, res: Response) => {
   try {
+    const trip = await prisma.trip.findUnique({ where: { id: req.params.tripId } });
+    if (!trip || trip.userId !== req.user.userId) return res.status(403).json({ error: 'Not authorized' });
     const item = await prisma.tripItem.create({
       data: { label: req.body.label, isEssential: req.body.isEssential || false, tripId: req.params.tripId }
     });
@@ -2459,6 +2474,8 @@ app.post('/api/trips/:tripId/items', authenticateToken, async (req: any, res: Re
 
 app.delete('/api/trips/:tripId/items/:itemId', authenticateToken, async (req: any, res: Response) => {
   try {
+    const trip = await prisma.trip.findUnique({ where: { id: req.params.tripId } });
+    if (!trip || trip.userId !== req.user.userId) return res.status(403).json({ error: 'Not authorized' });
     await prisma.tripItem.delete({ where: { id: req.params.itemId } });
     res.json({ success: true });
   } catch (error) {
@@ -2767,7 +2784,7 @@ const storyStorage = multer.diskStorage({
     cb(null, 'story-' + uniqueSuffix + path.extname(file.originalname));
   },
 });
-const storyUpload = multer({ storage: storyStorage, limits: { fileSize: 10 * 1024 * 1024 } });
+const storyUpload = multer({ storage: storyStorage, limits: { fileSize: 10 * 1024 * 1024 }, fileFilter: imageFileFilter });
 
 app.get('/api/stories', authenticateToken, async (req: any, res: Response) => {
   try {

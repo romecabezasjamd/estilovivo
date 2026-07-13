@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { X, Camera, Image, RotateCcw, Save, ChevronUp, ChevronDown, SlidersHorizontal, Undo2, Redo2, Moon, Sun, ZoomIn, ZoomOut, Columns, Lock, Unlock, Download, Layers, Eye, EyeOff, GripVertical, Shirt } from 'lucide-react'
 import type { Garment } from '../types'
 import { removeBg, exportCanvas, type GarmentTransform, type ExportResolution } from '../src/utils/tryOnEngine'
@@ -140,7 +140,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
   historyRef.current = history
   histIdxRef.current = histIdx
 
-  const filtered = garments.filter(g => !g.isWashing && matchG(g, filter) && matchOccasion(g, occasion))
+  const filtered = useMemo(() => garments.filter(g => !g.isWashing && matchG(g, filter) && matchOccasion(g, occasion)), [garments, filter, occasion])
 
   const pushHistory = useCallback((next: Layer[]) => {
     const h = historyRef.current.slice(0, histIdxRef.current + 1)
@@ -433,7 +433,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
       window.removeEventListener('touchend', onTE)
       window.removeEventListener('wheel', onW)
     }
-  }, [step, getScale, screenToNatural, updateLayer, bodyDim, bodyPose, pushHistory])
+  }, [step, screenToNatural, updateLayer, pushHistory])
 
   // ─── Zoom/pan handlers (container-level) ──────────────────────
   const pinchRef = useRef({ dist: 0, zoom: 1 })
@@ -926,7 +926,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
             if (cAspect > bAspect) { rH = cH; rW = cH * bAspect } else { rW = cW; rH = cW / bAspect }
             const oX = (cW - rW) / 2, oY = (cH - rH) / 2
             return (
-              <div className="absolute" style={{ left: oX, top: oY, width: rW, height: rH, transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`, transformOrigin: 'center center', transition: 'transform 0.1s ease-out' }}>
+              <div className="absolute" style={{ left: oX, top: oY, width: rW, height: rH, transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`, transformOrigin: 'center center' }}>
                 <img src={bodyUrl} className="w-full h-full pointer-events-none" draggable={false}
                   style={{ transform: mirror ? 'scaleX(-1)' : undefined }} />
                 {layers.map((l, i) => (
@@ -983,7 +983,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
                           onTouchStart={e => onHandleTouch(e, active, c.h)}
                           className="absolute pointer-events-auto"
                           style={{
-                            left: c.x - 7, top: c.y - 7, width: 14, height: 14,
+                            left: c.x - 12, top: c.y - 12, width: 24, height: 24,
                             borderRadius: '2px', backgroundColor: 'white',
                             border: '2px solid var(--color-primary)',
                             cursor: c.h === 'tl' || c.h === 'br' ? 'nwse-resize' : 'nesw-resize',
@@ -997,7 +997,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
                           onTouchStart={ev => onHandleTouch(ev, active, e.h)}
                           className="absolute pointer-events-auto"
                           style={{
-                            left: e.x - 6, top: e.y - 6, width: 12, height: 12,
+                            left: e.x - 10, top: e.y - 10, width: 20, height: 20,
                             borderRadius: '50%', backgroundColor: 'white',
                             border: '2px solid var(--color-primary)',
                             cursor: e.cursor, zIndex: 70,
@@ -1182,7 +1182,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
 
               <div className="flex gap-2">
                 <input type="text" value={lookName} onChange={e => setLookName(e.target.value)} placeholder="Nombre del look..."
-                  autoFocus autoComplete="off" inputMode="text"
+                  autoComplete="off" inputMode="text"
                   className="flex-1 px-3 py-2 rounded-xl text-[11px]" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-light)', color: 'var(--text-primary)' }} />
                 <button onClick={() => { save(false); setShowControls(false) }} disabled={!bodyUrl || layers.length === 0} className="px-4 py-2 rounded-xl text-[11px] font-semibold text-white disabled:opacity-40" style={{ backgroundColor: 'var(--color-primary)' }}><Save size={12} /></button>
               </div>
