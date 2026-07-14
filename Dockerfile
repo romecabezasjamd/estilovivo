@@ -97,6 +97,8 @@ ENV DATABASE_URL=$DATABASE_URL
 # Copiar Prisma schema + migraciones desde backend-build
 COPY --from=backend-build /app/server/prisma ./prisma
 COPY --from=backend-build /app/server/prisma.config.ts ./prisma.config.ts
+# Overwrite schema.prisma from build context to ensure latest version (backend-build may be cached)
+COPY server/prisma/schema.prisma ./prisma/schema.prisma
 
 # Instalar solo runtime deps con cache mount
 # First remove prisma postinstall (prisma CLI is devDep, not available here)
@@ -105,9 +107,11 @@ RUN npm pkg delete scripts.postinstall
 RUN --mount=type=cache,target=/root/.npm \
     npm install --omit=dev --prefer-offline --no-audit --legacy-peer-deps
 
-# Copiar Prisma Client generado desde backend-build (prisma generate ya corrió en build stage)
+# Copiar prisma CLI + engines desde backend-build para regenerar el cliente
+COPY --from=backend-build /app/server/node_modules/prisma ./node_modules/prisma
+COPY --from=backend-build /app/server/node_modules/@prisma ./node_modules/@prisma
 COPY --from=backend-build /app/server/node_modules/.prisma ./node_modules/.prisma
-COPY --from=backend-build /app/server/node_modules/@prisma/client ./node_modules/@prisma/client
+RUN ./node_modules/.bin/prisma generate
 
 # Copiar backend compilado
 COPY --from=backend-build /app/server/dist ./dist
