@@ -82,6 +82,11 @@ export interface UserState {
   customColor?: string;
   isProfilePublic?: boolean;
   locationName?: string;
+  darkModeSetting?: string;
+  fontSize?: string;
+  highContrast?: boolean;
+  language?: string;
+  dialect?: string;
 }
 
 export interface MoodOption {

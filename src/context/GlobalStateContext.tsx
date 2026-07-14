@@ -164,6 +164,19 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
                     setUser(userData);
                     await syncSet(SYNC_KEYS.USER, userData);
                     window.dispatchEvent(new CustomEvent('ev:user-loaded', { detail: userData }));
+
+                    // Apply fontSize + highContrast from server to DOM
+                    try {
+                        const fs = userData.fontSize;
+                        if (fs === 'small' || fs === 'large') {
+                            document.documentElement.style.fontSize = fs === 'small' ? '14px' : '18px';
+                            localStorage.setItem('ev_font_size', fs);
+                        }
+                        if (userData.highContrast !== undefined) {
+                            document.documentElement.classList.toggle('high-contrast', userData.highContrast);
+                            localStorage.setItem('ev_high_contrast', userData.highContrast ? 'on' : 'off');
+                        }
+                    } catch {}
                 } catch (error: any) {
                     const tokenStillPresent = !!localStorage.getItem(AUTH_TOKEN_KEY);
                     const isUserNotFound = error?.message === 'User not found';

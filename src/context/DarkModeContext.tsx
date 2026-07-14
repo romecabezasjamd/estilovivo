@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react';
 import { DarkModeSetting, DarkModePreferences, loadDarkModePreference, saveDarkModePreference, listenForSystemChanges, applyDarkMode } from '../utils/darkMode';
+import { api } from '../../services/api';
 
 interface DarkModeContextValue {
   setting: DarkModeSetting;
@@ -20,20 +21,34 @@ export const DarkModeProvider: React.FC<{ children: ReactNode }> = ({ children }
     return () => { mounted = false; };
   }, []);
 
-    useEffect(() => {
-      if (!isReady) return;
-      const unsub = listenForSystemChanges((isDark) => {
-        if (prefs.setting === 'system') {
-          setPrefs(prev => ({ ...prev, active: isDark }));
-          applyDarkMode(isDark);
-        }
-      });
-      return unsub;
-    }, [isReady, prefs.setting]);
+  useEffect(() => {
+    if (!isReady) return;
+    const unsub = listenForSystemChanges((isDark) => {
+      if (prefs.setting === 'system') {
+        setPrefs(prev => ({ ...prev, active: isDark }));
+        applyDarkMode(isDark);
+      }
+    });
+    return unsub;
+  }, [isReady, prefs.setting]);
+
+  // Sync from server when user loads
+  useEffect(() => {
+    const handler = async (e: Event) => {
+      const user = (e as CustomEvent).detail;
+      if (user?.darkModeSetting) {
+        const p = await saveDarkModePreference(user.darkModeSetting as DarkModeSetting);
+        setPrefs(p);
+      }
+    };
+    window.addEventListener('ev:user-loaded', handler as EventListener);
+    return () => window.removeEventListener('ev:user-loaded', handler as EventListener);
+  }, []);
 
   const setDarkMode = useCallback(async (setting: DarkModeSetting) => {
     const p = await saveDarkModePreference(setting);
     setPrefs(p);
+    try { await api.updateUserPreferences({ darkModeSetting: setting }); } catch {}
   }, []);
 
   return (

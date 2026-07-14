@@ -129,6 +129,22 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
     setCycleTracking(user.cycleTracking || false);
   }, [user.cycleTracking]);
 
+  // Sync fontSize from server (overrides localStorage)
+  useEffect(() => {
+    if (user.fontSize && (user.fontSize === 'small' || user.fontSize === 'large' || user.fontSize === 'normal')) {
+      setFontSize(user.fontSize);
+      localStorage.setItem('ev_font_size', user.fontSize);
+    }
+  }, [user.fontSize]);
+
+  // Sync highContrast from server
+  useEffect(() => {
+    if (user.highContrast !== undefined) {
+      setHighContrast(user.highContrast);
+      localStorage.setItem('ev_high_contrast', user.highContrast ? 'on' : 'off');
+    }
+  }, [user.highContrast]);
+
   useEffect(() => {
     setPickerValue(customColor || THEMES[presetTheme].primary);
   }, [customColor, presetTheme]);
@@ -379,14 +395,13 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
     setSettingsSaveError(null);
     setSaveSuccess(false);
     try {
-      // Persist font size and high contrast to localStorage
+      // Persist to localStorage
       localStorage.setItem('ev_font_size', fontSize);
       localStorage.setItem('ev_high_contrast', highContrast ? 'on' : 'off');
 
-      // Theme and dark mode are already applied via their contexts
-      // Haptic is already applied via setHapticEnabled
+      // Sync to server so it's available on any device
+      await api.updateUserPreferences({ fontSize, highContrast });
 
-      // Update initial values to match current
       initialSettingsRef.current = {
         presetTheme,
         customColor,
