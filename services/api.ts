@@ -18,7 +18,7 @@ const isNativeApp = () => {
 const isDevMode = () => {
     const fromEnv = (import.meta as any).env?.VITE_API_BASE || (import.meta as any).env?.VITE_API_URL;
     if (fromEnv?.trim()) return true;
-    return import.meta.env.DEV === true;
+    return (import.meta as any).env?.DEV === true;
 };
 
 const resolveDefaultApiBase = (): string => {

@@ -28,8 +28,8 @@ const Community: React.FC<CommunityProps> = ({ user, onNavigate }) => {
     const loadFeed = useCallback(async () => {
         setIsLoading(true);
         try {
-            const looks = await api.getCommunityFeed();
-            setFeedLooks(looks);
+            const { items } = await api.getCommunityFeed();
+            setFeedLooks(items);
         } catch (error) {
             console.error("Error loading feed:", error);
         } finally {

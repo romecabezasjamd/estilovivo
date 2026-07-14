@@ -1130,7 +1130,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
             ].map(tab => (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => setActiveTab(tab.key as typeof activeTab)}
                 className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${activeTab === tab.key ? 'bg-[var(--bg-card)] text-primary shadow-sm' : 'text-[var(--text-secondary)]'}`}
               >
                 <span className="text-sm leading-none">{tab.icon}</span>
