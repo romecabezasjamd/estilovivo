@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronRight, Check, Sparkles } from 'lucide-react';
+import { ChevronRight, Check, Sparkles, MapPin } from 'lucide-react';
 import { api } from '../services/api';
 
 interface Props {
@@ -11,7 +11,7 @@ export interface StylePreferences {
   favoriteColors: string[];
   preferredStyles: string[];
   preferredOccasions: string[];
-  favoriteFabrics: string[];
+  locationName: string;
 }
 
 const COLORS = [
@@ -47,22 +47,11 @@ const OCCASIONS = [
   { id: 'travel', label: 'Viaje', icon: '✈️' },
 ];
 
-const FABRICS = [
-  { id: 'cotton', label: 'Algodón' },
-  { id: 'linen', label: 'Lino' },
-  { id: 'denim', label: 'Denim' },
-  { id: 'silk', label: 'Seda' },
-  { id: 'wool', label: 'Lana' },
-  { id: 'leather', label: 'Cuero' },
-  { id: 'polyester', label: 'Poliéster' },
-  { id: 'fleece', label: 'Forro polar' },
-];
-
 const STEPS = [
   { title: '¿Qué colores prefieres?', subtitle: 'Elige tus favoritos (máx. 5)', key: 'colors' as const },
   { title: '¿Cuál es tu estilo?', subtitle: 'Elige los que más te gusten', key: 'styles' as const },
   { title: '¿Para qué ocasiones?', subtitle: '¿Dónde usarás tu ropa?', key: 'occasions' as const },
-  { title: '¿Qué telas prefieres?', subtitle: 'Selecciona tus favoritas', key: 'fabrics' as const },
+  { title: '¿De dónde eres?', subtitle: 'Para mostrarte el tiempo local', key: 'location' as const },
 ];
 
 export default function StyleQuiz({ onComplete, onSkip }: Props) {
@@ -70,7 +59,7 @@ export default function StyleQuiz({ onComplete, onSkip }: Props) {
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
   const [selectedOccasions, setSelectedOccasions] = useState<string[]>([]);
-  const [selectedFabrics, setSelectedFabrics] = useState<string[]>([]);
+  const [locationName, setLocationName] = useState('');
 
   const toggle = (arr: string[], set: (v: string[]) => void, id: string, max: number = 5) => {
     if (arr.includes(id)) {
@@ -87,14 +76,14 @@ export default function StyleQuiz({ onComplete, onSkip }: Props) {
     (step === 0 && selectedColors.length > 0) ||
     (step === 1 && selectedStyles.length > 0) ||
     (step === 2 && selectedOccasions.length > 0) ||
-    (step === 3 && selectedFabrics.length > 0);
+    (step === 3 && true);
 
   const handleComplete = () => {
     const prefs: StylePreferences = {
       favoriteColors: selectedColors,
       preferredStyles: selectedStyles,
       preferredOccasions: selectedOccasions,
-      favoriteFabrics: selectedFabrics,
+      locationName,
     };
     api.updateUserPreferences(prefs as unknown as Record<string, unknown>).catch(() => {});
     onComplete(prefs);
@@ -122,7 +111,11 @@ export default function StyleQuiz({ onComplete, onSkip }: Props) {
       <div className="flex-1 px-4 py-6 overflow-y-auto">
         <div className="text-center mb-6">
           <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
-            <Sparkles size={24} style={{ color: 'var(--color-primary)' }} />
+            {step === 3 ? (
+              <MapPin size={24} style={{ color: 'var(--color-primary)' }} />
+            ) : (
+              <Sparkles size={24} style={{ color: 'var(--color-primary)' }} />
+            )}
           </div>
           <h2 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{current.title}</h2>
           <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{current.subtitle}</p>
@@ -197,20 +190,17 @@ export default function StyleQuiz({ onComplete, onSkip }: Props) {
         )}
 
         {step === 3 && (
-          <div className="grid grid-cols-2 gap-3">
-            {FABRICS.map(f => (
-              <button
-                key={f.id}
-                onClick={() => toggle(selectedFabrics, setSelectedFabrics, f.id, 4)}
-                className="p-3 rounded-xl text-center"
-                style={{
-                  backgroundColor: selectedFabrics.includes(f.id) ? 'rgba(255,77,148,0.1)' : 'var(--bg-card)',
-                  border: selectedFabrics.includes(f.id) ? '2px solid var(--color-primary)' : '1px solid var(--border-light)',
-                }}
-              >
-                <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{f.label}</p>
-              </button>
-            ))}
+          <div className="space-y-4">
+            <input
+              type="text"
+              placeholder="Ej: Madrid, Barcelona, México..."
+              value={locationName}
+              onChange={(e) => setLocationName(e.target.value)}
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 px-4 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+            />
+            <p className="text-[10px] text-center" style={{ color: 'var(--text-muted)' }}>
+              Esto nos ayuda a mostrarte el tiempo en tu zona. Puedes cambiarlo después en ajustes.
+            </p>
           </div>
         )}
       </div>

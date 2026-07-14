@@ -1753,54 +1753,56 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                         </button>
                       </div>
                     </div>
-
-                    {/* Manual location */}
-                    <div className="pt-4 border-t border-gray-50 space-y-2">
-                      <label className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
-                        <Globe size={14} className="text-primary" />
-                        Ubicación para el tiempo
-                      </label>
-                      <p className="text-[10px] text-gray-400">Si no quieres compartir tu ubicación, escribe tu ciudad manualmente</p>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          placeholder="Ej: Madrid, Barcelona, México..."
-                          value={locationName}
-                          onChange={(e) => setLocationName(e.target.value)}
-                          className="flex-1 bg-gray-50 border-none rounded-xl py-2.5 px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
-                        />
-                        <button
-                          onClick={async () => {
-                            try {
-                              await api.updateUserPreferences({ locationName });
-                              onUpdateUser({ ...user, locationName });
-                            } catch (e) {
-                              console.warn('Error saving location:', e);
-                            }
-                          }}
-                          className="px-3 py-2.5 rounded-xl bg-primary text-white text-xs font-bold"
-                        >
-                          <Save size={14} />
-                        </button>
-                      </div>
-                      {locationName && (
-                        <button
-                          onClick={async () => {
-                            setLocationName('');
-                            try {
-                              await api.updateUserPreferences({ locationName: '' });
-                              onUpdateUser({ ...user, locationName: '' });
-                            } catch (e) {
-                              console.warn('Error clearing location:', e);
-                            }
-                          }}
-                          className="text-[10px] text-gray-400 underline"
-                        >
-                          Usar ubicación del navegador
-                        </button>
-                      )}
-                    </div>
                   </div>
+                )}
+              </div>
+            </div>
+
+            {/* Manual location - standalone card */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="p-4 border-b border-gray-50 flex items-center gap-2">
+                <Globe size={18} className="text-primary" />
+                <h3 className="text-sm font-bold text-gray-700">Ubicación para el tiempo</h3>
+              </div>
+              <div className="p-4 space-y-3">
+                <p className="text-[10px] text-gray-400">Si no quieres compartir tu ubicación del navegador, escribe tu ciudad manualmente</p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Ej: Madrid, Barcelona, México..."
+                    value={locationName}
+                    onChange={(e) => setLocationName(e.target.value)}
+                    className="flex-1 bg-gray-50 border-none rounded-xl py-2.5 px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                  />
+                  <button
+                    onClick={async () => {
+                      try {
+                        await api.updateUserPreferences({ locationName });
+                        onUpdateUser({ ...user, locationName });
+                      } catch (e) {
+                        console.warn('Error saving location:', e);
+                      }
+                    }}
+                    className="px-3 py-2.5 rounded-xl bg-primary text-white text-xs font-bold"
+                  >
+                    <Save size={14} />
+                  </button>
+                </div>
+                {locationName && (
+                  <button
+                    onClick={async () => {
+                      setLocationName('');
+                      try {
+                        await api.updateUserPreferences({ locationName: '' });
+                        onUpdateUser({ ...user, locationName: '' });
+                      } catch (e) {
+                        console.warn('Error clearing location:', e);
+                      }
+                    }}
+                    className="text-[10px] text-gray-400 underline"
+                  >
+                    Usar ubicación del navegador
+                  </button>
                 )}
               </div>
             </div>
