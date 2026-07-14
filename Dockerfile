@@ -94,35 +94,27 @@ EXPOSE 3000
 ARG DATABASE_URL=file:./data/dev.db
 ENV DATABASE_URL=$DATABASE_URL
 
-# Copiar Prisma schema + migraciones desde backend-build
-COPY --from=backend-build /app/server/prisma ./prisma
-COPY --from=backend-build /app/server/prisma.config.ts ./prisma.config.ts
+# Copy Prisma schema + config + migrations from backend-build
+COPY --from=backend-build /app/server/prisma ./server/prisma
 # Overwrite schema.prisma from build context to ensure latest version (backend-build may be cached)
-COPY server/prisma/schema.prisma ./prisma/schema.prisma
+COPY server/prisma/schema.prisma ./server/prisma/schema.prisma
+COPY server/prisma.config.ts ./server/prisma.config.ts
 
-# Instalar solo runtime deps con cache mount
-# First remove prisma postinstall (prisma CLI is devDep, not available here)
-COPY server/package*.json ./
-RUN npm pkg delete scripts.postinstall
+# Install production deps (prisma is now in dependencies, postinstall runs prisma generate)
+COPY server/package*.json ./server/
 RUN --mount=type=cache,target=/root/.npm \
-    npm install --omit=dev --prefer-offline --no-audit --legacy-peer-deps
+    cd server && npm install --omit=dev --prefer-offline --no-audit --legacy-peer-deps
 
-# Copiar prisma CLI + engines desde backend-build para regenerar el cliente
-COPY --from=backend-build /app/server/node_modules/prisma ./node_modules/prisma
-COPY --from=backend-build /app/server/node_modules/@prisma ./node_modules/@prisma
-COPY --from=backend-build /app/server/node_modules/.prisma ./node_modules/.prisma
-RUN node ./node_modules/prisma/build/index.js generate
+# Copy backend compiled
+COPY --from=backend-build /app/server/dist ./server/dist
 
-# Copiar backend compilado
-COPY --from=backend-build /app/server/dist ./dist
+# Copy frontend compiled to public folder
+COPY --from=frontend-build /app/dist ./server/public
 
-# Copiar frontend compilado a carpeta pública del backend
-COPY --from=frontend-build /app/dist ./public
-
-# Crear directorio para uploads
+# Create uploads directory
 RUN mkdir -p /app/uploads && chmod 755 /app/uploads
 
-# Copiar entrypoint
+# Copy entrypoint
 COPY server/entrypoint.sh ./entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
