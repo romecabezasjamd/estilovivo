@@ -98,13 +98,12 @@ ENV DATABASE_URL=$DATABASE_URL
 COPY --from=backend-build /app/server/prisma ./prisma
 COPY --from=backend-build /app/server/prisma.config.ts ./prisma.config.ts
 
-# Instalar solo runtime deps con cache mount
+# Instalar solo runtime deps con cache mount (skip postinstall — prisma not installed yet)
 COPY server/package*.json ./
 RUN --mount=type=cache,target=/root/.npm \
-    npm install --omit=dev --prefer-offline --no-audit --legacy-peer-deps
+    npm install --omit=dev --prefer-offline --no-audit --legacy-peer-deps --ignore-scripts
 
 # Copiar prisma CLI desde build y generar Prisma Client
-# (npm install --omit=dev omite prisma, pero necesitamos generate)
 COPY --from=backend-build /app/server/node_modules/prisma ./node_modules/prisma
 COPY --from=backend-build /app/server/node_modules/.bin/prisma ./node_modules/.bin/prisma
 RUN ./node_modules/.bin/prisma generate
