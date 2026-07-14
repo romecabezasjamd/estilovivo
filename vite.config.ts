@@ -89,6 +89,14 @@ export default defineConfig(({ mode }) => {
         outDir: 'dist',
         sourcemap: false,
         rollupOptions: {
+          external: (id) => {
+            const installedMediapipe = ['@mediapipe/selfie_segmentation'];
+            const installedTfjs = ['@tensorflow/tfjs-backend-cpu', '@tensorflow/tfjs-backend-webgl', '@tensorflow/tfjs-converter', '@tensorflow/tfjs-core'];
+            if (id.startsWith('@mediapipe/') && !installedMediapipe.some(p => id === p || id.startsWith(p + '/'))) return true;
+            if (id.startsWith('@tensorflow/') && !installedTfjs.some(p => id === p || id.startsWith(p + '/'))) return true;
+            if (id.startsWith('firebase/')) return true;
+            return false;
+          },
           output: {
             manualChunks: {
               'human': ['@vladmandic/human'],

@@ -24,12 +24,12 @@ COPY server/prisma.config.ts ./server/prisma.config.ts
 
 # Instalar frontend deps con cache mount
 RUN --mount=type=cache,target=/root/.npm \
-    npm install --prefer-offline --no-audit
+    npm install --prefer-offline --no-audit --legacy-peer-deps
 
 # Instalar backend deps con cache mount
 WORKDIR /app/server
 RUN --mount=type=cache,target=/root/.npm \
-    npm install --prefer-offline --no-audit
+    npm install --prefer-offline --no-audit --legacy-peer-deps
 
 # Copiar migrations después del install (no invalidan caché)
 COPY server/prisma/migrations ./prisma/migrations
@@ -101,7 +101,7 @@ COPY --from=backend-build /app/server/prisma.config.ts ./prisma.config.ts
 # Instalar solo runtime deps con cache mount
 COPY server/package*.json ./
 RUN --mount=type=cache,target=/root/.npm \
-    npm install --omit=dev --prefer-offline --no-audit
+    npm install --omit=dev --prefer-offline --no-audit --legacy-peer-deps
 
 # Copiar prisma CLI desde build y generar Prisma Client
 # (npm install --omit=dev omite prisma, pero necesitamos generate)
