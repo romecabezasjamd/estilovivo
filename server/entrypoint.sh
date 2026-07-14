@@ -1,13 +1,13 @@
 #!/bin/sh
 set -e
 
-PRISMA="./node_modules/.bin/prisma"
+PRISMA="node ./node_modules/prisma/build/index.js"
 
 # Handle shutdown signals
 trap 'echo "=== [entrypoint] Shutting down ==="; exit 0' TERM INT
 
 echo "=== [entrypoint] Running prisma db push ==="
-if [ -f "$PRISMA" ]; then
+if [ -f "./node_modules/prisma/build/index.js" ]; then
   timeout 30 $PRISMA db push --accept-data-loss || echo "Warning: prisma db push skipped or failed"
 else
   echo "Warning: prisma CLI not found, skipping db push"

@@ -111,7 +111,7 @@ RUN --mount=type=cache,target=/root/.npm \
 COPY --from=backend-build /app/server/node_modules/prisma ./node_modules/prisma
 COPY --from=backend-build /app/server/node_modules/@prisma ./node_modules/@prisma
 COPY --from=backend-build /app/server/node_modules/.prisma ./node_modules/.prisma
-RUN ./node_modules/.bin/prisma generate
+RUN node ./node_modules/prisma/build/index.js generate
 
 # Copiar backend compilado
 COPY --from=backend-build /app/server/dist ./dist
