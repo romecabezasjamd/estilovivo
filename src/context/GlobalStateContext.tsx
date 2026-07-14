@@ -164,9 +164,10 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
                     setUser(userData);
                     await syncSet(SYNC_KEYS.USER, userData);
                     window.dispatchEvent(new CustomEvent('ev:user-loaded', { detail: userData }));
-                } catch (error) {
+                } catch (error: any) {
                     const tokenStillPresent = !!localStorage.getItem(AUTH_TOKEN_KEY);
-                    if (!tokenStillPresent) {
+                    const isUserNotFound = error?.message === 'User not found';
+                    if (!tokenStillPresent || isUserNotFound) {
                         clearPersistedSession();
                         setUser(null);
                         setIsLoading(false);
