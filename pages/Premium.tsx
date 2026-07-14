@@ -10,7 +10,7 @@ interface Props {
 
 const FEATURES = [
   { icon: <Zap size={18} />, title: 'Probador virtual ilimitado', desc: 'Prueba prendas sin límites diarios' },
-  { icon: <Sparkles size={18} />, title: 'Temas exclusivos', desc: 'Accede a themes premium personalizados' },
+  { icon: <Sparkles size={18} />, title: 'Ventas ilimitadas', desc: 'Publica todas las prendas que quieras a la venta' },
   { icon: <Shield size={18} />, title: 'Sin anuncios', desc: 'Experiencia limpia sin interrupciones' },
   { icon: <Crown size={18} />, title: 'Soporte prioritario', desc: 'Respuesta en menos de 24 horas' },
 ];
@@ -111,9 +111,8 @@ export default function Premium({ onBack }: Props) {
 
         <div className="space-y-3">
           {[
-            { id: PRODUCT_IDS.PREMIUM_MONTHLY, label: 'Mensual', period: '/mes' },
-            { id: PRODUCT_IDS.PREMIUM_YEARLY, label: 'Anual', period: '/año', badge: 'Ahorra 40%' },
-            { id: PRODUCT_IDS.PREMIUM_LIFETIME, label: 'De por vida', period: 'pago único', badge: 'Mejor valor' },
+            { id: PRODUCT_IDS.PREMIUM_MONTHLY, label: 'Mensual', period: '/mes', price: '2,99 €' },
+            { id: PRODUCT_IDS.PREMIUM_YEARLY, label: 'Anual', period: '/año', price: '30 €', badge: 'Ahorra 16%' },
           ].map(plan => {
             const prod = getProduct(plan.id);
             return (
@@ -134,7 +133,7 @@ export default function Premium({ onBack }: Props) {
                 )}
                 <p className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>{plan.label}</p>
                 <p className="text-lg font-black mt-1" style={{ color: 'var(--color-primary)' }}>
-                  {prod ? prod.price : '...'} <span className="text-[10px] font-normal" style={{ color: 'var(--text-muted)' }}>{plan.period}</span>
+                  {plan.price} <span className="text-[10px] font-normal" style={{ color: 'var(--text-muted)' }}>{plan.period}</span>
                 </p>
                 {purchasing === plan.id && (
                   <div className="absolute inset-0 bg-white/80 flex items-center justify-center">

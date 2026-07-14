@@ -25,7 +25,7 @@ const STEPS = [
   {
     icon: <Sparkles size={48} className="text-primary" />,
     title: 'Organiza tu semana',
-    description: 'Planifica tu outfit día por día. Nunca más perderás tiempodecidiendo qué ponerte.',
+    description: 'Planifica tu outfit día por día. Nunca más perderás tiempo decidiendo qué ponerte.',
   },
 ];
 

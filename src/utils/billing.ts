@@ -6,7 +6,6 @@ const isNative = Capacitor.isNativePlatform();
 const PRODUCT_IDS = {
   PREMIUM_MONTHLY: 'com.estilovivo.app.premium.monthly',
   PREMIUM_YEARLY: 'com.estilovivo.app.premium.yearly',
-  PREMIUM_LIFETIME: 'com.estilovivo.app.premium.lifetime',
 };
 
 let initialized = false;
@@ -24,11 +23,6 @@ export async function initBilling() {
       {
         id: PRODUCT_IDS.PREMIUM_YEARLY,
         type: ProductType.PAID_SUBSCRIPTION,
-        platform: Platform.GOOGLE_PLAY,
-      },
-      {
-        id: PRODUCT_IDS.PREMIUM_LIFETIME,
-        type: ProductType.NON_CONSUMABLE,
         platform: Platform.GOOGLE_PLAY,
       },
     ]);
@@ -93,7 +87,7 @@ export async function checkPremiumStatus(): Promise<boolean> {
   try {
     const products = store.products;
     return products.some(p =>
-      p.id === PRODUCT_IDS.PREMIUM_LIFETIME && p.owned
+      (p.id === PRODUCT_IDS.PREMIUM_MONTHLY || p.id === PRODUCT_IDS.PREMIUM_YEARLY) && p.owned
     );
   } catch (e) {
     return false;

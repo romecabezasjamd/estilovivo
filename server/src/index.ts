@@ -1138,6 +1138,33 @@ app.put('/api/auth/profile', authenticateToken, upload.fields([{ name: 'avatar',
   }
 });
 
+app.put('/api/auth/preferences', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const allowed = ['cycleTracking', 'musicSync', 'emailNotifications', 'emailChat', 'emailFollows', 'emailWashing', 'emailChallenges', 'themePreset', 'customColor', 'isProfilePublic', 'styleColors', 'styleStyles', 'styleOccasions', 'styleFabrics'];
+    const updateData: any = {};
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) {
+        const val = req.body[key];
+        if (typeof val === 'boolean') updateData[key] = val;
+        else if (typeof val === 'string') updateData[key] = val === 'true' || val === '1' ? true : val === 'false' || val === '0' ? false : val;
+        else updateData[key] = val;
+      }
+    }
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ error: 'No valid preferences provided' });
+    }
+    const user = await prisma.user.update({
+      where: { id: req.user.userId },
+      data: updateData,
+    });
+    const { password: _, ...safe } = user;
+    res.json(safe);
+  } catch (error) {
+    logger.error('Error occurred', { error });
+    res.status(500).json({ error: 'Error updating preferences' });
+  }
+});
+
 // ============= PRODUCTOS =============
 
 app.get('/api/products', authenticateToken, async (req: any, res: Response) => {
@@ -1197,6 +1224,16 @@ app.post('/api/products', authenticateToken, upload.array('images', 5), validate
   try {
     const { name, category, color, season, brand, size, condition, description, price, forSale, isWashing } = req.body;
     const files = req.files as Express.Multer.File[] | undefined;
+
+    // Enforce sale limit for non-premium users (max 5 items for sale)
+    if (forSale === true || forSale === 'true') {
+      const saleCount = await prisma.product.count({
+        where: { userId: req.user.userId, forSale: true }
+      });
+      if (saleCount >= 5) {
+        return res.status(403).json({ error: 'Los usuarios gratuitos pueden tener un máximo de 5 prendas a la venta. Actualiza a Premium para ventas ilimitadas.' });
+      }
+    }
 
     // Process images with sharp
     const processedImages = [];

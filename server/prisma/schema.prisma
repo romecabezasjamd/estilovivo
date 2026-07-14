@@ -35,6 +35,11 @@ model User {
   level             Int        @default(1)
   themePreset       String?
   customColor       String?
+  isProfilePublic   Boolean    @default(true)
+  styleColors       String?
+  styleStyles       String?
+  styleOccasions    String?
+  styleFabrics      String?
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
   

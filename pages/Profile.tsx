@@ -113,6 +113,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
   const [emailFollows, setEmailFollows] = useState(user.emailFollows ?? true);
   const [emailWashing, setEmailWashing] = useState(user.emailWashing ?? true);
   const [emailChallenges, setEmailChallenges] = useState(user.emailChallenges ?? true);
+  const [isProfilePublic, setIsProfilePublic] = useState(user.isProfilePublic ?? true);
   const [cycleStartDate, setCycleStartDate] = useState('');
   const [cycleEndDate, setCycleEndDate] = useState('');
   const [settingsError, setSettingsError] = useState<string | null>(null);
@@ -297,7 +298,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
   // Save settings
   const handleToggleSetting = async (setting: string, value: boolean) => {
     const prev: any = {
-      cycleTracking, emailNotifications, emailChat, emailFollows, emailWashing, emailChallenges,
+      cycleTracking, emailNotifications, emailChat, emailFollows, emailWashing, emailChallenges, isProfilePublic,
     };
 
     if (setting === 'cycleTracking') {
@@ -315,6 +316,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
     else if (setting === 'emailFollows') setEmailFollows(value);
     else if (setting === 'emailWashing') setEmailWashing(value);
     else if (setting === 'emailChallenges') setEmailChallenges(value);
+    else if (setting === 'isProfilePublic') setIsProfilePublic(value);
 
     setSettingsError(null);
     try {
@@ -322,8 +324,8 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
       if (setting === 'emailNotifications') {
         data.emailChat = value; data.emailFollows = value; data.emailWashing = value; data.emailChallenges = value;
       }
-      const updated = await api.updateProfile(data);
-      onUpdateUser({ ...user, ...updated, ...data });
+      await api.updateUserPreferences(data);
+      onUpdateUser({ ...user, ...data });
     } catch (e: any) {
       const prevVal = prev[setting];
       if (setting === 'cycleTracking') setCycleTracking(prevVal);
@@ -332,6 +334,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
       else if (setting === 'emailFollows') setEmailFollows(prevVal);
       else if (setting === 'emailWashing') setEmailWashing(prevVal);
       else if (setting === 'emailChallenges') setEmailChallenges(prevVal);
+      else if (setting === 'isProfilePublic') setIsProfilePublic(prevVal);
       setSettingsError(e?.message || 'No se pudo guardar la preferencia');
       console.warn('Error saving setting:', e);
     }
@@ -1734,12 +1737,18 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                       </button>
                     </form>
 
-                    {/* Other security options placeholders */}
+                    {/* Profile visibility toggle */}
                     <div className="pt-4 border-t border-gray-50 space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-gray-700">Perfil Público</span>
-                        <button className="w-11 h-6 bg-primary rounded-full relative">
-                          <div className="absolute right-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow" />
+                        <div>
+                          <span className="text-xs font-medium text-gray-700">Perfil Público</span>
+                          <p className="text-[10px] text-gray-400 mt-0.5">Los ventas siempre son públicas</p>
+                        </div>
+                        <button
+                          onClick={() => handleToggleSetting('isProfilePublic', !isProfilePublic)}
+                          className={`w-11 h-6 rounded-full transition-colors ${isProfilePublic ? 'bg-gradient-to-r from-primary to-accent' : 'bg-gray-200'}`}
+                        >
+                          <div className={`w-5 h-5 rounded-full bg-white shadow transform transition-transform ${isProfilePublic ? 'translate-x-5' : 'translate-x-0.5'}`} />
                         </button>
                       </div>
                     </div>
@@ -1935,7 +1944,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                     <div className="bg-gradient-to-r from-primary/5 to-accent/5 rounded-2xl p-4 border border-primary/10">
                       <h4 className="font-bold text-primary text-sm mb-2">Originalidad del Diseño</h4>
                       <p className="text-xs text-gray-700">
-                        El diseño, estructura, interfaz y experiencia de usuario de Estilo Vivo son originales y propiedad exclusiva de Andrea Rodríguez Sánchez. Cualquier similitud con otras plataformas es únicamente por el uso de patrones de diseño comunes en la industria. Queda prohibida la copia, reproducción o uso no autorizado del software, diseño o identidad visual.
+                        El diseño, estructura, interfaz y experiencia de usuario de Estilo Vivo son originales y propiedad exclusiva de JAMD Desarrollos IA S.L. Cualquier similitud con otras plataformas es únicamente por el uso de patrones de diseño comunes en la industria. Queda prohibida la copia, reproducción o uso no autorizado del software, diseño o identidad visual.
                       </p>
                     </div>
 

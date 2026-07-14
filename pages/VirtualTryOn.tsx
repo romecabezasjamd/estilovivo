@@ -1125,6 +1125,10 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-3 space-y-2 shrink-0" style={{ scrollbarWidth: 'thin', maxHeight: 'calc(70vh - 50px)' }}>
+              <button onClick={() => { setBodyUrl(null); setBodyDim(null); setStep('photo'); setLayers([]); setShowControls(false) }} className="w-full flex items-center gap-2 p-2 rounded-xl" style={{ border: '1px solid var(--border-light)' }}>
+                <Camera size={14} style={{ color: 'var(--text-secondary)' }} />
+                <span className="text-[10px] font-medium" style={{ color: 'var(--text-primary)' }}>Cambiar foto del cuerpo</span>
+              </button>
               {cur && (
                 <div className="rounded-xl p-2" style={{ border: '1px solid var(--border-light)' }}>
                   <div className="flex items-center gap-2">
@@ -1156,6 +1160,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
               )}
 
               <div className="flex items-center gap-1.5">
+                <button onClick={() => { setBodyUrl(null); setBodyDim(null); setStep('photo'); setLayers([]) }} className="p-2 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-light)' }} title="Cambiar foto"><Camera size={14} style={{ color: 'var(--text-secondary)' }} /></button>
                 <button onClick={undo} disabled={histIdx <= 0} className="p-2 rounded-lg disabled:opacity-30" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-light)' }}><Undo2 size={14} style={{ color: 'var(--text-secondary)' }} /></button>
                 <button onClick={redo} disabled={histIdx >= history.length - 1} className="p-2 rounded-lg disabled:opacity-30" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-light)' }}><Redo2 size={14} style={{ color: 'var(--text-secondary)' }} /></button>
                 <button onClick={() => { setDarkBg(!darkBg); setZoom(1); setPan({ x: 0, y: 0 }) }} className="p-2 rounded-lg" style={{ backgroundColor: darkBg ? 'var(--color-primary)' : 'var(--bg-secondary)', border: '1px solid var(--border-light)', color: darkBg ? 'white' : 'var(--text-secondary)' }}>{darkBg ? <Sun size={14} /> : <Moon size={14} />}</button>

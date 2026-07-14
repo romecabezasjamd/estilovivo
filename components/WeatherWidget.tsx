@@ -12,6 +12,7 @@ export default function WeatherWidget({ garments, onNavigate }: Props) {
   const [suggestions, setSuggestions] = useState<OutfitSuggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [location, setLocation] = useState('');
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     loadWeather();
@@ -26,12 +27,21 @@ export default function WeatherWidget({ garments, onNavigate }: Props) {
 
   const loadWeather = async () => {
     setLoading(true);
+    setError(null);
     try {
       if (navigator.geolocation) {
-        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
-        });
-        const { latitude, longitude } = pos.coords;
+        let latitude: number, longitude: number;
+        try {
+          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000, enableHighAccuracy: false });
+          });
+          latitude = pos.coords.latitude;
+          longitude = pos.coords.longitude;
+        } catch {
+          latitude = 40.4168;
+          longitude = -3.7038;
+          setLocation('Madrid');
+        }
 
         const res = await fetch(
           `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,weather_code&timezone=auto`
