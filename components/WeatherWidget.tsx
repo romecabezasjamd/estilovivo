@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Cloud, MapPin, RefreshCw } from 'lucide-react';
+import { Cloud, MapPin, RefreshCw, Globe } from 'lucide-react';
 import { type WeatherData, getWeatherEmoji, getWeatherAdvice, getOutfitSuggestions, type OutfitSuggestion } from '../src/utils/weather';
 
 interface Props {
   garments: { type: string; name: string; color?: string }[];
   onNavigate?: (tab: string) => void;
+  locationName?: string;
 }
 
-export default function WeatherWidget({ garments, onNavigate }: Props) {
+export default function WeatherWidget({ garments, onNavigate, locationName }: Props) {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [suggestions, setSuggestions] = useState<OutfitSuggestion[]>([]);
   const [loading, setLoading] = useState(true);
@@ -16,7 +17,7 @@ export default function WeatherWidget({ garments, onNavigate }: Props) {
 
   useEffect(() => {
     loadWeather();
-  }, []);
+  }, [locationName]);
 
   useEffect(() => {
     if (weather && garments.length > 0) {
@@ -29,8 +30,32 @@ export default function WeatherWidget({ garments, onNavigate }: Props) {
     setLoading(true);
     setError(null);
     try {
-      if (navigator.geolocation) {
-        let latitude: number, longitude: number;
+      let latitude: number, longitude: number;
+
+      // Try saved location first (manual city name)
+      if (locationName && locationName.trim()) {
+        try {
+          const locRes = await fetch(
+            `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(locationName.trim())}&count=1&language=es`
+          );
+          const locData = await locRes.json();
+          if (locData.results?.[0]) {
+            latitude = locData.results[0].latitude;
+            longitude = locData.results[0].longitude;
+            setLocation(locData.results[0].name || locationName);
+          } else {
+            // City not found, fallback to Madrid
+            latitude = 40.4168;
+            longitude = -3.7038;
+            setLocation('Madrid');
+          }
+        } catch {
+          latitude = 40.4168;
+          longitude = -3.7038;
+          setLocation('Madrid');
+        }
+      } else if (navigator.geolocation) {
+        // Try browser geolocation
         try {
           const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
             navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000, enableHighAccuracy: false });
@@ -42,34 +67,41 @@ export default function WeatherWidget({ garments, onNavigate }: Props) {
           longitude = -3.7038;
           setLocation('Madrid');
         }
+      } else {
+        latitude = 40.4168;
+        longitude = -3.7038;
+        setLocation('Madrid');
+      }
 
-        const res = await fetch(
-          `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,weather_code&timezone=auto`
-        );
-        const data = await res.json();
-        const current = data.current;
+      const res = await fetch(
+        `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,weather_code&timezone=auto`
+      );
+      const data = await res.json();
+      const current = data.current;
 
-        const code = current.weather_code;
-        let condition: WeatherData['condition'] = 'sunny';
-        if (code >= 51 && code <= 67) condition = 'rainy';
-        else if (code >= 71 && code <= 77) condition = 'snowy';
-        else if (code >= 80 && code <= 82) condition = 'rainy';
-        else if (code >= 85 && code <= 86) condition = 'snowy';
-        else if (code >= 95 && code <= 99) condition = 'rainy';
-        else if (code >= 1 && code <= 3) condition = 'cloudy';
-        else if (current.temperature_2m > 30) condition = 'hot';
-        else if (current.temperature_2m < 5) condition = 'cold';
+      const code = current.weather_code;
+      let condition: WeatherData['condition'] = 'sunny';
+      if (code >= 51 && code <= 67) condition = 'rainy';
+      else if (code >= 71 && code <= 77) condition = 'snowy';
+      else if (code >= 80 && code <= 82) condition = 'rainy';
+      else if (code >= 85 && code <= 86) condition = 'snowy';
+      else if (code >= 95 && code <= 99) condition = 'rainy';
+      else if (code >= 1 && code <= 3) condition = 'cloudy';
+      else if (current.temperature_2m > 30) condition = 'hot';
+      else if (current.temperature_2m < 5) condition = 'cold';
 
-        const weatherData: WeatherData = {
-          temp: Math.round(current.temperature_2m),
-          condition,
-          humidity: current.relative_humidity_2m,
-          description: getConditionName(code),
-          icon: getWeatherEmoji(condition),
-        };
+      const weatherData: WeatherData = {
+        temp: Math.round(current.temperature_2m),
+        condition,
+        humidity: current.relative_humidity_2m,
+        description: getConditionName(code),
+        icon: getWeatherEmoji(condition),
+      };
 
-        setWeather(weatherData);
+      setWeather(weatherData);
 
+      // If we used geolocation (not manual), try to resolve city name
+      if (!locationName && !location) {
         const locRes = await fetch(
           `https://geocoding-api.open-meteo.com/v1/search?name=&latitude=${latitude}&longitude=${longitude}&count=1`
         ).catch(() => null);

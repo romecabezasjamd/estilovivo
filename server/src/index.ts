@@ -1140,7 +1140,7 @@ app.put('/api/auth/profile', authenticateToken, upload.fields([{ name: 'avatar',
 
 app.put('/api/auth/preferences', authenticateToken, async (req: any, res: Response) => {
   try {
-    const allowed = ['cycleTracking', 'musicSync', 'emailNotifications', 'emailChat', 'emailFollows', 'emailWashing', 'emailChallenges', 'themePreset', 'customColor', 'isProfilePublic', 'styleColors', 'styleStyles', 'styleOccasions', 'styleFabrics'];
+    const allowed = ['cycleTracking', 'musicSync', 'emailNotifications', 'emailChat', 'emailFollows', 'emailWashing', 'emailChallenges', 'themePreset', 'customColor', 'isProfilePublic', 'styleColors', 'styleStyles', 'styleOccasions', 'styleFabrics', 'locationName'];
     const updateData: any = {};
     for (const key of allowed) {
       if (req.body[key] !== undefined) {

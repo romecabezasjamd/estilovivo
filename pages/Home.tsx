@@ -166,7 +166,7 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
       </section>
 
       {/* Weather & Outfit Suggestions */}
-      <WeatherWidget garments={garments} onNavigate={onNavigate} />
+      <WeatherWidget garments={garments} onNavigate={onNavigate} locationName={user.locationName} />
 
       {/* Today's Look or CTA */}
       <section>

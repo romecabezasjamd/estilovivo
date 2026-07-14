@@ -80,6 +80,8 @@ export interface UserState {
   level?: number;
   themePreset?: string;
   customColor?: string;
+  isProfilePublic?: boolean;
+  locationName?: string;
 }
 
 export interface MoodOption {
