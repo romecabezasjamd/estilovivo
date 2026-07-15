@@ -8,10 +8,18 @@ trap 'echo "=== [entrypoint] Shutting down ==="; exit 0' TERM INT
 
 PRISMA="./node_modules/.bin/prisma"
 
-echo "=== [entrypoint] Running prisma db push ==="
+echo "=== [entrypoint] Checking data directory ==="
+if [ ! -w /app/data ]; then
+  echo "WARNING: /app/data is not writable! Database will not persist across deploys."
+  echo "Mount a persistent volume at /app/data in your container platform."
+fi
+
+echo "=== [entrypoint] Running prisma generate ==="
 if [ -f "$PRISMA" ]; then
   timeout 30 $PRISMA generate || echo "Warning: prisma generate failed"
-  timeout 30 $PRISMA db push --accept-data-loss || echo "Warning: prisma db push skipped or failed"
+  
+  echo "=== [entrypoint] Running prisma db push (safe mode) ==="
+  timeout 30 $PRISMA db push --skip-generate || echo "Warning: prisma db push skipped or failed"
 else
   echo "Warning: prisma CLI not found at $PRISMA, skipping db push"
 fi

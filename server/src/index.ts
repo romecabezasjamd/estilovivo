@@ -3063,6 +3063,10 @@ const startServer = async () => {
     httpServer.listen(PORT, '0.0.0.0', () => {
       logger.info(`Server running on port ${PORT} in ${NODE_ENV} mode`);
       logger.info(`Uploads directory config: ${UPLOADS_DIR}`);
+      const dbUrl = process.env.DATABASE_URL || 'file:./dev.db';
+      const isAbsolute = dbUrl.includes('/app/data');
+      logger.info(`Database URL path: ${dbUrl.replace(/\/[^/]+\//, '/.../')}`);
+      logger.info(`Database persistent: ${isAbsolute ? 'YES (/app/data mounted)' : 'NO (relative path - data will be lost on restart!)'}`);
     });
   } catch (error) {
     logger.error('Failed to start server:', error);
