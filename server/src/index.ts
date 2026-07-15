@@ -3010,6 +3010,9 @@ if (NODE_ENV === 'production') {
   }));
   app.get('*', (req: Request, res: Response) => {
     if (!req.path.startsWith('/api') && !req.path.match(/\.(js|mjs|css|wasm|png|jpg|jpeg|gif|svg|ico|json|woff|woff2|ttf|eot)$/)) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       res.sendFile(path.join(frontendPath, 'index.html'));
     } else {
       res.status(404).end();
