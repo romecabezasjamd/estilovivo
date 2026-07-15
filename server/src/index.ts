@@ -3003,7 +3003,12 @@ if (NODE_ENV === 'production') {
       } else if (filePath.endsWith('.css')) {
         res.setHeader('Content-Type', 'text/css');
       }
-      if (filePath.includes('/assets/')) {
+      const basename = filePath.split('/').pop() || '';
+      if (basename === 'sw.js' || basename.startsWith('workbox-') || basename === 'registerSW.js') {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+      } else if (filePath.includes('/assets/')) {
         res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
       }
     }
