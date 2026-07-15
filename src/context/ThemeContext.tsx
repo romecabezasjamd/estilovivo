@@ -58,16 +58,6 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setCustomColorState(prefs.customColor);
       setIsCustom(prefs.isCustom);
       setIsReady(true);
-
-      // Try to load theme from server (only if auth token exists)
-      const token = localStorage.getItem('beyour_token');
-      if (token) {
-        try {
-          const user = await api.getMe();
-          if (!mounted) return;
-          await syncFromUser(user);
-        } catch {}
-      }
     })();
     return () => { mounted = false; };
   }, []);

@@ -30,6 +30,10 @@ export default defineConfig(({ mode }) => {
             globIgnores: ['**/ort-wasm-simd-threaded.jsep-*.wasm', '**/human-*', '**/tf-*', '**/pose-detection-*'],
             runtimeCaching: [
               {
+                urlPattern: /\/api\/auth\//,
+                handler: 'NetworkOnly',
+              },
+              {
                 urlPattern: /\/api\//,
                 handler: 'NetworkFirst',
                 options: {
