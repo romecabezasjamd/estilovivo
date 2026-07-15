@@ -7,19 +7,20 @@ interface CreateLookProps {
   garments: Garment[];
   onSaveLook: (look: Look) => void;
   onClose?: () => void;
+  editLook?: Look;
 }
 
 const CATEGORY_ORDER = ['top', 'outerwear', 'bottom', 'dress', 'shoes', 'accessories', 'swimwear', 'activewear'];
 
-const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook, onClose }) => {
+const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook, onClose, editLook }) => {
   const { t } = useLanguage();
-  const [selectedItems, setSelectedItems] = useState<Garment[]>([]);
-  const [isPickerOpen, setIsPickerOpen] = useState(true);
+  const [selectedItems, setSelectedItems] = useState<Garment[]>(() => editLook ? garments.filter(g => editLook.garmentIds.includes(g.id)) : []);
+  const [isPickerOpen, setIsPickerOpen] = useState(!editLook);
   const [isSaving, setIsSaving] = useState(false);
-  const [lookName, setLookName] = useState('');
-  const [isPublic, setIsPublic] = useState(false);
-  const [mood, setMood] = useState('');
-  const [tags, setTags] = useState<string[]>([]);
+  const [lookName, setLookName] = useState(editLook?.name || '');
+  const [isPublic, setIsPublic] = useState(editLook?.isPublic || false);
+  const [mood, setMood] = useState(editLook?.mood || '');
+  const [tags, setTags] = useState<string[]>(editLook?.tags || []);
   const [tagInput, setTagInput] = useState('');
   const [pickerFilter, setPickerFilter] = useState('all');
 
@@ -112,14 +113,14 @@ const CreateLook: React.FC<CreateLookProps> = ({ garments, onSaveLook, onClose }
 
   const handleSave = () => {
     const newLook: Look = {
-      id: `l-${Date.now()}`,
+      id: editLook?.id || `l-${Date.now()}`,
       name: lookName || t('untitled') || 'Sin título',
       garmentIds: selectedItems.map(g => g.id),
       garments: selectedItems,
       tags: tags.length > 0 ? tags : ['custom'],
       mood: mood || undefined,
       isPublic,
-      createdAt: new Date().toISOString(),
+      createdAt: editLook?.createdAt || new Date().toISOString(),
     };
     onSaveLook(newLook);
     if (onClose) {

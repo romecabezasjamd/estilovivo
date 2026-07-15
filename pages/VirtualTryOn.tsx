@@ -46,8 +46,6 @@ function matchOccasion(g: Garment, occ: string): boolean {
 }
 
 const RES_OPTIONS: { k: ExportResolution; l: string; desc: string }[] = [
-  { k: 'hd', l: 'HD', desc: '1200px' },
-  { k: '2k', l: '2K', desc: '2400px' },
   { k: 'full', l: 'Original', desc: 'Tamaño original' },
 ]
 
@@ -229,7 +227,7 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
   const [mirror, setMirror] = useState(false)
   const [compareMode, setCompareMode] = useState(false)
   const [comparePos, setComparePos] = useState(50)
-  const [exportRes, setExportRes] = useState<ExportResolution>('hd')
+  const [exportRes, setExportRes] = useState<ExportResolution>('full')
   const [darkBg, setDarkBg] = useState(false)
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 0, y: 0 })

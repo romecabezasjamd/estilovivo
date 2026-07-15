@@ -432,17 +432,22 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
     // ── Looks ─────────────────────────────────────────────────────────────────
 
     const saveLook = useCallback(async (look: Look, onAfterSave?: () => void) => {
-        const tempId = `temp-${Date.now()}`;
+        const isEdit = look.id.startsWith('l-') && look.createdAt;
+        const tempId = isEdit ? look.id : `temp-${Date.now()}`;
         const optimisticLook = { ...look, id: tempId };
 
         setLooks(prev => {
-            const updated = sanitize<Look>([optimisticLook, ...prev]);
+            const updated = isEdit
+                ? sanitize<Look>(prev.map(l => l.id === tempId ? optimisticLook : l))
+                : sanitize<Look>([optimisticLook, ...prev]);
             syncSet(SYNC_KEYS.LOOKS, updated);
             return updated;
         });
 
         try {
-            const savedLook = await api.saveLook(look);
+            const savedLook = isEdit
+                ? await api.updateLook(look.id, look)
+                : await api.saveLook(look);
 
             setLooks(prev => {
                 const updated = prev.map(l => l.id === tempId ? savedLook : l);
@@ -455,7 +460,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
             onAfterSave?.();
         } catch (error) {
             setLooks(prev => {
-                const filtered = prev.filter(l => l.id !== tempId);
+                const filtered = isEdit ? prev : prev.filter(l => l.id !== tempId);
                 syncSet(SYNC_KEYS.LOOKS, filtered);
                 return filtered;
             });

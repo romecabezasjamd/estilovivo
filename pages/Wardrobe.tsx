@@ -4,7 +4,7 @@ const CreateLook = lazy(() => import('./CreateLook'));
 import { Garment, Look, PlannerEntry } from '../types';
 import {
   Filter, Plus, Search, Trash2, X, Camera, Tag, DollarSign,
-  Info, ExternalLink, RefreshCcw, Check, ShoppingBag as SellIcon, ShoppingBag, ChevronRight, Shirt, SlidersHorizontal, ArrowLeft, Sparkles, ImagePlus
+  Info, ExternalLink, RefreshCcw, Check, ShoppingBag as SellIcon, ShoppingBag, ChevronRight, Shirt, SlidersHorizontal, ArrowLeft, Sparkles, ImagePlus, Pencil
 } from 'lucide-react';
 import { useLanguage } from '../src/context/LanguageContext';
 import { dataUrlToFile, pickPhoto, CameraSource } from '../src/utils/cameraPhoto';
@@ -71,6 +71,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [confirmDeleteLookId, setConfirmDeleteLookId] = useState<string | null>(null);
   const [showCreateLook, setShowCreateLook] = useState(false);
+  const [editingLook, setEditingLook] = useState<Look | null>(null);
 
   useEffect(() => {
     if (!wardrobeIntent) return;
@@ -86,6 +87,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
   }, [wardrobeIntent, onWardrobeIntentConsumed]);
 
   const openCreateLook = () => {
+    setEditingLook(null);
     setActiveView('looks');
     setShowCreateLook(true);
   };
@@ -837,10 +839,10 @@ const Wardrobe: React.FC<WardrobeProps> = ({
             ))}
           </div>
 
-          {/* FAB */}
+          {/* FAB - above bottom nav (z-50) */}
           <button
             onClick={() => setIsAdding(true)}
-            className="fixed bottom-28 right-6 w-14 h-14 bg-primary text-white rounded-full shadow-lg shadow-primary/40 flex items-center justify-center hover:scale-105 transition-transform z-40"
+            className="fixed bottom-28 right-6 w-14 h-14 bg-primary text-white rounded-full shadow-lg shadow-primary/40 flex items-center justify-center hover:scale-105 transition-transform z-[60]"
           >
             <Plus size={28} />
           </button>
@@ -900,6 +902,13 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                           <Trash2 size={12} />
                         </button>
                       )}
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setEditingLook(look); setShowCreateLook(true); }}
+                        className="absolute top-2 left-10 p-1.5 rounded-full bg-black/40 text-white hover:bg-primary/80 transition-colors"
+                      >
+                        <Pencil size={12} />
+                      </button>
                       {look.isPublic && (
                         <div className="absolute top-2 right-2 bg-[var(--bg-card)]/90 backdrop-blur-sm text-[10px] font-bold text-primary px-2 py-1 rounded-full">
                           Publico
@@ -1481,9 +1490,10 @@ const Wardrobe: React.FC<WardrobeProps> = ({
             <CreateLook
               garments={garments}
               onSaveLook={(look) => {
-                onSaveLook(look, () => setShowCreateLook(false));
+                onSaveLook(look, () => { setShowCreateLook(false); setEditingLook(null); });
               }}
-              onClose={() => setShowCreateLook(false)}
+              onClose={() => { setShowCreateLook(false); setEditingLook(null); }}
+              editLook={editingLook || undefined}
             />
           </Suspense>
         </div>
