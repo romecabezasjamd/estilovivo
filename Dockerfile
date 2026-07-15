@@ -91,7 +91,8 @@ ENV NODE_ENV=production
 EXPOSE 3000
 
 # Prisma schema needs DATABASE_URL at build+install time
-ARG DATABASE_URL=file:./data/dev.db
+# Database stored at /app/data to match Coolify's persistent volume
+ARG DATABASE_URL=file:/app/data/dev.db
 ENV DATABASE_URL=$DATABASE_URL
 
 # Copy Prisma schema + config + migrations from backend-build
@@ -111,8 +112,8 @@ COPY --from=backend-build /app/server/dist ./server/dist
 # Copy frontend compiled to public folder
 COPY --from=frontend-build /app/dist ./server/public
 
-# Create uploads directory
-RUN mkdir -p /app/uploads && chmod 755 /app/uploads
+# Create uploads and data directories
+RUN mkdir -p /app/uploads /app/data && chmod 755 /app/uploads /app/data
 
 # Copy entrypoint
 COPY server/entrypoint.sh ./entrypoint.sh
