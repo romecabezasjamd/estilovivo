@@ -37,6 +37,23 @@
 </head>
 
 <body>
+  <script>
+    // One-time cleanup: unregister stale service workers from previous builds
+    var EV_SW_VERSION = '2026-07-15-v2';
+    if (localStorage.getItem('ev_sw_version') !== EV_SW_VERSION) {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(regs) {
+          regs.forEach(function(reg) { reg.unregister(); });
+        });
+      }
+      if (window.caches) {
+        caches.keys().then(function(names) {
+          names.forEach(function(name) { caches.delete(name); });
+        });
+      }
+      localStorage.setItem('ev_sw_version', EV_SW_VERSION);
+    }
+  </script>
   <div id="root"></div>
   <script type="module" src="/index.tsx"></script>
 </body>
