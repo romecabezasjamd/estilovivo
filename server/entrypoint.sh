@@ -19,7 +19,7 @@ if [ -f "$PRISMA" ]; then
   timeout 30 $PRISMA generate && echo "prisma generate OK" || echo "Warning: prisma generate failed"
   
   echo "=== [entrypoint] Running prisma db push ==="
-  timeout 30 $PRISMA db push --accept-data-loss && echo "prisma db push OK" || echo "Warning: prisma db push failed (non-fatal)"
+  timeout 30 $PRISMA db push && echo "prisma db push OK" || echo "Warning: prisma db push failed (non-fatal)"
 else
   echo "Warning: prisma CLI not found at $PRISMA, skipping db push"
 fi
