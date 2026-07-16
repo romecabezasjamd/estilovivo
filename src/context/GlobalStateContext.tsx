@@ -4,7 +4,7 @@ import { api, loadAuthToken } from '../../services/api';
 import { useNotification } from './NotificationContext';
 import { useLanguage } from './LanguageContext';
 import { prepareGarmentUpload } from '../utils/garmentProcessor';
-import { syncGet, syncSet, SYNC_KEYS } from '../utils/syncStore';
+import { syncGet, syncSet, syncClearMemoryCache, SYNC_KEYS } from '../utils/syncStore';
 import { analytics, crashlytics } from '../utils/firebase';
 import { trackSession } from '../utils/review';
 import { registerForPushNotifications, setupNotificationListeners } from '../utils/notifications';
@@ -70,6 +70,10 @@ const SESSION_KEYS = [
 
 const clearPersistedSession = () => {
     SESSION_KEYS.forEach(key => localStorage.removeItem(key));
+    Object.values(SYNC_KEYS).forEach(key => {
+        syncClearMemoryCache();
+        localStorage.removeItem(key);
+    });
 };
 
 const isJwtLikelyValid = (token: string): boolean => {
@@ -102,6 +106,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
     // ── Init ─────────────────────────────────────────────────────────────────
 
     useEffect(() => {
+        let cancelled = false;
         const handleAuthExpired = () => {
             clearPersistedSession();
             setUser(null);
@@ -115,24 +120,6 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
         const init = async () => {
             const shouldRestoreSession = localStorage.getItem(REMEMBER_ME_KEY) === 'true';
-
-            const [cachedUser, cachedGarments, cachedLooks, cachedPlanner, cachedTrips] =
-                await Promise.all([
-                    syncGet<UserState>(SYNC_KEYS.USER),
-                    syncGet<Garment[]>(SYNC_KEYS.GARMENTS),
-                    syncGet<Look[]>(SYNC_KEYS.LOOKS),
-                    syncGet<PlannerEntry[]>(SYNC_KEYS.PLANNER),
-                    syncGet<Trip[]>(SYNC_KEYS.TRIPS),
-                ]);
-
-            if (cachedUser) {
-                setUser(cachedUser);
-            }
-
-            setGarments(sanitize<Garment>(cachedGarments || []));
-            setLooks(sanitize<Look>(cachedLooks || []));
-            setPlanner(sanitize<PlannerEntry>(cachedPlanner || []));
-            setTrips(sanitize<Trip>(cachedTrips || []));
 
             if (!shouldRestoreSession) {
                 clearPersistedSession();
@@ -161,11 +148,11 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 let userData: UserState;
                 try {
                     userData = await api.getMe();
+                    if (cancelled) return;
                     setUser(userData);
                     await syncSet(SYNC_KEYS.USER, userData);
                     window.dispatchEvent(new CustomEvent('ev:user-loaded', { detail: userData }));
 
-                    // Apply fontSize + highContrast from server to DOM
                     try {
                         const fs = userData.fontSize;
                         if (fs === 'small' || fs === 'large') {
@@ -178,6 +165,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
                         }
                     } catch {}
                 } catch (error: any) {
+                    if (cancelled) return;
                     const tokenStillPresent = !!localStorage.getItem(AUTH_TOKEN_KEY);
                     const isUserNotFound = error?.message === 'User not found';
                     if (!tokenStillPresent || isUserNotFound) {
@@ -186,13 +174,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
                         setIsLoading(false);
                         return;
                     }
-
-                    if (cachedUser) {
-                        userData = cachedUser;
-                        setUser(userData);
-                    } else {
-                        throw error;
-                    }
+                    throw error;
                 }
 
                 api.gamificationLogin().catch(() => {});
@@ -240,17 +222,19 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
                     );
                 }
             } catch (error) {
+                if (cancelled) return;
                 console.error('Critical error during initialization:', error);
                 clearPersistedSession();
                 setUser(null);
             } finally {
-                setIsLoading(false);
+                if (!cancelled) setIsLoading(false);
             }
         };
 
         init();
 
         return () => {
+            cancelled = true;
             window.removeEventListener('auth:expired', handleAuthExpired as EventListener);
         };
     }, []);

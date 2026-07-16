@@ -39,7 +39,7 @@
 <body>
   <script>
     // One-time cleanup: unregister stale service workers from previous builds
-    var EV_SW_VERSION = '2026-07-15-v2';
+    var EV_SW_VERSION = '2026-07-16-v3';
     if (localStorage.getItem('ev_sw_version') !== EV_SW_VERSION) {
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(regs) {
