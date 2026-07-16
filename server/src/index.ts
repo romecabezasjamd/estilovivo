@@ -508,6 +508,27 @@ const authenticateToken = (req: any, res: Response, next: NextFunction) => {
   });
 };
 
+// Optional authentication - allows public access but sets req.user if token is valid
+const optionalAuth = (req: any, res: Response, next: NextFunction) => {
+  let token = req.cookies?.auth_token;
+
+  if (!token) {
+    const authHeader = req.headers['authorization'];
+    token = authHeader && authHeader.split(' ')[1];
+  }
+
+  if (token) {
+    jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
+      if (!err) {
+        req.user = user;
+      }
+      next();
+    });
+  } else {
+    next();
+  }
+};
+
 // ============= HEALTH =============
 app.get('/api/health', async (req: Request, res: Response) => {
   const healthCheck = {
@@ -1460,7 +1481,7 @@ app.get('/api/looks', authenticateToken, async (req: any, res: Response) => {
   }
 });
 
-app.get('/api/looks/feed', authenticateToken, async (req: any, res: Response) => {
+app.get('/api/looks/feed', optionalAuth, async (req: any, res: Response) => {
   try {
     const { cursor, limit = '20' } = req.query;
     const take = Math.min(100, parseInt(limit as string) || 20) + 1;
@@ -1982,7 +2003,7 @@ async function analyzeChallengeImage(filePath: string): Promise<{ uniform: boole
   }
 }
 
-app.get('/api/challenges/current', authenticateToken, async (req: Request, res: Response) => {
+app.get('/api/challenges/current', optionalAuth, async (req: Request, res: Response) => {
   try {
     const now = new Date();
     const { monday, sunday } = await getChallengeWeekBounds(now);
@@ -2830,7 +2851,7 @@ const storyStorage = multer.diskStorage({
 });
 const storyUpload = multer({ storage: storyStorage, limits: { fileSize: 10 * 1024 * 1024 }, fileFilter: imageFileFilter });
 
-app.get('/api/stories', authenticateToken, async (req: any, res: Response) => {
+app.get('/api/stories', optionalAuth, async (req: any, res: Response) => {
   try {
     const stories = await prisma.story.findMany({
       where: { expiresAt: { gt: new Date() } },
