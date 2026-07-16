@@ -529,6 +529,54 @@ const optionalAuth = (req: any, res: Response, next: NextFunction) => {
   }
 };
 
+// ============= REFRESH TOKEN HELPERS =============
+const REFRESH_TOKEN_EXPIRY_DAYS = 30;
+
+const generateRefreshToken = async (userId: string): Promise<string> => {
+  const token = crypto.randomBytes(64).toString('hex');
+  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
+
+  // Clean up expired tokens for this user
+  await prisma.refreshToken.deleteMany({
+    where: { userId, expiresAt: { lt: new Date() } }
+  });
+
+  // Limit to 5 active refresh tokens per user
+  const existingTokens = await prisma.refreshToken.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'asc' }
+  });
+  if (existingTokens.length >= 5) {
+    await prisma.refreshToken.deleteMany({
+      where: { id: { in: existingTokens.slice(0, existingTokens.length - 4).map(t => t.id) } }
+    });
+  }
+
+  await prisma.refreshToken.create({
+    data: { token, userId, expiresAt }
+  });
+
+  return token;
+};
+
+const issueTokenPair = async (userId: string, res: Response) => {
+  const accessToken = jwt.sign({ userId }, JWT_SECRET!, { expiresIn: '7d' });
+  const refreshToken = await generateRefreshToken(userId);
+
+  res.cookie('auth_token', accessToken, {
+    httpOnly: true,
+    secure: NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+
+  return { accessToken, refreshToken };
+};
+
+const invalidateRefreshTokens = async (userId: string) => {
+  await prisma.refreshToken.deleteMany({ where: { userId } });
+};
+
 // ============= HEALTH =============
 app.get('/api/health', async (req: Request, res: Response) => {
   const healthCheck = {
@@ -722,16 +770,11 @@ app.post('/api/auth/register', authLimiter, validate(registerSchema), async (req
       });
     } else {
       logger.info('User registered & auto-verified', { userId: user.id, email: user.email });
-      const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
-      res.cookie('auth_token', token, {
-        httpOnly: true,
-        secure: NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      });
+      const { accessToken, refreshToken } = await issueTokenPair(user.id, res);
       res.status(201).json({
         user: safe,
-        token,
+        token: accessToken,
+        refreshToken,
         requiresVerification: false
       });
     }
@@ -780,21 +823,14 @@ app.post('/api/auth/login', loginLimiter, validate(loginSchema), async (req: Req
       user.isVerified = true;
     }
 
-    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
-
-    // Set httpOnly cookie
-    res.cookie('auth_token', token, {
-      httpOnly: true,
-      secure: NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
+    const { accessToken, refreshToken } = await issueTokenPair(user.id, res);
 
     const { password: _, _count, ...safe } = user;
     logger.info('User logged in', { userId: user.id });
     res.json({
       user: { ...safe, followersCount: _count.followers, followingCount: _count.following },
-      token,
+      token: accessToken,
+      refreshToken,
       requiresVerification
     });
   } catch (error: any) {
@@ -858,9 +894,60 @@ app.post('/api/auth/resend-verification', authLimiter, validate(resendVerificati
   }
 });
 
-app.post('/api/auth/logout', (req: Request, res: Response) => {
+app.post('/api/auth/logout', async (req: Request, res: Response) => {
+  // Try to invalidate refresh token if user is authenticated
+  try {
+    let token = req.cookies?.auth_token;
+    if (!token) {
+      const authHeader = req.headers['authorization'];
+      token = authHeader && authHeader.split(' ')[1];
+    }
+    if (token) {
+      const decoded = jwt.verify(token, JWT_SECRET!) as any;
+      if (decoded?.userId) {
+        await invalidateRefreshTokens(decoded.userId);
+      }
+    }
+  } catch {}
   res.clearCookie('auth_token');
   res.json({ success: true });
+});
+
+app.post('/api/auth/refresh', async (req: Request, res: Response) => {
+  try {
+    const { refreshToken } = req.body;
+    if (!refreshToken) {
+      return res.status(400).json({ error: 'Refresh token required' });
+    }
+
+    const storedToken = await prisma.refreshToken.findUnique({
+      where: { token: refreshToken },
+      include: { user: true }
+    });
+
+    if (!storedToken) {
+      return res.status(401).json({ error: 'Invalid refresh token' });
+    }
+
+    if (storedToken.expiresAt < new Date()) {
+      await prisma.refreshToken.delete({ where: { id: storedToken.id } });
+      return res.status(401).json({ error: 'Refresh token expired' });
+    }
+
+    // Rotate: delete old refresh token and issue new pair
+    await prisma.refreshToken.delete({ where: { id: storedToken.id } });
+    const { accessToken, refreshToken: newRefreshToken } = await issueTokenPair(storedToken.userId, res);
+
+    const { password: _, ...safe } = storedToken.user;
+    res.json({
+      token: accessToken,
+      refreshToken: newRefreshToken,
+      user: safe
+    });
+  } catch (error: any) {
+    logger.error('Refresh token error', { error: error.message });
+    res.status(500).json({ error: 'Error refreshing token' });
+  }
 });
 
 // ============= ACCOUNT MANAGEMENT =============
@@ -1091,6 +1178,9 @@ app.post('/api/auth/verify-email', authLimiter, validate(verifyEmailSchema), asy
 app.delete('/api/auth/profile', authenticateToken, async (req: any, res: Response) => {
   try {
     const userId = req.user.userId;
+
+    // Invalidate all refresh tokens before deleting
+    await invalidateRefreshTokens(userId);
 
     // Cascading deletes in Prisma will handle products, looks, etc.
     await prisma.user.delete({

@@ -70,6 +70,7 @@ model User {
   badges              UserBadge[]
   streak              UserStreak?
   tryonPresets        TryonPreset[]
+  refreshTokens       RefreshToken[]
 }
 
 model TryonPreset {
@@ -398,4 +399,17 @@ model UserStreak {
   lastDate   DateTime?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
 }

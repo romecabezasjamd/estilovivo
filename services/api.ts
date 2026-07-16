@@ -77,9 +77,11 @@ if (typeof window !== 'undefined' && isDevMode()) {
 
 const AUTH_TOKEN_KEY = 'beyour_token';
 const REMEMBER_ME_KEY = 'beyour_remember_me';
+const REFRESH_TOKEN_KEY = 'beyour_refresh_token';
 const SESSION_KEYS = [
     AUTH_TOKEN_KEY,
     REMEMBER_ME_KEY,
+    REFRESH_TOKEN_KEY,
     'beyour_user',
     'beyour_garments',
     'beyour_looks',
@@ -100,29 +102,22 @@ export const clearPersistedSession = () => {
 const getAuthTokenSync = () => localStorage.getItem(AUTH_TOKEN_KEY) || currentAuthToken;
 
 export const loadAuthToken = async (): Promise<void> => {
-    if (!getRememberMe()) {
-        currentAuthToken = null;
-        localStorage.removeItem(AUTH_TOKEN_KEY);
-        return;
-    }
-
     const secureToken = await getSecureItem(AUTH_TOKEN_KEY);
     if (secureToken) {
         localStorage.setItem(AUTH_TOKEN_KEY, secureToken);
+    }
+
+    const secureRefreshToken = await getSecureItem(REFRESH_TOKEN_KEY);
+    if (secureRefreshToken) {
+        localStorage.setItem(REFRESH_TOKEN_KEY, secureRefreshToken);
     }
 };
 
 export const cacheAuthToken = async (token: string, remember: boolean = true): Promise<void> => {
     currentAuthToken = token;
     setRememberMeFlag(remember);
-
-    if (remember) {
-        localStorage.setItem(AUTH_TOKEN_KEY, token);
-        await setSecureItem(AUTH_TOKEN_KEY, token);
-    } else {
-        localStorage.removeItem(AUTH_TOKEN_KEY);
-        await removeSecureItem(AUTH_TOKEN_KEY);
-    }
+    localStorage.setItem(AUTH_TOKEN_KEY, token);
+    await setSecureItem(AUTH_TOKEN_KEY, token);
 };
 
 export const clearAuthToken = async (): Promise<void> => {
@@ -130,6 +125,79 @@ export const clearAuthToken = async (): Promise<void> => {
     localStorage.removeItem(AUTH_TOKEN_KEY);
     setRememberMeFlag(false);
     await removeSecureItem(AUTH_TOKEN_KEY);
+};
+
+// ─── Refresh Token Management ─────────────────────────────────────────────────
+
+const getRefreshToken = (): string | null => localStorage.getItem(REFRESH_TOKEN_KEY);
+
+const saveRefreshToken = async (token: string): Promise<void> => {
+    localStorage.setItem(REFRESH_TOKEN_KEY, token);
+    await setSecureItem(REFRESH_TOKEN_KEY, token);
+};
+
+const clearRefreshToken = async (): Promise<void> => {
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    await removeSecureItem(REFRESH_TOKEN_KEY);
+};
+
+let isRefreshing = false;
+let refreshSubscribers: Array<(token: string) => void> = [];
+
+const onRefreshed = (token: string) => {
+    refreshSubscribers.forEach(cb => cb(token));
+    refreshSubscribers = [];
+};
+
+const subscribeTokenRefresh = (cb: (token: string) => void) => {
+    refreshSubscribers.push(cb);
+};
+
+export const refreshAccessToken = async (): Promise<string | null> => {
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) return null;
+
+    if (isRefreshing) {
+        return new Promise<string>((resolve) => {
+            subscribeTokenRefresh((token) => resolve(token));
+        });
+    }
+
+    isRefreshing = true;
+
+    try {
+        const res = await fetch(`${API_BASE}/auth/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken }),
+        });
+
+        if (!res.ok) {
+            await clearAuthToken();
+            await clearRefreshToken();
+            clearPersistedSession();
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('auth:expired'));
+            }
+            return null;
+        }
+
+        const data = await res.json();
+        if (data.token) {
+            currentAuthToken = data.token;
+            localStorage.setItem(AUTH_TOKEN_KEY, data.token);
+        }
+        if (data.refreshToken) {
+            await saveRefreshToken(data.refreshToken);
+        }
+
+        onRefreshed(data.token);
+        return data.token;
+    } catch {
+        return null;
+    } finally {
+        isRefreshing = false;
+    }
 };
 
 const resolveAssetUrl = (url?: string | null): string | undefined => {
@@ -237,14 +305,24 @@ const fetchWithRetry = async (url: string, options: RequestInit = {}, retries = 
     throw new Error('Request failed');
 };
 
-const handleResponse = async (res: Response) => {
+const handleResponse = async (res: Response, _isRetry = false) => {
     if (!res.ok) {
         const message = await parseApiErrorMessage(res);
         const error = { error: message };
 
-        // Auto-logout en caso de token expirado o inválido (401 o 403 por token)
+        // Auto-refresh on token expiry (401 or 403 by token)
+        if (
+            !_isRetry &&
+            (res.status === 401 || (res.status === 403 && error.error === 'Invalid or expired token')) &&
+            getRefreshToken()
+        ) {
+            const newToken = await refreshAccessToken();
+            if (newToken) return newToken; // Signal to caller: token was refreshed
+        }
+
         if (res.status === 401 || (res.status === 403 && error.error === 'Invalid or expired token')) {
             await clearAuthToken();
+            await clearRefreshToken();
             clearPersistedSession();
             if (typeof window !== 'undefined') {
                 window.dispatchEvent(new CustomEvent('auth:expired'));
@@ -319,6 +397,9 @@ export const api = {
         if (data.token) {
             await cacheAuthToken(data.token, remember);
         }
+        if (data.refreshToken) {
+            await saveRefreshToken(data.refreshToken);
+        }
         return { ...data, user: normalizeUser(data.user) };
     },
 
@@ -336,6 +417,9 @@ export const api = {
         if (data.token) {
             await cacheAuthToken(data.token, remember);
         }
+        if (data.refreshToken) {
+            await saveRefreshToken(data.refreshToken);
+        }
         return data;
     },
 
@@ -350,6 +434,7 @@ export const api = {
         } finally {
             clearPersistedSession();
             await clearAuthToken();
+            await clearRefreshToken();
         }
     },
 

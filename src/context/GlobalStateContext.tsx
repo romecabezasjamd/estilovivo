@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { UserState, Garment, Look, PlannerEntry, Trip } from '../../types';
-import { api, loadAuthToken } from '../../services/api';
+import { api, loadAuthToken, refreshAccessToken } from '../../services/api';
 import { useNotification } from './NotificationContext';
 import { useLanguage } from './LanguageContext';
 import { prepareGarmentUpload } from '../utils/garmentProcessor';
@@ -10,7 +10,7 @@ import { trackSession } from '../utils/review';
 import { registerForPushNotifications, setupNotificationListeners } from '../utils/notifications';
 
 const AUTH_TOKEN_KEY = 'beyour_token';
-const REMEMBER_ME_KEY = 'beyour_remember_me';
+const REFRESH_TOKEN_KEY = 'beyour_refresh_token';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -65,7 +65,8 @@ const SESSION_KEYS = [
     'beyour_planner',
     'beyour_trips',
     'beyour_token',
-    'beyour_remember_me'
+    'beyour_remember_me',
+    'beyour_refresh_token'
 ];
 
 const clearPersistedSession = () => {
@@ -74,20 +75,6 @@ const clearPersistedSession = () => {
         syncClearMemoryCache();
         localStorage.removeItem(key);
     });
-};
-
-const isJwtLikelyValid = (token: string): boolean => {
-    try {
-        const parts = token.split('.');
-        if (parts.length !== 3) return false;
-        const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-        if (typeof payload?.exp === 'number') {
-            return payload.exp * 1000 > Date.now();
-        }
-        return true;
-    } catch {
-        return false;
-    }
 };
 
 // ─── Provider ────────────────────────────────────────────────────────────────
@@ -119,30 +106,24 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
         window.addEventListener('auth:expired', handleAuthExpired as EventListener);
 
         const init = async () => {
-            const shouldRestoreSession = localStorage.getItem(REMEMBER_ME_KEY) === 'true';
-
-            if (!shouldRestoreSession) {
-                clearPersistedSession();
-                setIsLoading(false);
-                return;
-            }
-
             try {
                 await loadAuthToken();
                 const token = localStorage.getItem(AUTH_TOKEN_KEY) || '';
-                const hasSession = !!token;
+                const hasRefreshToken = !!localStorage.getItem(REFRESH_TOKEN_KEY);
+                const hasSession = !!token || hasRefreshToken;
+
                 if (!hasSession) {
-                    clearPersistedSession();
-                    setUser(null);
                     setIsLoading(false);
                     return;
                 }
 
-                if (!isJwtLikelyValid(token)) {
-                    clearPersistedSession();
-                    setUser(null);
-                    setIsLoading(false);
-                    return;
+                // If access token is missing/expired but we have a refresh token, refresh first
+                if (!token && hasRefreshToken) {
+                    const newToken = await refreshAccessToken();
+                    if (!newToken) {
+                        setIsLoading(false);
+                        return;
+                    }
                 }
 
                 let userData: UserState;
@@ -166,15 +147,32 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
                     } catch {}
                 } catch (error: any) {
                     if (cancelled) return;
-                    const tokenStillPresent = !!localStorage.getItem(AUTH_TOKEN_KEY);
-                    const isUserNotFound = error?.message === 'User not found';
-                    if (!tokenStillPresent || isUserNotFound) {
+
+                    // If getMe failed and we have a refresh token, try refreshing
+                    if (hasRefreshToken && (error?.message?.includes('expired') || error?.message?.includes('Invalid'))) {
+                        const newToken = await refreshAccessToken();
+                        if (newToken && !cancelled) {
+                            try {
+                                userData = await api.getMe();
+                                setUser(userData);
+                                await syncSet(SYNC_KEYS.USER, userData);
+                                window.dispatchEvent(new CustomEvent('ev:user-loaded', { detail: userData }));
+                            } catch {
+                                clearPersistedSession();
+                                setUser(null);
+                                setIsLoading(false);
+                                return;
+                            }
+                        } else {
+                            setIsLoading(false);
+                            return;
+                        }
+                    } else {
                         clearPersistedSession();
                         setUser(null);
                         setIsLoading(false);
                         return;
                     }
-                    throw error;
                 }
 
                 api.gamificationLogin().catch(() => {});
@@ -239,7 +237,36 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
         };
     }, []);
 
-    // ── Auth ─────────────────────────────────────────────────────────────────
+    // ── Auto-refresh token before expiry ─────────────────────────────────────
+    useEffect(() => {
+        if (!user) return;
+
+        const getMsUntilRefresh = (): number | null => {
+            const token = localStorage.getItem(AUTH_TOKEN_KEY);
+            if (!token) return null;
+            try {
+                const parts = token.split('.');
+                if (parts.length !== 3) return null;
+                const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+                if (typeof payload?.exp !== 'number') return null;
+                const expiresAt = payload.exp * 1000;
+                const refreshAt = expiresAt - 6 * 24 * 60 * 60 * 1000; // 6 days for 7-day token
+                const msUntilRefresh = refreshAt - Date.now();
+                return msUntilRefresh > 0 ? msUntilRefresh : 0;
+            } catch {
+                return null;
+            }
+        };
+
+        const ms = getMsUntilRefresh();
+        if (ms === null) return;
+
+        const timer = setTimeout(() => {
+            refreshAccessToken().catch(() => {});
+        }, ms);
+
+        return () => clearTimeout(timer);
+    }, [user]);
 
     const handleAuthSuccess = useCallback(async (userData: UserState, remember: boolean = true) => {
         setUser(userData);
