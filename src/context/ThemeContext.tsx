@@ -3,11 +3,14 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   ReactNode,
 } from 'react';
 import {
   ThemeColor,
+  applyCustomColorToDocument,
+  applyThemeToDocument,
   loadSavedThemePreferences,
   resetThemeToDefault,
   saveCustomColor,
@@ -33,57 +36,51 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [customColor, setCustomColorState] = useState<string | null>(null);
   const [isCustom, setIsCustom] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const apiSynced = useRef(false);
 
   const syncFromUser = useCallback(async (user: any) => {
     if (user?.themePreset) {
       setPresetThemeState(user.themePreset as ThemeColor);
-      await savePresetTheme(user.themePreset as ThemeColor);
+      applyThemeToDocument(user.themePreset as ThemeColor);
     }
     if (user?.customColor) {
-      setCustomColorState(user.customColor);
-      await saveCustomColor(user.customColor);
+      const normalized = applyCustomColorToDocument(user.customColor);
+      if (normalized) setCustomColorState(normalized);
       setIsCustom(true);
     } else if (user?.themePreset) {
       setIsCustom(false);
       setCustomColorState(null);
     }
+    apiSynced.current = true;
+    setIsReady(true);
   }, []);
 
   useEffect(() => {
     let mounted = true;
-    (async () => {
-      const prefs = await loadSavedThemePreferences();
-      if (!mounted) return;
-      setPresetThemeState(prefs.preset);
-      setCustomColorState(prefs.customColor);
-      setIsCustom(prefs.isCustom);
-      setIsReady(true);
-    })();
-    return () => { mounted = false; };
-  }, []);
-
-  // Same-tab: listen for custom event dispatched by GlobalStateContext
-  useEffect(() => {
     const handler = (e: Event) => {
       const user = (e as CustomEvent).detail;
-      if (user) syncFromUser(user);
+      if (mounted && user) syncFromUser(user);
     };
     window.addEventListener('ev:user-loaded', handler as EventListener);
-    return () => window.removeEventListener('ev:user-loaded', handler as EventListener);
-  }, [syncFromUser]);
 
-  // Cross-tab: listen for storage event
-  useEffect(() => {
-    const handler = (e: StorageEvent) => {
-      if (e.key === 'ev_sync_user' && e.newValue) {
-        try {
-          const { value: user } = JSON.parse(e.newValue);
-          if (user) syncFromUser(user);
-        } catch {}
+    const fallbackTimer = window.setTimeout(() => {
+      if (mounted && !apiSynced.current) {
+        loadSavedThemePreferences().then(prefs => {
+          if (mounted) {
+            setPresetThemeState(prefs.preset);
+            setCustomColorState(prefs.customColor);
+            setIsCustom(prefs.isCustom);
+            setIsReady(true);
+          }
+        });
       }
+    }, 3000);
+
+    return () => {
+      mounted = false;
+      window.removeEventListener('ev:user-loaded', handler as EventListener);
+      window.clearTimeout(fallbackTimer);
     };
-    window.addEventListener('storage', handler);
-    return () => window.removeEventListener('storage', handler);
   }, [syncFromUser]);
 
   const setPresetTheme = useCallback(async (theme: ThemeColor) => {

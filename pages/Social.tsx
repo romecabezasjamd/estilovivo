@@ -1146,9 +1146,10 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
             ))}
           </div>
         </div>
+      </div>
 
-        {/* Sub-headers per tab */}
-        {activeTab === 'feed' && currentChallenge && !loadingChallenge && (
+      {activeTab === 'feed' && currentChallenge && !loadingChallenge && (
+        <div className="px-4">
           <div
             onClick={() => {
               if (!challengeSubmission) handleParticipateChallenge();
@@ -1165,7 +1166,6 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
               <h3 className="font-bold text-lg mb-1">{currentChallenge.title}</h3>
               <p className="text-sm text-teal-100 opacity-90 mb-3 line-clamp-2">{currentChallenge.description}</p>
 
-              {/* XP Progress bar */}
               {activeUser && (
                 <div className="mb-3">
                   <div className="flex justify-between text-[10px] text-teal-100 mb-1">
@@ -1257,9 +1257,11 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
             </div>
             <Sparkles className="text-white/20 absolute right-4 bottom-4 w-12 h-12" />
           </div>
-        )}
+        </div>
+      )}
 
-        {activeTab === 'shop' && (
+      {activeTab === 'shop' && (
+        <div className="px-4">
           <form onSubmit={handleSearchSubmit} className="flex space-x-2 animate-fade-in mt-4">
             <div className="flex-1 bg-[var(--border-light)] rounded-xl px-3 py-2 flex items-center text-[var(--text-muted)]">
               <Search size={16} className="mr-2" />
@@ -1275,8 +1277,8 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
               <Search size={20} />
             </button>
           </form>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Content Area */}
       {isLoading || (activeTab === 'chat' && loadingConversations) || (activeTab === 'trends' && loadingTrends) ? (

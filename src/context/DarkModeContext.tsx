@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { DarkModeSetting, DarkModePreferences, loadDarkModePreference, saveDarkModePreference, listenForSystemChanges, applyDarkMode } from '../utils/darkMode';
 import { api } from '../../services/api';
 
@@ -14,11 +14,30 @@ const DarkModeContext = createContext<DarkModeContextValue | null>(null);
 export const DarkModeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [prefs, setPrefs] = useState<DarkModePreferences>({ setting: 'system', active: false });
   const [isReady, setIsReady] = useState(false);
+  const apiSynced = useRef(false);
 
   useEffect(() => {
     let mounted = true;
-    loadDarkModePreference().then(p => { if (mounted) { setPrefs(p); setIsReady(true); } });
-    return () => { mounted = false; };
+    const handler = async (e: Event) => {
+      const user = (e as CustomEvent).detail;
+      if (!mounted || !user?.darkModeSetting) return;
+      apiSynced.current = true;
+      const p = await saveDarkModePreference(user.darkModeSetting as DarkModeSetting);
+      if (mounted) { setPrefs(p); setIsReady(true); }
+    };
+    window.addEventListener('ev:user-loaded', handler as EventListener);
+
+    const fallbackTimer = window.setTimeout(() => {
+      if (mounted && !apiSynced.current) {
+        loadDarkModePreference().then(p => { if (mounted) { setPrefs(p); setIsReady(true); } });
+      }
+    }, 3000);
+
+    return () => {
+      mounted = false;
+      window.removeEventListener('ev:user-loaded', handler as EventListener);
+      window.clearTimeout(fallbackTimer);
+    };
   }, []);
 
   useEffect(() => {
@@ -31,19 +50,6 @@ export const DarkModeProvider: React.FC<{ children: ReactNode }> = ({ children }
     });
     return unsub;
   }, [isReady, prefs.setting]);
-
-  // Sync from server when user loads
-  useEffect(() => {
-    const handler = async (e: Event) => {
-      const user = (e as CustomEvent).detail;
-      if (user?.darkModeSetting) {
-        const p = await saveDarkModePreference(user.darkModeSetting as DarkModeSetting);
-        setPrefs(p);
-      }
-    };
-    window.addEventListener('ev:user-loaded', handler as EventListener);
-    return () => window.removeEventListener('ev:user-loaded', handler as EventListener);
-  }, []);
 
   const setDarkMode = useCallback(async (setting: DarkModeSetting) => {
     const p = await saveDarkModePreference(setting);
