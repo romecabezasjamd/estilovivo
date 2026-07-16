@@ -101,17 +101,17 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
   }, [activeTab, navItems]);
 
   return (
-    <div className="flex flex-col h-screen w-full bg-gray-50 overflow-hidden relative font-sans">
+    <div className="flex flex-col h-screen w-full bg-[var(--bg-base)] overflow-hidden relative font-sans">
 
 
       <NotificationBell />
 
-      <main className="flex-1 overflow-y-auto no-scrollbar pb-24 pt-12">
+      <main className="flex-1 overflow-y-auto no-scrollbar pb-20 pt-0">
         {children}
       </main>
 
       <div className="fixed bottom-6 left-4 right-4 z-50 flex justify-center pointer-events-none">
-        <nav className="relative w-full max-w-lg h-16 bg-white/80 backdrop-blur-md border border-white/40 shadow-xl rounded-full flex items-center p-1 pointer-events-auto">
+        <nav className="relative w-full max-w-lg h-16 bg-[var(--bg-card)]/80 backdrop-blur-md border border-[var(--border-light)]/40 shadow-xl rounded-full flex items-center p-1 pointer-events-auto">
 
           {activeIndex !== -1 && (
             <motion.div
@@ -146,11 +146,11 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
                       <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="flex flex-col items-center">
                         <button
                           onClick={() => { setShowWardrobeSubmenu(false); onTabChange('suitcase'); }}
-                          className="bg-white/90 backdrop-blur-md p-3 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-white/50 text-indigo-500 hover:bg-indigo-50 transition-colors flex flex-col items-center gap-1 group"
+                          className="bg-[var(--bg-card)]/90 backdrop-blur-md p-3 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-[var(--border-light)]/50 text-indigo-500 hover:bg-[var(--bg-card)] transition-colors flex flex-col items-center gap-1 group"
                         >
                           <Luggage size={22} className="group-hover:-translate-y-1 transition-transform" />
                         </button>
-                        <span className="text-[10px] font-bold text-gray-600 bg-white/80 px-2 py-0.5 rounded-full mt-2 shadow-sm">Viajes</span>
+                        <span className="text-[10px] font-bold text-[var(--text-secondary)] bg-[var(--bg-card)]/80 px-2 py-0.5 rounded-full mt-2 shadow-sm">Viajes</span>
                       </motion.div>
 
                       {/* Lavadora Bubble */}
@@ -160,7 +160,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
                           onDragOver={(e) => { e.preventDefault(); setDragOverLavadora(true); }}
                           onDragLeave={() => setDragOverLavadora(false)}
                           onDrop={(e) => { setDragOverLavadora(false); handleDropWashing(e); }}
-                          className={`bg-white/90 backdrop-blur-md p-3 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-white/50 text-blue-500 hover:bg-blue-50 transition-colors flex flex-col items-center gap-1 relative overflow-hidden ${washingAnimation ? 'wash shadow-[0_0_20px_rgba(59,130,246,0.5)] scale-125' : ''} ${dragOverLavadora && !washingAnimation ? 'animate-bounce ring-4 ring-blue-300' : ''}`}
+                          className={`bg-[var(--bg-card)]/90 backdrop-blur-md p-3 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-[var(--border-light)]/50 text-blue-500 hover:bg-[var(--bg-card)] transition-colors flex flex-col items-center gap-1 relative overflow-hidden ${washingAnimation ? 'wash shadow-[0_0_20px_rgba(59,130,246,0.5)] scale-125' : ''} ${dragOverLavadora && !washingAnimation ? 'animate-bounce ring-4 ring-blue-300' : ''}`}
                         >
                           <WashingMachine size={22} className={washingAnimation ? 'animate-spin' : ''} />
                           {garments.filter(g => g.isWashing).length > 0 && !washingAnimation && (
@@ -169,7 +169,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
                             </div>
                           )}
                         </button>
-                        <span className="text-[10px] font-bold text-gray-600 bg-white/80 px-2 py-0.5 rounded-full mt-2 shadow-sm">Lavar</span>
+                        <span className="text-[10px] font-bold text-[var(--text-secondary)] bg-[var(--bg-card)]/80 px-2 py-0.5 rounded-full mt-2 shadow-sm">Lavar</span>
                       </motion.div>
 
                       {/* Probar Bubble */}
@@ -184,11 +184,11 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
                           onDragOver={(e) => { e.preventDefault(); setDragOverProbar(true); }}
                           onDragLeave={() => setDragOverProbar(false)}
                           onDrop={(e) => { setDragOverProbar(false); handleDropFittingRoom(e); }}
-                          className={`bg-white/90 backdrop-blur-md p-3 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-white/50 text-pink-500 hover:bg-pink-50 transition-colors flex flex-col items-center gap-1 relative overflow-hidden ${dragOverProbar ? 'animate-pulse ring-4 ring-pink-300' : ''}`}
+                          className={`bg-[var(--bg-card)]/90 backdrop-blur-md p-3 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-[var(--border-light)]/50 text-pink-500 hover:bg-[var(--bg-card)] transition-colors flex flex-col items-center gap-1 relative overflow-hidden ${dragOverProbar ? 'animate-pulse ring-4 ring-pink-300' : ''}`}
                         >
                           <Wand2 size={22} className={dragOverProbar ? 'scale-110' : ''} />
                         </button>
-                        <span className="text-[10px] font-bold text-gray-600 bg-white/80 px-2 py-0.5 rounded-full mt-2 shadow-sm">Probar</span>
+                        <span className="text-[10px] font-bold text-[var(--text-secondary)] bg-[var(--bg-card)]/80 px-2 py-0.5 rounded-full mt-2 shadow-sm">Probar</span>
                       </motion.div>
                     </motion.div>
                   )}
@@ -224,39 +224,39 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
       {/* Washing Machine Modal Layer */}
       {showWashingModal && (
         <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in pointer-events-auto">
-          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-pop-in">
+          <div className="bg-[var(--bg-card)] w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-pop-in">
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-blue-100 text-blue-500 rounded-full flex items-center justify-center">
                   <RefreshCcw size={20} className={garments.some(g => g.isWashing) ? 'animate-[spin_4s_linear_infinite]' : ''} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-gray-800">Lavadora</h3>
-                  <p className="text-xs text-gray-500">Recupera tu ropa limpia</p>
+                  <h3 className="text-lg font-bold text-[var(--text-primary)]">Lavadora</h3>
+                  <p className="text-xs text-[var(--text-secondary)]">Recupera tu ropa limpia</p>
                 </div>
               </div>
               <button
                 onClick={() => setShowWashingModal(false)}
-                className="p-2 -mr-2 bg-gray-50 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 -mr-2 bg-[var(--bg-card-hover)] hover:bg-[var(--border-light)] rounded-full transition-colors"
               >
-                <X size={20} className="text-gray-500" />
+                <X size={20} className="text-[var(--text-secondary)]" />
               </button>
             </div>
             
             {garments.filter(g => g.isWashing).length === 0 ? (
-              <div className="text-center py-6 border-2 border-dashed border-gray-100 rounded-2xl">
-                <RefreshCcw size={24} className="mx-auto text-gray-300 mb-2" />
-                <p className="text-xs text-gray-400 font-medium">Lavadora vacía.</p>
+              <div className="text-center py-6 border-2 border-dashed border-[var(--border-light)] rounded-2xl">
+                <RefreshCcw size={24} className="mx-auto text-[var(--text-muted)]/30 mb-2" />
+                <p className="text-xs text-[var(--text-muted)] font-medium">Lavadora vacía.</p>
               </div>
             ) : (
               <div className="grid grid-cols-3 gap-3 max-h-[50vh] overflow-y-auto no-scrollbar pb-2">
                 {garments.filter(g => g.isWashing).map(g => (
-                  <div key={g.id} className="relative aspect-square rounded-xl bg-gray-100 overflow-hidden border border-gray-200 group">
+                  <div key={g.id} className="relative aspect-square rounded-xl bg-[var(--bg-card-hover)] overflow-hidden border border-[var(--border-light)] group">
                     <img src={g.imageUrl} alt={g.name} className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-opacity">
                       <button 
                         onClick={() => updateGarment({ ...g, isWashing: false })}
-                        className="bg-white text-xs text-blue-600 font-bold px-3 py-1 rounded-lg shadow-sm hover:scale-105 transition-transform"
+                        className="bg-[var(--bg-card)] text-xs text-blue-600 font-bold px-3 py-1 rounded-lg shadow-sm hover:scale-105 transition-transform"
                       >
                         Sacar
                       </button>

@@ -152,7 +152,7 @@ const Planner: React.FC<PlannerProps> = ({ looks, plannerEntries, onUpdateEntry,
         <div className="p-6 pb-24 relative h-full">
             <header className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 mt-4 gap-3">
                 <h1 className="text-2xl font-bold text-[var(--text-primary)]">{t('planner')}</h1>
-                <div className="flex items-center space-x-1 bg-gray-100 rounded-xl p-1 self-start">
+                <div className="flex items-center space-x-1 bg-[var(--border-light)] rounded-xl p-1 self-start">
                     <button
                         onClick={() => setViewMode('monthly')}
                         className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${viewMode === 'monthly' ? 'bg-[var(--bg-card)] text-[var(--text-primary)] shadow-sm' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
@@ -224,7 +224,7 @@ const Planner: React.FC<PlannerProps> = ({ looks, plannerEntries, onUpdateEntry,
                                         key={dateStr}
                                         onClick={() => setMonthlyClickedDay(dateStr === monthlyClickedDay ? null : dateStr)}
                                         className={`aspect-square flex flex-col items-center justify-center rounded-xl text-sm transition-all relative overflow-hidden
-                                            ${isToday ? 'bg-primary/10 text-primary font-bold' : _isCycleDay ? 'bg-rose-50/80 hover:bg-rose-100/80 text-[var(--text-primary)]' : 'hover:bg-gray-50 text-[var(--text-primary)]'}
+                                            ${isToday ? 'bg-primary/10 text-primary font-bold' : _isCycleDay ? 'bg-[var(--bg-rose-light)]/60 hover:bg-[var(--bg-rose-light)]/80 text-[var(--text-primary)]' : 'hover:bg-[var(--bg-card-hover)] text-[var(--text-primary)]'}
                                             ${isClicked ? 'ring-2 ring-primary' : _isCycleDay && !isToday ? 'cycle-day-cell--active' : ''}
                                         `}
                                     >

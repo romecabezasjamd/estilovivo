@@ -4,7 +4,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Tu armario digital y comunidad de estilo. Organiza tu ropa, crea looks y comparte tu estilo.">
   <meta name="theme-color" content="#0F172A">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <link rel="apple-touch-icon" href="/icon-512.png">
@@ -20,23 +24,7 @@
   <title>Estilo Vivo</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-  <script>
-    // Force clear old service workers and caches
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function(registrations) {
-        for(let registration of registrations) {
-          registration.unregister();
-        }
-      });
-    }
-    if ('caches' in window) {
-      caches.keys().then(function(names) {
-        for(let name of names) {
-          caches.delete(name);
-        }
-      });
-    }
-  </script>
+
   <script type="importmap">
 {
   "imports": {
@@ -47,12 +35,29 @@
   }
 }
 </script>
-  <script type="module" crossorigin src="/assets/index-D3_IuGXO.js"></script>
-  <link rel="modulepreload" crossorigin href="/assets/framer-motion-iqbc2liF.js">
-  <link rel="stylesheet" crossorigin href="/assets/index-BZt6Azw4.css">
+  <script type="module" crossorigin src="/assets/index-BYfIlBrV.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/framer-motion-CJZlAm42.js">
+  <link rel="stylesheet" crossorigin href="/assets/index-0M0Q-Tpe.css">
 <link rel="manifest" href="/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/registerSW.js"></script></head>
 
 <body>
+  <script>
+    // One-time cleanup: unregister stale service workers from previous builds
+    var EV_SW_VERSION = '2026-07-15-v2';
+    if (localStorage.getItem('ev_sw_version') !== EV_SW_VERSION) {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(regs) {
+          regs.forEach(function(reg) { reg.unregister(); });
+        });
+      }
+      if (window.caches) {
+        caches.keys().then(function(names) {
+          names.forEach(function(name) { caches.delete(name); });
+        });
+      }
+      localStorage.setItem('ev_sw_version', EV_SW_VERSION);
+    }
+  </script>
   <div id="root"></div>
 </body>
 

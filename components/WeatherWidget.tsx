@@ -124,12 +124,12 @@ export default function WeatherWidget({ garments, onNavigate, locationName }: Pr
     return (
       <div className="mx-3 mb-3 p-3 rounded-xl" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }}>
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
-            <Cloud size={16} className="text-blue-400" />
+          <div className="w-8 h-8 rounded-lg bg-[var(--bg-blue-light)] flex items-center justify-center">
+            <Cloud size={16} className="text-[var(--text-blue-light)]" />
           </div>
           <div className="flex-1">
-            <div className="h-3 w-24 rounded bg-gray-200 animate-pulse" />
-            <div className="h-2 w-32 rounded bg-gray-100 animate-pulse mt-1" />
+            <div className="h-3 w-24 rounded bg-[var(--border-light)] animate-pulse" />
+            <div className="h-2 w-32 rounded bg-[var(--border-light)]/50 animate-pulse mt-1" />
           </div>
         </div>
       </div>

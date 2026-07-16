@@ -9,7 +9,7 @@
     --color-accent: #14b8a6;
     --color-secondary: #a78bfa;
 
-    /* Dark mode surface colors (overridden by .dark) */
+    /* Light mode surface colors */
     --bg-base: #F8F9FA;
     --bg-card: #ffffff;
     --bg-card-hover: #f3f4f6;
@@ -21,6 +21,20 @@
     --border-subtle: #f3f4f6;
     --overlay: rgba(0, 0, 0, 0.5);
 
+    /* Utility colors - Light mode */
+    --bg-purple-light: #f3e8ff;
+    --bg-purple-lighter: #faf5ff;
+    --bg-rose-light: #ffe4e6;
+    --bg-rose-lighter: #fff0f1;
+    --bg-emerald-light: #d1fae5;
+    --bg-blue-light: #dbeafe;
+    --bg-yellow-light: #fef3c7;
+    --text-purple-light: #6b21a8;
+    --text-rose-light: #be123c;
+    --text-emerald-light: #047857;
+    --text-blue-light: #0369a1;
+    --text-yellow-light: #b45309;
+    
     /* Safe Areas for mobile notch/home bar */
     --safe-top: env(safe-area-inset-top, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -39,6 +53,20 @@
     --border-light: #334155;
     --border-subtle: #1e293b;
     --overlay: rgba(0, 0, 0, 0.7);
+
+    /* Utility colors - Dark mode */
+    --bg-purple-light: #3f1d56;
+    --bg-purple-lighter: #2d1445;
+    --bg-rose-light: #4a1d2e;
+    --bg-rose-lighter: #331423;
+    --bg-emerald-light: #1d3d34;
+    --bg-blue-light: #1d3a5c;
+    --bg-yellow-light: #3f2e1a;
+    --text-purple-light: #e9d5ff;
+    --text-rose-light: #fca5a5;
+    --text-emerald-light: #6ee7b7;
+    --text-blue-light: #7dd3fc;
+    --text-yellow-light: #fcd34d;
 }
 
 body {

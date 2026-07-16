@@ -195,7 +195,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                                         setLanguage(l.id);
                                         if (l.id !== 'es') setShowLangMenu(false);
                                     }}
-                                    className={`w-full text-left px-4 py-2 rounded-xl text-xs font-bold transition-colors ${language === l.id ? 'bg-primary/10 text-primary' : 'text-[var(--text-secondary)] hover:bg-gray-50'}`}
+                                    className={`w-full text-left px-4 py-2 rounded-xl text-xs font-bold transition-colors ${language === l.id ? 'bg-primary/10 text-primary' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-card-hover)]'}`}
                                 >
                                     {l.label}
                                 </button>
@@ -212,7 +212,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                                             setDialect(d.id);
                                             setShowLangMenu(false);
                                         }}
-                                        className={`w-full text-left px-4 py-2 rounded-xl text-xs font-bold transition-colors ${dialect === d.id ? 'bg-primary/10 text-primary' : 'text-[var(--text-secondary)] hover:bg-gray-50'}`}
+                                        className={`w-full text-left px-4 py-2 rounded-xl text-xs font-bold transition-colors ${dialect === d.id ? 'bg-primary/10 text-primary' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-card-hover)]'}`}
                                     >
                                         {d.label}
                                     </button>
@@ -244,7 +244,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
 
                 <div className="bg-[var(--bg-card)]/80 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl shadow-gray-200/50 border border-[var(--border-light)]">
                     {view === 'auth' && (
-                        <div className="flex bg-gray-100 rounded-2xl p-1 mb-8">
+                        <div className="flex bg-[var(--border-light)] rounded-2xl p-1 mb-8">
                             <button
                                 onClick={() => setIsLogin(true)}
                                 className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${isLogin ? 'bg-[var(--bg-card)] text-primary shadow-sm' : 'text-[var(--text-muted)]'}`}

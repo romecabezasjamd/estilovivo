@@ -140,7 +140,7 @@ const Suitcase: React.FC<SuitcaseProps> = ({ trips, garments, onAddTrip, onDelet
     // --- RENDER VIEW: LIST OF TRIPS ---
     if (!activeTrip && !isCreating) {
         return (
-            <div className={`h-full flex flex-col ${isEmbedded ? 'px-6 bg-transparent' : 'p-6 pb-24 bg-blue-50/50'}`}>
+            <div className={`h-full flex flex-col ${isEmbedded ? 'px-6 bg-transparent' : 'p-6 pb-24 bg-[var(--bg-base)]'}`}>
                 <header className={`flex justify-between items-end mb-6 ${isEmbedded ? 'mt-2' : 'mt-4'}`}>
                     <div>
                         <h1 className={`${isEmbedded ? 'text-xl' : 'text-2xl'} font-bold text-[var(--text-primary)]`}>{t('myTrips')}</h1>
@@ -163,7 +163,7 @@ const Suitcase: React.FC<SuitcaseProps> = ({ trips, garments, onAddTrip, onDelet
                                 onClick={() => setActiveTripId(trip.id)}
                                 className="bg-[var(--bg-card)] rounded-3xl p-5 shadow-sm border border-[var(--border-light)] hover:shadow-md transition-all cursor-pointer group relative overflow-hidden"
                             >
-                                <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
+                                <div className="absolute top-0 right-0 w-24 h-24 bg-[var(--bg-card-hover)] rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-110" />
 
                                 <div className="relative z-10 flex justify-between items-start">
                                     <div>
@@ -175,7 +175,7 @@ const Suitcase: React.FC<SuitcaseProps> = ({ trips, garments, onAddTrip, onDelet
                                     </div>
                                     <button
                                         onClick={(e) => handleDeleteTrip(e, trip.id)}
-                                        className="text-gray-300 hover:text-red-400 p-1"
+                                        className="text-[var(--text-muted)]/50 hover:text-red-400 p-1"
                                     >
                                         <Trash2 size={16} />
                                     </button>
@@ -186,7 +186,7 @@ const Suitcase: React.FC<SuitcaseProps> = ({ trips, garments, onAddTrip, onDelet
                                         <span>Progreso</span>
                                         <span>{tripProgress}%</span>
                                     </div>
-                                    <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                                    <div className="w-full bg-[var(--border-light)] h-1.5 rounded-full overflow-hidden">
                                         <div className="h-full bg-primary rounded-full" style={{ width: `${tripProgress}%` }} />
                                     </div>
                                 </div>

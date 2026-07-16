@@ -178,7 +178,7 @@ const Chat: React.FC<ChatProps> = ({ onNavigate }) => {
   };
 
   return (
-    <div className="p-6 pb-24 bg-gray-50 min-h-full">
+    <div className="p-6 pb-24 bg-[var(--bg-base)] min-h-full">
       <header className="flex justify-between items-center mb-6 mt-4">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-primary)]">{t('messages')}</h1>

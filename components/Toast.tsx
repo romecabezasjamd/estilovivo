@@ -48,44 +48,44 @@ const Toast: React.FC<ToastProps> = ({ toast, onClose }) => {
     switch (toast.type) {
       case 'success':
         return {
-          bg: 'bg-emerald-50 border border-emerald-200',
-          icon: <CheckCircle2 size={20} className="text-emerald-600" />,
-          text: 'text-emerald-900',
+          bg: 'bg-[var(--bg-emerald-light)] border border-[var(--border-light)]',
+          icon: <CheckCircle2 size={20} className="text-[var(--text-emerald-light)]" />,
+          text: 'text-[var(--text-emerald-light)]',
           bar: 'bg-emerald-500',
-          action: 'text-emerald-700 hover:bg-emerald-100'
+          action: 'text-[var(--text-emerald-light)] hover:bg-[var(--bg-emerald-light)]/50'
         };
       case 'error':
         return {
-          bg: 'bg-red-50 border border-red-200',
-          icon: <AlertCircle size={20} className="text-red-600" />,
-          text: 'text-red-900',
+          bg: 'bg-[var(--bg-rose-light)] border border-[var(--border-light)]',
+          icon: <AlertCircle size={20} className="text-[var(--text-rose-light)]" />,
+          text: 'text-[var(--text-rose-light)]',
           bar: 'bg-red-500',
-          action: 'text-red-700 hover:bg-red-100'
+          action: 'text-[var(--text-rose-light)] hover:bg-[var(--bg-rose-light)]/50'
         };
       case 'warning':
         return {
-          bg: 'bg-amber-50 border border-amber-200',
-          icon: <AlertCircle size={20} className="text-amber-600" />,
-          text: 'text-amber-900',
+          bg: 'bg-[var(--bg-yellow-light)] border border-[var(--border-light)]',
+          icon: <AlertCircle size={20} className="text-[var(--text-yellow-light)]" />,
+          text: 'text-[var(--text-yellow-light)]',
           bar: 'bg-amber-500',
-          action: 'text-amber-700 hover:bg-amber-100'
+          action: 'text-[var(--text-yellow-light)] hover:bg-[var(--bg-yellow-light)]/50'
         };
       case 'loading':
         return {
-          bg: 'bg-blue-50 border border-blue-200',
-          icon: <div className="w-5 h-5 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin" />,
-          text: 'text-blue-900',
+          bg: 'bg-[var(--bg-blue-light)] border border-[var(--border-light)]',
+          icon: <div className="w-5 h-5 border-2 border-[var(--border-light)] border-t-[var(--text-blue-light)] rounded-full animate-spin" />,
+          text: 'text-[var(--text-blue-light)]',
           bar: 'bg-blue-500',
-          action: 'text-blue-700 hover:bg-blue-100'
+          action: 'text-[var(--text-blue-light)] hover:bg-[var(--bg-blue-light)]/50'
         };
       case 'info':
       default:
         return {
-          bg: 'bg-[var(--bg-base)] border border-[var(--border-light)]',
+          bg: 'bg-[var(--bg-card)] border border-[var(--border-light)]',
           icon: <Info size={20} className="text-[var(--text-secondary)]" />,
           text: 'text-[var(--text-primary)]',
-          bar: 'bg-gray-500',
-          action: 'text-[var(--text-primary)] hover:bg-[var(--bg-base)]'
+          bar: 'bg-[var(--text-secondary)]',
+          action: 'text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)]'
         };
     }
   };
@@ -138,7 +138,7 @@ const Toast: React.FC<ToastProps> = ({ toast, onClose }) => {
 
       {/* Progress bar */}
       {toast.type !== 'loading' && toast.duration && (
-        <div className="absolute bottom-0 left-0 h-1 bg-gray-200 w-full rounded-b-2xl overflow-hidden">
+        <div className="absolute bottom-0 left-0 h-1 bg-[var(--border-light)] w-full rounded-b-2xl overflow-hidden">
           <div
             className={`h-full ${styles.bar} transition-all duration-100`}
             style={{ width: `${progress}%` }}

@@ -203,12 +203,12 @@ const Community: React.FC<CommunityProps> = ({ user, onNavigate }) => {
     const { t } = useLanguage();
 
     return (
-        <div className="pb-24 bg-gray-50 min-h-full">
+        <div className="pb-24 bg-[var(--bg-base)] min-h-full">
             {/* Header with Tabs */}
             <div className="bg-[var(--bg-card)] p-5 rounded-b-3xl shadow-sm mb-6 sticky top-0 z-10">
                 <div className="flex justify-between items-center mb-4">
                     <h1 className="text-2xl font-bold text-[var(--text-primary)]">{t('social')}</h1>
-                    <div className="flex bg-gray-100 rounded-full p-1">
+                    <div className="flex bg-[var(--border-light)] rounded-full p-1">
                         <button
                             onClick={() => setActiveTab('feed')}
                             className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${activeTab === 'feed' ? 'bg-[var(--bg-card)] text-primary shadow-sm' : 'text-[var(--text-secondary)]'}`}
@@ -226,7 +226,7 @@ const Community: React.FC<CommunityProps> = ({ user, onNavigate }) => {
 
                 {activeTab === 'feed' && (
                     <div className="bg-gradient-to-r from-primary to-teal-800 rounded-2xl p-4 text-white relative overflow-hidden animate-fade-in">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10" />
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--bg-card)]/10 rounded-full -mr-10 -mt-10" />
                         <span className="inline-block px-2 py-1 bg-accent text-[10px] font-bold uppercase tracking-wider rounded-md mb-2">Reto Semanal</span>
                         <h3 className="font-bold text-lg mb-1">Color Block</h3>
                         <p className="text-sm text-teal-100 opacity-90 mb-3">Combina colores vibrantes y gana visibilidad en la tienda.</p>

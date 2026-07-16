@@ -125,9 +125,9 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
   const todayLook = todayEntry ? looks.find(l => l.id === todayEntry.lookId) : null;
 
   return (
-    <div className="p-6 space-y-8 animate-fade-in pb-28">
+    <div className="p-6 space-y-8 animate-fade-in pb-16">
       {/* Header & Welcome */}
-      <header className="space-y-6 mt-4">
+      <header className="space-y-6">
         <Logo variant="icon" className="w-16 h-16 mx-auto" />
         <h1 className="text-3xl font-bold text-[var(--text-primary)] tracking-tight">
           Hola, <span className="text-primary">{user.name}</span>
@@ -137,9 +137,9 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
       </header>
 
       {showCycleFeatures && cycleMessage && (
-        <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-100 rounded-2xl px-4 py-3 flex items-start gap-3 animate-fade-in">
+        <div className="bg-[var(--bg-purple-light)] border border-[var(--border-light)] rounded-2xl px-4 py-3 flex items-start gap-3 animate-fade-in">
           <span className="text-lg flex-shrink-0 animate-pulse">🌙</span>
-          <p className="text-sm font-medium text-purple-900 leading-snug">{cycleMessage}</p>
+          <p className="text-sm font-medium text-[var(--text-purple-light)] leading-snug">{cycleMessage}</p>
         </div>
       )}
 
@@ -231,7 +231,7 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
                 <button
                   type="button"
                   onClick={() => handleCycleDayTap(day.date)}
-                  className={`w-14 h-14 rounded-2xl border-2 flex items-center justify-center relative overflow-hidden border-rose-200/80 bg-rose-50/90 cycle-day-cell--active touch-manipulation ${
+                  className={`w-14 h-14 rounded-2xl border-2 flex items-center justify-center relative overflow-hidden border-[var(--border-light)] bg-[var(--bg-rose-light)]/60 cycle-day-cell--active touch-manipulation ${
                     day.isToday ? 'ring-2 ring-primary/30' : ''
                   }`}
                   aria-label="Día de ciclo — ver mensaje"
@@ -250,15 +250,15 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
                       ? 'border-accent shadow-md'
                       : day.lookImage
                         ? 'border-primary/30'
-                        : 'border-dashed border-[var(--border-light)] bg-gray-50'
+                        : 'border-dashed border-[var(--border-light)] bg-[var(--bg-card)]/40'
                   }`}
                 >
                   {day.lookImage ? (
                     <img src={day.lookImage} className="w-full h-full object-cover" alt={day.lookName || 'Look'} loading="lazy" />
                   ) : day.isToday ? (
-                    <span className="text-gray-300 text-[10px] text-center leading-none px-1">Planear</span>
+                    <span className="text-[var(--text-muted)]/50 text-[10px] text-center leading-none px-1">Planear</span>
                   ) : (
-                    <div className="w-2 h-2 rounded-full bg-gray-200" />
+                    <div className="w-2 h-2 rounded-full bg-[var(--border-light)]/40" />
                   )}
                 </button>
               )}
@@ -268,7 +268,7 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
       </section>
 
       {/* Stats Grid */}
-      <section className="grid grid-cols-2 gap-3">
+      <section className="grid grid-cols-2 gap-4">
         <div className="stagger-child bg-[var(--bg-card)] p-4 rounded-2xl border border-[var(--border-light)] shadow-sm hover:shadow-md hover:border-primary/30 transition-all">
           <div className="flex items-center space-x-2 text-primary mb-2">
             <Shirt size={16} />
@@ -288,30 +288,30 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
       </section>
 
       {/* Quick Access Grid */}
-      <div className="grid grid-cols-2 gap-3 pt-2">
+      <div className="grid grid-cols-2 gap-4 pt-4">
         <button onClick={() => onNavigate('wardrobe')} className="stagger-child p-4 bg-[var(--bg-card)] border border-[var(--border-light)] rounded-2xl shadow-sm text-left hover:border-primary/30 hover:shadow-md transition-all">
-          <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mb-2">
+          <div className="w-8 h-8 rounded-full bg-[var(--bg-emerald-light)] text-[var(--text-emerald-light)] flex items-center justify-center mb-2">
             <Shirt size={16} />
           </div>
           <span className="font-medium text-[var(--text-primary)] text-sm">Mi Armario</span>
           <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Organiza tus prendas</p>
         </button>
         <button onClick={() => onNavigate('wishlist')} className="stagger-child p-4 bg-[var(--bg-card)] border border-[var(--border-light)] rounded-2xl shadow-sm text-left hover:border-primary/30 hover:shadow-md transition-all">
-          <div className="w-8 h-8 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center mb-2">
+          <div className="w-8 h-8 rounded-full bg-[var(--bg-rose-light)] text-[var(--text-rose-light)] flex items-center justify-center mb-2">
             <Heart size={16} />
           </div>
           <span className="font-medium text-[var(--text-primary)] text-sm">Wishlist</span>
           <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Tus deseos de compra</p>
         </button>
         <button onClick={() => onNavigate('suitcase')} className="stagger-child p-4 bg-[var(--bg-card)] border border-[var(--border-light)] rounded-2xl shadow-sm text-left hover:border-primary/30 hover:shadow-md transition-all">
-          <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mb-2">
+          <div className="w-8 h-8 rounded-full bg-[var(--bg-blue-light)] text-[var(--text-blue-light)] flex items-center justify-center mb-2">
             <Briefcase size={16} />
           </div>
           <span className="font-medium text-[var(--text-primary)] text-sm">Mis Viajes</span>
           <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Planifica tu maleta</p>
         </button>
         <button onClick={() => onNavigate('community')} className="stagger-child p-4 bg-[var(--bg-card)] border border-[var(--border-light)] rounded-2xl shadow-sm text-left hover:border-primary/30 hover:shadow-md transition-all">
-          <div className="w-8 h-8 rounded-full bg-yellow-50 text-yellow-600 flex items-center justify-center mb-2">
+          <div className="w-8 h-8 rounded-full bg-[var(--bg-yellow-light)] text-[var(--text-yellow-light)] flex items-center justify-center mb-2">
             <Sun size={16} />
           </div>
           <span className="font-medium text-[var(--text-primary)] text-sm">Comunidad</span>

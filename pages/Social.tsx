@@ -1120,7 +1120,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
         </div>
 
         <div className="relative">
-          <div className="flex bg-gray-100 rounded-full p-1 overflow-x-auto scroll-smooth" style={{ maskImage: 'linear-gradient(to right, black 90%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to right, black 90%, transparent 100%)' }}>
+          <div className="flex bg-[var(--border-light)] rounded-full p-1 overflow-x-auto scroll-smooth" style={{ maskImage: 'linear-gradient(to right, black 90%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to right, black 90%, transparent 100%)' }}>
             {[
               { key: 'feed', label: 'Feed', icon: '📰' },
               { key: 'shop', label: 'Tienda', icon: '🛍️' },
@@ -1254,7 +1254,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
 
         {activeTab === 'shop' && (
           <form onSubmit={handleSearchSubmit} className="flex space-x-2 animate-fade-in mt-4">
-            <div className="flex-1 bg-gray-100 rounded-xl px-3 py-2 flex items-center text-[var(--text-muted)]">
+            <div className="flex-1 bg-[var(--border-light)] rounded-xl px-3 py-2 flex items-center text-[var(--text-muted)]">
               <Search size={16} className="mr-2" />
               <input
                 type="text"
