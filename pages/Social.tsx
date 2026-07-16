@@ -309,9 +309,16 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
       try {
         const challenge = await api.getCurrentChallenge();
         setCurrentChallenge(challenge);
-        const subs = await api.getMySubmissions();
-        const existing = subs.find((s: any) => s.challengeId === challenge.id);
-        setChallengeSubmission(existing || null);
+        
+        // Try to get user submissions if authenticated
+        try {
+          const subs = await api.getMySubmissions();
+          const existing = subs.find((s: any) => s.challengeId === challenge.id);
+          setChallengeSubmission(existing || null);
+        } catch {
+          // User not authenticated or error loading submissions
+          setChallengeSubmission(null);
+        }
       } catch (e) {
         console.warn('Could not load challenge:', e);
       } finally {
