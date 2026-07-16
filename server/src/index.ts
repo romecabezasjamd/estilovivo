@@ -49,11 +49,16 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const DB_PATH = process.env.DATABASE_URL || 'file:/app/data/dev.db';
+if (!process.env.DATABASE_URL) {
+  logger.warn(`DATABASE_URL not set, defaulting to ${DB_PATH}`);
+}
+
 const app: Express = express();
 const httpServer = createServer(app);
 const prisma = new PrismaClient({
   adapter: new PrismaBetterSqlite3({
-    url: process.env.DATABASE_URL || 'file:./dev.db'
+    url: DB_PATH
   })
 });
 
@@ -579,23 +584,28 @@ const invalidateRefreshTokens = async (userId: string) => {
 
 // ============= HEALTH =============
 app.get('/api/health', async (req: Request, res: Response) => {
-  const healthCheck = {
+  const dbUrl = process.env.DATABASE_URL || 'NOT SET';
+  const healthCheck: any = {
     status: 'ok',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     environment: NODE_ENV,
     database: 'unknown',
+    databaseUrl: dbUrl.replace(/\/\/.*@/, '//***@'), // mask credentials if any
+    userCount: -1,
     version: process.env.npm_package_version || '0.0.0'
   };
 
   try {
-    // Test database connection
     await prisma.$queryRaw`SELECT 1`;
     healthCheck.database = 'connected';
+    const countResult = await prisma.$queryRaw<Array<{ count: number }>>`SELECT COUNT(*) as count FROM User`;
+    healthCheck.userCount = Number(countResult[0]?.count ?? -1);
     res.status(200).json(healthCheck);
-  } catch (error) {
+  } catch (error: any) {
     healthCheck.status = 'error';
     healthCheck.database = 'disconnected';
+    healthCheck.dbError = error?.message;
     res.status(503).json(healthCheck);
   }
 });
