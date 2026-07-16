@@ -1503,15 +1503,23 @@ app.get('/api/looks/feed', optionalAuth, async (req: any, res: Response) => {
     const items = hasMore ? looks.slice(0, -1) : looks;
     const lookIds = items.map(l => l.id);
 
-    const likedIds = new Set((await prisma.like.findMany({
-      where: { userId: req.user.userId, lookId: { in: lookIds } },
-      select: { lookId: true }
-    })).map(l => l.lookId));
+    // Only fetch user-specific data if user is authenticated
+    let likedIds = new Set<string>();
+    let favIds = new Set<string>();
 
-    const favIds = new Set((await prisma.favorite.findMany({
-      where: { userId: req.user.userId, lookId: { in: lookIds } },
-      select: { lookId: true }
-    })).map(f => f.lookId));
+    if (req.user?.userId) {
+      const likedLooks = await prisma.like.findMany({
+        where: { userId: req.user.userId, lookId: { in: lookIds } },
+        select: { lookId: true }
+      });
+      likedIds = new Set(likedLooks.map(l => l.lookId));
+
+      const favLooks = await prisma.favorite.findMany({
+        where: { userId: req.user.userId, lookId: { in: lookIds } },
+        select: { lookId: true }
+      });
+      favIds = new Set(favLooks.map(f => f.lookId));
+    }
 
     const looksWithMeta = items.map(l => ({
       ...l, likesCount: l._count.likes, commentsCount: l._count.comments,
