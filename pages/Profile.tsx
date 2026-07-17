@@ -734,13 +734,13 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
       </div>
 
       {/* Section Tabs */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-50 p-1.5 mx-6 mt-6">
-        <div className="flex gap-1">
+      <div className="mx-6 mt-6">
+        <div className="flex gap-2">
           {[
-            { id: 'stats' as const, icon: <BarChart3 size={18} />, label: 'Stats' },
-            { id: 'progress' as const, icon: <Award size={18} />, label: 'Progreso' },
-            { id: 'favorites' as const, icon: <Bookmark size={18} />, label: 'Favoritos' },
-            { id: 'settings' as const, icon: <Settings size={18} />, label: 'Ajustes' },
+            { id: 'stats' as const, icon: <BarChart3 size={16} />, label: 'Estadísticas' },
+            { id: 'progress' as const, icon: <Award size={16} />, label: 'Progreso' },
+            { id: 'favorites' as const, icon: <Bookmark size={16} />, label: 'Favoritos' },
+            { id: 'settings' as const, icon: <Settings size={16} />, label: 'Ajustes' },
           ].map(tab => (
             <button
               key={tab.id}
@@ -752,15 +752,15 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                   setShowUnsavedChangesModal(true);
                 }
               }}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${activeSection === tab.id
-                ? 'bg-gradient-to-r from-primary to-primary-dark text-white shadow-lg scale-105'
-                : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+              className={`flex-1 flex flex-col items-center gap-1.5 py-3 rounded-2xl text-xs font-semibold transition-all duration-300 hover:scale-105 active:scale-95 ${activeSection === tab.id
+                ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                : 'bg-[var(--bg-card)] text-[var(--text-muted)] border border-[var(--border-light)] hover:border-primary/30 hover:text-primary'
                 }`}
             >
-              <span className={`transition-transform ${activeSection === tab.id ? 'scale-110' : ''}`}>
+              <span className={`transition-transform duration-200 ${activeSection === tab.id ? 'scale-110' : ''}`}>
                 {tab.icon}
               </span>
-              <span>{tab.label}</span>
+              <span className="leading-none">{tab.label}</span>
             </button>
           ))}
         </div>

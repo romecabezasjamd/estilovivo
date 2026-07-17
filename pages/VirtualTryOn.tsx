@@ -10,7 +10,7 @@ import PoseGuide from '../components/PoseGuide'
 import { api } from '../services/api'
 import { saveBodyPhoto, loadBodyPhoto, clearBodyPhoto, loadBodyPhotos, removeBodyPhoto } from '../src/utils/syncStore'
 
-interface Props { garments: Garment[]; onClose: () => void }
+interface Props { garments: Garment[]; onClose: () => void; user?: any }
 
 interface Layer {
   id: string; garment: Garment; url: string
@@ -210,7 +210,7 @@ const LayersPanel = React.memo(({ layers, active, isMobile, showLayers, onToggle
   )
 })
 
-export default function VirtualTryOn({ garments, onClose }: Props) {
+export default function VirtualTryOn({ garments, onClose, user }: Props) {
   const [step, setStep] = useState<'guide' | 'photo' | 'select' | 'tryon' | 'saving' | 'saved'>('guide')
   const [bodyUrl, setBodyUrl] = useState<string | null>(null)
   const [bodyDim, setBodyDim] = useState<{ w: number; h: number } | null>(null)
@@ -312,6 +312,11 @@ export default function VirtualTryOn({ garments, onClose }: Props) {
   useEffect(() => {
     loadBodyPhoto().then(saved => {
       if (saved) { setBodyUrl(saved); setStep('select') }
+      else if (user?.fullBodyAvatar) {
+        setBodyUrl(user.fullBodyAvatar)
+        saveBodyPhoto(user.fullBodyAvatar)
+        setStep('select')
+      }
     })
     loadBodyPhotos().then(setPhotoList)
   }, [])

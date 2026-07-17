@@ -686,46 +686,6 @@ const Wardrobe: React.FC<WardrobeProps> = ({
             </span>
           </div>
 
-          {/* Usage Insights */}
-          <div className="grid grid-cols-2 gap-3 mb-4 animate-fade-in">
-            <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-light)] p-3 shadow-sm">
-              <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2">Top usadas</p>
-              {topUsedItems.length === 0 ? (
-                <p className="text-xs text-[var(--text-muted)]">Sin datos aun</p>
-              ) : (
-                <div className="space-y-2">
-                  {topUsedItems.slice(0, 3).map(item => (
-                    <div key={item.id} className="flex items-center gap-2">
-                      {item.imageUrl && <img src={item.imageUrl} alt={item.name || item.type} className="w-8 h-8 rounded-lg object-cover" />}
-                      <div className="flex-1">
-                        <p className="text-xs font-semibold text-[var(--text-primary)] truncate">{item.name || item.type}</p>
-                        <p className="text-[10px] text-[var(--text-muted)]">{item.usageCount || 0} usos</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="bg-[var(--bg-card)] rounded-2xl border border-[var(--border-light)] p-3 shadow-sm">
-              <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2">Poco usadas</p>
-              {lowUsageItems.length === 0 ? (
-                <p className="text-xs text-[var(--text-muted)]">Todo en rotacion</p>
-              ) : (
-                <div className="space-y-2">
-                  {lowUsageItems.slice(0, 3).map(item => (
-                    <div key={item.id} className="flex items-center gap-2">
-                      {item.imageUrl && <img src={item.imageUrl} alt={item.name || item.type} className="w-8 h-8 rounded-lg object-cover" />}
-                      <div className="flex-1">
-                        <p className="text-xs font-semibold text-[var(--text-primary)] truncate">{item.name || item.type}</p>
-                        <p className="text-[10px] text-[var(--text-muted)]">{item.usageCount || 0} usos</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
           {/* Empty state */}
           {filteredItems.length === 0 && (
             <div className="text-center py-16 px-8">
@@ -842,7 +802,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
           {/* FAB - above bottom nav (z-50) */}
           <button
             onClick={() => setIsAdding(true)}
-            className="fixed bottom-28 right-6 w-14 h-14 bg-primary text-white rounded-full shadow-lg shadow-primary/40 flex items-center justify-center hover:scale-105 transition-transform z-[60]"
+            className="fixed bottom-28 right-6 w-14 h-14 bg-primary text-white rounded-full shadow-lg shadow-primary/40 flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-200 z-[60] animate-pulse-soft"
           >
             <Plus size={28} />
           </button>

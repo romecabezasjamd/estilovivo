@@ -298,6 +298,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
           <VirtualTryOn
             garments={garments}
             onClose={() => setShowVirtualTryOn(false)}
+            user={user}
           />
         </Suspense>,
         document.body

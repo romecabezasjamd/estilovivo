@@ -1132,7 +1132,6 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
               { key: 'feed', label: 'Feed', icon: '📰' },
               { key: 'shop', label: 'Tienda', icon: '🛍️' },
               { key: 'trends', label: 'Tendencias', icon: '📈' },
-              { key: 'favorites', label: 'Favoritos', icon: '❤️' },
               { key: 'chat', label: 'Chat', icon: '💬' },
             ].map(tab => (
               <button
@@ -1262,21 +1261,30 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
 
       {activeTab === 'shop' && (
         <div className="px-4">
-          <form onSubmit={handleSearchSubmit} className="flex space-x-2 animate-fade-in mt-4">
-            <div className="flex-1 bg-[var(--border-light)] rounded-xl px-3 py-2 flex items-center text-[var(--text-muted)]">
-              <Search size={16} className="mr-2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Buscar prendas..."
-                className="bg-transparent border-none outline-none text-sm w-full text-[var(--text-primary)]"
-              />
-            </div>
-            <button type="submit" className="bg-primary text-white p-2 rounded-xl">
-              <Search size={20} />
+          <div className="flex items-center gap-2 mt-4 animate-fade-in">
+            <form onSubmit={handleSearchSubmit} className="flex-1 flex space-x-2">
+              <div className="flex-1 bg-[var(--border-light)] rounded-xl px-3 py-2 flex items-center text-[var(--text-muted)]">
+                <Search size={16} className="mr-2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Buscar prendas..."
+                  className="bg-transparent border-none outline-none text-sm w-full text-[var(--text-primary)]"
+                />
+              </div>
+              <button type="submit" className="bg-primary text-white p-2 rounded-xl">
+                <Search size={20} />
+              </button>
+            </form>
+            <button
+              onClick={() => setActiveTab('favorites')}
+              className="p-2.5 rounded-xl bg-[var(--border-light)] text-[var(--text-muted)] hover:text-pink-500 hover:bg-pink-50 dark:hover:bg-pink-900/20 hover:scale-110 active:scale-95 transition-all duration-200"
+              title="Favoritos"
+            >
+              <Heart size={20} />
             </button>
-          </form>
+          </div>
         </div>
       )}
 
