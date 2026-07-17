@@ -11,12 +11,12 @@ import {
   ThemeColor,
   applyCustomColorToDocument,
   applyThemeToDocument,
-  loadSavedThemePreferences,
   resetThemeToDefault,
   saveCustomColor,
   savePresetTheme,
 } from '../utils/theme';
 import { api } from '../../services/api';
+import { THEMES, DEFAULT_THEME } from '../utils/themePresets';
 
 interface ThemeContextValue {
   presetTheme: ThemeColor;
@@ -32,24 +32,28 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [presetTheme, setPresetThemeState] = useState<ThemeColor>('pink');
+  const [presetTheme, setPresetThemeState] = useState<ThemeColor>(DEFAULT_THEME);
   const [customColor, setCustomColorState] = useState<string | null>(null);
   const [isCustom, setIsCustom] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const apiSynced = useRef(false);
 
+  // Apply default theme on mount so app always has styling
+  useEffect(() => {
+    applyThemeToDocument(DEFAULT_THEME);
+  }, []);
+
   const syncFromUser = useCallback(async (user: any) => {
-    if (user?.themePreset) {
-      setPresetThemeState(user.themePreset as ThemeColor);
-      applyThemeToDocument(user.themePreset as ThemeColor);
-    }
     if (user?.customColor) {
       const normalized = applyCustomColorToDocument(user.customColor);
       if (normalized) setCustomColorState(normalized);
+      setPresetThemeState(user.themePreset as ThemeColor || DEFAULT_THEME);
       setIsCustom(true);
     } else if (user?.themePreset) {
-      setIsCustom(false);
+      applyThemeToDocument(user.themePreset as ThemeColor);
+      setPresetThemeState(user.themePreset as ThemeColor);
       setCustomColorState(null);
+      setIsCustom(false);
     }
     apiSynced.current = true;
     setIsReady(true);
@@ -63,23 +67,9 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     };
     window.addEventListener('ev:user-loaded', handler as EventListener);
 
-    const fallbackTimer = window.setTimeout(() => {
-      if (mounted && !apiSynced.current) {
-        loadSavedThemePreferences().then(prefs => {
-          if (mounted) {
-            setPresetThemeState(prefs.preset);
-            setCustomColorState(prefs.customColor);
-            setIsCustom(prefs.isCustom);
-            setIsReady(true);
-          }
-        });
-      }
-    }, 3000);
-
     return () => {
       mounted = false;
       window.removeEventListener('ev:user-loaded', handler as EventListener);
-      window.clearTimeout(fallbackTimer);
     };
   }, [syncFromUser]);
 
@@ -100,10 +90,10 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const resetToDefault = useCallback(async () => {
     await resetThemeToDefault();
-    setPresetThemeState('pink');
+    setPresetThemeState(DEFAULT_THEME);
     setCustomColorState(null);
     setIsCustom(false);
-    try { await api.updateProfile({ themePreset: 'pink', customColor: null } as any); } catch {}
+    try { await api.updateProfile({ themePreset: DEFAULT_THEME, customColor: null } as any); } catch {}
   }, []);
 
   return (

@@ -1,5 +1,5 @@
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from 'react';
-import { DarkModeSetting, DarkModePreferences, loadDarkModePreference, saveDarkModePreference, listenForSystemChanges, applyDarkMode } from '../utils/darkMode';
+import React, { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react';
+import { DarkModeSetting, DarkModePreferences, applyDarkMode } from '../utils/darkMode';
 import { api } from '../../services/api';
 
 interface DarkModeContextValue {
@@ -11,49 +11,64 @@ interface DarkModeContextValue {
 
 const DarkModeContext = createContext<DarkModeContextValue | null>(null);
 
+function getSystemPref(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
+function resolveActive(setting: DarkModeSetting): boolean {
+  const systemDark = getSystemPref();
+  return setting === 'on' || (setting === 'system' && systemDark);
+}
+
 export const DarkModeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [prefs, setPrefs] = useState<DarkModePreferences>({ setting: 'system', active: false });
+  const [prefs, setPrefs] = useState<DarkModePreferences>(() => {
+    const active = resolveActive('system');
+    return { setting: 'system', active };
+  });
   const [isReady, setIsReady] = useState(false);
-  const apiSynced = useRef(false);
+
+  // Apply system default on mount so dark mode works immediately
+  useEffect(() => {
+    applyDarkMode(resolveActive('system'));
+  }, []);
 
   useEffect(() => {
     let mounted = true;
     const handler = async (e: Event) => {
       const user = (e as CustomEvent).detail;
       if (!mounted || !user?.darkModeSetting) return;
-      apiSynced.current = true;
-      const p = await saveDarkModePreference(user.darkModeSetting as DarkModeSetting);
-      if (mounted) { setPrefs(p); setIsReady(true); }
+      const setting = user.darkModeSetting as DarkModeSetting;
+      const active = resolveActive(setting);
+      applyDarkMode(active);
+      if (mounted) { setPrefs({ setting, active }); setIsReady(true); }
     };
     window.addEventListener('ev:user-loaded', handler as EventListener);
-
-    const fallbackTimer = window.setTimeout(() => {
-      if (mounted && !apiSynced.current) {
-        loadDarkModePreference().then(p => { if (mounted) { setPrefs(p); setIsReady(true); } });
-      }
-    }, 3000);
 
     return () => {
       mounted = false;
       window.removeEventListener('ev:user-loaded', handler as EventListener);
-      window.clearTimeout(fallbackTimer);
     };
   }, []);
 
   useEffect(() => {
     if (!isReady) return;
-    const unsub = listenForSystemChanges((isDark) => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (e: MediaQueryListEvent) => {
       if (prefs.setting === 'system') {
-        setPrefs(prev => ({ ...prev, active: isDark }));
-        applyDarkMode(isDark);
+        const active = e.matches;
+        applyDarkMode(active);
+        setPrefs(prev => ({ ...prev, active }));
       }
-    });
-    return unsub;
+    };
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
   }, [isReady, prefs.setting]);
 
   const setDarkMode = useCallback(async (setting: DarkModeSetting) => {
-    const p = await saveDarkModePreference(setting);
-    setPrefs(p);
+    const active = resolveActive(setting);
+    applyDarkMode(active);
+    setPrefs({ setting, active });
     try { await api.updateUserPreferences({ darkModeSetting: setting }); } catch {}
   }, []);
 

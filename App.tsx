@@ -42,9 +42,7 @@ const AppContent: React.FC = () => {
   const [socialSubTab, setSocialSubTab] = useState<string | null>(null);
   const [wardrobeIntent, setWardrobeIntent] = useState<'looks' | 'createLook' | null>(null);
   const [plannerDate, setPlannerDate] = useState<string | undefined>(undefined);
-  const [showOnboarding, setShowOnboarding] = useState(() => {
-    return !localStorage.getItem('ev_onboarding_complete');
-  });
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const skipHistory = useRef(false);
 
   const pushHistory = useCallback((tab: string) => {
@@ -141,6 +139,13 @@ const AppContent: React.FC = () => {
     addTrip, deleteTrip, updateTrip,
   } = useGlobalState();
 
+  // Check onboarding from user object — API is source of truth
+  useEffect(() => {
+    if (user && !(user as any).styleColors && !(user as any).styleStyles) {
+      setShowOnboarding(true);
+    }
+  }, [user]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[var(--bg-base)] flex items-center justify-center">
@@ -163,7 +168,16 @@ const AppContent: React.FC = () => {
   if (showOnboarding) {
     return (
       <Suspense fallback={<div className="min-h-screen bg-[var(--bg-base)] flex items-center justify-center"><div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin" /></div>}>
-        <Onboarding onComplete={() => { localStorage.setItem('ev_onboarding_complete', 'true'); setShowOnboarding(false) }} />
+        <Onboarding onComplete={() => {
+            try { localStorage.setItem('ev_onboarding_complete', 'true'); } catch {}
+            setShowOnboarding(false);
+            // Refresh user data to get updated style preferences
+            import('./services/api').then(({ api }) => {
+              api.getMe().then(u => {
+                window.dispatchEvent(new CustomEvent('ev:user-loaded', { detail: u }));
+              }).catch(() => {});
+            });
+          }} />
       </Suspense>
     );
   }

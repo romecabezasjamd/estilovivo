@@ -110,6 +110,88 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
         {children}
       </main>
 
+      {/* Wardrobe action bubbles — centered relative to nav bar */}
+      <AnimatePresence>
+        {showWardrobeSubmenu && (
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.8 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.9 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+            className="fixed bottom-[88px] left-0 right-0 z-[55] flex justify-center pointer-events-none"
+          >
+            <div className="flex items-center gap-5 pointer-events-auto px-4">
+              {/* Suitcase Bubble */}
+              <motion.div whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.92 }} className="flex flex-col items-center">
+                <button
+                  onClick={() => { setShowWardrobeSubmenu(false); onTabChange('suitcase'); }}
+                  className="w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200 border"
+                  style={{
+                    background: 'color-mix(in srgb, var(--bg-card) 85%, transparent)',
+                    borderColor: 'color-mix(in srgb, var(--border-light) 50%, transparent)',
+                    boxShadow: '0 8px 32px rgba(99, 102, 241, 0.15), 0 2px 8px rgba(0,0,0,0.08)',
+                    backdropFilter: 'blur(12px)',
+                  }}
+                >
+                  <Luggage size={22} className="text-indigo-500 transition-transform duration-200" />
+                </button>
+                <span className="text-[10px] font-bold mt-2 px-2.5 py-0.5 rounded-full" style={{ color: 'var(--text-secondary)', background: 'color-mix(in srgb, var(--bg-card) 80%, transparent)' }}>Viajes</span>
+              </motion.div>
+
+              {/* Lavadora Bubble */}
+              <motion.div whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.92 }} className="flex flex-col items-center">
+                <button
+                  onClick={() => { setShowWardrobeSubmenu(false); setShowWashingModal(true); }}
+                  onDragOver={(e) => { e.preventDefault(); setDragOverLavadora(true); }}
+                  onDragLeave={() => setDragOverLavadora(false)}
+                  onDrop={(e) => { setDragOverLavadora(false); handleDropWashing(e); }}
+                  className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200 border relative ${washingAnimation ? 'scale-125' : ''} ${dragOverLavadora && !washingAnimation ? 'animate-bounce ring-4 ring-blue-300' : ''}`}
+                  style={{
+                    background: washingAnimation ? 'rgba(59, 130, 246, 0.15)' : 'color-mix(in srgb, var(--bg-card) 85%, transparent)',
+                    borderColor: washingAnimation ? 'rgba(59, 130, 246, 0.3)' : 'color-mix(in srgb, var(--border-light) 50%, transparent)',
+                    boxShadow: washingAnimation ? '0 0 24px rgba(59, 130, 246, 0.35), 0 8px 32px rgba(0,0,0,0.08)' : '0 8px 32px rgba(59, 130, 246, 0.12), 0 2px 8px rgba(0,0,0,0.08)',
+                    backdropFilter: 'blur(12px)',
+                  }}
+                >
+                  <WashingMachine size={22} className={`text-blue-500 ${washingAnimation ? 'animate-spin' : ''}`} />
+                  {garments.filter(g => g.isWashing).length > 0 && !washingAnimation && (
+                    <div className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold shadow-sm">
+                      {garments.filter(g => g.isWashing).length}
+                    </div>
+                  )}
+                </button>
+                <span className="text-[10px] font-bold mt-2 px-2.5 py-0.5 rounded-full" style={{ color: 'var(--text-secondary)', background: 'color-mix(in srgb, var(--bg-card) 80%, transparent)' }}>Lavar</span>
+              </motion.div>
+
+              {/* Probar Bubble */}
+              <motion.div whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.92 }} className="flex flex-col items-center">
+                <button
+                  onClick={() => {
+                    setShowWardrobeSubmenu(false);
+                    setVirtualTryOnInitialGarment(garments[0] || null);
+                    setVirtualTryOnInitialMode('ai');
+                    setShowVirtualTryOn(true);
+                  }}
+                  onDragOver={(e) => { e.preventDefault(); setDragOverProbar(true); }}
+                  onDragLeave={() => setDragOverProbar(false)}
+                  onDrop={(e) => { setDragOverProbar(false); handleDropFittingRoom(e); }}
+                  className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200 border ${dragOverProbar ? 'animate-pulse ring-4 ring-pink-300' : ''}`}
+                  style={{
+                    background: dragOverProbar ? 'rgba(236, 72, 153, 0.15)' : 'color-mix(in srgb, var(--bg-card) 85%, transparent)',
+                    borderColor: dragOverProbar ? 'rgba(236, 72, 153, 0.3)' : 'color-mix(in srgb, var(--border-light) 50%, transparent)',
+                    boxShadow: '0 8px 32px rgba(236, 72, 153, 0.12), 0 2px 8px rgba(0,0,0,0.08)',
+                    backdropFilter: 'blur(12px)',
+                  }}
+                >
+                  <Wand2 size={22} className={`text-pink-500 ${dragOverProbar ? 'scale-110' : ''}`} />
+                </button>
+                <span className="text-[10px] font-bold mt-2 px-2.5 py-0.5 rounded-full" style={{ color: 'var(--text-secondary)', background: 'color-mix(in srgb, var(--bg-card) 80%, transparent)' }}>Probar</span>
+              </motion.div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="fixed bottom-6 left-4 right-4 z-50 flex justify-center pointer-events-none">
         <nav className="relative w-full max-w-lg h-16 bg-[var(--bg-card)]/80 backdrop-blur-md border border-[var(--border-light)]/40 shadow-xl rounded-full flex items-center p-1 pointer-events-auto">
 
@@ -134,65 +216,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
                 key={item.id} 
                 className="relative z-10 flex-1 h-full"
               >
-                <AnimatePresence>
-                  {showWardrobeSubmenu && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: 20, scale: 0.8 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                      className="absolute bottom-[115%] left-1/2 -translate-x-1/2 flex gap-4 mb-2 pointer-events-auto"
-                    >
-                      {/* Suitcase Bubble */}
-                      <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="flex flex-col items-center">
-                        <button
-                          onClick={() => { setShowWardrobeSubmenu(false); onTabChange('suitcase'); }}
-                          className="bg-[var(--bg-card)]/90 backdrop-blur-md p-3 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-[var(--border-light)]/50 text-indigo-500 hover:bg-[var(--bg-card)] transition-colors flex flex-col items-center gap-1 group"
-                        >
-                          <Luggage size={22} className="group-hover:-translate-y-1 transition-transform" />
-                        </button>
-                        <span className="text-[10px] font-bold text-[var(--text-secondary)] bg-[var(--bg-card)]/80 px-2 py-0.5 rounded-full mt-2 shadow-sm">Viajes</span>
-                      </motion.div>
-
-                      {/* Lavadora Bubble */}
-                      <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="flex flex-col items-center">
-                        <button
-                          onClick={() => { setShowWardrobeSubmenu(false); setShowWashingModal(true); }}
-                          onDragOver={(e) => { e.preventDefault(); setDragOverLavadora(true); }}
-                          onDragLeave={() => setDragOverLavadora(false)}
-                          onDrop={(e) => { setDragOverLavadora(false); handleDropWashing(e); }}
-                          className={`bg-[var(--bg-card)]/90 backdrop-blur-md p-3 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-[var(--border-light)]/50 text-blue-500 hover:bg-[var(--bg-card)] transition-colors flex flex-col items-center gap-1 relative overflow-hidden ${washingAnimation ? 'wash shadow-[0_0_20px_rgba(59,130,246,0.5)] scale-125' : ''} ${dragOverLavadora && !washingAnimation ? 'animate-bounce ring-4 ring-blue-300' : ''}`}
-                        >
-                          <WashingMachine size={22} className={washingAnimation ? 'animate-spin' : ''} />
-                          {garments.filter(g => g.isWashing).length > 0 && !washingAnimation && (
-                            <div className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold shadow-sm">
-                              {garments.filter(g => g.isWashing).length}
-                            </div>
-                          )}
-                        </button>
-                        <span className="text-[10px] font-bold text-[var(--text-secondary)] bg-[var(--bg-card)]/80 px-2 py-0.5 rounded-full mt-2 shadow-sm">Lavar</span>
-                      </motion.div>
-
-                      {/* Probar Bubble */}
-                      <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="flex flex-col items-center">
-                        <button
-                          onClick={() => { 
-                            setShowWardrobeSubmenu(false); 
-                            setVirtualTryOnInitialGarment(garments[0] || null);
-                            setVirtualTryOnInitialMode('ai');
-                            setShowVirtualTryOn(true); 
-                          }}
-                          onDragOver={(e) => { e.preventDefault(); setDragOverProbar(true); }}
-                          onDragLeave={() => setDragOverProbar(false)}
-                          onDrop={(e) => { setDragOverProbar(false); handleDropFittingRoom(e); }}
-                          className={`bg-[var(--bg-card)]/90 backdrop-blur-md p-3 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-[var(--border-light)]/50 text-pink-500 hover:bg-[var(--bg-card)] transition-colors flex flex-col items-center gap-1 relative overflow-hidden ${dragOverProbar ? 'animate-pulse ring-4 ring-pink-300' : ''}`}
-                        >
-                          <Wand2 size={22} className={dragOverProbar ? 'scale-110' : ''} />
-                        </button>
-                        <span className="text-[10px] font-bold text-[var(--text-secondary)] bg-[var(--bg-card)]/80 px-2 py-0.5 rounded-full mt-2 shadow-sm">Probar</span>
-                      </motion.div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
                 <button
                   onClick={() => {
                     if (isActive) setShowWardrobeSubmenu(!showWardrobeSubmenu);

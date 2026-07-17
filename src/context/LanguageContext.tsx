@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Language, Dialect, TRANSLATIONS, DIALECT_OVERRIDES, TranslationSchema } from '../utils/translations';
 import { api } from '../../services/api';
 
@@ -14,60 +14,54 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [language, setLanguageState] = useState<Language>(() => {
-        return (localStorage.getItem('estilovivo_lang') as Language) || 'es';
-    });
+    const [language, setLanguageState] = useState<Language>('es');
+    const [dialect, setDialectState] = useState<Dialect>('none');
 
-    const [dialect, setDialectState] = useState<Dialect>(() => {
-        return (localStorage.getItem('estilovivo_dialect') as Dialect) || 'none';
-    });
-
-    const setLanguage = (lang: Language) => {
+    const setLanguage = useCallback((lang: Language) => {
         setLanguageState(lang);
-        localStorage.setItem('estilovivo_lang', lang);
+        try { localStorage.setItem('estilovivo_lang', lang); } catch {}
         if (lang !== 'es') {
             setDialectState('none');
-            localStorage.setItem('estilovivo_dialect', 'none');
+            try { localStorage.setItem('estilovivo_dialect', 'none'); } catch {}
             api.updateUserPreferences({ language: lang, dialect: 'none' }).catch(() => {});
         } else {
             api.updateUserPreferences({ language: lang }).catch(() => {});
         }
-    };
+    }, []);
 
-    const setDialect = (d: Dialect) => {
+    const setDialect = useCallback((d: Dialect) => {
         setDialectState(d);
-        localStorage.setItem('estilovivo_dialect', d);
+        try { localStorage.setItem('estilovivo_dialect', d); } catch {}
         api.updateUserPreferences({ dialect: d }).catch(() => {});
-    };
+    }, []);
 
-    // Sync from server when user loads
+    // Sync from server when user loads — API is source of truth
     useEffect(() => {
         const handler = (e: Event) => {
             const user = (e as CustomEvent).detail;
             if (user?.language) {
                 setLanguageState(user.language as Language);
-                localStorage.setItem('estilovivo_lang', user.language);
+                try { localStorage.setItem('estilovivo_lang', user.language); } catch {}
             }
             if (user?.dialect) {
                 setDialectState(user.dialect as Dialect);
-                localStorage.setItem('estilovivo_dialect', user.dialect);
+                try { localStorage.setItem('estilovivo_dialect', user.dialect); } catch {}
             }
         };
         window.addEventListener('ev:user-loaded', handler as EventListener);
         return () => window.removeEventListener('ev:user-loaded', handler as EventListener);
     }, []);
 
-    const t = (key: keyof TranslationSchema): string => {
+    const t = useCallback((key: keyof TranslationSchema): string => {
         const base = TRANSLATIONS[language][key];
 
-        // Only apply dialects if language is Spanish (es) or if it's explicitly allowed
         if (language === 'es' && dialect !== 'none') {
             const override = DIALECT_OVERRIDES[dialect][key];
             return override || base;
         }
 
         return base;
-    };
+    }, [language, dialect]);
 
     return (
         <LanguageContext.Provider value={{ language, dialect, setLanguage, setDialect, t }}>
