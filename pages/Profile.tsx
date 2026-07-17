@@ -496,6 +496,24 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
     return () => window.removeEventListener('profile-check-unsaved', handler);
   }, [hasChanges, activeSection]);
 
+  // Block body scroll while modal is open
+  useEffect(() => {
+    if (showUnsavedChangesModal) {
+      const scrollY = window.scrollY;
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.width = '';
+        document.body.style.overflow = '';
+        window.scrollTo(0, scrollY);
+      };
+    }
+  }, [showUnsavedChangesModal]);
+
   const handleConfirmDelete = async () => {
     setDeleting(true);
     try {
@@ -2043,29 +2061,33 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
 
             {/* Unsaved Changes Confirmation Modal */}
             {showUnsavedChangesModal && (
-              <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-                <div className="bg-[var(--bg-card)] w-full max-w-sm rounded-[2rem] shadow-2xl animate-pop-in p-6 text-center" onClick={e => e.stopPropagation()}>
-                  <div className="w-14 h-14 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+              <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 sm:p-6" style={{ backgroundColor: 'rgba(0,0,0,0.55)', WebkitBackdropFilter: 'blur(6px)', backdropFilter: 'blur(6px)' }}>
+                <div
+                  className="relative w-full max-w-[90vw] sm:max-w-[70vw] md:max-w-md bg-[var(--bg-card)] rounded-3xl shadow-2xl p-6 sm:p-8 text-center animate-pop-in"
+                  style={{ WebkitTapHighlightColor: 'transparent' }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-4 sm:mb-5 shadow-lg">
                     <AlertCircle size={28} className="text-white" />
                   </div>
-                  <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">¿Desea guardar los cambios?</h3>
-                  <p className="text-sm text-[var(--text-secondary)] mb-6">Tienes cambios sin guardar en los ajustes.</p>
-                  <div className="flex flex-col gap-2.5">
+                  <h3 className="text-lg sm:text-xl font-bold text-[var(--text-primary)] mb-2">¿Desea guardar los cambios?</h3>
+                  <p className="text-sm text-[var(--text-secondary)] mb-6 sm:mb-8">Tienes cambios sin guardar en los ajustes.</p>
+                  <div className="flex flex-col gap-3">
                     <button
                       onClick={handleSaveAndNavigate}
-                      className="w-full py-3 rounded-xl bg-[var(--color-primary)] text-white font-bold text-sm shadow-lg shadow-[var(--color-primary)]/20 active:scale-[0.98] transition-all"
+                      className="w-full py-3.5 rounded-2xl bg-[var(--color-primary)] text-white font-bold text-sm shadow-lg shadow-[var(--color-primary)]/25 active:scale-[0.97] transition-transform duration-150"
                     >
                       Guardar
                     </button>
                     <button
                       onClick={handleDiscardAndNavigate}
-                      className="w-full py-3 rounded-xl bg-red-50 text-red-600 font-bold text-sm border border-red-200 active:scale-[0.98] transition-all"
+                      className="w-full py-3.5 rounded-2xl bg-red-50 text-red-600 font-bold text-sm border border-red-200 active:scale-[0.97] transition-transform duration-150"
                     >
                       Descartar
                     </button>
                     <button
                       onClick={handleCancelNavigation}
-                      className="w-full py-3 rounded-xl bg-[var(--bg-card-hover)] text-[var(--text-secondary)] font-bold text-sm active:scale-[0.98] transition-all"
+                      className="w-full py-3.5 rounded-2xl bg-[var(--bg-card-hover)] text-[var(--text-secondary)] font-bold text-sm active:scale-[0.97] transition-transform duration-150"
                     >
                       Cancelar
                     </button>
