@@ -3,7 +3,7 @@
 # Optimizado: cache mounts, prisma split, sin python3 en build
 
 # ============= STAGE 1: Dependencies =============
-FROM node:20-bookworm-slim AS dependencies
+FROM node:22-bookworm-slim AS dependencies
 
 RUN apt-get update && apt-get install -y openssl curl python3 build-essential && rm -rf /var/lib/apt/lists/*
 
@@ -79,7 +79,7 @@ COPY server/tsconfig.json ./
 RUN npm run build
 
 # ============= STAGE 4: Production Runtime =============
-FROM node:20-bookworm-slim AS production
+FROM node:22-bookworm-slim AS production
 
 RUN apt-get update && apt-get install -y openssl curl ca-certificates python3 build-essential && rm -rf /var/lib/apt/lists/*
 
