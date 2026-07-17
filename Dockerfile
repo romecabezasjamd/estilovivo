@@ -44,8 +44,8 @@ WORKDIR /app
 # Force production mode so import.meta.env.DEV is false in built output
 ENV NODE_ENV=production
 
-# Cache buster: cambia este valor para forzar rebuild
-ARG CACHEBUST
+# Cache bust: copy build version file first — changes every commit
+COPY server/.build-version .build-version
 
 # Copiar todo lo necesario para el frontend
 COPY tsconfig.json vite.config.ts postcss.config.js tailwind.config.js index.html index.tsx App.tsx types.ts ./
@@ -68,8 +68,8 @@ FROM dependencies AS backend-build
 
 WORKDIR /app/server
 
-# Cache buster: set this build arg to force rebuild
-ARG CACHEBUST
+# Cache bust: copy build version file first — changes every commit
+COPY server/.build-version .build-version
 
 # Copiar código backend
 COPY server/src ./src
@@ -94,6 +94,9 @@ EXPOSE 3000
 # Database stored at /app/data to match Coolify's persistent volume
 ARG DATABASE_URL=file:/app/data/dev.db
 ENV DATABASE_URL=$DATABASE_URL
+
+# Cache bust: forces all subsequent layers to rebuild when code changes
+COPY server/.build-version .build-version
 
 # Copy Prisma schema + config + migrations from backend-build
 COPY --from=backend-build /app/server/prisma ./server/prisma

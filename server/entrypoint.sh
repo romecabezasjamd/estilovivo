@@ -7,11 +7,9 @@ trap 'echo "=== [entrypoint] Shutting down ==="; exit 0' TERM INT
 
 PRISMA="./node_modules/.bin/prisma"
 
-# Force DATABASE_URL to absolute path if not set correctly
-if [ -z "$DATABASE_URL" ]; then
-  export DATABASE_URL="file:/app/data/dev.db"
-  echo "=== [entrypoint] DATABASE_URL was empty, set to $DATABASE_URL"
-fi
+# ALWAYS force DATABASE_URL to absolute path — Coolify may override with relative path
+export DATABASE_URL="file:/app/data/dev.db"
+echo "=== [entrypoint] DATABASE_URL forced to $DATABASE_URL"
 
 # Ensure data directory exists and is writable
 mkdir -p /app/data
