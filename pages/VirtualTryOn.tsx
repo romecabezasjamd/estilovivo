@@ -1025,7 +1025,7 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
     }
 
     const onHandleTouch = (e: React.TouchEvent, idx: number, handle: string) => {
-      e.stopPropagation(); e.preventDefault()
+      e.stopPropagation()
       if (layersRef.current[idx]?.locked) return
       setActive(idx); activeRef.current = idx
       const l = layersRef.current[idx]
