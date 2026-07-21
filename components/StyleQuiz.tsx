@@ -8,9 +8,9 @@ interface Props {
 }
 
 export interface StylePreferences {
-  favoriteColors: string[];
-  preferredStyles: string[];
-  preferredOccasions: string[];
+  styleColors: string[];
+  styleStyles: string[];
+  styleOccasions: string[];
   locationName: string;
 }
 
@@ -80,9 +80,9 @@ export default function StyleQuiz({ onComplete, onSkip }: Props) {
 
   const handleComplete = () => {
     const prefs: StylePreferences = {
-      favoriteColors: selectedColors,
-      preferredStyles: selectedStyles,
-      preferredOccasions: selectedOccasions,
+      styleColors: selectedColors,
+      styleStyles: selectedStyles,
+      styleOccasions: selectedOccasions,
       locationName,
     };
     api.updateUserPreferences(prefs as unknown as Record<string, unknown>).catch(() => {});
