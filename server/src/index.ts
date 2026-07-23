@@ -1230,7 +1230,7 @@ app.get('/api/auth/me', authenticateToken, async (req: any, res: Response) => {
 
 app.put('/api/auth/profile', authenticateToken, upload.fields([{ name: 'avatar', maxCount: 1 }, { name: 'fullBodyAvatar', maxCount: 1 }]), validate(updateProfileSchema), async (req: any, res: Response) => {
   try {
-    const { name, bio, mood, cycleTracking, musicSync, emailNotifications, emailChat, emailFollows, emailWashing, emailChallenges, gender, birthDate, themePreset, customColor } = req.body;
+    const { name, bio, mood, cycleTracking, musicSync, emailNotifications, emailChat, emailFollows, emailWashing, emailChallenges, gender, birthDate, themePreset, customColor, fontSize, highContrast, isProfilePublic, locationName, darkModeSetting, language, dialect, styleColors, styleStyles, styleOccasions, styleFabrics } = req.body;
     const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
     const avatarFile = files?.['avatar']?.[0];
     const fullBodyFile = files?.['fullBodyAvatar']?.[0];
@@ -1250,6 +1250,17 @@ app.put('/api/auth/profile', authenticateToken, upload.fields([{ name: 'avatar',
     if (emailChallenges !== undefined) updateData.emailChallenges = emailChallenges === 'true' || emailChallenges === true;
     if (gender !== undefined) updateData.gender = gender;
     if (birthDate !== undefined) updateData.birthDate = birthDate ? new Date(birthDate) : null;
+    if (fontSize !== undefined) updateData.fontSize = fontSize;
+    if (highContrast !== undefined) updateData.highContrast = highContrast === 'true' || highContrast === true;
+    if (isProfilePublic !== undefined) updateData.isProfilePublic = isProfilePublic === 'true' || isProfilePublic === true;
+    if (locationName !== undefined) updateData.locationName = locationName;
+    if (darkModeSetting !== undefined) updateData.darkModeSetting = darkModeSetting;
+    if (language !== undefined) updateData.language = language;
+    if (dialect !== undefined) updateData.dialect = dialect;
+    if (styleColors !== undefined) updateData.styleColors = styleColors;
+    if (styleStyles !== undefined) updateData.styleStyles = styleStyles;
+    if (styleOccasions !== undefined) updateData.styleOccasions = styleOccasions;
+    if (styleFabrics !== undefined) updateData.styleFabrics = styleFabrics;
     if (avatarFile) updateData.avatar = `/api/uploads/${avatarFile.filename}`;
     if (fullBodyFile) updateData.fullBodyAvatar = `/api/uploads/${fullBodyFile.filename}`;
 
