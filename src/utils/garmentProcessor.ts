@@ -27,44 +27,58 @@ function getCanvas(w: number, h: number) {
   return { c, ctx }
 }
 
-function sampleCorners(data: Uint8ClampedArray, w: number, h: number): number[][] {
+function sampleEdges(data: Uint8ClampedArray, w: number, h: number): number[][] {
   const s: number[][] = []
   const px = (x: number, y: number) => {
     const i = (y * w + x) * 4
-    s.push([data[i], data[i + 1], data[i + 2]])
+    if (data[i + 3] > 128) s.push([data[i], data[i + 1], data[i + 2]])
   }
-  for (let y = 0; y < h; y++) {
+  const step = Math.max(1, Math.floor(Math.min(w, h) / 40))
+  for (let y = 0; y < h; y += step) {
     px(0, y); px(1, y); px(w - 1, y); px(w - 2, y)
   }
-  for (let x = 0; x < w; x++) {
+  for (let x = 0; x < w; x += step) {
     px(x, 0); px(x, 1); px(x, h - 1); px(x, h - 2)
   }
   return s
 }
 
-function dominant(samples: number[][]): [number, number, number] {
-  const buckets = new Map<string, { c: number[]; n: number }>()
+function dominantColor(samples: number[][]): [number, number, number] {
+  if (samples.length === 0) return [255, 255, 255]
+  const buckets = new Map<string, { r: number; g: number; b: number; n: number }>()
   for (const s of samples) {
     const k = `${s[0] >> 4},${s[1] >> 4},${s[2] >> 4}`
     const b = buckets.get(k)
-    if (b) b.n++; else buckets.set(k, { c: s, n: 1 })
+    if (b) { b.r += s[0]; b.g += s[1]; b.b += s[2]; b.n++ }
+    else buckets.set(k, { r: s[0], g: s[1], b: s[2], n: 1 })
   }
-  let best: { c: number[]; n: number } | null = null
-  for (const b of buckets.values()) { if (!best || b.n > best.n) best = b }
-  return best ? [best.c[0], best.c[1], best.c[2]] : [255, 255, 255]
+  let best: { r: number; g: number; b: number; n: number } | null = null
+  for (const b of buckets.values()) {
+    if (!best || b.n > best.n) best = b
+  }
+  if (!best) return [255, 255, 255]
+  return [Math.round(best.r / best.n), Math.round(best.g / best.n), Math.round(best.b / best.n)]
 }
 
-function colorDist(a: number[], b: number[]): number {
-  return Math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2)
+function colorDistLab(r1: number, g1: number, b1: number, r2: number, g2: number, b2: number): number {
+  const ravg = (r1 + r2) / 2
+  const dr = r1 - r2
+  const dg = g1 - g2
+  const db = b1 - b2
+  const dR = dr * dr
+  const dG = dg * dg * (1 + 0.05 * ravg / 255)
+  const dB = db * db * (2 + ravg / 256)
+  return Math.sqrt(dR + dG + dB)
 }
 
-function buildMask(data: Uint8ClampedArray, w: number, h: number, bg: number[], tol: number): Uint8ClampedArray {
+function buildMask(data: Uint8ClampedArray, w: number, h: number, bg: [number, number, number], tol: number): Uint8ClampedArray {
   const m = new Uint8ClampedArray(w * h)
-  const lo = tol * 0.3, hi = tol * 0.9
+  const lo = tol * 0.25
+  const hi = tol * 0.75
   for (let i = 0; i < w * h; i++) {
     const p = i * 4
-    if (data[p + 3] === 0) { m[i] = 0; continue }
-    const d = colorDist([data[p], data[p + 1], data[p + 2]], bg)
+    if (data[p + 3] < 128) { m[i] = 0; continue }
+    const d = colorDistLab(data[p], data[p + 1], data[p + 2], bg[0], bg[1], bg[2])
     if (d < lo) { m[i] = 0; continue }
     if (d > hi) { m[i] = 255; continue }
     m[i] = Math.round(((d - lo) / (hi - lo)) * 255)
@@ -90,21 +104,65 @@ function floodBG(mask: Uint8ClampedArray, w: number, h: number) {
   }
 }
 
-function feather(mask: Uint8ClampedArray, w: number, h: number, r: number): Uint8ClampedArray {
+function erode(mask: Uint8ClampedArray, w: number, h: number, r: number): Uint8ClampedArray {
   const out = new Uint8ClampedArray(mask)
-  const passes = Math.max(1, r >> 1)
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let min = 255
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          const nx = x + dx, ny = y + dy
+          if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+            min = Math.min(min, mask[ny * w + nx])
+          }
+        }
+      }
+      out[y * w + x] = min
+    }
+  }
+  return out
+}
+
+function dilate(mask: Uint8ClampedArray, w: number, h: number, r: number): Uint8ClampedArray {
+  const out = new Uint8ClampedArray(mask)
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      let max = 0
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          const nx = x + dx, ny = y + dy
+          if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+            max = Math.max(max, mask[ny * w + nx])
+          }
+        }
+      }
+      out[y * w + x] = max
+    }
+  }
+  return out
+}
+
+function gaussianFeather(mask: Uint8ClampedArray, w: number, h: number, radius: number): Uint8ClampedArray {
+  if (radius <= 0) return mask
+  const passes = Math.max(1, Math.ceil(radius / 2))
+  let out = new Uint8ClampedArray(mask)
   for (let p = 0; p < passes; p++) {
     const tmp = new Uint8ClampedArray(out)
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
-        let s = 0, n = 0
-        for (let dy = -1; dy <= 1; dy++) {
-          for (let dx = -1; dx <= 1; dx++) {
+        let sum = 0, weight = 0
+        for (let dy = -2; dy <= 2; dy++) {
+          for (let dx = -2; dx <= 2; dx++) {
             const nx = x + dx, ny = y + dy
-            if (nx >= 0 && nx < w && ny >= 0 && ny < h) { s += tmp[ny * w + nx]; n++ }
+            if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+              const d = Math.sqrt(dx * dx + dy * dy)
+              const w2 = Math.exp(-d * d / 2)
+              sum += tmp[ny * w + nx] * w2
+              weight += w2
+            }
           }
         }
-        out[y * w + x] = s / n
+        out[y * w + x] = Math.round(sum / weight)
       }
     }
   }
@@ -141,23 +199,56 @@ function detectAlphaTransparency(data: Uint8ClampedArray, w: number, h: number):
   return transparent / (total / step) > 0.15
 }
 
-function edgeBasedMask(data: Uint8ClampedArray, w: number, h: number): Uint8ClampedArray {
-  const m = new Uint8ClampedArray(w * h)
+function sobelEdgeMask(data: Uint8ClampedArray, w: number, h: number): Uint8ClampedArray {
+  const gray = new Float32Array(w * h)
+  for (let i = 0; i < w * h; i++) {
+    const p = i * 4
+    gray[i] = 0.299 * data[p] + 0.587 * data[p + 1] + 0.114 * data[p + 2]
+  }
+  const gx = new Float32Array(w * h)
+  const gy = new Float32Array(w * h)
   for (let y = 1; y < h - 1; y++) {
     for (let x = 1; x < w - 1; x++) {
-      const i = (y * w + x) * 4
-      if (data[i + 3] < 128) { m[y * w + x] = 0; continue }
-      let maxDiff = 0
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          if (dx === 0 && dy === 0) continue
-          const ni = ((y + dy) * w + (x + dx)) * 4
-          const diff = Math.abs(data[i] - data[ni]) + Math.abs(data[i + 1] - data[ni + 1]) + Math.abs(data[i + 2] - data[ni + 2])
-          maxDiff = Math.max(maxDiff, diff)
-        }
-      }
-      m[y * w + x] = maxDiff < 30 ? 255 : maxDiff < 80 ? 180 : 128
+      const i = y * w + x
+      gx[i] = -gray[(y - 1) * w + x - 1] + gray[(y - 1) * w + x + 1]
+        - 2 * gray[y * w + x - 1] + 2 * gray[y * w + x + 1]
+        - gray[(y + 1) * w + x - 1] + gray[(y + 1) * w + x + 1]
+      gy[i] = -gray[(y - 1) * w + x - 1] - 2 * gray[(y - 1) * w + x] - gray[(y - 1) * w + x + 1]
+        + gray[(y + 1) * w + x - 1] + 2 * gray[(y + 1) * w + x] + gray[(y + 1) * w + x + 1]
     }
+  }
+  const m = new Uint8ClampedArray(w * h)
+  for (let i = 0; i < w * h; i++) {
+    const mag = Math.sqrt(gx[i] * gx[i] + gy[i] * gy[i])
+    m[i] = Math.min(255, Math.round(mag))
+  }
+  return m
+}
+
+function regionGrowForeground(data: Uint8ClampedArray, w: number, h: number, bg: [number, number, number], tol: number): Uint8ClampedArray {
+  const m = new Uint8ClampedArray(w * h)
+  const seed = Math.floor(w * h * 0.5)
+  const sp = seed * 4
+  const fg = [data[sp], data[sp + 1], data[sp + 2]]
+  const q: [number, number][] = []
+  const v = new Uint8Array(w * h)
+  const push = (x: number, y: number) => {
+    if (x < 0 || x >= w || y < 0 || y >= h) return
+    const k = y * w + x
+    if (v[k]) return
+    v[k] = 1
+    const p = k * 4
+    if (data[p + 3] < 128) return
+    const d = colorDistLab(data[p], data[p + 1], data[p + 2], fg[0], fg[1], fg[2])
+    if (d < tol * 1.2) {
+      m[k] = 255
+      q.push([x, y])
+    }
+  }
+  push(Math.floor(w / 2), Math.floor(h / 2))
+  while (q.length) {
+    const [x, y] = q.pop()!
+    push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1)
   }
   return m
 }
@@ -184,19 +275,40 @@ export async function removeBackground(imageUrl: string, options: ProcessOptions
     }
   }
 
-  const bg = dominant(sampleCorners(id.data, w, h))
+  const bg = dominantColor(sampleEdges(id.data, w, h))
   let mask = buildMask(id.data, w, h, bg, tolerance)
   floodBG(mask, w, h)
 
   const fgPixels = mask.reduce((s, v) => s + (v > 128 ? 1 : 0), 0)
-  if (fgPixels < w * h * 0.05) {
-    mask = edgeBasedMask(id.data, w, h)
+  const totalPixels = w * h
+
+  if (fgPixels < totalPixels * 0.05) {
+    mask = regionGrowForeground(id.data, w, h, bg, tolerance)
     floodBG(mask, w, h)
   }
 
-  mask = feather(mask, w, h, featherRadius)
+  if (fgPixels > totalPixels * 0.92) {
+    const edges = sobelEdgeMask(id.data, w, h)
+    let edgeMask = new Uint8ClampedArray(w * h)
+    for (let i = 0; i < w * h; i++) {
+      edgeMask[i] = edges[i] > 40 ? 255 : 0
+    }
+    floodBG(edgeMask, w, h)
+    const edgeFg = edgeMask.reduce((s, v) => s + (v > 128 ? 1 : 0), 0)
+    if (edgeFg > totalPixels * 0.05 && edgeFg < totalPixels * 0.85) {
+      for (let i = 0; i < w * h; i++) {
+        mask[i] = Math.max(mask[i], edgeMask[i])
+      }
+    }
+  }
+
+  mask = erode(mask, w, h, 1)
+  mask = dilate(mask, w, h, 2)
+  mask = gaussianFeather(mask, w, h, featherRadius)
+
   for (let i = 0; i < w * h; i++) id.data[i * 4 + 3] = mask[i]
   ctx.putImageData(id, 0, 0)
+
   if (autoCrop) {
     const b = contentBounds(mask, w, h)
     if (b) {

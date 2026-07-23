@@ -378,6 +378,10 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
     centerNX: 0, centerNY: 0, startW: 0, startH: 0, startR: 0, startX: 0, startY: 0,
     pinch: false, pDist: 0, pAngle: 0, sW: 0, sH: 0, sR: 0,
     wasDragged: false,
+    velocity: { x: 0, y: 0 },
+    lastMoveTime: 0,
+    velocityHistory: [] as Array<{ dx: number; dy: number; dt: number }>,
+    momentumRaf: 0,
   })
 
   const getScale = useCallback(() => {
@@ -423,6 +427,44 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
     if (step !== 'tryon') return
     const g = gesture.current
 
+    const trackVelocity = (dx: number, dy: number) => {
+      const now = performance.now()
+      const dt = now - g.lastMoveTime
+      g.lastMoveTime = now
+      if (dt > 0 && dt < 100) {
+        g.velocityHistory.push({ dx, dy, dt })
+        if (g.velocityHistory.length > 5) g.velocityHistory.shift()
+      }
+    }
+
+    const calcAvgVelocity = () => {
+      const hist = g.velocityHistory
+      if (hist.length === 0) return { x: 0, y: 0 }
+      let totalDx = 0, totalDy = 0, totalDt = 0
+      for (const h of hist) { totalDx += h.dx; totalDy += h.dy; totalDt += h.dt }
+      if (totalDt === 0) return { x: 0, y: 0 }
+      const scale = 1000 / totalDt
+      return { x: totalDx * scale, y: totalDy * scale }
+    }
+
+    const applyMomentum = (vx: number, vy: number, idx: number) => {
+      if (g.momentumRaf) cancelAnimationFrame(g.momentumRaf)
+      const friction = 0.92
+      let curVx = vx, curVy = vy
+      const tick = () => {
+        if (Math.abs(curVx) < 0.5 && Math.abs(curVy) < 0.5) return
+        curVx *= friction
+        curVy *= friction
+        const ls = layersRef.current
+        const l = ls[idx]
+        if (!l) return
+        const dt = 16
+        updateLayer(idx, { x: l.x + curVx * dt / 1000, y: l.y + curVy * dt / 1000 })
+        g.momentumRaf = requestAnimationFrame(tick)
+      }
+      g.momentumRaf = requestAnimationFrame(tick)
+    }
+
     const onMM = (e: MouseEvent) => {
       if (g.mode === 'idle' || g.dragIdx < 0) return
       const ls = layersRef.current
@@ -434,6 +476,7 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
         const { nx, ny } = screenToNatural(e.clientX, e.clientY)
         const dx = nx - g.lx, dy = ny - g.ly
         g.lx = nx; g.ly = ny
+        trackVelocity(dx, dy)
         updateLayer(g.dragIdx, { x: l.x + dx, y: l.y + dy })
       } else if (g.mode === 'resize') {
         const { nx, ny } = screenToNatural(e.clientX, e.clientY)
@@ -471,8 +514,15 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
     const onMU = () => {
       if (g.wasDragged && g.dragIdx >= 0) {
         pushHistory(layersRef.current)
+        if (g.mode === 'drag') {
+          const v = calcAvgVelocity()
+          if (Math.abs(v.x) > 50 || Math.abs(v.y) > 50) {
+            applyMomentum(v.x, v.y, g.dragIdx)
+          }
+        }
       }
       g.mode = 'idle'; g.dragIdx = -1; g.wasDragged = false
+      g.velocityHistory = []
     }
 
     const onTM = (e: TouchEvent) => {
@@ -499,6 +549,7 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
           const { nx, ny } = screenToNatural(t.clientX, t.clientY)
           const dx = nx - g.lx, dy = ny - g.ly
           g.lx = nx; g.ly = ny
+          trackVelocity(dx, dy)
           updateLayer(g.dragIdx, { x: l.x + dx, y: l.y + dy })
         } else if (g.mode === 'resize') {
           const { nx, ny } = screenToNatural(t.clientX, t.clientY)
@@ -536,8 +587,15 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
     const onTE = () => {
       if (g.wasDragged && g.dragIdx >= 0) {
         pushHistory(layersRef.current)
+        if (g.mode === 'drag') {
+          const v = calcAvgVelocity()
+          if (Math.abs(v.x) > 50 || Math.abs(v.y) > 50) {
+            applyMomentum(v.x, v.y, g.dragIdx)
+          }
+        }
       }
       g.mode = 'idle'; g.dragIdx = -1; g.pinch = false; g.wasDragged = false
+      g.velocityHistory = []
     }
 
     const onW = (e: WheelEvent) => {
@@ -546,8 +604,8 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
       const ls = layersRef.current
       if (ai >= ls.length) return
       e.preventDefault()
-      const f = e.deltaY > 0 ? 0.95 : 1.05
       const l = ls[ai]
+      const f = e.deltaY > 0 ? 0.95 : 1.05
       const newW = Math.max(40, l.w * f)
       const newH = Math.max(40, l.h * f)
       updateLayer(ai, { w: newW, h: newH, x: l.x + (l.w - newW) / 2, y: l.y + (l.h - newH) / 2 })
@@ -560,6 +618,7 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
     window.addEventListener('wheel', onW, { passive: false })
 
     return () => {
+      if (g.momentumRaf) cancelAnimationFrame(g.momentumRaf)
       window.removeEventListener('mousemove', onMM)
       window.removeEventListener('mouseup', onMU)
       window.removeEventListener('touchmove', onTM)
@@ -569,13 +628,32 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
   }, [step, screenToNatural, updateLayer, pushHistory])
 
   // ─── Zoom/pan handlers (container-level) ──────────────────────
-  const pinchRef = useRef({ dist: 0, zoom: 1 })
+  const pinchRef = useRef({ dist: 0, zoom: 1, targetZoom: 1, raf: 0 })
   const lastTapRef = useRef(0)
   const panStartRef = useRef({ x: 0, y: 0, px: 0, py: 0 })
 
   useEffect(() => {
     if (step !== 'tryon' || !containerRef.current) return
     const el = containerRef.current
+
+    const smoothZoom = (target: number) => {
+      pinchRef.current.targetZoom = target
+      if (pinchRef.current.raf) cancelAnimationFrame(pinchRef.current.raf)
+      const animate = () => {
+        const current = pinchRef.current.zoom
+        const diff = pinchRef.current.targetZoom - current
+        if (Math.abs(diff) < 0.005) {
+          setZoom(pinchRef.current.targetZoom)
+          pinchRef.current.zoom = pinchRef.current.targetZoom
+          return
+        }
+        const next = current + diff * 0.2
+        pinchRef.current.zoom = next
+        setZoom(next)
+        pinchRef.current.raf = requestAnimationFrame(animate)
+      }
+      pinchRef.current.raf = requestAnimationFrame(animate)
+    }
 
     const onTouchStart = (e: TouchEvent) => {
       const target = e.target as HTMLElement
@@ -584,14 +662,14 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
       if (e.touches.length === 2 && !onGarment) {
         e.preventDefault()
         const t0 = e.touches[0], t1 = e.touches[1]
-        pinchRef.current = { dist: Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY), zoom }
+        pinchRef.current = { ...pinchRef.current, dist: Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY), zoom: zoom }
       } else if (e.touches.length === 1 && !onGarment) {
         const now = Date.now()
         if (now - lastTapRef.current < 300) {
           e.preventDefault()
           lastTapRef.current = 0
-          if (zoom > 1) { setZoom(1); setPan({ x: 0, y: 0 }) }
-          else { setZoom(2); setPan({ x: 0, y: 0 }) }
+          if (zoom > 1) { smoothZoom(1); setPan({ x: 0, y: 0 }) }
+          else { smoothZoom(2); setPan({ x: 0, y: 0 }) }
           return
         }
         lastTapRef.current = now
@@ -607,7 +685,7 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
         const t0 = e.touches[0], t1 = e.touches[1]
         const d = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY)
         const newZoom = Math.min(3, Math.max(1, pinchRef.current.zoom * (d / pinchRef.current.dist)))
-        setZoom(newZoom)
+        smoothZoom(newZoom)
         if (newZoom <= 1) setPan({ x: 0, y: 0 })
       } else if (e.touches.length === 1 && zoom > 1 && gesture.current.mode === 'idle' && !(e.target as HTMLElement)?.closest?.('[data-garment]')) {
         const dx = e.touches[0].clientX - panStartRef.current.x
@@ -622,11 +700,9 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault()
         const delta = e.deltaY > 0 ? 0.9 : 1.1
-        setZoom(z => {
-          const nz = Math.min(3, Math.max(1, z * delta))
-          if (nz <= 1) setPan({ x: 0, y: 0 })
-          return nz
-        })
+        const target = Math.min(3, Math.max(1, zoom * delta))
+        smoothZoom(target)
+        if (target <= 1) setPan({ x: 0, y: 0 })
       }
     }
 
@@ -639,6 +715,7 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
       el.removeEventListener('touchmove', onTouchMove)
       el.removeEventListener('touchend', onTouchEnd)
       el.removeEventListener('wheel', onWheel)
+      if (pinchRef.current.raf) cancelAnimationFrame(pinchRef.current.raf)
     }
   }, [step, zoom, pan])
 
