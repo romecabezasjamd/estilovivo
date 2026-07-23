@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronRight, Shirt, Camera, Users, Sparkles } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Shirt, Camera, Users, Sparkles } from 'lucide-react';
 import StyleQuiz from '../components/StyleQuiz';
 
 interface Props {
@@ -66,26 +66,43 @@ export default function Onboarding({ onComplete }: Props) {
           ))}
         </div>
 
-        <button
-          onClick={() => {
-            if (step < STEPS.length - 1) {
-              setStep(step + 1);
-            } else {
-              setShowQuiz(true);
-            }
-          }}
-          className="w-full py-4 rounded-2xl text-white font-bold text-sm flex items-center justify-center gap-2"
-          style={{ backgroundColor: 'var(--color-primary)' }}
-        >
-          {step < STEPS.length - 1 ? (
-            <>
-              Siguiente
-              <ChevronRight size={18} />
-            </>
-          ) : (
-            'Personalizar estilo'
+        <div className="flex gap-3">
+          {step > 0 && (
+            <button
+              onClick={() => setStep(step - 1)}
+              className="py-4 px-5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2"
+              style={{
+                backgroundColor: 'var(--bg-card)',
+                border: '1px solid var(--border-light)',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              <ChevronLeft size={18} />
+              Atrás
+            </button>
           )}
-        </button>
+
+          <button
+            onClick={() => {
+              if (step < STEPS.length - 1) {
+                setStep(step + 1);
+              } else {
+                setShowQuiz(true);
+              }
+            }}
+            className="flex-1 py-4 rounded-2xl text-white font-bold text-sm flex items-center justify-center gap-2"
+            style={{ backgroundColor: 'var(--color-primary)' }}
+          >
+            {step < STEPS.length - 1 ? (
+              <>
+                Siguiente
+                <ChevronRight size={18} />
+              </>
+            ) : (
+              'Personalizar estilo'
+            )}
+          </button>
+        </div>
 
         {step < STEPS.length - 1 && (
           <button

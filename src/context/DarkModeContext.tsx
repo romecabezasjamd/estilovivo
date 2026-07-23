@@ -23,14 +23,14 @@ function resolveActive(setting: DarkModeSetting): boolean {
 
 export const DarkModeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [prefs, setPrefs] = useState<DarkModePreferences>(() => {
-    const active = resolveActive('system');
-    return { setting: 'system', active };
+    const active = resolveActive('off');
+    return { setting: 'off', active };
   });
   const [isReady, setIsReady] = useState(false);
 
   // Apply system default on mount so dark mode works immediately
   useEffect(() => {
-    applyDarkMode(resolveActive('system'));
+    applyDarkMode(resolveActive('off'));
   }, []);
 
   useEffect(() => {

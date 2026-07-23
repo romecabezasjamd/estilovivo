@@ -364,12 +364,17 @@ const mapProductToGarment = (p: any): Garment | undefined => {
 // Helper: map backend look to frontend Look
 const mapLook = (l: any): Look | undefined => {
     if (!l) return undefined;
+    let tags: string[] = [];
+    if (l.tags) {
+        try { tags = typeof l.tags === 'string' ? JSON.parse(l.tags) : l.tags; } catch { tags = []; }
+    }
+    if (l.mood && !tags.includes(l.mood)) tags = [l.mood, ...tags];
     return {
         id: l.id,
         name: l.title || l.name,
         garmentIds: (l.products || l.garments)?.filter((p: any) => !!p).map((p: any) => p.id) || [],
         garments: (l.products || l.garments)?.map(mapProductToGarment).filter((g: any) => !!g) || [],
-        tags: l.mood ? [l.mood] : [],
+        tags,
         mood: l.mood,
         createdAt: l.createdAt,
         isPublic: l.isPublic,
@@ -646,10 +651,11 @@ export const api = {
             credentials: 'include', method: 'POST',
             headers: getHeaders(),
             body: JSON.stringify({
-                title: look.name,
-                productIds: JSON.stringify(look.garmentIds),
+                title: look.name || 'Sin título',
+                productIds: JSON.stringify(look.garmentIds || []),
                 isPublic: look.isPublic || false,
                 mood: look.mood,
+                tags: look.tags || [],
             })
         });
         const l = await handleResponse(res);
@@ -680,6 +686,7 @@ export const api = {
                 isPublic: data.isPublic,
                 mood: data.mood,
                 productIds: data.garmentIds ? JSON.stringify(data.garmentIds) : undefined,
+                tags: data.tags,
             })
         });
         const l = await handleResponse(res);
@@ -917,6 +924,13 @@ export const api = {
             credentials: 'include', method: 'POST',
             headers: getHeaders(),
             body: JSON.stringify({ targetUserId })
+        });
+        return handleResponse(res);
+    },
+
+    getUserProfile: async (userId: string) => {
+        const res = await fetch(`${API_BASE}/users/${userId}`, {
+            credentials: 'include', headers: getHeaders()
         });
         return handleResponse(res);
     },

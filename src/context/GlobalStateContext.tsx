@@ -443,7 +443,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
     // ── Looks ─────────────────────────────────────────────────────────────────
 
     const saveLook = useCallback(async (look: Look, onAfterSave?: () => void) => {
-        const isEdit = look.id.startsWith('l-') && look.createdAt;
+        const isEdit = !look.id.startsWith('l-') && !look.id.startsWith('temp-');
         const tempId = isEdit ? look.id : `temp-${Date.now()}`;
         const optimisticLook = { ...look, id: tempId };
 
@@ -477,7 +477,6 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
             });
             notify(`✗ ${t('lookSaveError')}`, 'error');
             console.error('Error saving look:', error);
-            onAfterSave?.();
         }
     }, [notify, t]);
 
@@ -525,25 +524,32 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     // ── Trips ─────────────────────────────────────────────────────────────────
 
-    const addTrip = useCallback(async (newTrip: Trip) => {
+const addTrip = useCallback(async (newTrip: Trip) => {
+    const previousTrips = [...(await new Promise<Trip[]>(resolve => {
+        setTrips(prev => { resolve([...prev]); return prev; });
+    }))];
+
+    setTrips(prev => {
+        const updated = [newTrip, ...prev];
+        syncSet(SYNC_KEYS.TRIPS, updated);
+        return updated;
+    });
+
+    try {
+        const saved = await api.saveTrip(newTrip);
         setTrips(prev => {
-            const updated = [newTrip, ...prev];
+            const updated = [saved, ...prev.filter(t => t.id !== newTrip.id)];
             syncSet(SYNC_KEYS.TRIPS, updated);
             return updated;
         });
-
-        try {
-            const saved = await api.saveTrip(newTrip);
-            setTrips(prev => {
-                // Replace the optimistic entry (matched by destination + dates) with the real one
-                const updated = [saved, ...prev.filter(t => t.id !== newTrip.id)];
-                syncSet(SYNC_KEYS.TRIPS, updated);
-                return updated;
-            });
-        } catch (error) {
-            console.error('Error saving trip:', error);
-        }
-    }, []);
+        notify('✓ Viaje creado', 'success');
+    } catch (error) {
+        setTrips(previousTrips);
+        syncSet(SYNC_KEYS.TRIPS, previousTrips);
+        notify('✗ Error al crear viaje', 'error');
+        console.error('Error saving trip:', error);
+    }
+}, [notify]);
 
     const deleteTrip = useCallback(async (id: string) => {
         setTrips(prev => {
@@ -559,19 +565,30 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
         }
     }, []);
 
-    const updateTrip = useCallback(async (trip: Trip) => {
-        setTrips(prev => {
-            const updated = prev.map(t => t.id === trip.id ? trip : t);
-            syncSet(SYNC_KEYS.TRIPS, updated);
-            return updated;
-        });
+const updateTrip = useCallback(async (trip: Trip) => {
+    let previousTrip: Trip | undefined;
+    setTrips(prev => {
+        previousTrip = prev.find(t => t.id === trip.id);
+        const updated = prev.map(t => t.id === trip.id ? trip : t);
+        syncSet(SYNC_KEYS.TRIPS, updated);
+        return updated;
+    });
 
-        try {
-            await api.updateTrip(trip);
-        } catch (error) {
-            console.error('Error updating trip:', error);
+    try {
+        await api.updateTrip(trip);
+        notify('✓ Viaje actualizado', 'success');
+    } catch (error) {
+        if (previousTrip) {
+            setTrips(prev => {
+                const updated = prev.map(t => t.id === trip.id ? previousTrip! : t);
+                syncSet(SYNC_KEYS.TRIPS, updated);
+                return updated;
+            });
         }
-    }, []);
+        notify('✗ Error al actualizar viaje', 'error');
+        console.error('Error updating trip:', error);
+    }
+}, [notify]);
 
     // ── Context value ─────────────────────────────────────────────────────────
 

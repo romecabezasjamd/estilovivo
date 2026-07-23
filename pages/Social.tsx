@@ -25,7 +25,7 @@ interface StoryForm {
 interface SocialProps {
   user: UserState;
   garments: Garment[];
-  onNavigate: (tab: string) => void;
+  onNavigate: (tab: string, subTab?: string, extra?: string) => void;
   initialSubTab?: string | null;
   onSubTabConsumed?: () => void;
 }
@@ -1426,7 +1426,10 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                   <div className="flex overflow-x-auto gap-4 pb-2 no-scrollbar px-1 snap-x">
                     {topUsers.map((tu, idx) => (
                       <div key={tu.id} className="flex flex-col items-center flex-shrink-0 snap-center w-16">
-                        <div className="relative">
+                        <button
+                          onClick={() => { if (tu.id !== currentUserId) onNavigate('userProfile', undefined, tu.id); }}
+                          className="relative"
+                        >
                            <img
                             src={tu.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(tu.name)}&background=0F4C5C&color=fff`}
                             className={`w-14 h-14 rounded-full object-cover border-2 shadow-sm ${idx === 0 ? 'border-amber-400' : idx === 1 ? 'border-gray-300' : idx === 2 ? 'border-amber-700' : 'border-primary/20'}`}
@@ -1438,8 +1441,13 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                           {idx === 0 && (
                             <div className="absolute -top-2 -right-1 text-amber-500 bg-[var(--bg-card)] rounded-full">👑</div>
                           )}
-                        </div>
-                        <p className="text-[10px] font-semibold text-[var(--text-primary)] truncate w-full text-center mt-1.5">{tu.name.split(' ')[0]}</p>
+                        </button>
+                        <button
+                          onClick={() => { if (tu.id !== currentUserId) onNavigate('userProfile', undefined, tu.id); }}
+                          className="text-[10px] font-semibold text-[var(--text-primary)] truncate w-full text-center mt-1.5 hover:underline"
+                        >
+                          {tu.name.split(' ')[0]}
+                        </button>
                         <p className="text-[9px] text-[var(--text-muted)]">{tu.experiencePoints} XP</p>
                         <button
                           onClick={() => toggleFollowUser(tu.id)}
@@ -1463,12 +1471,22 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
 
                       {/* Creator Header */}
                       <div className="flex items-center gap-3 px-4 py-3">
-                        <img
-                          src={post.userAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.userName || 'U')}&background=0F4C5C&color=fff`}
-                          className="w-8 h-8 rounded-full object-cover border border-[var(--border-light)]"
-                          alt={post.userName} loading="lazy"
-                        />
-                        <span className="text-sm font-semibold text-[var(--text-primary)]">{post.userName || 'Usuario'}</span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); if (post.userId !== currentUserId) onNavigate('userProfile', undefined, post.userId); }}
+                          className="flex-shrink-0"
+                        >
+                          <img
+                            src={post.userAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.userName || 'U')}&background=0F4C5C&color=fff`}
+                            className="w-8 h-8 rounded-full object-cover border border-[var(--border-light)]"
+                            alt={post.userName} loading="lazy"
+                          />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); if (post.userId !== currentUserId) onNavigate('userProfile', undefined, post.userId); }}
+                          className="text-sm font-semibold text-[var(--text-primary)] hover:underline"
+                        >
+                          {post.userName || 'Usuario'}
+                        </button>
                         <span className="text-[10px] text-[var(--text-muted)] ml-auto font-medium">Lv.{getPostUserLevel(post)}</span>
                         {post.userId !== currentUserId && (
                           <button

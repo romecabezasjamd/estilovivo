@@ -36,6 +36,7 @@ export const lookSchema = z.object({
   productIds: z.union([z.string(), z.array(z.string())]),
   isPublic: z.union([z.boolean(), z.string()]).optional(),
   mood: z.string().optional(),
+  tags: z.union([z.string(), z.array(z.string())]).optional(),
 });
 
 export const plannerSchema = z.object({

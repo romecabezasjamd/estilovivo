@@ -13,6 +13,7 @@ const VirtualTryOn = lazy(() => import('./pages/VirtualTryOn'));
 const Privacy = lazy(() => import('./pages/Privacy'));
 const Onboarding = lazy(() => import('./pages/Onboarding'));
 const Premium = lazy(() => import('./pages/Premium'));
+const UserProfile = lazy(() => import('./pages/UserProfile'));
 import { GlobalStateProvider, useGlobalState } from './src/context/GlobalStateContext';
 import { LanguageProvider } from './src/context/LanguageContext';
 import { ThemeProvider } from './src/context/ThemeContext';
@@ -23,6 +24,7 @@ const AppContent: React.FC = () => {
   const getInitialTab = () => {
     const path = window.location.pathname;
     if (path === '/privacy') return 'privacy';
+    if (path.startsWith('/user/')) return 'viewProfile';
     const tabMap: Record<string, string> = {
       '/home': 'home',
       '/wardrobe': 'wardrobe',
@@ -43,7 +45,17 @@ const AppContent: React.FC = () => {
   const [wardrobeIntent, setWardrobeIntent] = useState<'looks' | 'createLook' | null>(null);
   const [plannerDate, setPlannerDate] = useState<string | undefined>(undefined);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [viewProfileId, setViewProfileId] = useState<string | null>(null);
   const skipHistory = useRef(false);
+
+  // Extract profile ID from URL on mount
+  useEffect(() => {
+    const path = window.location.pathname;
+    if (path.startsWith('/user/')) {
+      const id = path.replace('/user/', '');
+      setViewProfileId(id);
+    }
+  }, []);
 
   const pushHistory = useCallback((tab: string) => {
     if (skipHistory.current) { skipHistory.current = false; return; }
@@ -60,6 +72,12 @@ const AppContent: React.FC = () => {
         skipHistory.current = true;
         setSocialSubTab('feed');
         setActiveTab('social');
+        return;
+      }
+      if (path.startsWith('/user/')) {
+        skipHistory.current = true;
+        setViewProfileId(path.replace('/user/', ''));
+        setActiveTab('viewProfile');
         return;
       }
       const tabMap: Record<string, string> = {
@@ -96,6 +114,12 @@ const AppContent: React.FC = () => {
       setSocialSubTab('chat');
       setActiveTab('social');
       pushHistory('social');
+      return;
+    }
+    if (tab === 'userProfile' && extra) {
+      setViewProfileId(extra);
+      setActiveTab('viewProfile');
+      window.history.pushState({}, '', `/user/${extra}`);
       return;
     }
     if (tab === 'planner' && extra) {
@@ -238,6 +262,18 @@ const AppContent: React.FC = () => {
         );
       case 'social':
         return <Social user={user} garments={garments} onNavigate={handleNavigate} initialSubTab={socialSubTab} onSubTabConsumed={() => setSocialSubTab(null)} />;
+      case 'viewProfile':
+        return viewProfileId ? (
+          <UserProfile
+            userId={viewProfileId}
+            onBack={() => {
+              setViewProfileId(null);
+              setActiveTab('social');
+              window.history.pushState({}, '', '/social');
+            }}
+            onNavigate={handleNavigate}
+          />
+        ) : null;
       case 'profile':
         return (
           <Profile

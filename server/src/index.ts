@@ -1442,6 +1442,16 @@ app.put('/api/products/:id', authenticateToken, upload.array('images', 5), valid
     const existing = await prisma.product.findUnique({ where: { id } });
     if (!existing || existing.userId !== req.user.userId) return res.status(403).json({ error: 'Not authorized' });
 
+    // Enforce sale limit for non-premium users when toggling forSale to true
+    if ((forSale === true || forSale === 'true') && !existing.forSale) {
+      const saleCount = await prisma.product.count({
+        where: { userId: req.user.userId, forSale: true }
+      });
+      if (saleCount >= 5) {
+        return res.status(403).json({ error: 'Los usuarios gratuitos pueden tener un máximo de 5 prendas a la venta. Actualiza a Premium para ventas ilimitadas.' });
+      }
+    }
+
     const updateData: any = {};
     if (name !== undefined) updateData.name = name;
     if (category !== undefined) updateData.category = category;
@@ -1648,10 +1658,12 @@ app.get('/api/looks/feed', optionalAuth, async (req: any, res: Response) => {
 
 app.post('/api/looks', authenticateToken, upload.array('images', 10), validate(lookSchema), async (req: any, res: Response) => {
   try {
-    const { title, productIds, isPublic, mood } = req.body;
+    const { title, productIds, isPublic, mood, tags } = req.body;
     const files = req.files as Express.Multer.File[] | undefined;
     const parsedIds = productIds ? (typeof productIds === 'string' ? JSON.parse(productIds) : productIds) : [];
     if (!Array.isArray(parsedIds)) return res.status(400).json({ error: 'Invalid productIds' });
+    const parsedTags = tags ? (typeof tags === 'string' ? JSON.parse(tags) : tags) : [];
+    if (!Array.isArray(parsedTags)) return res.status(400).json({ error: 'Invalid tags' });
 
     // Process images with sharp
     const processedImages = [];
@@ -1682,6 +1694,7 @@ app.post('/api/looks', authenticateToken, upload.array('images', 10), validate(l
         userId: req.user.userId,
         isPublic: isPublic === 'true' || isPublic === true,
         mood: mood || null,
+        tags: parsedTags.length > 0 ? JSON.stringify(parsedTags) : null,
         products: { connect: parsedIds.map((id: string) => ({ id })) },
         images: {
           create: processedImages.map(img => ({
@@ -1710,7 +1723,7 @@ app.post('/api/looks', authenticateToken, upload.array('images', 10), validate(l
 app.put('/api/looks/:id', authenticateToken, validate(lookSchema), async (req: any, res: Response) => {
   try {
     const { id } = req.params;
-    const { title, isPublic, mood, productIds } = req.body;
+    const { title, isPublic, mood, productIds, tags } = req.body;
     const existing = await prisma.look.findUnique({ where: { id } });
     if (!existing || existing.userId !== req.user.userId) return res.status(403).json({ error: 'Not authorized' });
 
@@ -1718,6 +1731,10 @@ app.put('/api/looks/:id', authenticateToken, validate(lookSchema), async (req: a
     if (title !== undefined) updateData.title = title;
     if (isPublic !== undefined) updateData.isPublic = isPublic === 'true' || isPublic === true;
     if (mood !== undefined) updateData.mood = mood;
+    if (tags !== undefined) {
+      const parsedTags = typeof tags === 'string' ? JSON.parse(tags) : tags;
+      updateData.tags = Array.isArray(parsedTags) ? JSON.stringify(parsedTags) : null;
+    }
     if (productIds) {
       try { updateData.products = { set: JSON.parse(productIds).map((pid: string) => ({ id: pid })) }; }
       catch { return res.status(400).json({ error: 'Invalid productIds JSON' }); }
@@ -2038,6 +2055,49 @@ app.post('/api/social/follow', authenticateToken, validate(followSchema), async 
   } catch (error) {
     logger.error('Error occurred', { error });
     res.status(500).json({ error: 'Error toggling follow' });
+  }
+});
+
+app.get('/api/users/:id', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const { id } = req.params;
+    const viewerId = req.user.userId;
+    const user = await prisma.user.findUnique({
+      where: { id },
+      include: {
+        _count: { select: { followers: true, following: true, products: true, looks: true } },
+        products: {
+          where: { forSale: true },
+          take: 6,
+          include: { images: true },
+          orderBy: { createdAt: 'desc' },
+        },
+        looks: {
+          where: { isPublic: true },
+          take: 6,
+          include: { images: true, products: { include: { images: true } } },
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const { password: _, _count, ...safe } = user;
+    const isFollowing = await prisma.follow.findUnique({
+      where: { followerId_followingId: { followerId: viewerId, followingId: id } },
+    });
+
+    res.json({
+      ...safe,
+      followersCount: _count.followers,
+      followingCount: _count.following,
+      garmentCount: _count.products,
+      lookCount: _count.looks,
+      isFollowing: !!isFollowing,
+    });
+  } catch (error) {
+    logger.error('Error fetching user profile', { error });
+    res.status(500).json({ error: 'Error fetching user profile' });
   }
 });
 

@@ -7,7 +7,7 @@ import { useLanguage } from '../src/context/LanguageContext';
 
 interface CommunityProps {
     user: UserState;
-    onNavigate: (tab: string) => void;
+    onNavigate: (tab: string, subTab?: string, extra?: string) => void;
 }
 
 const Community: React.FC<CommunityProps> = ({ user, onNavigate }) => {
@@ -268,13 +268,23 @@ const Community: React.FC<CommunityProps> = ({ user, onNavigate }) => {
                                     <div key={post.id} className="bg-[var(--bg-card)] rounded-3xl shadow-sm border border-[var(--border-light)] overflow-hidden animate-fade-in-up">
                                         <div className="p-4 flex justify-between items-center">
                                             <div className="flex items-center space-x-3">
-                                                <img
-                                                    src={post.userAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.userName || 'U')}&background=0F4C5C&color=fff`}
-                                                    className="w-10 h-10 rounded-full object-cover border border-[var(--border-light)]"
-                                                    alt={post.userName}
-                                                />
+                                                <button
+                                                    onClick={() => { if (post.userId !== user.id) onNavigate('userProfile', undefined, post.userId); }}
+                                                    className="flex-shrink-0"
+                                                >
+                                                    <img
+                                                        src={post.userAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(post.userName || 'U')}&background=0F4C5C&color=fff`}
+                                                        className="w-10 h-10 rounded-full object-cover border border-[var(--border-light)]"
+                                                        alt={post.userName}
+                                                    />
+                                                </button>
                                                 <div>
-                                                    <h4 className="font-bold text-sm text-[var(--text-primary)]">{post.userName || 'Usuario'}</h4>
+                                                    <button
+                                                        onClick={() => { if (post.userId !== user.id) onNavigate('userProfile', undefined, post.userId); }}
+                                                        className="font-bold text-sm text-[var(--text-primary)] hover:underline text-left"
+                                                    >
+                                                        {post.userName || 'Usuario'}
+                                                    </button>
                                                     {post.mood && (
                                                         <div className="flex items-center space-x-1">
                                                             <div className="w-2 h-2 rounded-full bg-accent" />

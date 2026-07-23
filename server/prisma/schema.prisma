@@ -41,7 +41,7 @@ model User {
   styleOccasions    String?
   styleFabrics      String?
   locationName      String?
-  darkModeSetting   String?    @default("system")
+  darkModeSetting   String?    @default("off")
   fontSize          String?    @default("normal")
   highContrast      Boolean    @default(false)
   language          String?    @default("es")
@@ -136,6 +136,7 @@ model Look {
   description String?
   isPublic    Boolean    @default(false)
   mood        String?
+  tags        String?
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   
