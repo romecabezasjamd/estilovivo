@@ -107,7 +107,15 @@ export const updateProfileSchema = z.object({
   emailChallenges: z.union([z.boolean(), z.string()]).optional().nullable(),
   cycleTracking: z.union([z.boolean(), z.string()]).optional().nullable(),
   musicSync: z.union([z.boolean(), z.string()]).optional().nullable(),
-});
+  themePreset: z.string().optional().nullable(),
+  customColor: z.string().optional().nullable(),
+  darkModeSetting: z.string().optional().nullable(),
+  fontSize: z.string().optional().nullable(),
+  highContrast: z.union([z.boolean(), z.string()]).optional().nullable(),
+  isProfilePublic: z.union([z.boolean(), z.string()]).optional().nullable(),
+  locationName: z.string().optional().nullable(),
+  hapticFeedback: z.union([z.boolean(), z.string()]).optional().nullable(),
+}).passthrough();
 
 export const conversationSchema = z.object({
   targetUserId: z.string().min(1, 'Usuario destino requerido'),

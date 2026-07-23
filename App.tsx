@@ -141,7 +141,12 @@ const AppContent: React.FC = () => {
 
   // Check onboarding from user object — API is source of truth
   useEffect(() => {
-    if (user && !(user as any).styleColors && !(user as any).styleStyles) {
+    if (!user) return;
+    const hasStylePrefs = (user as any).styleColors || (user as any).styleStyles;
+    const hasProfileData = user.bio || user.avatar || (user as any).garmentCount > 0 || (user as any).lookCount > 0;
+    let localStorageComplete = false;
+    try { localStorageComplete = localStorage.getItem('ev_onboarding_complete') === 'true'; } catch {}
+    if (!hasStylePrefs && !hasProfileData && !localStorageComplete) {
       setShowOnboarding(true);
     }
   }, [user]);
