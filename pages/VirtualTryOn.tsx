@@ -1151,7 +1151,7 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
                       transform: `rotate(${l.rotation}deg) scaleX(${l.flipX ? -1 : 1}) scaleY(${l.flipY ? -1 : 1})`,
                       opacity: l.opacity,
                       cursor: l.locked ? 'not-allowed' : (i === active ? 'grab' : 'pointer'),
-                      filter: i === active ? 'drop-shadow(0 0 3px rgba(255,77,148,0.6))' : 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))',
+                      willChange: 'transform',
                       touchAction: 'none',
                       zIndex: i === active ? 50 : 10,
                     }}

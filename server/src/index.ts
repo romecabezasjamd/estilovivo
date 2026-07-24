@@ -2037,16 +2037,16 @@ app.post('/api/social/follow', authenticateToken, validate(followSchema), async 
       } else { throw e; }
     }
     if (following) {
-      const me = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
+      const me = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, avatar: true } });
       const notif = await prisma.notification.create({
-        data: { type: 'FOLLOW', content: `${me?.name || 'Alguien'} te siguió`, userId: targetUserId }
+        data: { type: 'FOLLOW', content: `${me?.name || 'Alguien'} te siguió`, userId: targetUserId, relatedId: userId }
       });
       io.to(`user_${targetUserId}`).emit('notification', notif);
       await sendPreferenceEmail({
         userId: targetUserId,
         subject: 'Nuevo seguidor en Estilo Vivo',
         text: `${me?.name || 'Alguien'} te siguió`,
-        html: `<p><strong>${me?.name || 'Alguien'}</strong> te siguió.</p>`,
+        html: `<p><strong>${me?.name || 'Alguien'}</strong> te siguió.</p><p><a href="${getEmailFriendlyUrl('/user/' + userId)}">Ver perfil</a></p>`,
         context: { type: 'FOLLOW' },
         preference: 'emailFollows'
       });

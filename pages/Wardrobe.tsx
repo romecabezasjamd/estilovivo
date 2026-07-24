@@ -4,7 +4,7 @@ const CreateLook = lazy(() => import('./CreateLook'));
 import { Garment, Look, PlannerEntry } from '../types';
 import {
   Filter, Plus, Search, Trash2, X, Camera, Tag, DollarSign,
-  Info, ExternalLink, RefreshCcw, Check, ShoppingBag as SellIcon, ShoppingBag, ChevronRight, Shirt, SlidersHorizontal, ArrowLeft, Sparkles, ImagePlus, Pencil
+  Info, ExternalLink, RefreshCcw, Check, ShoppingBag as SellIcon, ShoppingBag, ChevronRight, Shirt, SlidersHorizontal, ArrowLeft, Sparkles, ImagePlus, Pencil, Luggage
 } from 'lucide-react';
 import { useLanguage } from '../src/context/LanguageContext';
 import { dataUrlToFile, pickPhoto, CameraSource } from '../src/utils/cameraPhoto';
@@ -209,6 +209,12 @@ const Wardrobe: React.FC<WardrobeProps> = ({
 
   const washingItems = useMemo(() => garments.filter(g => g.isWashing), [garments]);
   const closetItems = useMemo(() => filteredItems.filter(g => !g.isWashing), [filteredItems]);
+
+  const garmentInTrips = useMemo(() => {
+    const s = new Set<string>();
+    trips.forEach(trip => trip.garments?.forEach(g => s.add(g.id)));
+    return s;
+  }, [trips]);
 
   const availableColors = useMemo(() => {
     const colors = new Set<string>();
@@ -783,8 +789,15 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                 </div>
 
                 {!garment.forSale && (
-                  <div className="absolute bottom-14 right-2 bg-[var(--bg-card)]/90 backdrop-blur-sm px-2 py-1 rounded-lg text-[10px] font-bold text-primary shadow-sm">
-                    {garment.usageCount || 0} usos
+                  <div className="absolute bottom-14 right-2 flex items-center gap-1.5">
+                    {garmentInTrips.has(garment.id) && (
+                      <span className="bg-[var(--bg-card)]/90 backdrop-blur-sm p-1 rounded-lg text-[10px] font-bold text-amber-600 shadow-sm" title="En maleta">
+                        <Luggage size={12} />
+                      </span>
+                    )}
+                    <span className="bg-[var(--bg-card)]/90 backdrop-blur-sm px-2 py-1 rounded-lg text-[10px] font-bold text-primary shadow-sm">
+                      {garment.usageCount || 0} usos
+                    </span>
                   </div>
                 )}
 

@@ -107,7 +107,11 @@ const NotificationBell: React.FC = () => {
             window.dispatchEvent(new CustomEvent('navigateTo', { detail: { tab: 'social', subTab: 'feed' } }));
         } else if (notif.type === 'FOLLOW') {
             setIsOpen(false);
-            window.dispatchEvent(new CustomEvent('navigateTo', { detail: { tab: 'profile' } }));
+            if (notif.relatedId) {
+                window.dispatchEvent(new CustomEvent('navigateTo', { detail: { tab: 'userProfile', extra: notif.relatedId } }));
+            } else {
+                window.dispatchEvent(new CustomEvent('navigateTo', { detail: { tab: 'profile' } }));
+            }
         } else {
             setIsOpen(false);
         }
