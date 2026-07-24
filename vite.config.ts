@@ -92,6 +92,7 @@ export default defineConfig(({ mode }) => {
       build: {
         outDir: 'dist',
         sourcemap: false,
+        chunkSizeWarningLimit: 1300,
         rollupOptions: {
           external: (id) => {
             const installedMediapipe = ['@mediapipe/selfie_segmentation'];
@@ -106,6 +107,7 @@ export default defineConfig(({ mode }) => {
               'human': ['@vladmandic/human'],
               'mediapipe': ['@mediapipe/selfie_segmentation'],
               'framer-motion': ['framer-motion'],
+              'tensorflow': ['@tensorflow/tfjs-core', '@tensorflow/tfjs-converter', '@tensorflow/tfjs-backend-cpu', '@tensorflow/tfjs-backend-webgl'],
             },
           },
         },

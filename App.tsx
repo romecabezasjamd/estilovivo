@@ -19,6 +19,7 @@ import { LanguageProvider } from './src/context/LanguageContext';
 import { ThemeProvider } from './src/context/ThemeContext';
 import { DarkModeProvider } from './src/context/DarkModeContext';
 import { resolveNavigation } from './src/utils/navigation';
+import { api } from './services/api';
 
 const AppContent: React.FC = () => {
   const getInitialTab = () => {
@@ -200,12 +201,9 @@ const AppContent: React.FC = () => {
         <Onboarding onComplete={() => {
             try { localStorage.setItem('ev_onboarding_complete', 'true'); } catch {}
             setShowOnboarding(false);
-            // Refresh user data to get updated style preferences
-            import('./services/api').then(({ api }) => {
-              api.getMe().then(u => {
-                window.dispatchEvent(new CustomEvent('ev:user-loaded', { detail: u }));
-              }).catch(() => {});
-            });
+            api.getMe().then(u => {
+              window.dispatchEvent(new CustomEvent('ev:user-loaded', { detail: u }));
+            }).catch(() => {});
           }} />
       </Suspense>
     );
