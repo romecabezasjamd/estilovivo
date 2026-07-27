@@ -574,12 +574,14 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
 
     // Always clean up drafts immediately to prevent stale data
     localStorage.removeItem('ev_chat_draft');
+    localStorage.removeItem('ev_chat_open');
 
     setLoadingConversations(true);
     try {
+      // Process draft conversation creation first (if any)
+      let draftCreatedId: string | null = null;
       if (draftRaw) {
         const draft = JSON.parse(draftRaw);
-        // Only create conversation if target is NOT yourself
         if (draft.targetUserId && draft.targetUserId !== currentUserId) {
           try {
             const created = await api.createConversation({
@@ -589,17 +591,19 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
               itemImage: draft.itemImage,
               initialMessage: draft.message,
             });
-            localStorage.setItem('ev_chat_open', created.id);
+            draftCreatedId = created.id;
           } catch (draftErr) {
             console.warn('Could not create conversation from draft:', draftErr);
           }
         }
       }
 
+      // Now load all conversations
       const data = await api.getConversations();
       setConversations(data);
-      const finalOpenId = localStorage.getItem('ev_chat_open') || openId;
-      const nextId = finalOpenId || data[0]?.id || null;
+
+      // Determine which conversation to select: draft-created > previously open > first in list
+      const nextId = draftCreatedId || openId || data[0]?.id || null;
       if (nextId) setSelectedThreadId(nextId);
     } catch (e) {
       console.warn('Error loading conversations:', e);
@@ -620,34 +624,32 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
     else if (activeTab === 'trends') loadTrends();
   }, [activeTab, loadFeed, loadShop, loadFavorites, loadConversations, loadTrends]);
 
-  // Socket connection for real-time chat
+  // Socket connection for real-time chat — keep alive across all tabs
+  const seenMessageIdsRef = useRef(new Set<string>());
   useEffect(() => {
-    if (activeTab !== 'chat') {
-      if (chatSocket) { chatSocket.disconnect(); setChatSocket(null); }
-      return;
-    }
     const newSocket = io(getSocketOrigin(), { withCredentials: true, transports: ['polling'], reconnectionAttempts: 3, reconnectionDelay: 5000 });
     setChatSocket(newSocket);
 
     newSocket.on('new_message', (message: ChatMessage) => {
       setMessagesById(prev => {
         const threadMessages = prev[message.conversationId] || [];
-        // Dedup: skip if same ID exists, or if same sender+content within last 3s (optimistic vs server)
+        // Dedup: exact message ID match (server ID or optimistic ID)
         if (threadMessages.some(m => m.id === message.id)) return prev;
-        if (message.senderId === (currentUserId || 'me') && threadMessages.some(m =>
-          m.senderId === message.senderId && m.content === message.content &&
-          Math.abs(new Date(m.createdAt).getTime() - new Date(message.createdAt).getTime()) < 3000
+        if (seenMessageIdsRef.current.has(message.id)) return prev;
+        // Replace optimistic (msg-*) with server version if same sender+content
+        if (message.id.startsWith('cl') && threadMessages.some(m =>
+          m.id.startsWith('msg-') && m.senderId === message.senderId && m.content === message.content
         )) {
-          // Replace optimistic message with server version (has real ID)
+          seenMessageIdsRef.current.add(message.id);
           return {
             ...prev,
             [message.conversationId]: threadMessages.map(m =>
-              m.senderId === message.senderId && m.content === message.content &&
-              Math.abs(new Date(m.createdAt).getTime() - new Date(message.createdAt).getTime()) < 3000
+              m.id.startsWith('msg-') && m.senderId === message.senderId && m.content === message.content
                 ? message : m
             )
           };
         }
+        seenMessageIdsRef.current.add(message.id);
         return { ...prev, [message.conversationId]: [...threadMessages, message] };
       });
       setConversations(prev => prev.map(c => c.id === message.conversationId
@@ -657,12 +659,18 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
     });
 
     return () => { newSocket.disconnect(); setChatSocket(null); };
-  }, [activeTab]);
+  }, []);
 
-  // Join conversation rooms when loaded
+  // Join conversation rooms — track already-joined rooms to avoid duplicates
+  const joinedRoomsRef = useRef(new Set<string>());
   useEffect(() => {
     if (chatSocket && conversations.length > 0) {
-      conversations.forEach(c => chatSocket.emit('join_room', c.id));
+      conversations.forEach(c => {
+        if (!joinedRoomsRef.current.has(c.id)) {
+          joinedRoomsRef.current.add(c.id);
+          chatSocket.emit('join_room', c.id);
+        }
+      });
     }
   }, [chatSocket, conversations]);
 
@@ -1039,13 +1047,15 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
     [conversations, selectedThreadId]
   );
 
+  const loadedMessagesRef = useRef(new Set<string>());
   useEffect(() => {
     const loadMessages = async () => {
       if (!selectedThreadId) return;
-      if (messagesById[selectedThreadId]) return;
+      if (loadedMessagesRef.current.has(selectedThreadId)) return;
       setLoadingMessages(true);
       try {
         const data = await api.getConversationMessages(selectedThreadId);
+        loadedMessagesRef.current.add(selectedThreadId);
         setMessagesById(prev => ({ ...prev, [selectedThreadId]: data }));
       } catch (e) {
         console.warn('Error loading messages:', e);
@@ -1054,11 +1064,12 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
       }
     };
     loadMessages();
-  }, [selectedThreadId, messagesById]);
+  }, [selectedThreadId]);
 
   const handleChatSend = async () => {
     if (!activeThread || (!messageInput.trim() && !chatAttachment)) return;
     const content = messageInput.trim() || '📷 Imagen adjunta';
+    const senderUserId = activeUser?.id || currentUserId || 'me';
     let serverImageUrl: string | undefined;
     if (chatAttachment) {
       try {
@@ -1073,11 +1084,11 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
     const nextMessage: ChatMessage = {
       id: `msg-${Date.now()}`,
       conversationId: activeThread.id,
-      senderId: currentUserId || 'me',
+      senderId: senderUserId,
       content,
       imageUrl: serverImageUrl,
       createdAt: new Date().toISOString(),
-      sender: { id: currentUserId || '', name: user.name || 'Yo', avatar: user.avatar || '' },
+      sender: { id: senderUserId, name: activeUser?.name || 'Yo', avatar: activeUser?.avatar || '' },
     };
 
     setMessagesById(prev => ({

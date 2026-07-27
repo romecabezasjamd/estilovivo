@@ -385,6 +385,7 @@ const mapProductToGarment = (p: any): Garment | undefined => {
         size: p.size || undefined,
         condition: p.condition || 'new',
         description: p.description || undefined,
+        isWashing: p.isWashing || false,
         userId: p.userId || p.user?.id,
         userName: p.user?.name,
         userAvatar: resolveAssetUrl(p.user?.avatar),
