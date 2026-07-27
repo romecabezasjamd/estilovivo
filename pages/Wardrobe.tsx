@@ -455,7 +455,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
     onUpdateGarment({
       ...item,
       forSale: false,
-      price: null,
+      price: undefined,
     });
   };
 

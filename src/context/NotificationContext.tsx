@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useRef, useEffect, ReactNode } from 'react';
 
 type NotificationType = 'success' | 'error' | 'info' | 'warning';
 
@@ -18,18 +18,29 @@ const NotificationContext = createContext<NotificationContextType | null>(null);
 
 export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const timeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  useEffect(() => {
+    return () => {
+      timeoutsRef.current.forEach(t => clearTimeout(t));
+      timeoutsRef.current.clear();
+    };
+  }, []);
 
   const notify = (message: string, type: NotificationType = 'info') => {
     const id = Date.now().toString() + Math.random().toString(36);
     setNotifications(prev => [...prev, { id, message, type }]);
     
-    // Auto-remove after 5 seconds
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       removeNotification(id);
+      timeoutsRef.current.delete(id);
     }, 5000);
+    timeoutsRef.current.set(id, timeoutId);
   };
 
   const removeNotification = (id: string) => {
+    const t = timeoutsRef.current.get(id);
+    if (t) { clearTimeout(t); timeoutsRef.current.delete(id); }
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 

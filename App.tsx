@@ -34,7 +34,6 @@ const AppContent: React.FC = () => {
       '/profile': 'profile',
       '/wishlist': 'wishlist',
       '/suitcase': 'suitcase',
-      '/tryon': 'tryon',
       '/privacy': 'privacy',
       '/premium': 'premium',
     };
@@ -89,7 +88,6 @@ const AppContent: React.FC = () => {
         '/profile': 'profile',
         '/wishlist': 'wishlist',
         '/suitcase': 'suitcase',
-        '/tryon': 'tryon',
         '/privacy': 'privacy',
         '/premium': 'premium',
       };
@@ -142,12 +140,12 @@ const AppContent: React.FC = () => {
   // Listen for global navigation events (e.g. from notification clicks)
   useEffect(() => {
     const handleNavigateEvent = (e: CustomEvent) => {
-      const { tab, subTab } = e.detail || {};
+      const { tab, subTab, extra } = e.detail || {};
       if (tab) {
         const evt = new CustomEvent('profile-check-unsaved', { detail: { tab, subTab }, cancelable: true });
         window.dispatchEvent(evt);
         if (!evt.defaultPrevented) {
-          handleNavigate(tab, subTab);
+          handleNavigate(tab, subTab, extra);
         }
       }
     };
@@ -270,6 +268,7 @@ const AppContent: React.FC = () => {
               window.history.pushState({}, '', '/social');
             }}
             onNavigate={handleNavigate}
+            onStartChat={() => handleNavigate('social', 'chat')}
           />
         ) : null;
       case 'profile':

@@ -102,29 +102,33 @@ export const clearPersistedSession = () => {
 const getAuthTokenSync = () => localStorage.getItem(AUTH_TOKEN_KEY) || currentAuthToken;
 
 export const loadAuthToken = async (): Promise<void> => {
-    const secureToken = await getSecureItem(AUTH_TOKEN_KEY);
-    if (secureToken) {
-        localStorage.setItem(AUTH_TOKEN_KEY, secureToken);
-    }
+    try {
+        const secureToken = await getSecureItem(AUTH_TOKEN_KEY);
+        if (secureToken) {
+            localStorage.setItem(AUTH_TOKEN_KEY, secureToken);
+        }
+    } catch {}
 
-    const secureRefreshToken = await getSecureItem(REFRESH_TOKEN_KEY);
-    if (secureRefreshToken) {
-        localStorage.setItem(REFRESH_TOKEN_KEY, secureRefreshToken);
-    }
+    try {
+        const secureRefreshToken = await getSecureItem(REFRESH_TOKEN_KEY);
+        if (secureRefreshToken) {
+            localStorage.setItem(REFRESH_TOKEN_KEY, secureRefreshToken);
+        }
+    } catch {}
 };
 
 export const cacheAuthToken = async (token: string, remember: boolean = true): Promise<void> => {
     currentAuthToken = token;
     setRememberMeFlag(remember);
     localStorage.setItem(AUTH_TOKEN_KEY, token);
-    await setSecureItem(AUTH_TOKEN_KEY, token);
+    try { await setSecureItem(AUTH_TOKEN_KEY, token); } catch {}
 };
 
 export const clearAuthToken = async (): Promise<void> => {
     currentAuthToken = null;
     localStorage.removeItem(AUTH_TOKEN_KEY);
     setRememberMeFlag(false);
-    await removeSecureItem(AUTH_TOKEN_KEY);
+    try { await removeSecureItem(AUTH_TOKEN_KEY); } catch {}
 };
 
 // ─── Refresh Token Management ─────────────────────────────────────────────────
@@ -133,24 +137,38 @@ const getRefreshToken = (): string | null => localStorage.getItem(REFRESH_TOKEN_
 
 const saveRefreshToken = async (token: string): Promise<void> => {
     localStorage.setItem(REFRESH_TOKEN_KEY, token);
-    await setSecureItem(REFRESH_TOKEN_KEY, token);
+    try { await setSecureItem(REFRESH_TOKEN_KEY, token); } catch {}
 };
 
 const clearRefreshToken = async (): Promise<void> => {
     localStorage.removeItem(REFRESH_TOKEN_KEY);
-    await removeSecureItem(REFRESH_TOKEN_KEY);
+    try { await removeSecureItem(REFRESH_TOKEN_KEY); } catch {}
 };
 
 let isRefreshing = false;
-let refreshSubscribers: Array<(token: string) => void> = [];
+let refreshSubscribers: Array<{ resolve: (token: string) => void; reject: (err: Error) => void }> = [];
 
 const onRefreshed = (token: string) => {
-    refreshSubscribers.forEach(cb => cb(token));
+    refreshSubscribers.forEach(cb => cb.resolve(token));
     refreshSubscribers = [];
 };
 
-const subscribeTokenRefresh = (cb: (token: string) => void) => {
-    refreshSubscribers.push(cb);
+const onRefreshFailed = (error: Error) => {
+    refreshSubscribers.forEach(cb => cb.reject(error));
+    refreshSubscribers = [];
+};
+
+const subscribeTokenRefresh = (): Promise<string> => {
+    return new Promise<string>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+            refreshSubscribers = refreshSubscribers.filter(cb => cb.resolve !== resolve);
+            reject(new Error('Token refresh timed out'));
+        }, 10000);
+        refreshSubscribers.push({
+            resolve: (token: string) => { clearTimeout(timeout); resolve(token); },
+            reject: (err: Error) => { clearTimeout(timeout); reject(err); },
+        });
+    });
 };
 
 export const refreshAccessToken = async (): Promise<string | null> => {
@@ -158,9 +176,7 @@ export const refreshAccessToken = async (): Promise<string | null> => {
     if (!refreshToken) return null;
 
     if (isRefreshing) {
-        return new Promise<string>((resolve) => {
-            subscribeTokenRefresh((token) => resolve(token));
-        });
+        return subscribeTokenRefresh();
     }
 
     isRefreshing = true;
@@ -193,7 +209,8 @@ export const refreshAccessToken = async (): Promise<string | null> => {
 
         onRefreshed(data.token);
         return data.token;
-    } catch {
+    } catch (err) {
+        onRefreshFailed(err instanceof Error ? err : new Error('Token refresh failed'));
         return null;
     } finally {
         isRefreshing = false;
@@ -317,7 +334,7 @@ const handleResponse = async (res: Response, _isRetry = false) => {
             getRefreshToken()
         ) {
             const newToken = await refreshAccessToken();
-            if (newToken) return newToken; // Signal to caller: token was refreshed
+            if (newToken) throw { __tokenRefreshed: true, newToken } as any;
         }
 
         if (res.status === 401 || (res.status === 403 && error.error === 'Invalid or expired token')) {
@@ -335,6 +352,19 @@ const handleResponse = async (res: Response, _isRetry = false) => {
     return res.json().catch(() => {
         throw new Error('Respuesta inválida del servidor');
     });
+};
+
+const fetchWithAuth = async (url: string, options: RequestInit = {}): Promise<any> => {
+    try {
+        const res = await fetch(url, { ...options, headers: { ...options.headers as any, ...getAuthHeader() }, credentials: 'include' });
+        return await handleResponse(res);
+    } catch (err: any) {
+        if (err?.__tokenRefreshed) {
+            const res = await fetch(url, { ...options, headers: { ...options.headers as any, ...getAuthHeader() }, credentials: 'include' });
+            return await handleResponse(res, true);
+        }
+        throw err;
+    }
 };
 
 // Helper: map backend product to frontend Garment
@@ -528,11 +558,12 @@ export const api = {
     },
 
     updateUserPreferences: async (preferences: Record<string, unknown>): Promise<void> => {
-        await fetch(`${API_BASE}/auth/preferences`, {
+        const res = await fetch(`${API_BASE}/auth/preferences`, {
             credentials: 'include', method: 'PUT',
             headers: getHeaders(),
             body: JSON.stringify(preferences)
         });
+        await handleResponse(res);
     },
 
 

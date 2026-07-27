@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { UserState, Garment, Look, PlannerEntry, Trip } from '../../types';
 import { api, loadAuthToken, refreshAccessToken } from '../../services/api';
 import { useNotification } from './NotificationContext';
@@ -88,7 +88,10 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const [looks, setLooks] = useState<Look[]>([]);
     const [planner, setPlanner] = useState<PlannerEntry[]>([]);
     const [trips, setTrips] = useState<Trip[]>([]);
+    const tripsRef = useRef<Trip[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => { tripsRef.current = trips; }, [trips]);
 
     // ── Init ─────────────────────────────────────────────────────────────────
 
@@ -323,22 +326,30 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }, []);
 
     const handleMoodChange = useCallback(async (mood: string) => {
-        setUser(prev => prev ? { ...prev, mood } : prev);
+        let prevUser: UserState | null = null;
+        setUser(prev => { prevUser = prev; return prev ? { ...prev, mood } : prev; });
         try {
             await api.updateProfile({ mood });
         } catch (e) {
             console.warn('Failed to save mood:', e);
+            if (prevUser) setUser(prevUser);
         }
     }, []);
 
     const handleUpdateUser = useCallback(async (updatedUser: UserState) => {
-        setUser(updatedUser);
+        let prevUser: UserState | null = null;
+        setUser(prev => { prevUser = prev; return updatedUser; });
         syncSet(SYNC_KEYS.USER, updatedUser);
         window.dispatchEvent(new CustomEvent('ev:user-loaded', { detail: updatedUser }));
         try {
             await api.updateProfile(updatedUser);
         } catch (error) {
             console.warn('Error saving profile:', error);
+            if (prevUser) {
+                setUser(prevUser);
+                syncSet(SYNC_KEYS.USER, prevUser);
+                window.dispatchEvent(new CustomEvent('ev:user-loaded', { detail: prevUser }));
+            }
         }
     }, []);
 
@@ -525,9 +536,7 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
     // ── Trips ─────────────────────────────────────────────────────────────────
 
 const addTrip = useCallback(async (newTrip: Trip) => {
-    const previousTrips = [...(await new Promise<Trip[]>(resolve => {
-        setTrips(prev => { resolve([...prev]); return prev; });
-    }))];
+    const previousTrips = [...tripsRef.current];
 
     setTrips(prev => {
         const updated = [newTrip, ...prev];
