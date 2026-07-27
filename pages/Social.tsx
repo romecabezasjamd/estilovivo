@@ -558,29 +558,6 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
     reader.readAsDataURL(file);
   };
 
-  const sendChatMessage = () => {
-    if (!activeThread || (!messageInput.trim() && !chatAttachment)) return;
-    const content = messageInput.trim() || '📷 Imagen adjunta';
-    const nextMessage: ChatMessage = {
-      id: `msg-${Date.now()}`,
-      conversationId: activeThread.id,
-      senderId: currentUserId || 'me',
-      content,
-      imageUrl: chatAttachment || undefined,
-      createdAt: new Date().toISOString(),
-    };
-
-    setMessagesById(prev => ({
-      ...prev,
-      [activeThread.id]: [...(prev[activeThread.id] || []), nextMessage]
-    }));
-
-    setMessageInput('');
-    setChatAttachment(null);
-
-    api.sendConversationMessage(activeThread.id, content).catch(e => console.warn('Error sending chat message:', e));
-  };
-
   const getPostUserLevel = (post: Look) => {
     const score = (post.likesCount || 0) + (post.commentsCount || 0);
     return Math.max(1, Math.min(12, Math.ceil((score + 1) / 10)));
@@ -655,7 +632,22 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
     newSocket.on('new_message', (message: ChatMessage) => {
       setMessagesById(prev => {
         const threadMessages = prev[message.conversationId] || [];
+        // Dedup: skip if same ID exists, or if same sender+content within last 3s (optimistic vs server)
         if (threadMessages.some(m => m.id === message.id)) return prev;
+        if (message.senderId === (currentUserId || 'me') && threadMessages.some(m =>
+          m.senderId === message.senderId && m.content === message.content &&
+          Math.abs(new Date(m.createdAt).getTime() - new Date(message.createdAt).getTime()) < 3000
+        )) {
+          // Replace optimistic message with server version (has real ID)
+          return {
+            ...prev,
+            [message.conversationId]: threadMessages.map(m =>
+              m.senderId === message.senderId && m.content === message.content &&
+              Math.abs(new Date(m.createdAt).getTime() - new Date(message.createdAt).getTime()) < 3000
+                ? message : m
+            )
+          };
+        }
         return { ...prev, [message.conversationId]: [...threadMessages, message] };
       });
       setConversations(prev => prev.map(c => c.id === message.conversationId
@@ -1085,6 +1077,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
       content,
       imageUrl: serverImageUrl,
       createdAt: new Date().toISOString(),
+      sender: { id: currentUserId || '', name: user.name || 'Yo', avatar: user.avatar || '' },
     };
 
     setMessagesById(prev => ({
@@ -1962,8 +1955,20 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                           </div>
                         ) : (
                           (messagesById[activeThread.id] || []).map((m: ChatMessage) => (
-                            <div key={m.id} className={`flex ${m.senderId === currentUserId ? 'justify-end' : 'justify-start'}`}>
+                            <div key={m.id} className={`flex gap-2 ${m.senderId === currentUserId ? 'justify-end' : 'justify-start'}`}>
+                              {m.senderId !== currentUserId && (
+                                <img
+                                  src={m.sender?.avatar || activeThread.otherUser?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.sender?.name || 'U')}&background=0F4C5C&color=fff`}
+                                  className="w-6 h-6 rounded-full object-cover mt-1 flex-shrink-0"
+                                  alt=""
+                                />
+                              )}
                               <div className={`max-w-[75%]`}>
+                                {m.senderId !== currentUserId && (
+                                  <p className="text-[10px] text-[var(--text-muted)] mb-0.5 ml-1 font-medium">
+                                    {m.sender?.name || activeThread.otherUser?.name || 'Usuario'}
+                                  </p>
+                                )}
                                 <div className={`px-3 py-2 rounded-2xl text-xs ${m.senderId === currentUserId ? 'bg-primary text-white' : 'bg-gray-100 text-[var(--text-secondary)]'}`}>
                                   {m.imageUrl ? (
                                     <img src={m.imageUrl} alt="Adjunto" className="w-full h-auto rounded-xl mb-2" />
@@ -1976,6 +1981,9 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                                     <span>{m.content}</span>
                                   )}
                                 </div>
+                                <p className={`text-[9px] text-[var(--text-muted)] mt-0.5 ${m.senderId === currentUserId ? 'text-right mr-1' : 'ml-1'}`}>
+                                  {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </p>
                                 {/* Reactions */}
                                 {messageReactions[m.id] && messageReactions[m.id].length > 0 && (
                                   <div className="flex gap-1 mt-1 ml-1">

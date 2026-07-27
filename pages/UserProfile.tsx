@@ -15,6 +15,7 @@ interface UserProfileData {
   avatar: string | null;
   bio: string | null;
   locationName: string | null;
+  isProfilePublic: boolean;
   followersCount: number;
   followingCount: number;
   garmentCount: number;
@@ -138,7 +139,7 @@ export default function UserProfile({ userId, onBack, onNavigate, onStartChat }:
             }`}
           >
             {following ? <UserCheck size={16} /> : <UserPlus size={16} />}
-            {following ? 'Siguiendo' : 'Seguir'}
+            {following ? 'Siguiendo' : (profile.isProfilePublic === false ? 'Solicitar' : 'Seguir')}
           </button>
 
           {onStartChat && (
@@ -151,6 +152,14 @@ export default function UserProfile({ userId, onBack, onNavigate, onStartChat }:
           )}
         </div>
 
+        {profile.isProfilePublic === false && !following && (
+          <div className="text-center py-8 mb-4">
+            <p className="text-sm text-[var(--text-muted)]">Perfil privado</p>
+            <p className="text-xs text-[var(--text-muted)] mt-1">Envía una solicitud de seguimiento para ver el contenido de este usuario.</p>
+          </div>
+        )}
+
+        {(profile.isProfilePublic !== false || following) && (<>
         <div className="flex gap-2 border-b border-[var(--border-light)] mb-4">
           <button
             onClick={() => setActiveTab('looks')}
@@ -216,6 +225,7 @@ export default function UserProfile({ userId, onBack, onNavigate, onStartChat }:
             )}
           </div>
         )}
+        </>)}
       </div>
     </div>
   );

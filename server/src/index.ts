@@ -2109,6 +2109,7 @@ app.get('/api/users/:id', authenticateToken, async (req: any, res: Response) => 
 
     res.json({
       ...safe,
+      isProfilePublic: safe.isProfilePublic ?? true,
       followersCount: _count.followers,
       followingCount: _count.following,
       garmentCount: _count.products,

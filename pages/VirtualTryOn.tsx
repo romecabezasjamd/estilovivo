@@ -241,6 +241,7 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
 
   const containerRef = useRef<HTMLDivElement>(null)
   const layersRef = useRef<Layer[]>([])
+  const garmentEls = useRef<Record<number, HTMLImageElement>>({})
   const activeRef = useRef(-1)
 
   const [history, setHistory] = useState<Layer[][]>([[]])
@@ -408,7 +409,30 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
   }, [bodyDim])
 
   const updateLayer = useCallback((idx: number, patch: Partial<Layer>) => {
+    if (gesture.current.mode !== 'idle') {
+      // Direct DOM update during gestures — no React re-render
+      Object.assign(layersRef.current[idx], patch)
+      const el = garmentEls.current[idx]
+      if (el && bodyDim) {
+        const l = layersRef.current[idx]
+        const pctX = (v: number, base: number) => `${(v / (base || 1)) * 100}%`
+        el.style.left = pctX(l.x, bodyDim.w)
+        el.style.top = pctX(l.y, bodyDim.h)
+        el.style.width = pctX(l.w, bodyDim.w)
+        el.style.height = pctX(l.h, bodyDim.h)
+        el.style.transform = `rotate(${l.rotation}deg) scaleX(${l.flipX ? -1 : 1}) scaleY(${l.flipY ? -1 : 1})`
+        el.style.opacity = String(l.opacity)
+      }
+      return
+    }
     setLayers(p => p.map((l, i) => i === idx ? { ...l, ...patch } : l))
+  }, [bodyDim])
+
+  const syncLayerState = useCallback(() => {
+    setLayers(prev => prev.map((l, i) => {
+      const ref = layersRef.current[i]
+      return ref ? { ...l, x: ref.x, y: ref.y, w: ref.w, h: ref.h, rotation: ref.rotation, opacity: ref.opacity, flipX: ref.flipX, flipY: ref.flipY } : l
+    }))
   }, [])
 
   const moveLayerUp = useCallback(() => {
@@ -452,7 +476,10 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
       const friction = 0.92
       let curVx = vx, curVy = vy
       const tick = () => {
-        if (Math.abs(curVx) < 0.5 && Math.abs(curVy) < 0.5) return
+        if (Math.abs(curVx) < 0.5 && Math.abs(curVy) < 0.5) {
+          syncLayerState()
+          return
+        }
         curVx *= friction
         curVy *= friction
         const ls = layersRef.current
@@ -513,6 +540,7 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
 
     const onMU = () => {
       if (g.wasDragged && g.dragIdx >= 0) {
+        syncLayerState()
         pushHistory(layersRef.current)
         if (g.mode === 'drag') {
           const v = calcAvgVelocity()
@@ -586,6 +614,7 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
 
     const onTE = () => {
       if (g.wasDragged && g.dragIdx >= 0) {
+        syncLayerState()
         pushHistory(layersRef.current)
         if (g.mode === 'drag') {
           const v = calcAvgVelocity()
@@ -1142,6 +1171,7 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
                   style={{ transform: mirror ? 'scaleX(-1)' : undefined }} />
                 {layers.map((l, i) => (
                   <img key={l.id} src={l.url} draggable={false} data-garment="1"
+                    ref={el => { if (el) garmentEls.current[i] = el; else delete garmentEls.current[i]; }}
                     onMouseDown={e => onGarmentDown(e, i)}
                     onTouchStart={e => onGarmentTouch(e, i)}
                     className="absolute pointer-events-auto"
