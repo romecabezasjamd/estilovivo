@@ -28,9 +28,11 @@ interface SocialProps {
   onNavigate: (tab: string, subTab?: string, extra?: string) => void;
   initialSubTab?: string | null;
   onSubTabConsumed?: () => void;
+  chatWithUserId?: string | null;
+  onChatWithUserConsumed?: () => void;
 }
 
-const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubTab, onSubTabConsumed }) => {
+const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubTab, onSubTabConsumed, chatWithUserId, onChatWithUserConsumed }) => {
   // Main tabs: 'feed', 'shop', 'trends', 'favorites', 'chat'
   const [activeTab, setActiveTab] = useState<'feed' | 'shop' | 'trends' | 'favorites' | 'chat'>('feed');
 
@@ -41,6 +43,28 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
       onSubTabConsumed?.();
     }
   }, [initialSubTab]);
+
+  // Handle starting a chat from UserProfile
+  useEffect(() => {
+    if (chatWithUserId && chatWithUserId !== user.id) {
+      setActiveTab('chat');
+      (async () => {
+        try {
+          const existing = conversations.find(c => c.otherUser?.id === chatWithUserId || c.itemOwnerId === chatWithUserId);
+          if (existing) {
+            localStorage.setItem('ev_chat_open', existing.id);
+          } else {
+            const res = await api.createConversation({ targetUserId: chatWithUserId });
+            localStorage.setItem('ev_chat_open', res.id);
+          }
+          loadConversations();
+        } catch (e) {
+          console.warn('Error starting chat:', e);
+        }
+      })();
+      onChatWithUserConsumed?.();
+    }
+  }, [chatWithUserId, user.id]);
 
   // Community Feed & Shop
   const [selectedItem, setSelectedItem] = useState<ProductDisplayItem | null>(null);

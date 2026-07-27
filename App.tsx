@@ -42,6 +42,7 @@ const AppContent: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState(getInitialTab);
   const [socialSubTab, setSocialSubTab] = useState<string | null>(null);
+  const [chatWithUserId, setChatWithUserId] = useState<string | null>(null);
   const [wardrobeIntent, setWardrobeIntent] = useState<'looks' | 'createLook' | null>(null);
   const [plannerDate, setPlannerDate] = useState<string | undefined>(undefined);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -257,7 +258,7 @@ const AppContent: React.FC = () => {
           />
         );
       case 'social':
-        return <Social user={user} garments={garments} onNavigate={handleNavigate} initialSubTab={socialSubTab} onSubTabConsumed={() => setSocialSubTab(null)} />;
+        return <Social user={user} garments={garments} onNavigate={handleNavigate} initialSubTab={socialSubTab} onSubTabConsumed={() => setSocialSubTab(null)} chatWithUserId={chatWithUserId} onChatWithUserConsumed={() => setChatWithUserId(null)} />;
       case 'viewProfile':
         return viewProfileId ? (
           <UserProfile
@@ -268,7 +269,7 @@ const AppContent: React.FC = () => {
               window.history.pushState({}, '', '/social');
             }}
             onNavigate={handleNavigate}
-            onStartChat={() => handleNavigate('social', 'chat')}
+            onStartChat={(targetId) => { setChatWithUserId(targetId); handleNavigate('social', 'chat'); }}
           />
         ) : null;
       case 'profile':
