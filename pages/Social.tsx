@@ -627,14 +627,14 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
   // Socket connection for real-time chat — keep alive across all tabs
   const seenMessageIdsRef = useRef(new Set<string>());
   useEffect(() => {
-    const newSocket = io(getSocketOrigin(), { withCredentials: true, transports: ['polling'], reconnectionAttempts: 5, reconnectionDelay: 2000 });
+    const token = localStorage.getItem('beyour_token');
+    const newSocket = io(getSocketOrigin(), { withCredentials: true, auth: { token }, transports: ['polling'], reconnectionAttempts: 5, reconnectionDelay: 2000 });
     setChatSocket(newSocket);
 
     // Join personal user room for receiving messages from other participants
     const userId = activeUser?.id || currentUserId;
-    if (userId) {
-      const token = localStorage.getItem('beyour_token');
-      if (token) newSocket.emit('join_user', userId);
+    if (userId && token) {
+      newSocket.emit('join_user', userId);
     }
 
     newSocket.on('new_message', (message: ChatMessage) => {
