@@ -21,6 +21,8 @@ interface UserProfileData {
   garmentCount: number;
   lookCount: number;
   isFollowing: boolean;
+  hasPendingRequest?: boolean;
+  pendingRequestId?: string | null;
   products: any[];
   looks: any[];
 }
@@ -29,6 +31,7 @@ export default function UserProfile({ userId, onBack, onNavigate, onStartChat }:
   const [profile, setProfile] = useState<UserProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [following, setFollowing] = useState(false);
+  const [pendingRequest, setPendingRequest] = useState(false);
   const [activeTab, setActiveTab] = useState<'looks' | 'items'>('looks');
 
   useEffect(() => {
@@ -40,6 +43,7 @@ export default function UserProfile({ userId, onBack, onNavigate, onStartChat }:
       const data = await api.getUserProfile(userId);
       setProfile(data);
       setFollowing(data.isFollowing);
+      setPendingRequest(data.hasPendingRequest || false);
     } catch (e) {
       console.error('Error loading profile:', e);
     } finally {
@@ -50,12 +54,18 @@ export default function UserProfile({ userId, onBack, onNavigate, onStartChat }:
   const handleFollow = async () => {
     try {
       const res = await api.toggleFollow(userId);
-      setFollowing(res.following);
-      setProfile(prev => prev ? {
-        ...prev,
-        followersCount: res.following ? prev.followersCount + 1 : prev.followersCount - 1,
-        isFollowing: res.following,
-      } : prev);
+      if (res.requesting) {
+        // Private profile — request sent
+        setPendingRequest(true);
+      } else {
+        setFollowing(res.following);
+        setPendingRequest(false);
+        setProfile(prev => prev ? {
+          ...prev,
+          followersCount: res.following ? prev.followersCount + 1 : prev.followersCount - 1,
+          isFollowing: res.following,
+        } : prev);
+      }
     } catch (e) {
       console.error('Error following:', e);
     }
@@ -132,14 +142,17 @@ export default function UserProfile({ userId, onBack, onNavigate, onStartChat }:
         <div className="flex gap-2 mb-6">
           <button
             onClick={handleFollow}
+            disabled={pendingRequest}
             className={`flex-1 py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all active:scale-95 ${
               following
                 ? 'bg-[var(--bg-card)] text-[var(--text-primary)] border border-[var(--border-light)]'
-                : 'bg-primary text-white'
+                : pendingRequest
+                  ? 'bg-gray-100 text-[var(--text-muted)]'
+                  : 'bg-primary text-white'
             }`}
           >
             {following ? <UserCheck size={16} /> : <UserPlus size={16} />}
-            {following ? 'Siguiendo' : (profile.isProfilePublic === false ? 'Solicitar' : 'Seguir')}
+            {following ? 'Siguiendo' : pendingRequest ? 'Solicitud enviada' : (profile.isProfilePublic === false ? 'Solicitar' : 'Seguir')}
           </button>
 
           {onStartChat && (

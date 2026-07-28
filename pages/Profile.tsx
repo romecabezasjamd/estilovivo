@@ -29,6 +29,48 @@ interface ProfileProps {
   onNavigate: (tab: string) => void;
 }
 
+const FollowRequestsSection: React.FC = () => {
+  const [requests, setRequests] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.getFollowRequests().then(setRequests).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  const handleApprove = async (id: string) => {
+    await api.approveFollowRequest(id);
+    setRequests(prev => prev.filter(r => r.id !== id));
+  };
+
+  const handleReject = async (id: string) => {
+    await api.rejectFollowRequest(id);
+    setRequests(prev => prev.filter(r => r.id !== id));
+  };
+
+  if (loading) return null;
+  if (requests.length === 0) return null;
+
+  return (
+    <div className="pt-4 border-t border-gray-50 space-y-3">
+      <p className="text-xs font-semibold text-gray-700">Solicitudes de seguimiento ({requests.length})</p>
+      {requests.map(req => (
+        <div key={req.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl">
+          <img src={req.requester?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(req.requester?.name || 'U')}&background=0F4C5C&color=fff`}
+            className="w-10 h-10 rounded-full object-cover" alt="" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-gray-800 truncate">{req.requester?.name || 'Usuario'}</p>
+            <p className="text-[10px] text-gray-400">Quiere seguirte</p>
+          </div>
+          <div className="flex gap-1.5">
+            <button onClick={() => handleApprove(req.id)} className="px-3 py-1.5 rounded-full bg-primary text-white text-[10px] font-bold">Aceptar</button>
+            <button onClick={() => handleReject(req.id)} className="px-3 py-1.5 rounded-full bg-gray-200 text-gray-600 text-[10px] font-bold">Rechazar</button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdateUser, garments, onNavigate }) => {
   const [activeSection, setActiveSection] = useState<'stats' | 'favorites' | 'settings' | 'progress'>('stats');
   const [editing, setEditing] = useState(false);
@@ -1777,7 +1819,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                       <div className="flex items-center justify-between">
                         <div>
                           <span className="text-xs font-medium text-gray-700">Perfil Público</span>
-                          <p className="text-[10px] text-gray-400 mt-0.5">Los ventas siempre son públicas</p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">Las ventas siempre son públicas</p>
                         </div>
                         <button
                           onClick={() => handleToggleSetting('isProfilePublic', !isProfilePublic)}
@@ -1787,6 +1829,9 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                         </button>
                       </div>
                     </div>
+
+                    {/* Follow requests (only visible when profile is private) */}
+                    {!isProfilePublic && <FollowRequestsSection />}
                   </div>
                 )}
               </div>

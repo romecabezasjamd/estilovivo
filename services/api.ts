@@ -972,11 +972,32 @@ export const api = {
         return normalizeAssetsDeep(data);
     },
 
-    toggleFollow: async (targetUserId: string): Promise<{ following: boolean }> => {
+    toggleFollow: async (targetUserId: string): Promise<{ following: boolean; requesting?: boolean }> => {
         const res = await fetch(`${API_BASE}/social/follow`, {
             credentials: 'include', method: 'POST',
             headers: getHeaders(),
             body: JSON.stringify({ targetUserId })
+        });
+        return handleResponse(res);
+    },
+
+    getFollowRequests: async () => {
+        const res = await fetch(`${API_BASE}/social/follow-requests`, {
+            credentials: 'include', headers: getHeaders()
+        });
+        return handleResponse(res);
+    },
+
+    approveFollowRequest: async (requestId: string) => {
+        const res = await fetch(`${API_BASE}/social/follow-requests/${requestId}/approve`, {
+            credentials: 'include', method: 'PUT', headers: getHeaders()
+        });
+        return handleResponse(res);
+    },
+
+    rejectFollowRequest: async (requestId: string) => {
+        const res = await fetch(`${API_BASE}/social/follow-requests/${requestId}/reject`, {
+            credentials: 'include', method: 'PUT', headers: getHeaders()
         });
         return handleResponse(res);
     },

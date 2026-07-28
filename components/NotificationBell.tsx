@@ -119,6 +119,19 @@ const NotificationBell: React.FC = () => {
 
     const handleClickOutside = () => setIsOpen(false);
 
+    const handleMarkAllRead = async () => {
+        try {
+            await fetch(`${API_BASE}/notifications/read-all`, {
+                method: 'PUT',
+                credentials: 'include',
+                headers: getAuthHeader() as HeadersInit,
+            });
+            setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+        } catch (err) {
+            console.error('Error marking all as read', err);
+        }
+    };
+
     const getNotificationIcon = (type: string) => {
         switch (type) {
             case 'CHAT': return '\uD83D\uDCAC';
@@ -150,7 +163,17 @@ const NotificationBell: React.FC = () => {
                         <div className="absolute top-14 right-0 w-80 bg-[var(--bg-card)] rounded-3xl shadow-xl border border-[var(--border-light)] overflow-hidden animate-pop-in origin-top-right">
                             <div className="p-4 border-b border-[var(--border-light)] flex justify-between items-center bg-[var(--bg-base)]/50">
                                 <h3 className="font-bold text-[var(--text-primary)]">Notificaciones</h3>
-                                {unreadCount > 0 && <span className="text-xs text-primary font-bold bg-primary/10 px-2 py-1 rounded-full">{unreadCount} nuevas</span>}
+                                <div className="flex items-center gap-2">
+                                    {unreadCount > 0 && (
+                                        <button
+                                            onClick={handleMarkAllRead}
+                                            className="text-[10px] font-semibold text-primary hover:text-primary/80 transition-colors px-2 py-1 rounded-lg hover:bg-primary/10"
+                                        >
+                                            Marcar todo leído
+                                        </button>
+                                    )}
+                                    <span className="text-xs text-primary font-bold bg-primary/10 px-2 py-1 rounded-full">{unreadCount} nuevas</span>
+                                </div>
                             </div>
                             <div className="max-h-96 overflow-y-auto no-scrollbar">
                                 {fetchError ? (

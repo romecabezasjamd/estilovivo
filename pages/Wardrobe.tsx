@@ -1,10 +1,11 @@
 
 import React, { useState, useMemo, useRef, useEffect, lazy, Suspense } from 'react';
 const CreateLook = lazy(() => import('./CreateLook'));
+const BackgroundRemover = lazy(() => import('../components/BackgroundRemover'));
 import { Garment, Look, PlannerEntry } from '../types';
 import {
   Filter, Plus, Search, Trash2, X, Camera, Tag, DollarSign,
-  Info, ExternalLink, RefreshCcw, Check, ShoppingBag as SellIcon, ShoppingBag, ChevronRight, Shirt, SlidersHorizontal, ArrowLeft, Sparkles, ImagePlus, Pencil, Luggage
+  Info, ExternalLink, RefreshCcw, Check, ShoppingBag as SellIcon, ShoppingBag, ChevronRight, Shirt, SlidersHorizontal, ArrowLeft, Sparkles, ImagePlus, Pencil, Luggage, Eraser
 } from 'lucide-react';
 import { useLanguage } from '../src/context/LanguageContext';
 import { dataUrlToFile, pickPhoto, CameraSource } from '../src/utils/cameraPhoto';
@@ -172,6 +173,8 @@ const Wardrobe: React.FC<WardrobeProps> = ({
   const [editForSale, setEditForSale] = useState(false);
   const [editImage, setEditImage] = useState<string | null>(null);
   const [editFile, setEditFile] = useState<File | null>(null);
+  const [showBgRemover, setShowBgRemover] = useState(false);
+  const [bgRemoverImage, setBgRemoverImage] = useState<string | null>(null);
 
   // Detail Modal
   const [detailItem, setDetailItem] = useState<ProductDisplayItem | null>(null);
@@ -1325,6 +1328,13 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                     </button>
                   )}
                 </div>
+                <button
+                  onClick={() => setBgRemoverImage(editImage || selectedGarmentForDetail.imageUrl)}
+                  className="mt-2 w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-semibold bg-gray-100 text-[var(--text-secondary)] hover:bg-gray-200 transition"
+                >
+                  <Eraser size={14} />
+                  Recortar fondo manualmente
+                </button>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Nombre</label>
@@ -1385,6 +1395,22 @@ const Wardrobe: React.FC<WardrobeProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* BACKGROUND REMOVER */}
+      {bgRemoverImage && (
+        <Suspense fallback={null}>
+          <BackgroundRemover
+            imageUrl={bgRemoverImage}
+            onApply={(blob) => {
+              const file = new File([blob], `cropped-${Date.now()}.png`, { type: 'image/png' });
+              setEditFile(file);
+              setEditImage(URL.createObjectURL(blob));
+              setBgRemoverImage(null);
+            }}
+            onCancel={() => setBgRemoverImage(null)}
+          />
+        </Suspense>
       )}
 
       {/* DETAIL MODAL */}

@@ -61,6 +61,8 @@ model User {
   favorites         Favorite[]
   followers         Follow[]   @relation("following")
   following         Follow[]   @relation("follower")
+  sentFollowRequests     FollowRequest[] @relation("requester")
+  receivedFollowRequests FollowRequest[] @relation("target")
   chatParticipants  ConversationParticipant[]
   messages          Message[]
   notifications     Notification[]
@@ -260,6 +262,18 @@ model Follow {
   createdAt   DateTime @default(now())
 
   @@unique([followerId, followingId])
+}
+
+model FollowRequest {
+  id          String   @id @default(cuid())
+  requesterId String
+  requester   User     @relation("requester", fields: [requesterId], references: [id], onDelete: Cascade)
+  targetId    String
+  target      User     @relation("target", fields: [targetId], references: [id], onDelete: Cascade)
+  status      String   @default("pending") // pending | approved | rejected
+  createdAt   DateTime @default(now())
+
+  @@unique([requesterId, targetId])
 }
 
 model Conversation {

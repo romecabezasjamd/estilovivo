@@ -2027,6 +2027,32 @@ app.post('/api/social/follow', authenticateToken, validate(followSchema), async 
     const { targetUserId } = req.body;
     const userId = req.user.userId;
     if (userId === targetUserId) return res.status(400).json({ error: 'Cannot follow yourself' });
+
+    // Check if target has a private profile
+    const targetUser = await prisma.user.findUnique({ where: { id: targetUserId }, select: { isProfilePublic: true } });
+    if (targetUser && targetUser.isProfilePublic === false) {
+      // Private profile: create a follow request instead of direct follow
+      const existing = await prisma.followRequest.findUnique({
+        where: { requesterId_targetId: { requesterId: userId, targetId: targetUserId } }
+      });
+      if (existing) {
+        if (existing.status === 'pending') return res.json({ requesting: true, message: 'Solicitud ya enviada' });
+        if (existing.status === 'rejected') {
+          await prisma.followRequest.update({ where: { id: existing.id }, data: { status: 'pending', createdAt: new Date() } });
+          return res.json({ requesting: true });
+        }
+      } else {
+        await prisma.followRequest.create({ data: { requesterId: userId, targetId: targetUserId } });
+      }
+      const me = await prisma.user.findUnique({ where: { id: userId }, select: { name: true, avatar: true } });
+      const notif = await prisma.notification.create({
+        data: { type: 'FOLLOW', content: `${me?.name || 'Alguien'} quiere seguirte`, userId: targetUserId, relatedId: userId }
+      });
+      io.to(`user_${targetUserId}`).emit('notification', notif);
+      return res.json({ requesting: true });
+    }
+
+    // Public profile: direct follow toggle
     let following = false;
     try {
       await prisma.follow.create({ data: { followerId: userId, followingId: targetUserId } });
@@ -2055,6 +2081,55 @@ app.post('/api/social/follow', authenticateToken, validate(followSchema), async 
   } catch (error) {
     logger.error('Error occurred', { error });
     res.status(500).json({ error: 'Error toggling follow' });
+  }
+});
+
+// ============= FOLLOW REQUESTS =============
+app.get('/api/social/follow-requests', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const requests = await prisma.followRequest.findMany({
+      where: { targetId: req.user.userId, status: 'pending' },
+      include: { requester: { select: { id: true, name: true, avatar: true } } },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(requests);
+  } catch (error) {
+    logger.error('Error fetching follow requests', { error });
+    res.status(500).json({ error: 'Error fetching follow requests' });
+  }
+});
+
+app.put('/api/social/follow-requests/:id/approve', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const { id } = req.params;
+    const request = await prisma.followRequest.findUnique({ where: { id } });
+    if (!request || request.targetId !== req.user.userId) return res.status(403).json({ error: 'Not authorized' });
+    await prisma.followRequest.update({ where: { id }, data: { status: 'approved' } });
+    // Create the follow relationship
+    await prisma.follow.create({ data: { followerId: request.requesterId, followingId: request.targetId } });
+    // Notify requester
+    const me = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { name: true, avatar: true } });
+    const notif = await prisma.notification.create({
+      data: { type: 'FOLLOW', content: `${me?.name || 'Alguien'} aceptó tu solicitud de seguimiento`, userId: request.requesterId, relatedId: req.user.userId }
+    });
+    io.to(`user_${request.requesterId}`).emit('notification', notif);
+    res.json({ approved: true });
+  } catch (error) {
+    logger.error('Error approving follow request', { error });
+    res.status(500).json({ error: 'Error approving follow request' });
+  }
+});
+
+app.put('/api/social/follow-requests/:id/reject', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const { id } = req.params;
+    const request = await prisma.followRequest.findUnique({ where: { id } });
+    if (!request || request.targetId !== req.user.userId) return res.status(403).json({ error: 'Not authorized' });
+    await prisma.followRequest.update({ where: { id }, data: { status: 'rejected' } });
+    res.json({ rejected: true });
+  } catch (error) {
+    logger.error('Error rejecting follow request', { error });
+    res.status(500).json({ error: 'Error rejecting follow request' });
   }
 });
 
@@ -2106,15 +2181,26 @@ app.get('/api/users/:id', authenticateToken, async (req: any, res: Response) => 
     const isFollowing = await prisma.follow.findUnique({
       where: { followerId_followingId: { followerId: viewerId, followingId: id } },
     });
+    const followRequest = await prisma.followRequest.findUnique({
+      where: { requesterId_targetId: { requesterId: viewerId, targetId: id } },
+      select: { id: true, status: true }
+    });
+
+    // Server-side access control: hide products/looks for private profiles if not following
+    const canViewContent = safe.isProfilePublic !== false || !!isFollowing || id === viewerId;
 
     res.json({
       ...safe,
+      products: canViewContent ? safe.products : [],
+      looks: canViewContent ? safe.looks : [],
       isProfilePublic: safe.isProfilePublic ?? true,
       followersCount: _count.followers,
       followingCount: _count.following,
       garmentCount: _count.products,
       lookCount: _count.looks,
       isFollowing: !!isFollowing,
+      hasPendingRequest: followRequest?.status === 'pending',
+      pendingRequestId: followRequest?.status === 'pending' ? followRequest.id : null,
     });
   } catch (error) {
     logger.error('Error fetching user profile', { error });
@@ -2745,6 +2831,19 @@ app.get('/api/notifications', authenticateToken, async (req: any, res: Response)
   }
 });
 
+app.put('/api/notifications/read-all', authenticateToken, async (req: any, res: Response) => {
+  try {
+    await prisma.notification.updateMany({
+      where: { userId: req.user.userId, isRead: false },
+      data: { isRead: true }
+    });
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Error marking all notifications read', { error });
+    res.status(500).json({ error: 'Error updating notifications' });
+  }
+});
+
 app.put('/api/notifications/:id/read', authenticateToken, async (req: any, res: Response) => {
   try {
     const { id } = req.params;
@@ -2766,8 +2865,9 @@ app.put('/api/notifications/:id/read', authenticateToken, async (req: any, res: 
 
 app.get('/api/chat/conversations', authenticateToken, async (req: any, res: Response) => {
   try {
+    const userId = req.user.userId;
     const conversations = await prisma.conversation.findMany({
-      where: { participants: { some: { userId: req.user.userId } } },
+      where: { participants: { some: { userId } } },
       include: {
         participants: { include: { user: { select: { id: true, name: true, avatar: true } } } },
         messages: {
@@ -2778,7 +2878,13 @@ app.get('/api/chat/conversations', authenticateToken, async (req: any, res: Resp
       },
       orderBy: { updatedAt: 'desc' }
     });
-    res.json(conversations);
+    // Compute otherUser server-side so client always has the name
+    const result = conversations.map(c => {
+      const other = c.participants.find(p => p.userId !== userId);
+      const otherUser = other?.user ? { id: other.user.id, name: other.user.name, avatar: other.user.avatar } : null;
+      return { ...c, otherUser };
+    });
+    res.json(result);
   } catch (error) {
     logger.error('Error fetching conversations', { error });
     res.status(500).json({ error: 'Error fetching conversations' });
