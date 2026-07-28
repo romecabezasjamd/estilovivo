@@ -600,23 +600,44 @@ export const api = {
         return mapProductToGarment(p)!;
     },
 
-    updateGarment: async (id: string, data: Partial<Garment>): Promise<Garment> => {
+    updateGarment: async (id: string, data: Partial<Garment> & { imageFile?: File }): Promise<Garment> => {
+        const { imageFile, ...metadata } = data;
+        if (imageFile) {
+            const formData = new FormData();
+            if (metadata.name) formData.append('name', metadata.name || metadata.type || '');
+            if (metadata.type) formData.append('category', metadata.type);
+            if (metadata.color) formData.append('color', metadata.color);
+            if (metadata.brand) formData.append('brand', metadata.brand || '');
+            if (metadata.size) formData.append('size', metadata.size || '');
+            if (metadata.condition) formData.append('condition', metadata.condition || '');
+            if (metadata.description) formData.append('description', metadata.description || '');
+            if (metadata.price !== undefined) formData.append('price', String(metadata.price));
+            if (metadata.forSale !== undefined) formData.append('forSale', String(metadata.forSale));
+            formData.append('images', imageFile);
+            const res = await fetch(`${API_BASE}/products/${id}`, {
+                credentials: 'include', method: 'PUT',
+                headers: { Authorization: `Bearer ${localStorage.getItem('beyour_token') || ''}` },
+                body: formData,
+            });
+            const p = await handleResponse(res);
+            return mapProductToGarment(p)!;
+        }
         const res = await fetch(`${API_BASE}/products/${id}`, {
             credentials: 'include', method: 'PUT',
             headers: getHeaders(),
             body: JSON.stringify({
-                name: data.name || data.type,
-                category: data.type,
-                color: data.color,
-                season: data.season,
-                price: data.price === null ? null : data.price,
-                forSale: data.forSale,
-                usageCount: data.usageCount,
-                isWashing: data.isWashing,
-                brand: data.brand,
-                size: data.size,
-                condition: data.condition,
-                description: data.description,
+                name: metadata.name || metadata.type,
+                category: metadata.type,
+                color: metadata.color,
+                season: metadata.season,
+                price: metadata.price === null ? null : metadata.price,
+                forSale: metadata.forSale,
+                usageCount: metadata.usageCount,
+                isWashing: metadata.isWashing,
+                brand: metadata.brand,
+                size: metadata.size,
+                condition: metadata.condition,
+                description: metadata.description,
             })
         });
         const p = await handleResponse(res);
@@ -1076,7 +1097,21 @@ export const api = {
     getConversations: async (): Promise<ChatConversation[]> => {
         const res = await fetch(`${API_BASE}/chat/conversations`, { headers: getHeaders(), credentials: 'include' });
         const data = await handleResponse(res);
-        return normalizeAssetsDeep(data);
+        const normalized = normalizeAssetsDeep(data);
+        // Compute otherUser from participants (filter out current user)
+        try {
+            const raw = localStorage.getItem('beyour_user');
+            const currentUserId = raw ? JSON.parse(raw).id : null;
+            return normalized.map((c: any) => {
+                if (!c.otherUser && c.participants && currentUserId) {
+                    const other = c.participants.find((p: any) => (p.userId || p.user?.id) !== currentUserId);
+                    if (other?.user) {
+                        c.otherUser = { id: other.user.id, name: other.user.name, avatar: other.user.avatar };
+                    }
+                }
+                return c;
+            });
+        } catch { return normalized; }
     },
 
     createConversation: async (payload: { targetUserId: string; itemId?: string; itemTitle?: string; itemImage?: string; initialMessage?: string; }) => {

@@ -627,13 +627,20 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
   // Socket connection for real-time chat — keep alive across all tabs
   const seenMessageIdsRef = useRef(new Set<string>());
   useEffect(() => {
-    const newSocket = io(getSocketOrigin(), { withCredentials: true, transports: ['polling'], reconnectionAttempts: 3, reconnectionDelay: 5000 });
+    const newSocket = io(getSocketOrigin(), { withCredentials: true, transports: ['polling'], reconnectionAttempts: 5, reconnectionDelay: 2000 });
     setChatSocket(newSocket);
+
+    // Join personal user room for receiving messages from other participants
+    const userId = activeUser?.id || currentUserId;
+    if (userId) {
+      const token = localStorage.getItem('beyour_token');
+      if (token) newSocket.emit('join_user', userId);
+    }
 
     newSocket.on('new_message', (message: ChatMessage) => {
       setMessagesById(prev => {
         const threadMessages = prev[message.conversationId] || [];
-        // Dedup: exact message ID match (server ID or optimistic ID)
+        // Dedup: exact message ID match
         if (threadMessages.some(m => m.id === message.id)) return prev;
         if (seenMessageIdsRef.current.has(message.id)) return prev;
         // Replace optimistic (msg-*) with server version if same sender+content
@@ -1103,7 +1110,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
           id: nextMessage.id,
           content: nextMessage.content,
           createdAt: nextMessage.createdAt,
-          sender: c.otherUser
+          sender: { id: senderUserId, name: activeUser?.name || 'Yo', avatar: activeUser?.avatar || '' }
         }
       }
       : c
@@ -1111,9 +1118,16 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
     setMessageInput('');
     setChatAttachment(null);
 
-    api.sendConversationMessage(activeThread.id, content, serverImageUrl).catch((e) => {
+    try {
+      await api.sendConversationMessage(activeThread.id, content, serverImageUrl);
+    } catch (e) {
       console.warn('Error sending message:', e);
-    });
+      // Rollback optimistic message on failure
+      setMessagesById(prev => ({
+        ...prev,
+        [activeThread.id]: (prev[activeThread.id] || []).filter(m => m.id !== nextMessage.id)
+      }));
+    }
 
     // Show notification for sales-related chat
     if (activeThread.itemTitle) {

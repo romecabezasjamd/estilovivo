@@ -2821,6 +2821,21 @@ app.post('/api/chat/conversations', authenticateToken, validate(conversationSche
       },
       include: { participants: { include: { user: { select: { id: true, name: true, avatar: true } } } } }
     });
+
+    // Emit initial message via socket so recipient sees it in real-time
+    if (initialMessage) {
+      const senderUser = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { id: true, name: true, avatar: true } });
+      const msgWithSender = {
+        id: `init_${conversation.id}_${Date.now()}`,
+        conversationId: conversation.id,
+        senderId: req.user.userId,
+        content: initialMessage,
+        createdAt: conversation.createdAt,
+        sender: senderUser,
+      };
+      io.to(`user_${recipientId}`).emit('new_message', msgWithSender);
+    }
+
     res.status(201).json({ id: conversation.id, ...conversation });
   } catch (error) {
     logger.error('Error creating conversation', { error });
@@ -2881,24 +2896,28 @@ app.post('/api/chat/conversations/:id/messages', authenticateToken, validate(mes
       data: { updatedAt: new Date() }
     });
 
-    io.to(conversationId).emit('new_message', message);
-
-    // Notify the other participant
-    const otherParticipant = await prisma.conversationParticipant.findFirst({
+    // Emit to other participants' user rooms only (sender excluded — they use optimistic UI)
+    const otherParticipants = await prisma.conversationParticipant.findMany({
       where: { conversationId, userId: { not: req.user.userId } }
     });
-    if (otherParticipant) {
+    for (const p of otherParticipants) {
+      io.to(`user_${p.userId}`).emit('new_message', message);
+    }
+
+    // Notify the other participant
+    if (otherParticipants.length > 0) {
+      const op = otherParticipants[0];
       const notification = await prisma.notification.create({
         data: {
           type: 'CHAT',
           content: `${message.sender.name} te ha enviado un mensaje`,
-          userId: otherParticipant.userId,
+          userId: op.userId,
           relatedId: conversationId,
         }
       });
-      io.to(`user_${otherParticipant.userId}`).emit('notification', notification);
+      io.to(`user_${op.userId}`).emit('notification', notification);
 
-      const otherUser = await prisma.user.findUnique({ where: { id: otherParticipant.userId } });
+      const otherUser = await prisma.user.findUnique({ where: { id: op.userId } });
       if (transporter && otherUser?.email && otherUser.emailNotifications && otherUser.emailChat) {
         try {
           const emailContent = `
@@ -2914,7 +2933,7 @@ app.post('/api/chat/conversations/:id/messages', authenticateToken, validate(mes
             html: getEmailTemplate(emailContent, 'Nuevo Mensaje')
           });
         } catch (mailErr) {
-          logger.warn('Could not send chat email notification', { error: mailErr, userId: otherParticipant.userId });
+          logger.warn('Could not send chat email notification', { error: mailErr, userId: op.userId });
         }
       }
     }
@@ -2944,7 +2963,13 @@ app.post('/api/chat/messages', authenticateToken, validate(messageSchema), async
       data: { updatedAt: new Date() }
     });
 
-    io.to(conversationId).emit('new_message', message);
+    // Emit to other participants' user rooms only
+    const otherParticipants2 = await prisma.conversationParticipant.findMany({
+      where: { conversationId, userId: { not: req.user.userId } }
+    });
+    for (const p of otherParticipants2) {
+      io.to(`user_${p.userId}`).emit('new_message', message);
+    }
 
     if (otherUserId) {
       const notification = await prisma.notification.create({

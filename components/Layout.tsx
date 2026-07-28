@@ -106,7 +106,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
 
       <NotificationBell />
 
-      <main className="flex-1 overflow-y-auto no-scrollbar pb-20 pt-0">
+      <main className="flex-1 overflow-y-auto no-scrollbar pb-[92px] pt-0">
         {children}
       </main>
 

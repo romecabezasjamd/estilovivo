@@ -10,7 +10,7 @@ const config: CapacitorConfig = {
   },
   android: {
     allowMixedContent: false,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#0F172A',
   },
   plugins: {
     PushNotifications: {

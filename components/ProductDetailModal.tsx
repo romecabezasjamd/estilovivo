@@ -144,7 +144,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
 
             {/* Product Image Gallery */}
             <div className="w-full aspect-square bg-[var(--bg-base)] relative overflow-hidden">
-              <img src={product.image} className="w-full h-full object-cover" alt={product.title} />
+              <img src={product.image} className="w-full h-full object-contain" alt={product.title} />
 
               {/* Price Badge */}
               <div className="absolute top-4 right-4 bg-[var(--bg-card)] rounded-xl px-3 py-2 shadow-md">

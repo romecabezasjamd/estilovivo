@@ -170,6 +170,8 @@ const Wardrobe: React.FC<WardrobeProps> = ({
   const [editDescription, setEditDescription] = useState('');
   const [editPrice, setEditPrice] = useState('');
   const [editForSale, setEditForSale] = useState(false);
+  const [editImage, setEditImage] = useState<string | null>(null);
+  const [editFile, setEditFile] = useState<File | null>(null);
 
   // Detail Modal
   const [detailItem, setDetailItem] = useState<ProductDisplayItem | null>(null);
@@ -361,6 +363,8 @@ const Wardrobe: React.FC<WardrobeProps> = ({
     setEditDescription('');
     setEditPrice('');
     setEditForSale(false);
+    setEditImage(null);
+    setEditFile(null);
   };
 
   const openEditModal = (item: Garment) => {
@@ -373,12 +377,14 @@ const Wardrobe: React.FC<WardrobeProps> = ({
     setEditDescription(item.description || '');
     setEditPrice(item.price ? String(item.price) : '');
     setEditForSale(item.forSale || false);
+    setEditImage(null);
+    setEditFile(null);
     setIsEditing(true);
   };
 
-  const confirmEdit = () => {
+  const confirmEdit = async () => {
     if (!selectedGarmentForDetail) return;
-    onUpdateGarment({
+    await onUpdateGarment({
       ...selectedGarmentForDetail,
       name: editName,
       type: editCategory,
@@ -389,7 +395,8 @@ const Wardrobe: React.FC<WardrobeProps> = ({
       description: editDescription || undefined,
       price: editPrice ? parseFloat(editPrice) : undefined,
       forSale: editForSale,
-    });
+      imageFile: editFile || undefined,
+    } as any);
     resetEditModal();
     setDetailItem(null);
   };
@@ -1026,7 +1033,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                   </div>
                 ) : (
                   <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden">
-                    <img src={newImage} className="w-full h-full object-cover" />
+                    <img src={newImage} className="w-full h-full object-contain" />
                     <button
                       onClick={() => { setNewImage(null); setNewFile(null); }}
                       className="absolute top-2 right-2 bg-black/50 text-white p-2 rounded-full"
@@ -1174,7 +1181,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                     </div>
                   ) : (
                     <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden">
-                      <img src={saleImage} className="w-full h-full object-cover" />
+                      <img src={saleImage} className="w-full h-full object-contain" />
                       <button
                         onClick={() => { setSaleImage(null); setSaleFile(null); setSaleUploadError(null); }}
                         className="absolute top-2 right-2 bg-black/50 text-white p-2 rounded-full"
@@ -1295,11 +1302,28 @@ const Wardrobe: React.FC<WardrobeProps> = ({
               <h2 className="text-xl font-bold text-[var(--text-primary)]">Editar prenda</h2>
             </div>
             <div className="overflow-y-auto flex-1 p-6 space-y-4">
-              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl">
-                <img src={selectedGarmentForDetail.imageUrl} className="w-12 h-12 rounded-xl object-cover" alt="" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-[var(--text-primary)] truncate">{selectedGarmentForDetail.name || selectedGarmentForDetail.type}</p>
-                  <p className="text-[10px] text-[var(--text-muted)] capitalize">{selectedGarmentForDetail.color}</p>
+              {/* Image replacement */}
+              <div>
+                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Foto de la prenda</label>
+                <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden bg-gray-50 border border-[var(--border-light)]">
+                  <img src={editImage || selectedGarmentForDetail.imageUrl} className="w-full h-full object-contain" alt="" />
+                  <label className="absolute bottom-2 right-2 bg-white/90 backdrop-blur-sm text-xs font-bold text-[var(--text-primary)] px-3 py-1.5 rounded-full shadow cursor-pointer hover:bg-white transition">
+                    Cambiar foto
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setEditFile(file);
+                      const reader = new FileReader();
+                      reader.onloadend = () => setEditImage(reader.result as string);
+                      reader.readAsDataURL(file);
+                    }} />
+                  </label>
+                  {editImage && (
+                    <button onClick={() => { setEditImage(null); setEditFile(null); }}
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs shadow hover:bg-red-600 transition">
+                      ✕
+                    </button>
+                  )}
                 </div>
               </div>
               <div>
