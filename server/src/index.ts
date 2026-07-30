@@ -1490,6 +1490,15 @@ app.put('/api/products/:id', authenticateToken, upload.array('images', 5), valid
       }
     }
 
+    // Delete old images when new ones are uploaded (replace, not append)
+    if (processedImages.length > 0) {
+      const oldImages = await prisma.productImage.findMany({ where: { productId: id } });
+      for (const img of oldImages) {
+        try { unlinkSync(path.join(UPLOADS_DIR, img.filename)); } catch {}
+      }
+      await prisma.productImage.deleteMany({ where: { productId: id } });
+    }
+
     const product = await prisma.product.update({
       where: { id },
       data: {

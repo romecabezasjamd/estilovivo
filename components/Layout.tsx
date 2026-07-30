@@ -101,12 +101,12 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
   }, [activeTab, navItems]);
 
   return (
-    <div className="flex flex-col h-dvh w-full bg-[var(--bg-base)] overflow-hidden relative font-sans" style={{ height: '100dvh' }}>
+    <div className="flex flex-col w-full bg-[var(--bg-base)] overflow-hidden relative font-sans" style={{ position: 'fixed', inset: 0 }}>
 
 
       <NotificationBell />
 
-      <main className="flex-1 overflow-y-auto no-scrollbar pb-32 pt-0">
+      <main className="flex-1 min-h-0 overflow-y-auto no-scrollbar pb-32 pt-0">
         {children}
       </main>
 

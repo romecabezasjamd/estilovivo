@@ -604,15 +604,18 @@ export const api = {
         const { imageFile, ...metadata } = data;
         if (imageFile) {
             const formData = new FormData();
-            if (metadata.name) formData.append('name', metadata.name || metadata.type || '');
-            if (metadata.type) formData.append('category', metadata.type);
+            formData.append('name', metadata.name || metadata.type || 'Sin nombre');
+            formData.append('category', metadata.type || 'top');
             if (metadata.color) formData.append('color', metadata.color);
+            if (metadata.season) formData.append('season', metadata.season);
             if (metadata.brand) formData.append('brand', metadata.brand || '');
             if (metadata.size) formData.append('size', metadata.size || '');
             if (metadata.condition) formData.append('condition', metadata.condition || '');
             if (metadata.description) formData.append('description', metadata.description || '');
             if (metadata.price !== undefined) formData.append('price', String(metadata.price));
             if (metadata.forSale !== undefined) formData.append('forSale', String(metadata.forSale));
+            if (metadata.isWashing !== undefined) formData.append('isWashing', String(metadata.isWashing));
+            if (metadata.usageCount !== undefined) formData.append('usageCount', String(metadata.usageCount));
             formData.append('images', imageFile);
             const res = await fetch(`${API_BASE}/products/${id}`, {
                 credentials: 'include', method: 'PUT',
