@@ -101,12 +101,12 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
   }, [activeTab, navItems]);
 
   return (
-    <div className="flex flex-col h-screen w-full bg-[var(--bg-base)] overflow-hidden relative font-sans">
+    <div className="flex flex-col h-dvh w-full bg-[var(--bg-base)] overflow-hidden relative font-sans" style={{ height: '100dvh' }}>
 
 
       <NotificationBell />
 
-      <main className="flex-1 overflow-y-auto no-scrollbar pb-24 pt-0">
+      <main className="flex-1 overflow-y-auto no-scrollbar pb-32 pt-0">
         {children}
       </main>
 
@@ -118,7 +118,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.9 }}
             transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-            className="fixed bottom-[88px] left-0 right-0 z-[55] flex justify-center pointer-events-none"
+            className="fixed left-0 right-0 z-[55] flex justify-center pointer-events-none"
+            style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 88px)' }}
           >
             <div className="flex items-center gap-5 pointer-events-auto px-4">
               {/* Suitcase Bubble */}
@@ -192,7 +193,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
         )}
       </AnimatePresence>
 
-      <div className="fixed bottom-6 left-4 right-4 z-50 flex justify-center pointer-events-none">
+      <div className="fixed left-4 right-4 z-50 flex justify-center pointer-events-none" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 1.5rem)' }}>
         <nav className="relative w-full max-w-lg h-16 bg-[var(--bg-card)]/80 backdrop-blur-md border border-[var(--border-light)]/40 shadow-xl rounded-full flex items-center p-1 pointer-events-auto">
 
           {activeIndex !== -1 && (

@@ -441,7 +441,13 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
         });
 
         try {
-            await api.updateGarment(g.id, g);
+            const saved = await api.updateGarment(g.id, g);
+            // Update state with server-returned garment (has new imageUrl after image upload)
+            setGarments(prev => {
+                const updated = sanitize<Garment>(prev.map(item => item.id === g.id ? saved : item));
+                syncSet(SYNC_KEYS.GARMENTS, updated);
+                return updated;
+            });
             notify(`✓ ${t('garmentUpdated')}`, 'success');
         } catch (error) {
             setGarments(previousGarments);

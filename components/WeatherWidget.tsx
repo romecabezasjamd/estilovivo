@@ -1,14 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Cloud, MapPin, RefreshCw, Globe } from 'lucide-react';
 import { type WeatherData, getWeatherEmoji, getWeatherAdvice, getOutfitSuggestions, type OutfitSuggestion } from '../src/utils/weather';
+import { getMoodRecommendedGarments, getMoodLabel, getMoodEmoji } from '../src/utils/moodRecommendations';
+import { Garment } from '../types';
 
 interface Props {
-  garments: { type: string; name: string; color?: string }[];
+  garments: Garment[];
   onNavigate?: (tab: string) => void;
   locationName?: string;
+  mood?: string | null;
 }
 
-export default function WeatherWidget({ garments, onNavigate, locationName }: Props) {
+export default function WeatherWidget({ garments, onNavigate, locationName, mood }: Props) {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [suggestions, setSuggestions] = useState<OutfitSuggestion[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,6 +28,11 @@ export default function WeatherWidget({ garments, onNavigate, locationName }: Pr
       setSuggestions(result.suggestions.filter(s => s.priority === 'essential').slice(0, 3));
     }
   }, [weather, garments]);
+
+  const moodGarments = useMemo(() => {
+    if (!mood || !weather) return [];
+    return getMoodRecommendedGarments(mood, weather, garments);
+  }, [mood, weather, garments]);
 
   const loadWeather = async () => {
     setLoading(true);
@@ -179,6 +187,45 @@ export default function WeatherWidget({ garments, onNavigate, locationName }: Pr
               style={{ backgroundColor: 'var(--color-primary)', color: 'white' }}
             >
               Ver mi armario
+            </button>
+          )}
+        </div>
+      )}
+
+      {moodGarments.length > 0 && (
+        <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border-light)' }}>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-sm">{getMoodEmoji(mood)}</span>
+            <p className="text-[9px] font-semibold" style={{ color: 'var(--text-muted)' }}>
+              PARA HOY · MOOD {getMoodLabel(mood).toUpperCase()}
+            </p>
+          </div>
+          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+            {moodGarments.map((g) => (
+              <button
+                key={g.id}
+                onClick={() => onNavigate?.('wardrobe')}
+                className="flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden border relative group"
+                style={{ borderColor: 'var(--border-light)' }}
+              >
+                <img
+                  src={g.imageUrl}
+                  alt={g.name}
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-200"
+                />
+                <div className="absolute inset-x-0 bottom-0 bg-black/50 text-white text-[7px] text-center py-0.5 truncate px-0.5">
+                  {g.name}
+                </div>
+              </button>
+            ))}
+          </div>
+          {onNavigate && (
+            <button
+              onClick={() => onNavigate('wardrobe')}
+              className="w-full mt-2 py-1.5 rounded-lg text-[10px] font-medium"
+              style={{ backgroundColor: 'var(--color-primary)', color: 'white' }}
+            >
+              Ver prendas sugeridas
             </button>
           )}
         </div>
