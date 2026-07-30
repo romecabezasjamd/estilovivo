@@ -602,6 +602,7 @@ export const api = {
 
     updateGarment: async (id: string, data: Partial<Garment> & { imageFile?: File }): Promise<Garment> => {
         const { imageFile, ...metadata } = data;
+        console.log('[CropDebug] api.updateGarment called, imageFile:', imageFile, 'type:', typeof imageFile, 'isFile:', imageFile instanceof File);
         if (imageFile) {
             const formData = new FormData();
             formData.append('name', metadata.name || metadata.type || 'Sin nombre');

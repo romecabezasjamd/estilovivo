@@ -433,6 +433,8 @@ export const GlobalStateProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const updateGarment = useCallback(async (g: Garment) => {
         let previousGarments: Garment[] = [];
 
+        console.log('[CropDebug] GlobalStateContext.updateGarment called, g has imageFile:', 'imageFile' in g, 'imageFile value:', (g as any).imageFile);
+
         setGarments(prev => {
             previousGarments = [...prev];
             const updated = sanitize<Garment>(prev.map(item => item.id === g.id ? g : item));
