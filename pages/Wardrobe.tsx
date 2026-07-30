@@ -387,7 +387,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
 
   const confirmEdit = async () => {
     if (!selectedGarmentForDetail) return;
-    const payload = {
+    await onUpdateGarment({
       ...selectedGarmentForDetail,
       name: editName,
       type: editCategory,
@@ -399,9 +399,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
       price: editPrice ? parseFloat(editPrice) : undefined,
       forSale: editForSale,
       imageFile: editFile || undefined,
-    };
-    console.log('[CropDebug] confirmEdit editFile:', editFile, 'payload.imageFile:', payload.imageFile, 'type:', typeof payload.imageFile);
-    await onUpdateGarment(payload as any);
+    } as any);
     resetEditModal();
     setDetailItem(null);
   };
@@ -1405,9 +1403,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
           <BackgroundRemover
             imageUrl={bgRemoverImage}
             onApply={(blob) => {
-              console.log('[CropDebug] BackgroundRemover onApply blob:', blob.size, 'bytes', blob.type);
               const file = new File([blob], `cropped-${Date.now()}.png`, { type: 'image/png' });
-              console.log('[CropDebug] Created file:', file.name, file.size, 'bytes');
               setEditFile(file);
               setEditImage(URL.createObjectURL(blob));
               setBgRemoverImage(null);

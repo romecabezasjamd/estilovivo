@@ -50,7 +50,8 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
       setActiveTab('chat');
       (async () => {
         try {
-          const existing = conversations.find(c => c.otherUser?.id === chatWithUserId || c.itemOwnerId === chatWithUserId);
+          const freshConversations = await api.getConversations();
+          const existing = freshConversations.find(c => c.otherUser?.id === chatWithUserId || c.itemOwnerId === chatWithUserId);
           if (existing) {
             localStorage.setItem('ev_chat_open', existing.id);
           } else {

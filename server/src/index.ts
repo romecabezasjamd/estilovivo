@@ -803,7 +803,7 @@ app.post('/api/auth/login', loginLimiter, validate(loginSchema), async (req: Req
 
     if (candidates.length === 0) {
       logger.warn('Login failed: User not found', { email: normalizedEmail });
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     // Check password for each candidate until one matches
@@ -2480,8 +2480,9 @@ app.post('/api/challenges/force-rotate', authenticateToken, async (req: any, res
       }
     });
 
+    // Only delete submissions from previously active challenges, preserve historical data
     await prisma.challengeSubmission.deleteMany({
-      where: { challengeId: { notIn: [challenge.id] } },
+      where: { challenge: { active: true, id: { not: challenge.id } } },
     });
 
     res.json({ success: true, challenge });
@@ -2686,6 +2687,16 @@ app.post('/api/planner', authenticateToken, validate(plannerSchema), async (req:
 
 app.delete('/api/planner/:date', authenticateToken, async (req: any, res: Response) => {
   try {
+    const existing = await prisma.plannerEntry.findUnique({
+      where: { userId_date: { userId: req.user.userId, date: req.params.date } },
+      include: { look: { include: { products: true } } }
+    });
+    if (existing?.look?.products?.length) {
+      await prisma.product.updateMany({
+        where: { id: { in: existing.look.products.map(p => p.id) } },
+        data: { usageCount: { decrement: 1 } }
+      });
+    }
     await prisma.plannerEntry.delete({ where: { userId_date: { userId: req.user.userId, date: req.params.date } } });
     res.json({ success: true });
   } catch (error) {
@@ -3086,18 +3097,19 @@ app.post('/api/chat/messages', authenticateToken, validate(messageSchema), async
       io.to(`user_${p.userId}`).emit('new_message', message);
     }
 
-    if (otherUserId) {
+    // Notifications: use server-determined participants, NOT client-provided otherUserId
+    for (const p of otherParticipants2) {
       const notification = await prisma.notification.create({
         data: {
           type: 'CHAT',
           content: `${message.sender.name} te ha enviado un mensaje`,
-          userId: otherUserId,
+          userId: p.userId,
           relatedId: conversationId,
         }
       });
-      io.to(`user_${otherUserId}`).emit('notification', notification);
+      io.to(`user_${p.userId}`).emit('notification', notification);
 
-      const otherUser = await prisma.user.findUnique({ where: { id: otherUserId } });
+      const otherUser = await prisma.user.findUnique({ where: { id: p.userId } });
       if (transporter && otherUser?.email && otherUser.emailNotifications && otherUser.emailChat) {
         try {
           const emailContent = `
@@ -3113,7 +3125,7 @@ app.post('/api/chat/messages', authenticateToken, validate(messageSchema), async
             html: getEmailTemplate(emailContent, 'Nuevo Mensaje')
           });
         } catch (mailErr) {
-          logger.warn('Could not send chat email notification', { error: mailErr, userId: otherUserId });
+          logger.warn('Could not send chat email notification', { error: mailErr, userId: p.userId });
         }
       }
     }
@@ -3288,7 +3300,7 @@ app.post('/api/stories/:id/reaction', authenticateToken, async (req: any, res: R
 
     try { await prisma.conversation.update({ where: { id: conversation.id }, data: { updatedAt: new Date() } }); } catch (e) { logger.error('Error updating conversation updatedAt', { e }); }
 
-    try { io.to(conversation.id).emit('new_message', message); } catch (e) { logger.error('Error emitting new_message', { e }); }
+    try { io.to(`user_${story.userId}`).emit('new_message', message); } catch (e) { logger.error('Error emitting new_message', { e }); }
 
     // Notify story author
     if (story.userId !== req.user.userId) {
