@@ -38,6 +38,18 @@
 
 <body>
   <script>
+    // Suppress framer-motion passive event listener warnings on touch
+    (function() {
+      var orig = EventTarget.prototype.addEventListener;
+      EventTarget.prototype.addEventListener = function(type, listener, opts) {
+        if ((type === 'touchmove' || type === 'touchstart') && typeof opts === 'object' && opts.passive === undefined) {
+          opts = Object.assign({}, opts, { passive: false });
+        }
+        return orig.call(this, type, listener, opts);
+      };
+    })();
+  </script>
+  <script>
     // One-time cleanup: unregister stale service workers from previous builds
     var EV_SW_VERSION = '2026-07-28-v4';
     if (localStorage.getItem('ev_sw_version') !== EV_SW_VERSION) {

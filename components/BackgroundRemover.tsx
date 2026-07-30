@@ -34,7 +34,7 @@ const BackgroundRemover: React.FC<BackgroundRemoverProps> = ({ imageUrl, onApply
       if (!canvas) return;
       canvas.width = img.width;
       canvas.height = img.height;
-      const ctx = canvas.getContext('2d')!;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
       ctx.drawImage(img, 0, 0);
 
       const overlay = overlayRef.current;
@@ -50,7 +50,7 @@ const BackgroundRemover: React.FC<BackgroundRemoverProps> = ({ imageUrl, onApply
   const saveHistory = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d')!;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
     const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
     historyRef.current.push(data);
     if (historyRef.current.length > 30) historyRef.current.shift();
@@ -61,7 +61,7 @@ const BackgroundRemover: React.FC<BackgroundRemoverProps> = ({ imageUrl, onApply
     if (!canvas || historyRef.current.length <= 1) return;
     historyRef.current.pop();
     const prev = historyRef.current[historyRef.current.length - 1];
-    const ctx = canvas.getContext('2d')!;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
     ctx.putImageData(prev, 0, 0);
   };
 
@@ -81,7 +81,7 @@ const BackgroundRemover: React.FC<BackgroundRemoverProps> = ({ imageUrl, onApply
   const paint = useCallback((x: number, y: number) => {
     const overlay = overlayRef.current;
     if (!overlay) return;
-    const ctx = overlay.getContext('2d')!;
+    const ctx = overlay.getContext('2d', { willReadFrequently: true })!;
     ctx.globalCompositeOperation = mode === 'erase' ? 'source-over' : 'destination-out';
     ctx.fillStyle = mode === 'erase' ? 'rgba(255, 0, 0, 0.4)' : 'rgba(0, 255, 0, 0.4)';
     ctx.beginPath();
@@ -126,8 +126,8 @@ const BackgroundRemover: React.FC<BackgroundRemoverProps> = ({ imageUrl, onApply
     const canvas = canvasRef.current;
     const overlay = overlayRef.current;
     if (!canvas || !overlay) return;
-    const ctx = canvas.getContext('2d')!;
-    const octx = overlay.getContext('2d')!;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+    const octx = overlay.getContext('2d', { willReadFrequently: true })!;
     const w = canvas.width;
     const h = canvas.height;
 
