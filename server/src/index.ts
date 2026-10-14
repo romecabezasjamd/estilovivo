@@ -565,6 +565,32 @@ app.get('/.well-known/assetlinks.json', (req: Request, res: Response) => {
   }]);
 });
 
+// Página pública (sin sesión ni JavaScript) para pedir el borrado de la cuenta: Google Play exige una URL así.
+// Contacto configurable con CONTACT_EMAIL; por defecto, el mismo que la política de privacidad.
+app.get(['/eliminar-cuenta', '/delete-account'], (req: Request, res: Response) => {
+  const email = escapeHtml(process.env.CONTACT_EMAIL || 'privacidad@estilovivo.com');
+  res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'");
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.type('html').send(`<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Eliminar tu cuenta · Estilo Vivo</title>
+<style>body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:680px;margin:0 auto;padding:32px 20px;line-height:1.6;color:#111;background:#fafafa}h1{font-size:28px;margin:0 0 8px}h2{font-size:19px;margin-top:28px}li{margin:4px 0}a{color:#111}.box{background:#fff;border-radius:16px;padding:16px 20px;border:1px solid #e5e5e5}</style>
+</head><body>
+<h1>Eliminar tu cuenta de Estilo Vivo</h1>
+<p>Puedes borrar tu cuenta y tus datos cuando quieras. El borrado es definitivo y no se puede deshacer.</p>
+<h2>Desde la app (inmediato)</h2>
+<ol><li>Abre Estilo Vivo e inicia sesión.</li><li>Ve a <strong>Perfil › Ajustes</strong>.</li><li>Pulsa <strong>Eliminar mi cuenta</strong> y confirma escribiendo <strong>ELIMINAR</strong>.</li></ol>
+<p>También puedes hacerlo desde la web, en <a href="/">estilovivo.xyoncloud.win</a>, en Perfil › Ajustes.</p>
+<h2>Sin la app</h2>
+<div class="box"><p>Escribe a <a href="mailto:${email}?subject=Eliminar%20mi%20cuenta">${email}</a> desde el correo con el que te registraste, con el asunto «Eliminar mi cuenta». Para proteger tu cuenta, solo atendemos solicitudes enviadas desde ese correo.</p></div>
+<h2>Qué se borra</h2>
+<ul><li>Tu perfil (nombre, correo, fecha de nacimiento, fotos de perfil y de cuerpo entero) y tus preferencias.</li><li>Tus prendas, looks, planificador, maletas, historias, participaciones en retos y sus imágenes.</li><li>Tus comentarios, me gusta, favoritos, seguidores y seguidos, bloqueos y notificaciones.</li><li>Los mensajes de chat que enviaste.</li></ul>
+<h2>Qué se conserva</h2>
+<ul><li>El contenido de otras personas (sus publicaciones, comentarios y los mensajes que te enviaron).</li><li>Las denuncias que hayas presentado, sin tus datos de perfil, para poder revisarlas.</li><li>Las copias de seguridad técnicas del servidor se sustituyen de forma rotativa; tus datos desaparecen de ellas al rotarse.</li></ul>
+<p><a href="/privacy">Política de privacidad</a></p>
+</body></html>`);
+});
+
 // Prevent browser/PWA from caching API responses (ensures fresh data per user)
 app.use('/api', (req, res, next) => {
   if (req.path.startsWith('/uploads/')) return next();
@@ -2637,7 +2663,8 @@ app.get('/api/users/:id', authenticateToken, async (req: any, res: Response) => 
     const user = await prisma.user.findUnique({
       where: { id },
       include: {
-        _count: { select: { followers: true, following: true, products: true, looks: true } },
+        // Para otras personas solo cuentan los looks públicos (los privados no se ven en su perfil)
+        _count: { select: { followers: true, following: true, products: true, looks: id === viewerId ? true : { where: { isPublic: true } } } },
         products: {
           where: { forSale: true },
           take: 6,
@@ -2692,7 +2719,7 @@ app.get('/api/users/:id', authenticateToken, async (req: any, res: Response) => 
 // ============= RETOS SEMANALES =============
 
 const CHALLENGES_ROTATION = [
-  { title: 'Color Block', description: 'Combina colores vibrantes en un solo look. Usa al menos 3 colores diferentes que contrasten entre sí de forma armoniosa.', reward: 50, tag: 'Color Block', tips: ['Usa 3 colores como máximo', 'Busca contraste entre prendas', 'Añade un accesorio neutro', 'La luz natural resalta los tonos'] },
+  { title: 'Color Block', description: 'Combina colores vibrantes en un solo look. Usa al menos 3 colores diferentes que contrasten entre sí de forma armoniosa.', reward: 50, tag: 'Color Block', tips: ['Combina al menos 3 colores bien distintos', 'Busca contraste entre prendas', 'Añade un accesorio neutro', 'La luz natural resalta los tonos'] },
   { title: 'Look Monocromático', description: 'Crea un outfit con una sola familia de color. Usa tonos similares y buena iluminación para que se aprecien los matices.', reward: 60, tag: 'Monocromo', tips: ['Usa tonos similares y buena iluminación', 'Varía texturas para evitar monotonía', 'Añade un accesorio en tono metalizado', 'Juega con claroscuros'] },
   { title: 'Street Style', description: 'Combina lo urbano con lo chic. Mezcla prendas casual con elegantes para un look de calle con personalidad.', reward: 50, tag: 'Street', tips: ['Mezcla prendas casual con elegantes', 'Las zapatillas blancas funcionan siempre', 'Añade una chaqueta estructurada', 'Busca fondos urbanos para la foto'] },
   { title: 'Retro Vibes', description: 'Busca inspiración vintage. Prendas de segunda mano, estampados clásicos y complementos que evoquen décadas pasadas.', reward: 55, tag: 'Retro', tips: ['Prendas de segunda mano o herencia', 'Estampados de los 70s u 80s', 'Complementos retro', 'Tono sepia en la foto'] },
