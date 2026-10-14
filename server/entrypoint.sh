@@ -38,6 +38,31 @@ else
   echo "WARNING: /app/data/dev.db does NOT exist!"
 fi
 
+# >>> pre-deploy-backup (no fatal: si falla, el arranque continúa)
+echo "=== [entrypoint] Pre-deploy DB backup ==="
+(
+  DB_FILE="${BACKUP_DB_FILE:-/app/data/dev.db}"
+  BK_DIR="${BACKUP_DIR:-/app/data/backups}"
+  if [ -s "$DB_FILE" ]; then
+    mkdir -p "$BK_DIR" || exit 1
+    DEST="$BK_DIR/dev.db.pre-deploy-$(date -u +%Y%m%dT%H%M%SZ)"
+    if command -v sqlite3 >/dev/null 2>&1 && sqlite3 "$DB_FILE" ".backup '$DEST'" 2>/dev/null && [ -s "$DEST" ]; then
+      echo "Backup OK (sqlite3 .backup): $DEST"
+    elif cp "$DB_FILE" "$DEST" && [ -s "$DEST" ]; then
+      echo "Backup OK (cp): $DEST"
+    else
+      rm -f "$DEST"
+      echo "WARNING: backup failed (continuing without backup)"
+      exit 1
+    fi
+    # conservar solo las 5 copias más recientes
+    ls -1t "$BK_DIR"/dev.db.pre-deploy-* 2>/dev/null | tail -n +6 | while read -r old; do rm -f "$old"; done
+  else
+    echo "No existing database (or empty): backup skipped"
+  fi
+) || echo "WARNING: pre-deploy backup step failed (non-fatal)"
+# <<< pre-deploy-backup
+
 echo "=== [entrypoint] Running prisma generate ==="
 if [ -f "$PRISMA" ]; then
   timeout 30 $PRISMA generate && echo "prisma generate OK" || echo "Warning: prisma generate failed"

@@ -15,6 +15,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
+import { z } from 'zod';
 import logger from './logger.js';
 import { processImage } from './imageProcessor.js';
 import {
@@ -713,7 +714,31 @@ const uploadUrlToPath = (url?: string | null) => {
 
 // ============= ACCESS HELPERS =============
 
-// Un look es visible si es propio, o público y de un perfil público / seguido
+// ---- Bloqueos: ids bloqueados en cualquier sentido (a quien bloqueé + quien me bloqueó). 1 consulta indexada.
+const getBlockedIds = async (userId?: string | null): Promise<string[]> => {
+  if (!userId) return [];
+  const rows = await prisma.block.findMany({
+    where: { OR: [{ blockerId: userId }, { blockedId: userId }] },
+    select: { blockerId: true, blockedId: true }
+  });
+  return [...new Set(rows.map(r => (r.blockerId === userId ? r.blockedId : r.blockerId)))];
+};
+const isBlockedBetween = async (a: string, b: string): Promise<boolean> =>
+  !!(await prisma.block.findFirst({
+    where: { OR: [{ blockerId: a, blockedId: b }, { blockerId: b, blockedId: a }] },
+    select: { id: true }
+  }));
+// Fragmento Prisma "campo notIn ids" (vacío si no hay bloqueos)
+const notBlocked = (ids: string[], field = 'userId') => (ids.length ? { [field]: { notIn: ids } } : {});
+// ¿Algún otro participante de la conversación está bloqueado (en cualquier sentido) respecto a userId?
+const conversationHasBlocked = async (conversationId: string, userId: string): Promise<boolean> => {
+  const others = await prisma.conversationParticipant.findMany({ where: { conversationId, userId: { not: userId } }, select: { userId: true } });
+  if (others.length === 0) return false;
+  const blocked = new Set(await getBlockedIds(userId));
+  return others.some(o => blocked.has(o.userId));
+};
+
+// Un look es visible si es propio, o público y de un perfil público / seguido (y sin bloqueo con el autor)
 const canViewLook = async (lookId: unknown, viewerId?: string) => {
   if (typeof lookId !== 'string' || !lookId) return null;
   const look = await prisma.look.findUnique({
@@ -722,6 +747,7 @@ const canViewLook = async (lookId: unknown, viewerId?: string) => {
   });
   if (!look) return null;
   if (viewerId && look.userId === viewerId) return look;
+  if (viewerId && (await isBlockedBetween(viewerId, look.userId))) return null;
   if (!look.isPublic) return null;
   if (look.user?.isProfilePublic === false) {
     if (!viewerId) return null;
@@ -1344,13 +1370,14 @@ app.delete('/api/auth/profile', authenticateToken, async (req: any, res: Respons
     await invalidateRefreshTokens(userId);
 
     // Recoge las imágenes del usuario para borrarlas del disco (RGPD)
-    const [productImages, lookImages, owner, submissions, stories, messages] = await Promise.all([
+    const [productImages, lookImages, owner, submissions, stories, messages, tryonThumbs] = await Promise.all([
       prisma.productImage.findMany({ where: { product: { userId } }, select: { filename: true } }),
       prisma.lookImage.findMany({ where: { look: { userId } }, select: { filename: true } }),
       prisma.user.findUnique({ where: { id: userId }, select: { avatar: true, fullBodyAvatar: true } }),
       prisma.challengeSubmission.findMany({ where: { userId }, select: { imageUrl: true } }),
       prisma.story.findMany({ where: { userId }, select: { imageUrl: true } }),
       prisma.message.findMany({ where: { senderId: userId, imageUrl: { not: null } }, select: { imageUrl: true } }),
+      prisma.tryonPreset.findMany({ where: { userId }, select: { thumbnail: true } }),
     ]);
 
     // Cascading deletes in Prisma will handle products, looks, etc.
@@ -1359,7 +1386,9 @@ app.delete('/api/auth/profile', authenticateToken, async (req: any, res: Respons
     });
 
     for (const img of [...productImages, ...lookImages]) unlinkImageVariants(img.filename);
-    for (const url of [owner?.avatar, owner?.fullBodyAvatar, ...submissions.map(s => s.imageUrl), ...stories.map(s => s.imageUrl), ...messages.map(m => m.imageUrl)]) {
+    // Conversaciones que se quedan sin participantes (huérfanas) se eliminan; las de otros usuarios se conservan
+    await prisma.conversation.deleteMany({ where: { participants: { none: {} } } });
+    for (const url of [owner?.avatar, owner?.fullBodyAvatar, ...tryonThumbs.map(t => t.thumbnail), ...submissions.map(s => s.imageUrl), ...stories.map(s => s.imageUrl), ...messages.map(m => m.imageUrl)]) {
       const p = uploadUrlToPath(url);
       if (p) safeUnlink(p);
     }
@@ -1525,7 +1554,8 @@ app.get('/api/products', authenticateToken, async (req: any, res: Response) => {
 app.get('/api/products/shop', authenticateToken, async (req: any, res: Response) => {
   try {
     const { search, category } = req.query;
-    const where: any = { forSale: true, userId: { not: req.user.userId } };
+    const shopBlocked = await getBlockedIds(req.user.userId);
+    const where: any = { forSale: true, userId: { notIn: [req.user.userId, ...shopBlocked] } };
     if (search) {
       where.OR = [
         { name: { contains: search as string } },
@@ -1774,8 +1804,9 @@ app.get('/api/looks/feed', optionalAuth, async (req: any, res: Response) => {
     const pageSize = Math.max(1, Math.min(100, parseInt(limit as string) || 20));
     const take = pageSize + 1;
 
+    const feedBlocked = await getBlockedIds(req.user?.userId);
     const looks = await prisma.look.findMany({
-      where: { isPublic: true, products: { none: { forSale: true } } },
+      where: { isPublic: true, products: { none: { forSale: true } }, ...notBlocked(feedBlocked) },
       include: {
         images: true,
         user: { select: { id: true, name: true, avatar: true } },
@@ -2067,6 +2098,72 @@ app.post('/api/social/like', authenticateToken, async (req: any, res: Response) 
   }
 });
 
+// Lista paginada (cursor) de quién dio "me gusta" a un look: más recientes primero.
+// Cursor opaco = base64url("<createdAt ms>:<likeId>"); orden estable (createdAt desc, id desc).
+const LIKES_PAGE_DEFAULT = 30;
+const LIKES_PAGE_MAX = 50;
+const likesQuerySchema = z.object({
+  limit: z.preprocess(
+    (v) => (v === undefined || v === '' ? LIKES_PAGE_DEFAULT : typeof v === 'string' && /^\d+$/.test(v) ? Number(v) : NaN),
+    z.number({ invalid_type_error: 'limit debe ser un entero' }).int().min(1, 'limit mínimo 1').max(LIKES_PAGE_MAX, `limit máximo ${LIKES_PAGE_MAX}`)
+  ),
+  cursor: z.string().max(200, 'cursor inválido').optional()
+});
+const encodeLikesCursor = (createdAt: Date, id: string) =>
+  Buffer.from(`${createdAt.getTime()}:${id}`, 'utf8').toString('base64url');
+const decodeLikesCursor = (raw: string): { createdAt: Date; id: string } | null => {
+  if (!/^[A-Za-z0-9_-]+$/.test(raw)) return null;
+  const m = /^(\d{1,15}):([A-Za-z0-9_-]{1,64})$/.exec(Buffer.from(raw, 'base64url').toString('utf8'));
+  if (!m) return null;
+  const createdAt = new Date(Number(m[1]));
+  return isNaN(createdAt.getTime()) ? null : { createdAt, id: m[2] };
+};
+
+app.get('/api/social/likes/:lookId', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const parsed = likesQuerySchema.safeParse({
+      limit: typeof req.query.limit === 'string' ? req.query.limit : req.query.limit === undefined ? undefined : 'x',
+      cursor: typeof req.query.cursor === 'string' ? req.query.cursor : req.query.cursor === undefined ? undefined : 'x'
+    });
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: 'Error de validación',
+        details: parsed.error.errors.map(e => ({ field: e.path.join('.'), message: e.message }))
+      });
+    }
+    const { limit, cursor } = parsed.data;
+    let after: { createdAt: Date; id: string } | null = null;
+    if (cursor) {
+      after = decodeLikesCursor(cursor);
+      if (!after) return res.status(400).json({ error: 'Error de validación', details: [{ field: 'cursor', message: 'cursor inválido' }] });
+    }
+    const lookId = req.params.lookId;
+    // Misma regla de acceso que POST /like y GET /comments (404 si no existe / privado sin seguir)
+    if (!(await canViewLook(lookId, req.user.userId))) return res.status(404).json({ error: 'Look no encontrado' });
+
+    const rows = await prisma.like.findMany({
+      where: {
+        lookId,
+        ...notBlocked(await getBlockedIds(req.user.userId)),
+        ...(after ? { OR: [{ createdAt: { lt: after.createdAt } }, { createdAt: after.createdAt, id: { lt: after.id } }] } : {})
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
+      select: { id: true, createdAt: true, user: { select: { id: true, name: true, avatar: true } } }
+    });
+    const hasMore = rows.length > limit;
+    const page = hasMore ? rows.slice(0, limit) : rows;
+    const last = page[page.length - 1];
+    res.json({
+      users: page.map(r => ({ id: r.user.id, name: r.user.name, avatar: r.user.avatar })),
+      nextCursor: hasMore && last ? encodeLikesCursor(last.createdAt, last.id) : null
+    });
+  } catch (error) {
+    logger.error('Error occurred', { error });
+    res.status(500).json({ error: 'Error fetching likes' });
+  }
+});
+
 app.post('/api/social/comment', authenticateToken, validate(commentSchema), async (req: any, res: Response) => {
   try {
     const { lookId, content, parentId } = req.body;
@@ -2123,9 +2220,10 @@ app.post('/api/social/comment', authenticateToken, validate(commentSchema), asyn
 app.get('/api/social/comments/:lookId', authenticateToken, async (req: any, res: Response) => {
   try {
     if (!(await canViewLook(req.params.lookId, req.user.userId))) return res.status(404).json({ error: 'Look no encontrado' });
+    const cBlocked = await getBlockedIds(req.user.userId);
     const comments = await prisma.comment.findMany({
-      where: { lookId: req.params.lookId, parentId: null },
-      include: { user: { select: { id: true, name: true, avatar: true } }, replies: { include: { user: { select: { id: true, name: true, avatar: true } } }, orderBy: { createdAt: 'asc' } } },
+      where: { lookId: req.params.lookId, parentId: null, ...notBlocked(cBlocked) },
+      include: { user: { select: { id: true, name: true, avatar: true } }, replies: { where: notBlocked(cBlocked), include: { user: { select: { id: true, name: true, avatar: true } } }, orderBy: { createdAt: 'asc' } } },
       orderBy: { createdAt: 'desc' }
     });
     res.json(comments);
@@ -2190,8 +2288,15 @@ app.post('/api/social/favorite', authenticateToken, validate(favoriteSchema), as
 
 app.get('/api/social/favorites', authenticateToken, async (req: any, res: Response) => {
   try {
+    const favBlocked = await getBlockedIds(req.user.userId);
     const favorites = await prisma.favorite.findMany({
-      where: { userId: req.user.userId },
+      where: {
+        userId: req.user.userId,
+        ...(favBlocked.length ? { AND: [
+          { OR: [{ lookId: null }, { look: { userId: { notIn: favBlocked } } }] },
+          { OR: [{ productId: null }, { product: { userId: { notIn: favBlocked } } }] }
+        ] } : {})
+      },
       include: {
         look: { include: { images: true, user: { select: { id: true, name: true, avatar: true } }, products: { include: { images: true } }, _count: { select: { likes: true, comments: true } } } },
         product: { include: { images: true, user: { select: { id: true, name: true, avatar: true } } } }
@@ -2213,6 +2318,7 @@ app.post('/api/social/follow', authenticateToken, validate(followSchema), async 
 
     const targetUser = await prisma.user.findUnique({ where: { id: targetUserId }, select: { isProfilePublic: true } });
     if (!targetUser) return res.status(404).json({ error: 'Usuario no encontrado' });
+    if (await isBlockedBetween(userId, targetUserId)) return res.status(404).json({ error: 'Usuario no encontrado' });
 
     // Si ya le sigue, el botón siempre deja de seguir (también en perfiles privados)
     const alreadyFollowing = await prisma.follow.findUnique({
@@ -2332,9 +2438,180 @@ app.put('/api/social/follow-requests/:id/reject', authenticateToken, async (req:
   }
 });
 
-app.get('/api/users/top', async (req: Request, res: Response) => {
+// ============= MODERACIÓN: DENUNCIAS Y BLOQUEOS =============
+
+const REPORT_TARGETS = ['USER', 'LOOK', 'COMMENT', 'STORY', 'MESSAGE'] as const;
+const REPORT_REASONS = ['SPAM', 'HARASSMENT', 'INAPPROPRIATE', 'IMPERSONATION', 'OTHER'] as const;
+const reportSchema = z.object({
+  targetType: z.enum(REPORT_TARGETS),
+  targetId: z.string().trim().min(1).max(100),
+  reason: z.enum(REPORT_REASONS),
+  details: z.string().trim().max(500, 'details máximo 500 caracteres').optional()
+});
+const blockSchema = z.object({ userId: z.string().trim().min(1).max(100) });
+const userKeyLimiter = (max: number, windowMs: number, message: string) => rateLimit({
+  windowMs, max, message: { error: message }, standardHeaders: true, legacyHeaders: false,
+  keyGenerator: (req: any) => `u:${req.user?.userId || 'anon'}`,
+});
+// Anti-abuso: máx. REPORT_RATE_MAX denuncias por usuario y hora (defecto 20)
+const reportLimiter = userKeyLimiter(parseInt(process.env.REPORT_RATE_MAX || '20', 10), 60 * 60 * 1000, 'Demasiadas denuncias. Inténtalo más tarde.');
+const exportLimiter = userKeyLimiter(parseInt(process.env.EXPORT_RATE_MAX || '3', 10), 60 * 60 * 1000, 'Solo puedes exportar tus datos 3 veces por hora.');
+
+app.post('/api/reports', authenticateToken, reportLimiter, validate(reportSchema), async (req: any, res: Response) => {
   try {
+    const { targetType, targetId, reason, details } = req.body;
+    const reporterId: string = req.user.userId;
+    let ownerId: string | null = null; // autor del objetivo (para impedir la auto-denuncia)
+
+    if (targetType === 'USER') {
+      const u = await prisma.user.findUnique({ where: { id: targetId }, select: { id: true } });
+      ownerId = u?.id ?? null;
+    } else if (targetType === 'LOOK') {
+      ownerId = (await canViewLook(targetId, reporterId))?.userId ?? null;
+    } else if (targetType === 'COMMENT') {
+      const c = await prisma.comment.findUnique({ where: { id: targetId }, select: { userId: true, lookId: true } });
+      if (c && (await canViewLook(c.lookId, reporterId))) ownerId = c.userId;
+    } else if (targetType === 'STORY') {
+      const s = await prisma.story.findUnique({ where: { id: targetId }, select: { userId: true, expiresAt: true } });
+      if (s && (s.userId === reporterId || !(await isBlockedBetween(reporterId, s.userId)))) ownerId = s.userId;
+    } else if (targetType === 'MESSAGE') {
+      const m = await prisma.message.findUnique({ where: { id: targetId }, select: { senderId: true, conversationId: true } });
+      if (m) {
+        const part = await prisma.conversationParticipant.findUnique({ where: { conversationId_userId: { conversationId: m.conversationId, userId: reporterId } } });
+        if (part) ownerId = m.senderId;
+      }
+    }
+    if (!ownerId) return res.status(404).json({ error: 'Contenido no encontrado' });
+    if (ownerId === reporterId) return res.status(400).json({ error: 'No puedes denunciarte a ti mismo' });
+
+    // Misma denuncia abierta del mismo usuario y objetivo: no se duplica (idempotente)
+    const dup = await prisma.report.findFirst({ where: { reporterId, targetType, targetId, status: 'OPEN' }, select: { id: true } });
+    if (dup) return res.status(200).json({ ok: true, duplicate: true });
+
+    await prisma.report.create({ data: { reporterId, targetType, targetId, reason, details: details || null } });
+    logger.info('Report created', { reporterId, targetType, targetId, reason });
+    res.status(201).json({ ok: true });
+  } catch (error) {
+    logger.error('Error creating report', { error });
+    res.status(500).json({ error: 'Error al enviar la denuncia' });
+  }
+});
+
+app.post('/api/blocks', authenticateToken, validate(blockSchema), async (req: any, res: Response) => {
+  try {
+    const blockerId: string = req.user.userId;
+    const blockedId: string = req.body.userId;
+    if (blockerId === blockedId) return res.status(400).json({ error: 'No puedes bloquearte a ti mismo' });
+    const target = await prisma.user.findUnique({ where: { id: blockedId }, select: { id: true } });
+    if (!target) return res.status(404).json({ error: 'Usuario no encontrado' });
+    await prisma.$transaction([
+      prisma.block.upsert({
+        where: { blockerId_blockedId: { blockerId, blockedId } },
+        create: { blockerId, blockedId },
+        update: {}
+      }),
+      prisma.follow.deleteMany({ where: { OR: [{ followerId: blockerId, followingId: blockedId }, { followerId: blockedId, followingId: blockerId }] } }),
+      prisma.followRequest.deleteMany({ where: { OR: [{ requesterId: blockerId, targetId: blockedId }, { requesterId: blockedId, targetId: blockerId }] } }),
+    ]);
+    res.json({ ok: true });
+  } catch (error) {
+    logger.error('Error blocking user', { error });
+    res.status(500).json({ error: 'Error al bloquear' });
+  }
+});
+
+app.delete('/api/blocks/:userId', authenticateToken, async (req: any, res: Response) => {
+  try {
+    await prisma.block.deleteMany({ where: { blockerId: req.user.userId, blockedId: req.params.userId } });
+    res.json({ ok: true });
+  } catch (error) {
+    logger.error('Error unblocking user', { error });
+    res.status(500).json({ error: 'Error al desbloquear' });
+  }
+});
+
+// Solo los que YO he bloqueado (no quién me ha bloqueado a mí)
+app.get('/api/blocks', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const rows = await prisma.block.findMany({
+      where: { blockerId: req.user.userId },
+      orderBy: { createdAt: 'desc' },
+      take: 500,
+      select: { blocked: { select: { id: true, name: true, avatar: true } } }
+    });
+    res.json({ users: rows.map(r => r.blocked) });
+  } catch (error) {
+    logger.error('Error listing blocks', { error });
+    res.status(500).json({ error: 'Error al listar bloqueos' });
+  }
+});
+
+// ============= PORTABILIDAD DE DATOS =============
+// Exporta SOLO los datos del propio usuario (sin hash de contraseña ni tokens). Límites por colección para acotar tamaño.
+app.get('/api/auth/export', authenticateToken, exportLimiter, async (req: any, res: Response) => {
+  try {
+    const userId: string = req.user.userId;
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const { password: _p, verificationToken: _vt, resetToken: _rt, resetTokenExpiry: _rte, ...profile } = user as any;
+    const LIM = { products: 2000, looks: 2000, comments: 5000, favorites: 5000, likes: 10000, stories: 500, messages: 10000, notifications: 1000, other: 1000 };
+    const [products, looks, comments, favorites, likes, stories, submissions, convs, notifications, follows, blocks, tryonPresets, plannerEntries, trips, achievements, badges, streak] = await Promise.all([
+      prisma.product.findMany({ where: { userId }, include: { images: true }, orderBy: { createdAt: 'desc' }, take: LIM.products }),
+      prisma.look.findMany({ where: { userId }, include: { images: true, products: { select: { id: true } } }, orderBy: { createdAt: 'desc' }, take: LIM.looks }),
+      prisma.comment.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: LIM.comments }),
+      prisma.favorite.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: LIM.favorites }),
+      prisma.like.findMany({ where: { userId }, select: { lookId: true, createdAt: true }, orderBy: { createdAt: 'desc' }, take: LIM.likes }),
+      prisma.story.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: LIM.stories }),
+      prisma.challengeSubmission.findMany({ where: { userId }, include: { challenge: { select: { title: true, tag: true } } }, orderBy: { createdAt: 'desc' }, take: LIM.other }),
+      prisma.conversation.findMany({
+        where: { participants: { some: { userId } } },
+        select: {
+          id: true, createdAt: true, itemId: true, itemTitle: true,
+          participants: { select: { user: { select: { id: true, name: true } } } },
+          messages: { orderBy: { createdAt: 'desc' }, take: LIM.messages, select: { id: true, senderId: true, content: true, imageUrl: true, productId: true, storyId: true, storyThumb: true, createdAt: true } }
+        },
+        take: LIM.other
+      }),
+      prisma.notification.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: LIM.notifications }),
+      prisma.follow.findMany({ where: { OR: [{ followerId: userId }, { followingId: userId }] }, select: { followerId: true, followingId: true, createdAt: true }, take: LIM.other }),
+      prisma.block.findMany({ where: { blockerId: userId }, select: { blockedId: true, createdAt: true } }),
+      prisma.tryonPreset.findMany({ where: { userId }, take: LIM.other }),
+      prisma.plannerEntry.findMany({ where: { userId }, take: LIM.other }),
+      prisma.trip.findMany({ where: { userId }, include: { items: true }, take: LIM.other }),
+      prisma.userAchievement.findMany({ where: { userId } }),
+      prisma.userBadge.findMany({ where: { userId } }),
+      prisma.userStreak.findUnique({ where: { userId } }),
+    ]);
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      format: 'estilovivo-export-v1',
+      note: 'Contiene solo tus datos. Los mensajes incluyen los de la otra persona en tus conversaciones. Límites por colección aplicados.',
+      profile,
+      preferences: {
+        emailNotifications: user.emailNotifications, emailChat: user.emailChat, emailFollows: user.emailFollows,
+        emailWashing: user.emailWashing, emailChallenges: user.emailChallenges, language: user.language, dialect: user.dialect,
+        darkModeSetting: user.darkModeSetting, fontSize: user.fontSize, highContrast: user.highContrast, themePreset: user.themePreset,
+        isProfilePublic: user.isProfilePublic
+      },
+      products, looks, comments, favorites, likes, stories,
+      challengeSubmissions: submissions,
+      conversations: convs.map(c => ({ ...c, participants: c.participants.map(p => p.user) })),
+      notifications, follows, blocks, tryonPresets, plannerEntries, trips, achievements, badges, streak,
+    };
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="estilovivo-datos-${new Date().toISOString().slice(0, 10)}.json"`);
+    res.send(JSON.stringify(payload, null, 2));
+  } catch (error) {
+    logger.error('Error exporting data', { error });
+    res.status(500).json({ error: 'Error al exportar los datos' });
+  }
+});
+
+app.get('/api/users/top', optionalAuth, async (req: any, res: Response) => {
+  try {
+    const topBlocked = await getBlockedIds(req.user?.userId);
     const topUsers = await prisma.user.findMany({
+      where: topBlocked.length ? { id: { notIn: topBlocked } } : undefined,
       orderBy: { experiencePoints: 'desc' },
       take: 5,
       select: {
@@ -2356,6 +2633,7 @@ app.get('/api/users/:id', authenticateToken, async (req: any, res: Response) => 
   try {
     const { id } = req.params;
     const viewerId = req.user.userId;
+    if (id !== viewerId && (await isBlockedBetween(viewerId, id))) return res.status(404).json({ error: 'User not found' });
     const user = await prisma.user.findUnique({
       where: { id },
       include: {
@@ -2438,7 +2716,7 @@ async function getChallengeWeekBounds(now: Date): Promise<{ monday: Date; sunday
   return { monday, sunday };
 }
 
-async function analyzeChallengeImage(filePath: string): Promise<{ uniform: boolean; score: number }> {
+async function analyzeChallengeImage(filePath: string): Promise<{ uniform: boolean; score: number; conclusive: boolean }> {
   try {
     const sharp = (await import('sharp')).default;
     const { data, info } = await sharp(filePath)
@@ -2466,10 +2744,30 @@ async function analyzeChallengeImage(filePath: string): Promise<{ uniform: boole
     variance /= totalPixels * 3;
     const maxVariance = 16384;
     const score = Math.max(0, Math.min(100, 100 - (variance / maxVariance) * 100));
-    return { uniform: score >= 30, score };
+    return { uniform: score >= 30, score, conclusive: true };
   } catch {
-    return { uniform: true, score: 50 };
+    // Sin análisis fiable: no se puede afirmar nada (nunca se marca INVALID por un fallo técnico)
+    return { uniform: true, score: 50, conclusive: false };
   }
+}
+
+type ChallengeStatus = 'VALID' | 'INVALID' | 'PENDING';
+// Reglas objetivas por tag. 'monocromo' exige gama uniforme; 'Color Block' (y cualquier otro) NO.
+const challengeRequiresUniformColor = (tag: string | null | undefined) => (tag || '').toLowerCase().includes('monocromo');
+
+// Sin IA con visión no hay evidencia fiable de que la foto cumpla el reto: solo se marca INVALID en el caso
+// objetivo (monocromo con varianza alta). Nunca se devuelve VALID automáticamente (queda para moderación futura).
+function evaluateChallengeSubmission(tag: string | null | undefined, analysis: { uniform: boolean; conclusive: boolean }): { status: ChallengeStatus; reason: string; verified: boolean } {
+  if (challengeRequiresUniformColor(tag)) {
+    if (!analysis.conclusive) {
+      return { status: 'PENDING', reason: 'No se pudo analizar el color de la foto; pendiente de revisión.', verified: true };
+    }
+    if (!analysis.uniform) {
+      return { status: 'INVALID', reason: 'La foto no tiene una gama de color uniforme, que es lo que pide este reto.', verified: false };
+    }
+    return { status: 'PENDING', reason: 'La gama de color es uniforme, pero el servidor no puede comprobar que la foto sea un look; pendiente de revisión.', verified: true };
+  }
+  return { status: 'PENDING', reason: 'El servidor no puede validar automáticamente este tipo de reto; pendiente de revisión.', verified: true };
 }
 
 app.get('/api/challenges/current', optionalAuth, async (req: Request, res: Response) => {
@@ -2537,7 +2835,7 @@ app.get('/api/challenges/history', authenticateToken, async (req: any, res: Resp
       include: {
         submissions: {
           where: { userId: req.user.userId },
-          select: { id: true, imageUrl: true, description: true, verified: true, awarded: true, createdAt: true }
+          select: { id: true, imageUrl: true, description: true, verified: true, awarded: true, status: true, reason: true, createdAt: true }
         }
       },
       orderBy: { endDate: 'desc' },
@@ -2604,9 +2902,7 @@ app.post('/api/challenges/submit', authenticateToken, upload.fields([{ name: 'im
     const storedName = await reencodeSingleImage(imageFile);
     if (!storedName) return res.status(400).json({ error: 'No se pudo procesar la imagen' });
 
-    const challengeTag = (challenge.tag || '').toLowerCase();
-    const needsUniformColor = challengeTag.includes('monocromo') || challengeTag.includes('color');
-    const verified = needsUniformColor ? analysis.uniform : true;
+    const { status, reason, verified } = evaluateChallengeSubmission(challenge.tag, analysis);
 
     const submission = await prisma.challengeSubmission.create({
       data: {
@@ -2615,7 +2911,9 @@ app.post('/api/challenges/submit', authenticateToken, upload.fields([{ name: 'im
         imageUrl: `/api/uploads/${storedName}`,
         description: desc,
         verified,
-        awarded: true,
+        status,
+        reason,
+        awarded: true, // XP: decisión pendiente (ver docs/API_CHALLENGE_VALIDATION.md); sin cambios por ahora
       }
     });
 
@@ -3109,8 +3407,12 @@ app.put('/api/notifications/:id/read', authenticateToken, async (req: any, res: 
 app.get('/api/chat/conversations', authenticateToken, async (req: any, res: Response) => {
   try {
     const userId = req.user.userId;
+    const convBlocked = await getBlockedIds(userId);
     const conversations = await prisma.conversation.findMany({
-      where: { participants: { some: { userId } } },
+      where: {
+        participants: { some: { userId } },
+        ...(convBlocked.length ? { NOT: { participants: { some: { userId: { in: convBlocked } } } } } : {})
+      },
       include: {
         participants: { include: { user: { select: { id: true, name: true, avatar: true } } } },
         messages: {
@@ -3143,6 +3445,7 @@ app.post('/api/chat/conversations', authenticateToken, validate(conversationSche
     if (recipientId === req.user.userId) return res.status(400).json({ error: 'Cannot chat with yourself' });
     const recipient = await prisma.user.findUnique({ where: { id: recipientId }, select: { id: true } });
     if (!recipient) return res.status(404).json({ error: 'Usuario no encontrado' });
+    if (await isBlockedBetween(req.user.userId, recipientId)) return res.status(403).json({ error: 'No puedes enviar mensajes a este usuario' });
     const safeItemImage = itemImage && (isOwnUploadUrl(itemImage) || /^https:\/\//.test(itemImage)) ? itemImage : null;
 
     let whereClause: any = {
@@ -3202,6 +3505,7 @@ app.get('/api/chat/conversations/:id/messages', authenticateToken, async (req: a
       where: { conversationId_userId: { conversationId: id, userId: req.user.userId } }
     });
     if (!participation) return res.status(403).json({ error: 'Not authorized' });
+    if (await conversationHasBlocked(id, req.user.userId)) return res.status(404).json({ error: 'Conversación no encontrada' });
 
     const messages = await prisma.message.findMany({
       where: { conversationId: id },
@@ -3241,6 +3545,7 @@ app.post('/api/chat/conversations/:id/messages', authenticateToken, validate(mes
       where: { conversationId_userId: { conversationId, userId: req.user.userId } }
     });
     if (!participation) return res.status(403).json({ error: 'Not authorized' });
+    if (await conversationHasBlocked(conversationId, req.user.userId)) return res.status(403).json({ error: 'No puedes enviar mensajes a este usuario' });
 
     const message = await prisma.message.create({
       data: { conversationId, content: content || '', imageUrl: imageUrl || null, productId: productId || null, senderId: req.user.userId },
@@ -3310,6 +3615,7 @@ app.post('/api/chat/messages', authenticateToken, validate(messageSchema), async
       where: { conversationId, userId: req.user.userId }
     });
     if (!participant) return res.status(403).json({ error: 'Not a participant in this conversation' });
+    if (await conversationHasBlocked(conversationId, req.user.userId)) return res.status(403).json({ error: 'No puedes enviar mensajes a este usuario' });
     const message = await prisma.message.create({
       data: { conversationId, content: content || '', senderId: req.user.userId, imageUrl: imageUrl || null, productId: productId || null },
       include: { sender: { select: { id: true, name: true, avatar: true } } }
@@ -3419,9 +3725,11 @@ app.get('/api/stories', optionalAuth, async (req: any, res: Response) => {
     const followingIds = viewerId
       ? (await prisma.follow.findMany({ where: { followerId: viewerId }, select: { followingId: true } })).map(f => f.followingId)
       : [];
+    const storyBlocked = await getBlockedIds(viewerId);
     const stories = await prisma.story.findMany({
       where: {
         expiresAt: { gt: new Date() },
+        ...notBlocked(storyBlocked),
         OR: [
           { user: { isProfilePublic: true } },
           ...(viewerId ? [{ userId: viewerId }, { userId: { in: followingIds } }] : []),
@@ -3489,6 +3797,7 @@ app.post('/api/stories/:id/view', authenticateToken, async (req: any, res: Respo
   try {
     const existingStory = await prisma.story.findUnique({ where: { id: req.params.id }, select: { userId: true } });
     if (!existingStory) return res.status(404).json({ error: 'Historia no encontrada' });
+    if (existingStory.userId !== req.user.userId && (await isBlockedBetween(req.user.userId, existingStory.userId))) return res.status(404).json({ error: 'Historia no encontrada' });
     // Las visitas propias no cuentan
     if (existingStory.userId === req.user.userId) return res.json({ success: true });
     const story = await prisma.story.update({
@@ -3513,6 +3822,7 @@ app.post('/api/stories/:id/reaction', authenticateToken, async (req: any, res: R
       include: { user: { select: { id: true, name: true, avatar: true } } },
     });
     if (!story) return res.status(404).json({ error: 'Historia no encontrada' });
+    if (story.userId !== req.user.userId && (await isBlockedBetween(req.user.userId, story.userId))) return res.status(404).json({ error: 'Historia no encontrada' });
 
     // Cannot react to own story
     if (story.userId === req.user.userId) {
@@ -3555,6 +3865,8 @@ app.post('/api/stories/:id/reaction', authenticateToken, async (req: any, res: R
         conversationId: conversation.id,
         senderId: req.user.userId,
         content: messageContent,
+        storyId: story.id,
+        storyThumb: story.imageUrl ?? null,
       },
       include: { sender: { select: { id: true, name: true, avatar: true } } },
     });

@@ -73,6 +73,36 @@ model User {
   streak              UserStreak?
   tryonPresets        TryonPreset[]
   refreshTokens       RefreshToken[]
+  blocksMade          Block[]    @relation("blocker")
+  blocksReceived      Block[]    @relation("blocked")
+}
+
+// Moderación (aditivo): bloqueos entre usuarios y denuncias de contenido
+model Block {
+  id        String   @id @default(cuid())
+  blockerId String
+  blocker   User     @relation("blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockedId String
+  blocked   User     @relation("blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+  @@index([blockedId])
+}
+
+// reporterId/targetId son ids simples (sin FK) para conservar la denuncia aunque se borre el contenido o la cuenta
+model Report {
+  id         String   @id @default(cuid())
+  reporterId String
+  targetType String   // USER | LOOK | COMMENT | STORY | MESSAGE
+  targetId   String
+  reason     String   // SPAM | HARASSMENT | INAPPROPRIATE | IMPERSONATION | OTHER
+  details    String?
+  status     String   @default("OPEN")
+  createdAt  DateTime @default(now())
+
+  @@index([reporterId, targetType, targetId])
+  @@index([status, createdAt])
 }
 
 model TryonPreset {
@@ -309,6 +339,9 @@ model Message {
   content        String
   imageUrl       String?
   productId      String?
+  // Reacciones a historias (aditivo, nullable): referencia a la historia y copia de su imagen
+  storyId        String?
+  storyThumb     String?
   createdAt      DateTime      @default(now())
   
   @@index([conversationId, createdAt])
@@ -366,6 +399,9 @@ model ChallengeSubmission {
   description String?
   verified    Boolean  @default(false)
   awarded     Boolean  @default(false)
+  // Estado de la validación: VALID | INVALID | PENDING (aditivo, por defecto PENDING)
+  status      String   @default("PENDING")
+  reason      String?
   createdAt   DateTime @default(now())
 
   user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
