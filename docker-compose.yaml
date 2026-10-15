@@ -16,8 +16,8 @@ services:
       # Database (SQLite file) — MUST be absolute path to match volume mount
       DATABASE_URL: ${DATABASE_URL:-file:/app/data/dev.db}
 
-      # Authentication
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      # Authentication (valores secretos: SOLO en Coolify › Environment Variables, nunca aquí)
+      JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: 7d
 
       # Frontend URL (must match the public domain)
@@ -27,13 +27,13 @@ services:
       UPLOADS_DIR: /app/uploads
 
       # SMTP - Configuración de correo
-      SMTP_HOST: smtp.gmail.com
-      SMTP_PORT: '587'
-      SMTP_USER: appestilovivo@gmail.com
-      SMTP_PASS: wlvo avac rbqf xqik
-      EMAIL_FROM: appestilovivo@gmail.com
-      SMTP_SECURE: 'false'
-      SMTP_TLS_REJECT_UNAUTHORIZED: 'false'
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-appestilovivo@gmail.com}
+      SMTP_PASS: ${SMTP_PASS}
+      EMAIL_FROM: ${EMAIL_FROM:-appestilovivo@gmail.com}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_TLS_REJECT_UNAUTHORIZED: ${SMTP_TLS_REJECT_UNAUTHORIZED:-true}
     volumes:
       # Almacenamiento persistente
       - uploads_data:/app/uploads
