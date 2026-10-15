@@ -1681,7 +1681,7 @@ app.put('/api/products/:id', authenticateToken, upload.array('images', 5), valid
           intro: `"${product.name}" no aparecerá en tu armario ni en las sugerencias hasta que la saques. Así no te proponemos looks con ropa que se está lavando.`,
           imageUrl: emailAssetUrl(product.images?.[0]?.url),
           imageAlt: product.name,
-          cta: { label: 'Ver mi armario', url: emailBaseUrl() + '/' },
+          cta: { label: 'Ver mi armario', url: getEmailFriendlyUrl('/wardrobe') },
         },
         context: { type: 'WASHING', productId: product.id },
         preference: 'emailWashing'

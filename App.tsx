@@ -29,6 +29,7 @@ const AppContent: React.FC = () => {
     const path = window.location.pathname;
     if (path === '/privacy') return 'privacy';
     if (path.startsWith('/user/')) return 'viewProfile';
+    if (path.startsWith('/look/')) return 'social'; // enlaces de correos (me gusta, comentarios)
     const tabMap: Record<string, string> = {
       '/home': 'home',
       '/wardrobe': 'wardrobe',
