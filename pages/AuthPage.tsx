@@ -3,7 +3,8 @@ import { Mail, Lock, User, ArrowRight, Sparkles, AlertCircle, Calendar, Language
 import { api } from '../services/api';
 import { useLanguage } from '../src/context/LanguageContext';
 import { languages, dialects } from '../src/utils/translations';
-import Logo from '../components/Logo';
+import Welcome from '../components/Welcome';
+import Headline from '../components/Headline';
 
 interface AuthPageProps {
     onAuthSuccess: (user: any, rememberMe?: boolean) => void;
@@ -11,6 +12,14 @@ interface AuthPageProps {
 
 const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
     const [isLogin, setIsLogin] = useState(true);
+    // Bienvenida como en la app; no se muestra si se llega desde un enlace (verificar correo, restablecer contraseña)
+    const [showWelcome, setShowWelcome] = useState(() => {
+        try {
+            const q = window.location.search + window.location.pathname;
+            if (/token|verify|reset/i.test(q)) return false;
+            return sessionStorage.getItem('ev_welcome_seen') !== '1';
+        } catch { return true; }
+    });
     const [view, setView] = useState<'auth' | 'forgot' | 'reset'>('auth');
     const [email, setEmail] = useState('');
     const [savedEmail, setSavedEmail] = useState('');
@@ -162,8 +171,12 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
         }
     };
 
+    if (showWelcome && view === 'auth') {
+        return <Welcome onStart={() => { try { sessionStorage.setItem('ev_welcome_seen', '1'); } catch {} setShowWelcome(false); }} />;
+    }
+
     return (
-        <div className="min-h-screen bg-[var(--bg-card)] flex flex-col items-center justify-center p-6 relative overflow-hidden">
+        <div className="min-h-screen bg-[var(--bg-base)] flex flex-col items-center justify-center p-6 relative overflow-hidden">
             {/* Background Decorative Elements */}
             <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-3xl" />
             <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-teal-500/5 rounded-full blur-3xl" />
@@ -224,10 +237,13 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
             </div>
 
             <div className="w-full max-w-md z-10">
-                <div className="text-center mb-10">
-                    <div className="flex justify-center mb-2">
-                        <Logo variant="horizontal" size={280} className="max-w-[min(100%,320px)]" />
-                    </div>
+                <div className="mb-8 space-y-2">
+                    {view === 'auth' && (
+                        <>
+                            <Headline text={isLogin ? 'Bienvenida de *nuevo*.' : 'Crea tu *cuenta*.'} className="text-4xl" />
+                            <p className="text-[var(--text-secondary)]">{isLogin ? 'Entra para seguir con tu armario.' : 'Unos datos y empezamos a vestir tu día.'}</p>
+                        </>
+                    )}
                     {(view === 'forgot' || view === 'reset') && (
                         <>
                             <h1 className="text-2xl font-black text-[var(--text-primary)] tracking-tight mb-2 mt-6">

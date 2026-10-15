@@ -467,3 +467,25 @@ html[style*="font-size: 18px"] .text-xs { font-size: 13px !important; }
     background: #F5F5F8;
     color: #0B0B0F;
 }
+
+/* Bienvenida (como WelcomeScreen de la app) */
+.ev-giant-letter {
+    display: inline-block;
+    font-weight: 800;
+    font-size: min(26vw, 112px);
+    line-height: .92;
+    letter-spacing: -0.04em;
+    color: rgba(255, 255, 255, .97);
+    opacity: 0;
+    transform: translateY(50px) rotate(8deg);
+    animation: evLetterUp .7s cubic-bezier(.34, 1.56, .64, 1) forwards;
+}
+@keyframes evLetterUp { to { opacity: 1; transform: none; } }
+.ev-reveal { opacity: 0; transform: translateY(14px); animation: evReveal .6s cubic-bezier(.2, 0, 0, 1) forwards; }
+@keyframes evReveal { to { opacity: 1; transform: none; } }
+.ev-kenburns { animation: evKenBurns 28s ease-in-out infinite alternate; }
+@keyframes evKenBurns { from { transform: scale(1.04) translateX(-6px); } to { transform: scale(1.14) translateX(6px); } }
+@media (prefers-reduced-motion: reduce) {
+    .ev-giant-letter, .ev-reveal { animation: none; opacity: 1; transform: none; }
+    .ev-kenburns { animation: none; }
+}

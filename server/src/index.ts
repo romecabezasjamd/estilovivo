@@ -601,6 +601,14 @@ const authenticateToken = (req: any, res: Response, next: NextFunction) => {
   });
 };
 
+// ============= VERIFICACIÓN DE CORREO =============
+// Las cuentas creadas desde que el correo funciona en producción deben confirmar el correo antes de entrar.
+// Las anteriores (registradas cuando el envío fallaba y se verificaban solas o quedaban pendientes) siguen entrando,
+// para no dejar fuera a nadie que ya usaba la app. Configurable con EMAIL_VERIFICATION_REQUIRED_SINCE (ISO).
+const VERIFICATION_REQUIRED_SINCE = new Date(process.env.EMAIL_VERIFICATION_REQUIRED_SINCE || '2026-10-15T15:45:00Z');
+const mustVerifyBeforeLogin = (createdAt?: Date | null) =>
+  !createdAt || isNaN(VERIFICATION_REQUIRED_SINCE.getTime()) || createdAt >= VERIFICATION_REQUIRED_SINCE;
+
 // ============= CUENTAS SUSPENDIDAS (moderación) =============
 const SUSPENDED_MESSAGE = 'Tu cuenta está suspendida por incumplir las normas de la comunidad. Si crees que es un error, escribe a appestilovivo@gmail.com.';
 // Caché corta para no consultar la BD en cada petición (una suspensión tarda como mucho 60 s en aplicarse)
@@ -906,13 +914,19 @@ app.post('/api/auth/register', authLimiter, validate(registerSchema), async (req
         logger.info('Verification email sent', { userId: user.id });
         emailSent = true;
       } catch (mailError) {
-        logger.error('Failed to send verification email, auto-verifying user as fallback', { userId: user.id, error: mailError });
+        logger.error('Failed to send verification email (account stays unverified; can resend)', { userId: user.id, error: mailError });
       }
     } else {
       logger.warn('SMTP not configured. Auto-verifying user.', { userId: user.id });
     }
 
-    // Auto-verify if email failed or SMTP is not configured
+    // Sin SMTP configurado (desarrollo local) se verifica sola para poder probar. Si el SMTP existe pero el envío
+    // falla, la cuenta queda SIN verificar: se podrá reenviar el correo desde "Revisa tu correo".
+    if (!emailSent && transporter) {
+      logger.info('User registered (verification email failed, pending)', { userId: user.id });
+      const { password: _p, verificationToken: _v, resetToken: _r, resetTokenExpiry: _re, ...pending } = user;
+      return res.status(201).json({ user: pending, message: 'verificationEmailFailed', requiresVerification: true });
+    }
     if (!emailSent) {
       await prisma.user.update({
         where: { id: user.id },
@@ -980,8 +994,13 @@ app.post('/api/auth/login', loginLimiter, validate(loginSchema), async (req: Req
     }
 
     const requiresVerification = !user.isVerified;
-    if (requiresVerification && transporter) {
-      logger.warn('Login for unverified account allowed, verification still pending', { userId: user.id });
+    if (requiresVerification && transporter && mustVerifyBeforeLogin(user.createdAt)) {
+      // Sin confirmar el correo no se entra: evita cuentas con correos falsos. La app y la web muestran
+      // "Revisa tu correo" con el botón de reenviar al recibir este error.
+      logger.warn('Login blocked: email not verified', { userId: user.id });
+      return res.status(403).json({ error: 'emailNotVerified', code: 'EMAIL_NOT_VERIFIED' });
+    } else if (requiresVerification && transporter) {
+      logger.warn('Login for unverified legacy account allowed, verification still pending', { userId: user.id });
     } else if (requiresVerification) {
       logger.warn('Login for unverified account allowed because SMTP is unavailable', { userId: user.id });
       await prisma.user.update({
