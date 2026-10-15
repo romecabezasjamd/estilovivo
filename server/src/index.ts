@@ -18,6 +18,8 @@ import cookieParser from 'cookie-parser';
 import { z } from 'zod';
 import logger from './logger.js';
 import { processImage } from './imageProcessor.js';
+import { renderEmail, REASON_ACCOUNT, REASON_PREFS, type EmailParams } from './emailTemplates.js';
+type EmailContent = Omit<EmailParams, 'reason' | 'baseUrl'>;
 import { initPush, isPushEnabled, isValidPushToken, registerPushToken, sendPushForNotification, unregisterPushToken } from './push.js';
 import {
   validate,
@@ -156,118 +158,41 @@ const getEmailFriendlyUrl = (path: string = '') => {
   return `${androidFriendly}${path}`;
 };
 
-// Email template helper with logo and styling
-const getEmailTemplate = (content: string, title: string = 'Estilo Vivo') => `
-  <!DOCTYPE html>
-  <html>
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>${title}</title>
-      <style>
-        body {
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-          background-color: #f8f9fa;
-          margin: 0;
-          padding: 0;
-          color: #333;
-        }
-        .container {
-          max-width: 600px;
-          margin: 0 auto;
-          background-color: #ffffff;
-          border-radius: 12px;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-          overflow: hidden;
-        }
-        .header {
-          background: linear-gradient(135deg, #ff4d94 0%, #00b4d8 100%);
-          padding: 30px 20px;
-          text-align: center;
-          color: white;
-        }
-        .logo {
-          font-size: 28px;
-          font-weight: 900;
-          margin-bottom: 5px;
-          letter-spacing: -1px;
-        }
-        .tagline {
-          font-size: 13px;
-          opacity: 0.9;
-          font-weight: 500;
-        }
-        .content {
-          padding: 40px 30px;
-        }
-        .greeting {
-          font-size: 18px;
-          font-weight: 600;
-          color: #1a1a1a;
-          margin-bottom: 15px;
-        }
-        .message {
-          font-size: 14px;
-          line-height: 1.6;
-          color: #555;
-          margin-bottom: 25px;
-        }
-        .button {
-          display: inline-block;
-          background: linear-gradient(135deg, #ff4d94 0%, #ff6bb3 100%);
-          color: white;
-          padding: 14px 32px;
-          text-decoration: none;
-          border-radius: 8px;
-          font-weight: 600;
-          font-size: 15px;
-          margin: 20px 0;
-          transition: transform 0.2s;
-        }
-        .button:hover {
-          transform: translateY(-2px);
-        }
-        .info-box {
-          background-color: #f0f7ff;
-          border-left: 4px solid #00b4d8;
-          padding: 15px;
-          margin: 20px 0;
-          border-radius: 4px;
-          font-size: 13px;
-          color: #0066b3;
-        }
-        .footer {
-          border-top: 1px solid #eee;
-          padding: 20px 30px;
-          font-size: 12px;
-          color: #999;
-          text-align: center;
-          background-color: #fafafa;
-        }
-        .divider {
-          height: 1px;
-          background-color: #eee;
-          margin: 20px 0;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <div class="logo">✨ ESTILO VIVO</div>
-          <div class="tagline">Tu armario, Tu comunidad, Tu estilo</div>
-        </div>
-        <div class="content">
-          ${content}
-        </div>
-        <div class="footer">
-          <p>© 2026 Estilo Vivo. Todos los derechos reservados.</p>
-          <p>Este correo fue enviado porque registraste una cuenta en nuestra plataforma.</p>
-        </div>
-      </div>
-    </body>
-  </html>
-`;
+// Correos: plantilla común en emailTemplates.ts. Origen público para logo, enlaces y fotos.
+const emailBaseUrl = () => getEmailFriendlyUrl('');
+/** URL absoluta para una foto subida (las de la BD son relativas: /api/uploads/...). */
+const emailAssetUrl = (u?: string | null) => {
+  if (!u) return undefined;
+  if (/^https?:\/\//i.test(u)) return u;
+  return getEmailFriendlyUrl(u.startsWith('/') ? u : '/' + u);
+};
+
+/** Correo de mensaje de chat nuevo (texto o foto). */
+const chatEmail = (to: string, message: { content?: string | null; imageUrl?: string | null; sender: { name: string } }) => {
+  const senderName = String(message.sender.name).replace(/[\r\n]/g, ' ');
+  const chatUrl = getEmailFriendlyUrl('/social?tab=chat');
+  const preview = message.content ? message.content.slice(0, 300) : (message.imageUrl ? 'Te ha enviado una foto 📷' : '');
+  return {
+    to,
+    subject: `${senderName} te ha escrito - Estilo Vivo`,
+    text: `${senderName}: ${preview}\n\nResponde en la app: ${chatUrl}`,
+    html: renderEmail({
+      preheader: preview ? `${senderName}: ${preview.slice(0, 90)}` : `${senderName} te ha escrito`,
+      eyebrow: 'Mensaje nuevo',
+      headline: `*${senderName}* te ha escrito`,
+      quote: preview || undefined,
+      cta: { label: 'Responder', url: chatUrl },
+      reason: REASON_PREFS,
+      baseUrl: emailBaseUrl(),
+    }),
+  };
+};
+
+/** Remitente con nombre visible ("Estilo Vivo" <correo>), salvo que EMAIL_FROM ya traiga uno. */
+const emailFrom = () => {
+  const addr = (process.env.EMAIL_FROM || process.env.SMTP_USER || '').trim();
+  return addr.includes('<') ? addr : `"Estilo Vivo" <${addr}>`;
+};
 
 const sendMailWithRetry = async (mailOptions: any, retries = 2) => {
   if (!transporter) {
@@ -278,7 +203,7 @@ const sendMailWithRetry = async (mailOptions: any, retries = 2) => {
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     try {
       return await transporter.sendMail({
-        from: process.env.EMAIL_FROM || process.env.SMTP_USER!,
+        from: emailFrom(),
         ...mailOptions,
       });
     } catch (error) {
@@ -350,10 +275,13 @@ const findUsersByEmail = async (email: string) => {
 const sendPreferenceEmail = async (params: {
   userId: string;
   subject: string;
-  html: string;
+  /** Contenido del correo; se pinta con la plantilla común (renderEmail). */
+  email: EmailContent;
   text?: string;
   context?: Record<string, unknown>;
   preference?: 'emailChat' | 'emailFollows' | 'emailWashing' | 'emailChallenges';
+  /** Si se indica, se usa la primera foto de ese look como imagen del correo. */
+  lookImageFor?: string;
 }) => {
   if (!transporter) return false;
 
@@ -366,10 +294,15 @@ const sendPreferenceEmail = async (params: {
   if (params.preference && !(recipient as any)[params.preference]) return false;
 
   try {
+    let email = params.email;
+    if (params.lookImageFor && !email.imageUrl) {
+      const img = await prisma.lookImage.findFirst({ where: { lookId: params.lookImageFor }, orderBy: { createdAt: 'asc' }, select: { url: true } });
+      email = { ...email, imageUrl: emailAssetUrl(img?.url) };
+    }
     await sendMailWithRetry({
       to: recipient.email,
       subject: params.subject,
-      html: params.html,
+      html: renderEmail({ ...email, reason: REASON_PREFS, baseUrl: emailBaseUrl() }),
       text: params.text,
     });
     logger.info('Notification email sent', { userId: params.userId, subject: params.subject, ...params.context });
@@ -922,31 +855,22 @@ app.post('/api/auth/register', authLimiter, validate(registerSchema), async (req
     let emailSent = false;
     if (transporter) {
       const verifyUrl = `${getEmailFriendlyUrl('/auth?verifyToken=' + verificationToken)}`;
-      const emailContent = `
-        <p class="greeting">¡Bienvenida a Estilo Vivo, ${escapeHtml(user.name)}! 🎉</p>
-        <p class="message">
-          Gracias por unirte a nuestra comunidad. Para empezar a usar tu cuenta y acceder a todas nuestras funciones, 
-          verifica tu correo electrónico haciendo clic en el botón de abajo.
-        </p>
-        <div style="text-align: center;">
-          <a href="${verifyUrl}" class="button">✓ Verificar mi Cuenta</a>
-        </div>
-        <div class="info-box">
-          <strong>👇 Si el botón no funciona:</strong><br>
-          Copia y pega este enlace en tu navegador:<br>
-          <code style="background: #e8f4f8; padding: 4px 8px; border-radius: 3px; word-break: break-all; display: block; margin-top: 8px;">${verifyUrl}</code>
-        </div>
-        <p class="message" style="font-size: 12px; color: #999;">
-          Este es un correo automático. Por favor, no respondas a este mensaje. Si tienes preguntas, 
-          contacta con nuestro equipo de soporte.
-        </p>
-      `;
-
       try {
         await sendMailWithRetry({
           to: user.email,
-          subject: '✓ Verifica tu cuenta - Estilo Vivo',
-          html: getEmailTemplate(emailContent, 'Bienvenida a Estilo Vivo')
+          subject: 'Te damos la bienvenida a Estilo Vivo',
+          text: `Hola, ${user.name}. Confirma tu correo para empezar: ${verifyUrl}`,
+          html: renderEmail({
+            preheader: 'Confirma tu correo y empieza a crear tus looks',
+            eyebrow: 'Bienvenida',
+            headline: `Hola, *${user.name}*`,
+            intro: 'Gracias por unirte a Estilo Vivo. Confirma tu correo y tendrás tu armario, tus looks y la comunidad a un toque.',
+            cta: { label: 'Confirmar mi correo', url: verifyUrl },
+            note: 'El enlace caduca en 24 horas.',
+            fallbackUrl: verifyUrl,
+            reason: REASON_ACCOUNT,
+            baseUrl: emailBaseUrl(),
+          })
         });
         logger.info('Verification email sent', { userId: user.id });
         emailSent = true;
@@ -1069,30 +993,21 @@ app.post('/api/auth/resend-verification', authLimiter, validate(resendVerificati
     });
 
     const verifyUrl = `${getEmailFriendlyUrl('/auth?verifyToken=' + verificationToken)}`;
-    const emailContent = `
-      <p class="greeting">Hola ${escapeHtml(user.name)},</p>
-      <p class="message">
-        Hemos recibido tu solicitud para reenviar el enlace de verificación de correo. 
-        Por favor, confirma tu dirección de correo electrónico haciendo clic en el botón de abajo para activar todas las funciones de tu cuenta.
-      </p>
-      <div style="text-align: center;">
-        <a href="${verifyUrl}" class="button">✓ Verificar mi Correo</a>
-      </div>
-      <div class="info-box">
-        <strong>⏱️ Este enlace expira en 24 horas</strong><br>
-        Una vez verificado, podrás acceder a todas nuestras funciones: crear looks, compartir, chat y más.
-      </div>
-      <div class="divider"></div>
-      <p class="message" style="font-size: 12px;">
-        Si el botón no funciona, copia y pega este enlace en tu navegador:<br>
-        <code style="background: #f5f5f5; padding: 4px 8px; border-radius: 3px; word-break: break-all; display: block; margin-top: 8px;">${verifyUrl}</code>
-      </p>
-    `;
-
     await sendMailWithRetry({
       to: user.email,
-      subject: '✓ Verifica tu correo - Estilo Vivo',
-      html: getEmailTemplate(emailContent, 'Verificar Correo')
+      subject: 'Confirma tu correo - Estilo Vivo',
+      text: `Hola, ${user.name}. Confirma tu correo: ${verifyUrl}`,
+      html: renderEmail({
+        preheader: 'Un toque y tu cuenta queda lista',
+        eyebrow: 'Confirma tu correo',
+        headline: `Casi está, *${user.name}*`,
+        intro: 'Confirma tu dirección de correo para activar todo: crear looks, compartirlos, chatear y participar en los retos.',
+        cta: { label: 'Confirmar mi correo', url: verifyUrl },
+        note: 'El enlace caduca en 24 horas.',
+        fallbackUrl: verifyUrl,
+        reason: REASON_ACCOUNT,
+        baseUrl: emailBaseUrl(),
+      })
     });
 
     res.json({ success: true });
@@ -1261,30 +1176,21 @@ app.post('/api/auth/forgot-password', authLimiter, validate(forgotPasswordSchema
       return res.status(503).json({ error: 'SMTP not configured' });
     }
 
-    const emailContent = `
-      <p class="greeting">Hola ${escapeHtml(user.name)},</p>
-      <p class="message">
-        Hemos recibido una solicitud para restablecer tu contraseña en Estilo Vivo. 
-        Si no fuiste tú, puedes ignorar este correo.
-      </p>
-      <div style="text-align: center;">
-        <a href="${resetUrl}" class="button">Restablecer Contraseña</a>
-      </div>
-      <div class="info-box">
-        <strong>⏱️ Este enlace expira en 1 hora</strong><br>
-        Por razones de seguridad, los enlaces de recuperación tienen validez limitada.
-      </div>
-      <div class="divider"></div>
-      <p class="message">
-        Si tienes problemas para acceder al botón, copia y pega este enlace en tu navegador:<br>
-        <code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px; word-break: break-all;">${resetUrl}</code>
-      </p>
-    `;
-
     await sendMailWithRetry({
       to: user.email,
-      subject: '🔐 Recuperar contraseña - Estilo Vivo',
-      html: getEmailTemplate(emailContent, 'Recuperar Contraseña')
+      subject: 'Restablece tu contraseña - Estilo Vivo',
+      text: `Hola, ${user.name}. Para crear una contraseña nueva entra aquí (caduca en 1 hora): ${resetUrl}`,
+      html: renderEmail({
+        preheader: 'El enlace caduca en 1 hora',
+        eyebrow: 'Seguridad',
+        headline: 'Crea una *contraseña* nueva',
+        intro: `Hola, ${user.name}. Hemos recibido una solicitud para cambiar la contraseña de tu cuenta. Si no has sido tú, ignora este correo: tu contraseña sigue igual.`,
+        cta: { label: 'Cambiar contraseña', url: resetUrl },
+        note: 'Por seguridad, el enlace caduca en 1 hora y solo se puede usar una vez.',
+        fallbackUrl: resetUrl,
+        reason: REASON_ACCOUNT,
+        baseUrl: emailBaseUrl(),
+      })
     });
 
     res.json({ success: true, message: 'recoveryEmailSent' });
@@ -1768,7 +1674,15 @@ app.put('/api/products/:id', authenticateToken, upload.array('images', 5), valid
         userId: req.user.userId,
         subject: 'Tu prenda está en la lavadora - Estilo Vivo',
         text: `La prenda "${product.name}" está ahora en la lavadora`,
-        html: `<p>La prenda <strong>${escapeHtml(product.name)}</strong> está ahora en la lavadora.</p>`,
+        email: {
+          preheader: `"${product.name}" ya está en la lavadora`,
+          eyebrow: 'Tu armario',
+          headline: 'Tu prenda está en la *lavadora*',
+          intro: `"${product.name}" no aparecerá en tu armario ni en las sugerencias hasta que la saques. Así no te proponemos looks con ropa que se está lavando.`,
+          imageUrl: emailAssetUrl(product.images?.[0]?.url),
+          imageAlt: product.name,
+          cta: { label: 'Ver mi armario', url: emailBaseUrl() + '/' },
+        },
         context: { type: 'WASHING', productId: product.id },
         preference: 'emailWashing'
       });
@@ -2141,9 +2055,17 @@ app.post('/api/social/like', authenticateToken, async (req: any, res: Response) 
         void sendPushForNotification(prisma, notif);
         void sendPreferenceEmail({
           userId: look.userId,
-          subject: 'A alguien le gustó tu publicación - Estilo Vivo',
+          subject: `A ${me?.name || 'alguien'} le gusta tu look - Estilo Vivo`,
           text: `A ${me?.name || 'alguien'} le gustó tu publicación`,
-          html: `<p>A <strong>${escapeHtml(me?.name || 'Alguien')}</strong> le gustó tu publicación.</p>`,
+          email: {
+            preheader: `A ${me?.name || 'alguien'} le ha gustado tu publicación`,
+            eyebrow: 'Me gusta',
+            headline: `A *${me?.name || 'alguien'}* le gusta tu look`,
+            intro: 'Tu publicación está gustando. Entra para ver quién más le ha dado a me gusta.',
+            imageAlt: 'Tu look',
+            cta: { label: 'Ver publicación', url: getEmailFriendlyUrl('/look/' + encodeURIComponent(lookId)) },
+          },
+          lookImageFor: lookId,
           context: { type: 'LIKE', relatedId: lookId }
         });
       }
@@ -2246,7 +2168,15 @@ app.post('/api/social/comment', authenticateToken, validate(commentSchema), asyn
         userId: look.userId,
         subject: 'Nuevo comentario en tu publicación - Estilo Vivo',
         text: `${me?.name || 'Alguien'} comentó tu publicación`,
-        html: `<p><strong>${escapeHtml(me?.name || 'Alguien')}</strong> comentó tu publicación.</p>`,
+        email: {
+          preheader: `${me?.name || 'Alguien'}: ${String(content).slice(0, 90)}`,
+          eyebrow: 'Comentario nuevo',
+          headline: `*${me?.name || 'Alguien'}* ha comentado tu look`,
+          quote: String(content).slice(0, 300),
+          imageAlt: 'Tu look',
+          cta: { label: 'Ver comentario', url: getEmailFriendlyUrl('/look/' + encodeURIComponent(lookId)) },
+        },
+        lookImageFor: lookId,
         context: { type: 'COMMENT', relatedId: lookId }
       });
     }
@@ -2263,7 +2193,13 @@ app.post('/api/social/comment', authenticateToken, validate(commentSchema), asyn
           userId: parent.userId,
           subject: 'Respuesta a tu comentario - Estilo Vivo',
           text: `${me?.name || 'Alguien'} respondió a tu comentario`,
-          html: `<p><strong>${escapeHtml(me?.name || 'Alguien')}</strong> respondió a tu comentario.</p>`,
+          email: {
+            preheader: `${me?.name || 'Alguien'}: ${String(content).slice(0, 90)}`,
+            eyebrow: 'Respuesta',
+            headline: `*${me?.name || 'Alguien'}* te ha respondido`,
+            quote: String(content).slice(0, 300),
+            cta: { label: 'Ver conversación', url: getEmailFriendlyUrl('/look/' + encodeURIComponent(lookId)) },
+          },
           context: { type: 'COMMENT_REPLY', relatedId: lookId }
         });
       }
@@ -2434,7 +2370,13 @@ app.post('/api/social/follow', authenticateToken, validate(followSchema), async 
         userId: targetUserId,
         subject: 'Nuevo seguidor en Estilo Vivo',
         text: `${me?.name || 'Alguien'} te siguió`,
-        html: `<p><strong>${escapeHtml(me?.name || 'Alguien')}</strong> te siguió.</p><p><a href="${getEmailFriendlyUrl('/user/' + encodeURIComponent(userId))}">Ver perfil</a></p>`,
+        email: {
+          preheader: `${me?.name || 'Alguien'} ha empezado a seguirte`,
+          eyebrow: 'Seguidores',
+          headline: `*${me?.name || 'Alguien'}* ya te sigue`,
+          intro: 'Tienes una persona más pendiente de tus looks. Echa un vistazo a su perfil y, si te gusta su estilo, síguela tú también.',
+          cta: { label: 'Ver su perfil', url: getEmailFriendlyUrl('/user/' + encodeURIComponent(userId)) },
+        },
         context: { type: 'FOLLOW' },
         preference: 'emailFollows'
       });
@@ -3660,18 +3602,7 @@ app.post('/api/chat/conversations/:id/messages', authenticateToken, validate(mes
       const otherUser = await prisma.user.findUnique({ where: { id: op.userId } });
       if (transporter && otherUser?.email && otherUser.emailNotifications && otherUser.emailChat) {
         try {
-          const emailContent = `
-            <p class="greeting">Nuevo mensaje de ${escapeHtml(message.sender.name)} 💬</p>
-            <p class="message">"${escapeHtml(message.content.slice(0, 300))}"</p>
-            <div style="text-align: center;">
-              <a href="${getEmailFriendlyUrl('/social?tab=chat')}" class="button">Ver Conversación</a>
-            </div>
-          `;
-          await sendMailWithRetry({
-            to: otherUser.email,
-            subject: `💬 Nuevo mensaje de ${String(message.sender.name).replace(/[\r\n]/g, ' ')} - Estilo Vivo`,
-            html: getEmailTemplate(emailContent, 'Nuevo Mensaje')
-          });
+          await sendMailWithRetry(chatEmail(otherUser.email, message));
         } catch (mailErr) {
           logger.warn('Could not send chat email notification', { error: mailErr, userId: op.userId });
         }
@@ -3729,18 +3660,7 @@ app.post('/api/chat/messages', authenticateToken, validate(messageSchema), async
       const otherUser = await prisma.user.findUnique({ where: { id: p.userId } });
       if (transporter && otherUser?.email && otherUser.emailNotifications && otherUser.emailChat) {
         try {
-          const emailContent = `
-            <p class="greeting">Nuevo mensaje de ${escapeHtml(message.sender.name)} 💬</p>
-            <p class="message">"${escapeHtml(message.content.slice(0, 300))}"</p>
-            <div style="text-align: center;">
-              <a href="${getEmailFriendlyUrl('/social?tab=chat')}" class="button">Ver Conversación</a>
-            </div>
-          `;
-          await sendMailWithRetry({
-            to: otherUser.email,
-            subject: `💬 Nuevo mensaje de ${String(message.sender.name).replace(/[\r\n]/g, ' ')} - Estilo Vivo`,
-            html: getEmailTemplate(emailContent, 'Nuevo Mensaje')
-          });
+          await sendMailWithRetry(chatEmail(otherUser.email, message));
         } catch (mailErr) {
           logger.warn('Could not send chat email notification', { error: mailErr, userId: p.userId });
         }
