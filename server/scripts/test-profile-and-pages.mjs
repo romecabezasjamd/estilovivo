@@ -61,6 +61,7 @@ try {
     assert.match(res.headers.get('content-type') || '', /text\/html/);
     assert.match(html, /Eliminar tu cuenta de Estilo Vivo/);
     assert.match(html, /mailto:/);
+    assert.match(html, /<!--email_off-->.*mailto:.*<!--\/email_off-->/s, "correo protegido de la ofuscación de Cloudflare");
     assert.doesNotMatch(html, /<script/i, 'sin JavaScript');
     ok(`${path}: 200, HTML público sin sesión ni scripts`);
   }

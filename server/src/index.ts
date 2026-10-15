@@ -567,6 +567,7 @@ app.get('/.well-known/assetlinks.json', (req: Request, res: Response) => {
 
 // Página pública (sin sesión ni JavaScript) para pedir el borrado de la cuenta: Google Play exige una URL así.
 // Contacto configurable con CONTACT_EMAIL; por defecto, el mismo que la política de privacidad.
+// email_off: Cloudflare no lo ofusca (su script de descifrado lo bloquearía esta CSP y el correo no se vería).
 app.get(['/eliminar-cuenta', '/delete-account'], (req: Request, res: Response) => {
   const email = escapeHtml(process.env.CONTACT_EMAIL || 'privacidad@estilovivo.com');
   res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'");
@@ -582,7 +583,7 @@ app.get(['/eliminar-cuenta', '/delete-account'], (req: Request, res: Response) =
 <ol><li>Abre Estilo Vivo e inicia sesión.</li><li>Ve a <strong>Perfil › Ajustes</strong>.</li><li>Pulsa <strong>Eliminar mi cuenta</strong> y confirma escribiendo <strong>ELIMINAR</strong>.</li></ol>
 <p>También puedes hacerlo desde la web, en <a href="/">estilovivo.xyoncloud.win</a>, en Perfil › Ajustes.</p>
 <h2>Sin la app</h2>
-<div class="box"><p>Escribe a <a href="mailto:${email}?subject=Eliminar%20mi%20cuenta">${email}</a> desde el correo con el que te registraste, con el asunto «Eliminar mi cuenta». Para proteger tu cuenta, solo atendemos solicitudes enviadas desde ese correo.</p></div>
+<div class="box"><p>Escribe a <!--email_off--><a href="mailto:${email}?subject=Eliminar%20mi%20cuenta">${email}</a><!--/email_off--> desde el correo con el que te registraste, con el asunto «Eliminar mi cuenta». Para proteger tu cuenta, solo atendemos solicitudes enviadas desde ese correo.</p></div>
 <h2>Qué se borra</h2>
 <ul><li>Tu perfil (nombre, correo, fecha de nacimiento, fotos de perfil y de cuerpo entero) y tus preferencias.</li><li>Tus prendas, looks, planificador, maletas, historias, participaciones en retos y sus imágenes.</li><li>Tus comentarios, me gusta, favoritos, seguidores y seguidos, bloqueos y notificaciones.</li><li>Los mensajes de chat que enviaste.</li></ul>
 <h2>Qué se conserva</h2>
