@@ -23,7 +23,8 @@ export function applyDarkMode(active: boolean) {
 }
 
 export async function loadDarkModePreference(): Promise<DarkModePreferences> {
-  let setting: DarkModeSetting = 'system';
+  // Sin elección guardada: claro (como la app). 'system' y 'on' siguen disponibles en Ajustes.
+  let setting: DarkModeSetting = 'off';
   try {
     const stored = await getSecureItem(DARK_MODE_KEY);
     if (stored === 'on' || stored === 'off' || stored === 'system') {
