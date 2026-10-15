@@ -789,7 +789,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                 className={`group stagger-child relative bg-[var(--bg-card)] rounded-2xl overflow-hidden shadow-sm border border-[var(--border-light)] hover:shadow-md hover:border-primary/50 transition-all ${!garment.forSale ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
               >
                 <div className="aspect-[3/4] overflow-hidden bg-gray-50 relative">
-                  <img
+                  <imgloading="lazy" decoding="async" 
                     src={garment.imageUrl}
                     alt={garment.name || garment.type}
                     className={`w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500 ${garment.forSale ? 'opacity-70 grayscale-[0.5]' : ''}`}
@@ -897,7 +897,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                   >
                     <div className="aspect-[4/5] bg-gray-50 relative">
                       {lookImg ? (
-                        <img src={lookImg} alt={look.name} className="w-full h-full object-cover" />
+                        <img loading="lazy" decoding="async" src={lookImg} alt={look.name} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-gray-300">
                           <Sparkles size={28} />
@@ -995,7 +995,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                     className="aspect-square bg-gray-50 cursor-pointer"
                     onClick={() => openDetailModal(item)}
                   >
-                    <img src={item.imageUrl} alt="" className="w-full h-full object-cover opacity-90" />
+                    <img loading="lazy" decoding="async" src={item.imageUrl} alt="" className="w-full h-full object-cover opacity-90" />
                   </div>
                   <div className="p-3">
                     <p className="text-xs font-bold text-[var(--text-primary)] truncate">{item.name || item.type}</p>
@@ -1063,7 +1063,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                   </div>
                 ) : (
                   <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden">
-                    <img src={newImage} className="w-full h-full object-contain" />
+                    <img loading="lazy" decoding="async" src={newImage} className="w-full h-full object-contain" />
                     <button
                       onClick={() => { setNewImage(null); setNewFile(null); }}
                       className="absolute top-2 right-2 bg-black/50 text-white p-2 rounded-full"
@@ -1170,7 +1170,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
             <div className="overflow-y-auto flex-1 p-6 space-y-4">
               {selectedForSale ? (
                 <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl">
-                  <img src={selectedForSale.imageUrl} className="w-12 h-12 rounded-xl object-cover" alt="" />
+                  <img loading="lazy" decoding="async" src={selectedForSale.imageUrl} className="w-12 h-12 rounded-xl object-cover" alt="" />
                   <div>
                     <p className="text-sm font-bold text-[var(--text-primary)]">{selectedForSale.name || selectedForSale.type}</p>
                     <p className="text-[10px] text-[var(--text-muted)] capitalize">{selectedForSale.color} · {selectedForSale.brand || 'Marca no especif.'}</p>
@@ -1211,7 +1211,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                     </div>
                   ) : (
                     <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden">
-                      <img src={saleImage} className="w-full h-full object-contain" />
+                      <img loading="lazy" decoding="async" src={saleImage} className="w-full h-full object-contain" />
                       <button
                         onClick={() => { setSaleImage(null); setSaleFile(null); setSaleUploadError(null); }}
                         className="absolute top-2 right-2 bg-black/50 text-white p-2 rounded-full"
@@ -1336,7 +1336,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
               <div>
                 <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Foto de la prenda</label>
                 <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden bg-gray-50 border border-[var(--border-light)]">
-                  <img src={editImage || selectedGarmentForDetail.imageUrl} className="w-full h-full object-contain" alt="" />
+                  <img loading="lazy" decoding="async" src={editImage || selectedGarmentForDetail.imageUrl} className="w-full h-full object-contain" alt="" />
                   <label className="absolute bottom-2 right-2 bg-white/90 backdrop-blur-sm text-xs font-bold text-[var(--text-primary)] px-3 py-1.5 rounded-full shadow cursor-pointer hover:bg-white transition">
                     Cambiar foto
                     <input type="file" accept="image/*" className="hidden" onChange={(e) => {

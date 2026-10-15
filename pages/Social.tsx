@@ -14,6 +14,9 @@ import { xpProgress } from '../src/utils/xp';
 import { pickPhoto, dataUrlToFile, CameraSource } from '../src/utils/cameraPhoto';
 import Headline from '../components/Headline';
 
+// Mensaje sugerido al contactar con quien vende (no se envía solo; igual que en la app)
+const BUY_SUGGESTION = 'Hola, ¿sigue disponible esta prenda?';
+
 interface StoryForm {
   type: 'image' | 'text';
   text: string;
@@ -97,6 +100,8 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
   const [messagesById, setMessagesById] = useState<Record<string, ChatMessage[]>>({});
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
+  // Sugerencia al contactar desde una prenda en venta: nunca se envía sola
+  const [chatSuggestion, setChatSuggestion] = useState<{ threadId: string; text: string } | null>(null);
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
 
@@ -597,6 +602,11 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
   const loadConversations = useCallback(async () => {
     const draftRaw = localStorage.getItem('ev_chat_draft');
     const openId = localStorage.getItem('ev_chat_open');
+    try {
+      const sug = JSON.parse(localStorage.getItem('ev_chat_suggestion') || 'null');
+      if (sug?.threadId && sug?.text) setChatSuggestion({ threadId: sug.threadId, text: sug.text });
+    } catch {}
+    localStorage.removeItem('ev_chat_suggestion');
 
     // Always clean up drafts immediately to prevent stale data
     localStorage.removeItem('ev_chat_draft');
@@ -615,9 +625,9 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
               itemId: draft.itemId,
               itemTitle: draft.itemTitle,
               itemImage: draft.itemImage,
-              initialMessage: draft.message,
             });
             draftCreatedId = created.id;
+            if (draft.message) setChatSuggestion({ threadId: created.id, text: draft.message });
           } catch (draftErr) {
             console.warn('Could not create conversation from draft:', draftErr);
           }
@@ -983,9 +993,9 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
         itemId: targetItem.id,
         itemTitle: targetItem.title || targetItem.name,
         itemImage: targetItem.image || targetItem.imageUrl || targetItem.images?.[0]?.url,
-        initialMessage: `Hola, me interesa "${targetItem.title || targetItem.name}". ¿Sigue disponible?`
       });
       localStorage.setItem('ev_chat_open', res.id);
+      setChatSuggestion({ threadId: res.id, text: BUY_SUGGESTION });
     } catch (e) {
       console.warn('Could not create conversation:', e);
       localStorage.setItem('ev_chat_draft', JSON.stringify({
@@ -995,7 +1005,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
         itemId: targetItem.id,
         targetUserId,
         itemImage: targetItem.image || targetItem.imageUrl || targetItem.images?.[0]?.url,
-        message: `Hola, me interesa "${targetItem.title || targetItem.name}". ¿Sigue disponible?`
+        message: BUY_SUGGESTION
       }));
     }
     setActiveTab('chat');
@@ -1088,9 +1098,10 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
     loadMessages();
   }, [selectedThreadId]);
 
-  const handleChatSend = async () => {
-    if (!activeThread || (!messageInput.trim() && !chatAttachment)) return;
-    const content = messageInput.trim() || '📷 Imagen adjunta';
+  const handleChatSend = async (textOverride?: string) => {
+    const typed = (textOverride ?? messageInput).trim();
+    if (!activeThread || (!typed && !chatAttachment)) return;
+    const content = typed || '📷 Imagen adjunta';
     const senderUserId = activeUser?.id || currentUserId || 'me';
     let serverImageUrl: string | undefined;
     if (chatAttachment) {
@@ -1113,6 +1124,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
       imageUrl: serverImageUrl,
       createdAt: new Date().toISOString(),
       sender: { id: senderUserId, name: activeUser?.name || 'Yo', avatar: activeUser?.avatar || '' },
+      status: 'sending',
     };
 
     setMessagesById(prev => ({
@@ -1132,20 +1144,25 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
       }
       : c
     ));
-    setMessageInput('');
+    if (textOverride === undefined) setMessageInput('');
     setChatAttachment(null);
+    await deliverChatMessage(activeThread.id, nextMessage);
+  };
 
+  /** Envía (o reenvía) un mensaje optimista y actualiza su estado: confirmado, o "No enviado" con Reintentar. */
+  const deliverChatMessage = async (threadId: string, msg: ChatMessage) => {
+    setMessagesById(prev => ({ ...prev, [threadId]: (prev[threadId] || []).map(m => m.id === msg.id ? { ...m, status: 'sending' } : m) }));
     try {
-      await api.sendConversationMessage(activeThread.id, content, serverImageUrl);
-    } catch (e) {
-      console.warn('Error sending message:', e);
-      // Rollback optimistic message on failure
+      const saved: any = await api.sendConversationMessage(threadId, msg.content, msg.imageUrl);
+      seenMessageIdsRef.current.add(saved?.id);
       setMessagesById(prev => ({
         ...prev,
-        [activeThread.id]: (prev[activeThread.id] || []).filter(m => m.id !== nextMessage.id)
+        [threadId]: (prev[threadId] || []).map(m => m.id === msg.id ? { ...m, ...(saved?.id ? { id: saved.id, createdAt: saved.createdAt || m.createdAt } : {}), status: undefined } : m)
       }));
-      // Se devuelve el texto al input para no perderlo
-      if (content !== '📷 Imagen adjunta') setMessageInput(content);
+    } catch (e) {
+      console.warn('Error sending message:', e);
+      // Se queda en la conversación marcado "No enviado" con Reintentar
+      setMessagesById(prev => ({ ...prev, [threadId]: (prev[threadId] || []).map(m => m.id === msg.id ? { ...m, status: 'failed' } : m) }));
       setStoryToast('No se pudo enviar el mensaje');
       scheduleToastClear(() => setStoryToast(null), 3200);
       return;
@@ -1707,7 +1724,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                         <span>{item.brand} {item.size !== 'Única' ? `• Talla ${item.size}` : ''}</span>
                       </div>
                       <div className="flex items-center pt-2 border-t border-gray-50">
-                        <img src={item.avatar} className="w-5 h-5 rounded-full object-cover border border-[var(--border-light)] mr-1.5" alt={item.user} />
+                        <img loading="lazy" decoding="async" src={item.avatar} className="w-5 h-5 rounded-full object-cover border border-[var(--border-light)] mr-1.5" alt={item.user} />
                         <span className="text-[10px] text-[var(--text-secondary)] truncate">{item.user}</span>
                         {(item.userId !== currentUserId && (item as any).user?.id !== currentUserId) && (
                         <button
@@ -1756,7 +1773,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                           <div className="aspect-[3/4] bg-gray-100 relative">
                             {fav.look.imageUrl || (fav.look.garments && fav.look.garments.filter(g => !!g).length > 0) ? (
                               <img
-                                src={fav.look.imageUrl || fav.look.garments.filter(g => !!g)[0].imageUrl}
+loading="lazy" decoding="async"                                 src={fav.look.imageUrl || fav.look.garments.filter(g => !!g)[0].imageUrl}
                                 alt={fav.look.name}
                                 className="w-full h-full object-cover"
                               />
@@ -1787,7 +1804,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                           <div className="aspect-[3/4] bg-gray-100 relative">
                             {fav.product.imageUrl || fav.product.images?.[0]?.url ? (
                               <img
-                                src={fav.product.imageUrl || fav.product.images?.[0]?.url}
+loading="lazy" decoding="async"                                 src={fav.product.imageUrl || fav.product.images?.[0]?.url}
                                 alt={fav.product.name}
                                 className="w-full h-full object-cover"
                               />
@@ -1851,7 +1868,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                   >
                     <div className="aspect-[16/9] relative overflow-hidden">
                       <img
-                        src={trend.image}
+loading="lazy" decoding="async"                         src={trend.image}
                         alt={trend.title}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                       />
@@ -1948,7 +1965,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                           className={`w-full flex items-center gap-3 p-4 text-left transition ${selectedThreadId === t.id ? 'bg-primary/5' : 'hover:bg-gray-50'}`}
                         >
                           <img
-                            src={t.otherUser?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(t.otherUser?.name || 'U')}&background=0F4C5C&color=fff`}
+loading="lazy" decoding="async"                             src={t.otherUser?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(t.otherUser?.name || 'U')}&background=0F4C5C&color=fff`}
                             className="w-10 h-10 rounded-full object-cover"
                             alt={t.otherUser?.name}
                           />
@@ -1966,7 +1983,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                     <div className="bg-[var(--bg-card)] rounded-3xl border border-[var(--border-light)] shadow-sm p-4">
                       <div className="flex items-center gap-3 mb-4">
                         <img
-                          src={activeThread.otherUser?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(activeThread.otherUser?.name || 'U')}&background=0F4C5C&color=fff`}
+loading="lazy" decoding="async"                           src={activeThread.otherUser?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(activeThread.otherUser?.name || 'U')}&background=0F4C5C&color=fff`}
                           className="w-9 h-9 rounded-full object-cover"
                           alt={activeThread.otherUser?.name}
                         />
@@ -1986,7 +2003,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                             <div key={m.id} className={`flex gap-2 ${m.senderId === currentUserId ? 'justify-end' : 'justify-start'}`}>
                               {m.senderId !== currentUserId && (
                                 <img
-                                  src={m.sender?.avatar || activeThread.otherUser?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.sender?.name || 'U')}&background=0F4C5C&color=fff`}
+loading="lazy" decoding="async"                                   src={m.sender?.avatar || activeThread.otherUser?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.sender?.name || 'U')}&background=0F4C5C&color=fff`}
                                   className="w-6 h-6 rounded-full object-cover mt-1 flex-shrink-0"
                                   alt=""
                                 />
@@ -1999,7 +2016,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                                 )}
                                 <div className={`px-3 py-2 rounded-2xl text-xs ${m.senderId === currentUserId ? 'bg-primary text-white' : 'bg-gray-100 text-[var(--text-secondary)]'}`}>
                                   {m.imageUrl ? (
-                                    <img src={m.imageUrl} alt="Adjunto" className="w-full h-auto rounded-xl mb-2" />
+                                    <img loading="lazy" decoding="async" src={m.imageUrl} alt="Adjunto" className="w-full h-auto rounded-xl mb-2" />
                                   ) : null}
                                   <span className="whitespace-pre-wrap break-words">
                                     {m.content.split(/(https?:\/\/[^\s]+)/g).map((part, idx) =>
@@ -2014,7 +2031,9 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                                   </span>
                                 </div>
                                 <p className={`text-[9px] text-[var(--text-muted)] mt-0.5 ${m.senderId === currentUserId ? 'text-right mr-1' : 'ml-1'}`}>
-                                  {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  {m.status === 'sending' ? 'Enviando…' : m.status === 'failed' ? (
+                                    <span className="text-red-500 font-semibold">No enviado · <button type="button" className="underline" onClick={() => deliverChatMessage(activeThread.id, m)}>Reintentar</button></span>
+                                  ) : new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </p>
                                 {/* Reactions */}
                                 {messageReactions[m.id] && messageReactions[m.id].length > 0 && (
@@ -2046,6 +2065,25 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                       </div>
 
                       <div className="flex flex-col gap-2">
+                        {chatSuggestion && chatSuggestion.threadId === activeThread.id && !(messagesById[activeThread.id] || []).some(x => x.senderId === currentUserId) && (
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => { const t = chatSuggestion.text; setChatSuggestion(null); handleChatSend(t); }}
+                              className="flex-1 text-left text-xs font-semibold rounded-full px-4 py-2.5 bg-[var(--bg-card)] border border-[var(--border-light)] text-[var(--text-primary)]"
+                              aria-label={`Enviar: ${chatSuggestion.text}`}
+                            >
+                              {chatSuggestion.text} <Send size={12} className="inline ml-1" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setMessageInput(chatSuggestion.text); setChatSuggestion(null); }}
+                              className="text-[11px] font-semibold text-[var(--text-secondary)] px-3 py-2 rounded-full bg-[var(--bg-card)] border border-[var(--border-light)]"
+                            >
+                              Editar
+                            </button>
+                          </div>
+                        )}
                         {chatAttachment && (
                           <div className="flex items-center justify-between rounded-2xl bg-[var(--bg-card)] border border-[var(--border-light)] p-3">
                             <span className="text-xs text-[var(--text-secondary)]">Adjunto listo para enviar</span>
@@ -2075,7 +2113,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                             className="flex-1 bg-transparent text-sm outline-none"
                           />
                           <button
-                            onClick={handleChatSend}
+                            onClick={() => handleChatSend()}
                             disabled={!messageInput.trim() && !chatAttachment}
                             className="text-primary disabled:text-gray-300"
                           >
@@ -2115,7 +2153,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                   <div key={c.id}>
                     <div className="flex space-x-3">
                       <img
-                        src={c.userAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(c.userName)}&background=0F4C5C&color=fff`}
+loading="lazy" decoding="async"                         src={c.userAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(c.userName)}&background=0F4C5C&color=fff`}
                         className="w-8 h-8 rounded-full object-cover flex-shrink-0"
                         alt={c.userName}
                       />
@@ -2142,7 +2180,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                         {c.replies.map(r => (
                           <div key={r.id} className="flex space-x-2">
                             <img
-                              src={r.userAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(r.userName)}&background=0F4C5C&color=fff`}
+loading="lazy" decoding="async"                               src={r.userAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(r.userName)}&background=0F4C5C&color=fff`}
                               className="w-6 h-6 rounded-full object-cover flex-shrink-0"
                               alt={r.userName}
                             />
@@ -2173,7 +2211,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
               )}
               <div className="flex items-center space-x-3">
                 <img
-                  src={user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=0F4C5C&color=fff`}
+loading="lazy" decoding="async"                   src={user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=0F4C5C&color=fff`}
                   className="w-8 h-8 rounded-full object-cover flex-shrink-0"
                   alt="You"
                 />
@@ -2207,7 +2245,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
             <div className="flex items-center justify-between p-4 border-b border-[var(--border-light)]">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 ring-2 ring-primary/20">
-                  <img src={stories.find(s => s.id === selectedStoryId)?.userAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(stories.find(s => s.id === selectedStoryId)?.userName || 'U')}&background=0F4C5C&color=fff`} alt="Avatar" className="w-full h-full object-cover" />
+                  <img loading="lazy" decoding="async" src={stories.find(s => s.id === selectedStoryId)?.userAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(stories.find(s => s.id === selectedStoryId)?.userName || 'U')}&background=0F4C5C&color=fff`} alt="Avatar" className="w-full h-full object-cover" />
                 </div>
                 <div>
                   <p className="text-sm font-bold text-[var(--text-primary)]">{stories.find(s => s.id === selectedStoryId)?.userName}</p>
@@ -2372,7 +2410,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                   <div className="rounded-3xl border border-dashed border-[var(--border-light)] bg-[var(--bg-base)] overflow-hidden transition-all duration-300 relative">
                     {storyForm.imageUrl ? (
                       <div className="relative">
-                        <img src={storyForm.imageUrl} alt="Vista previa" className="w-full object-cover animate-pop-in" style={{ maxHeight: '320px' }} />
+                        <img loading="lazy" decoding="async" src={storyForm.imageUrl} alt="Vista previa" className="w-full object-cover animate-pop-in" style={{ maxHeight: '320px' }} />
                         {storyForm.text && (
                           <div className={`absolute left-0 right-0 px-4 py-3 pointer-events-none ${storyForm.textPosition === 'top' ? 'top-0' : storyForm.textPosition === 'center' ? 'top-1/2 -translate-y-1/2' : 'bottom-0'}`}>
                             <p className={`text-white font-bold drop-shadow-lg text-center break-words ${
@@ -2456,7 +2494,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                       onClick={() => setStoryForm(prev => ({ ...prev, type: 'image', text: g.name, imageUrl: g.imageUrl, selectedGarmentId: g.id, imageFile: null }))}
                       className={`h-24 rounded-3xl overflow-hidden border-2 transition-all duration-200 ${storyForm.selectedGarmentId === g.id ? 'border-primary shadow-md scale-105' : 'border-[var(--border-light)] hover:border-primary/30'} bg-[var(--bg-card)]`}
                     >
-                      <img src={g.imageUrl} alt={g.name} className="w-full h-full object-cover" />
+                      <img loading="lazy" decoding="async" src={g.imageUrl} alt={g.name} className="w-full h-full object-cover" />
                     </button>
                   ))}
                   {garments.length === 0 && (
@@ -2535,7 +2573,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                 <p className="text-xs font-semibold text-[var(--text-primary)] mb-2">Foto del look <span className="text-rose-500">*</span></p>
                 {challengeImage ? (
                   <div className="relative aspect-square rounded-2xl overflow-hidden bg-gray-100 border border-[var(--border-light)]">
-                    <img src={challengeImage.dataUrl} alt="Preview" className="w-full h-full object-cover" />
+                    <img loading="lazy" decoding="async" src={challengeImage.dataUrl} alt="Preview" className="w-full h-full object-cover" />
                     <button
                       onClick={() => setChallengeImage(null)}
                       className="absolute top-2 right-2 bg-black/50 text-white p-1.5 rounded-full hover:bg-black/70 transition-colors"
@@ -2712,7 +2750,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
               ) : (
                 <div className="space-y-4 animate-fade-in-up">
                   <div className="relative rounded-2xl overflow-hidden bg-[var(--bg-base)]">
-                    <img src={publishPhoto} alt="Preview" className="w-full max-h-80 object-contain" />
+                    <img loading="lazy" decoding="async" src={publishPhoto} alt="Preview" className="w-full max-h-80 object-contain" />
                     <button
                       onClick={() => { setPublishPhoto(null); setPublishPhotoFile(null); }}
                       className="absolute top-2 right-2 bg-black/50 text-white p-1.5 rounded-full hover:bg-black/70 transition-colors"
@@ -2779,7 +2817,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
             <div className="p-5 flex-1 overflow-y-auto space-y-4">
               {shopModalLook.garments?.filter(g => g.forSale).map(g => (
                 <div key={g.id} className="flex gap-4 border border-[var(--border-light)] p-3 rounded-2xl bg-[var(--bg-base)]/50">
-                  <img src={g.imageUrl} className="w-20 h-24 object-cover rounded-xl bg-gray-200" alt={g.name} />
+                  <img loading="lazy" decoding="async" src={g.imageUrl} className="w-20 h-24 object-cover rounded-xl bg-gray-200" alt={g.name} />
                   <div className="flex-1 min-w-0 flex flex-col justify-between">
                     <div>
                       <div className="flex justify-between items-start">

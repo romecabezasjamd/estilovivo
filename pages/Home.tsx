@@ -177,7 +177,7 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
             <div className="flex items-center space-x-4 relative z-10">
               {todayLook.imageUrl || (todayLook.garments && todayLook.garments.length > 0) ? (
                 <img
-                  src={todayLook.imageUrl || todayLook.garments?.[0]?.imageUrl}
+loading="lazy" decoding="async"                   src={todayLook.imageUrl || todayLook.garments?.[0]?.imageUrl}
                   className="w-16 h-16 rounded-2xl object-cover border-2 border-white/30"
                   alt={todayLook.name}
                 />
@@ -238,7 +238,7 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
                   aria-label="Día de ciclo — ver mensaje"
                 >
                   {day.lookImage ? (
-                    <img src={day.lookImage} className="w-full h-full object-cover opacity-60" alt="" />
+                    <img loading="lazy" decoding="async" src={day.lookImage} className="w-full h-full object-cover opacity-60" alt="" />
                   ) : null}
                   <CycleDayMarker />
                 </button>

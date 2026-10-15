@@ -169,26 +169,7 @@ const emailAssetUrl = (u?: string | null) => {
   return getEmailFriendlyUrl(u.startsWith('/') ? u : '/' + u);
 };
 
-/** Correo de mensaje de chat nuevo (texto o foto). */
-const chatEmail = (to: string, message: { content?: string | null; imageUrl?: string | null; sender: { name: string } }) => {
-  const senderName = String(message.sender.name).replace(/[\r\n]/g, ' ');
-  const chatUrl = getEmailFriendlyUrl('/social?tab=chat');
-  const preview = message.content ? message.content.slice(0, 300) : (message.imageUrl ? 'Te ha enviado una foto 📷' : '');
-  return {
-    to,
-    subject: `${senderName} te ha escrito - Estilo Vivo`,
-    text: `${senderName}: ${preview}\n\nResponde en la app: ${chatUrl}`,
-    html: renderEmail({
-      preheader: preview ? `${senderName}: ${preview.slice(0, 90)}` : `${senderName} te ha escrito`,
-      eyebrow: 'Mensaje nuevo',
-      headline: `*${senderName}* te ha escrito`,
-      quote: preview || undefined,
-      cta: { label: 'Responder', url: chatUrl },
-      reason: REASON_PREFS,
-      baseUrl: emailBaseUrl(),
-    }),
-  };
-};
+// Los mensajes de chat no envían correo: solo tiempo real, campana y push (deliverChatMessage).
 
 /** Remitente con nombre visible ("Estilo Vivo" <correo>), salvo que EMAIL_FROM ya traiga uno. */
 const emailFrom = () => {
@@ -3809,6 +3790,26 @@ app.post('/api/chat/upload', authenticateToken, upload.single('image'), async (r
   }
 });
 
+/**
+ * Entrega un mensaje ya guardado: tiempo real (socket), notificación en la campana y push al móvil.
+ * Los mensajes de chat NO envían correo (decisión de producto). Se ejecuta tras responder al emisor.
+ */
+const deliverChatMessage = async (message: any, conversationId: string, senderId: string) => {
+  try {
+    const others = await prisma.conversationParticipant.findMany({ where: { conversationId, userId: { not: senderId } }, select: { userId: true } });
+    for (const p of others) io.to(`user_${p.userId}`).emit('new_message', message);
+    for (const p of others) {
+      const notification = await prisma.notification.create({
+        data: { type: 'CHAT', content: `${message.sender.name} te ha enviado un mensaje`, userId: p.userId, relatedId: conversationId }
+      });
+      io.to(`user_${p.userId}`).emit('notification', notification);
+      void sendPushForNotification(prisma, notification);
+    }
+  } catch (error: any) {
+    logger.error('Error delivering chat message', { conversationId, error: error?.message });
+  }
+};
+
 app.post('/api/chat/conversations/:id/messages', authenticateToken, validate(messageSchema), async (req: any, res: Response) => {
   try {
     const conversationId = req.params.id;
@@ -3816,55 +3817,24 @@ app.post('/api/chat/conversations/:id/messages', authenticateToken, validate(mes
     if (!content && !imageUrl) return res.status(400).json({ error: 'content or imageUrl required' });
     if (imageUrl && !isOwnUploadUrl(imageUrl)) return res.status(400).json({ error: 'Invalid imageUrl' });
 
-    const participation = await prisma.conversationParticipant.findUnique({
-      where: { conversationId_userId: { conversationId, userId: req.user.userId } }
-    });
+    // Comprobaciones en paralelo (antes iban una detrás de otra)
+    const [participation, blocked] = await Promise.all([
+      prisma.conversationParticipant.findUnique({ where: { conversationId_userId: { conversationId, userId: req.user.userId } } }),
+      conversationHasBlocked(conversationId, req.user.userId),
+    ]);
     if (!participation) return res.status(403).json({ error: 'Not authorized' });
-    if (await conversationHasBlocked(conversationId, req.user.userId)) return res.status(403).json({ error: 'No puedes enviar mensajes a este usuario' });
+    if (blocked) return res.status(403).json({ error: 'No puedes enviar mensajes a este usuario' });
 
-    const message = await prisma.message.create({
-      data: { conversationId, content: content || '', imageUrl: imageUrl || null, productId: productId || null, senderId: req.user.userId },
-      include: { sender: { select: { id: true, name: true, avatar: true } } }
-    });
-
-    await prisma.conversation.update({
-      where: { id: conversationId },
-      data: { updatedAt: new Date() }
-    });
-
-    // Emit to other participants' user rooms only (sender excluded — they use optimistic UI)
-    const otherParticipants = await prisma.conversationParticipant.findMany({
-      where: { conversationId, userId: { not: req.user.userId } }
-    });
-    for (const p of otherParticipants) {
-      io.to(`user_${p.userId}`).emit('new_message', message);
-    }
-
-    // Notify the other participant
-    if (otherParticipants.length > 0) {
-      const op = otherParticipants[0];
-      const notification = await prisma.notification.create({
-        data: {
-          type: 'CHAT',
-          content: `${message.sender.name} te ha enviado un mensaje`,
-          userId: op.userId,
-          relatedId: conversationId,
-        }
-      });
-      io.to(`user_${op.userId}`).emit('notification', notification);
-      void sendPushForNotification(prisma, notification);
-
-      const otherUser = await prisma.user.findUnique({ where: { id: op.userId } });
-      if (transporter && otherUser?.email && otherUser.emailNotifications && otherUser.emailChat) {
-        try {
-          await sendMailWithRetry(chatEmail(otherUser.email, message));
-        } catch (mailErr) {
-          logger.warn('Could not send chat email notification', { error: mailErr, userId: op.userId });
-        }
-      }
-    }
-
+    // Se guarda y se confirma YA; el aviso al otro participante va después (no hace esperar a quien envía)
+    const [message] = await prisma.$transaction([
+      prisma.message.create({
+        data: { conversationId, content: content || '', imageUrl: imageUrl || null, productId: productId || null, senderId: req.user.userId },
+        include: { sender: { select: { id: true, name: true, avatar: true } } }
+      }),
+      prisma.conversation.update({ where: { id: conversationId }, data: { updatedAt: new Date() } }),
+    ]);
     res.status(201).json(message);
+    void deliverChatMessage(message, conversationId, req.user.userId);
   } catch (error) {
     logger.error('Error sending message', { error });
     res.status(500).json({ error: 'Error sending message' });
@@ -3876,52 +3846,21 @@ app.post('/api/chat/messages', authenticateToken, validate(messageSchema), async
     const { conversationId, content, imageUrl, productId } = req.body;
     if (!content && !imageUrl) return res.status(400).json({ error: 'content or imageUrl required' });
     if (imageUrl && !isOwnUploadUrl(imageUrl)) return res.status(400).json({ error: 'Invalid imageUrl' });
-    const participant = await prisma.conversationParticipant.findFirst({
-      where: { conversationId, userId: req.user.userId }
-    });
+    const [participant, blocked] = await Promise.all([
+      prisma.conversationParticipant.findFirst({ where: { conversationId, userId: req.user.userId } }),
+      conversationHasBlocked(conversationId, req.user.userId),
+    ]);
     if (!participant) return res.status(403).json({ error: 'Not a participant in this conversation' });
-    if (await conversationHasBlocked(conversationId, req.user.userId)) return res.status(403).json({ error: 'No puedes enviar mensajes a este usuario' });
-    const message = await prisma.message.create({
-      data: { conversationId, content: content || '', senderId: req.user.userId, imageUrl: imageUrl || null, productId: productId || null },
-      include: { sender: { select: { id: true, name: true, avatar: true } } }
-    });
-
-    await prisma.conversation.update({
-      where: { id: conversationId },
-      data: { updatedAt: new Date() }
-    });
-
-    // Emit to other participants' user rooms only
-    const otherParticipants2 = await prisma.conversationParticipant.findMany({
-      where: { conversationId, userId: { not: req.user.userId } }
-    });
-    for (const p of otherParticipants2) {
-      io.to(`user_${p.userId}`).emit('new_message', message);
-    }
-
-    // Notifications: use server-determined participants, NOT client-provided otherUserId
-    for (const p of otherParticipants2) {
-      const notification = await prisma.notification.create({
-        data: {
-          type: 'CHAT',
-          content: `${message.sender.name} te ha enviado un mensaje`,
-          userId: p.userId,
-          relatedId: conversationId,
-        }
-      });
-      io.to(`user_${p.userId}`).emit('notification', notification);
-      void sendPushForNotification(prisma, notification);
-
-      const otherUser = await prisma.user.findUnique({ where: { id: p.userId } });
-      if (transporter && otherUser?.email && otherUser.emailNotifications && otherUser.emailChat) {
-        try {
-          await sendMailWithRetry(chatEmail(otherUser.email, message));
-        } catch (mailErr) {
-          logger.warn('Could not send chat email notification', { error: mailErr, userId: p.userId });
-        }
-      }
-    }
+    if (blocked) return res.status(403).json({ error: 'No puedes enviar mensajes a este usuario' });
+    const [message] = await prisma.$transaction([
+      prisma.message.create({
+        data: { conversationId, content: content || '', senderId: req.user.userId, imageUrl: imageUrl || null, productId: productId || null },
+        include: { sender: { select: { id: true, name: true, avatar: true } } }
+      }),
+      prisma.conversation.update({ where: { id: conversationId }, data: { updatedAt: new Date() } }),
+    ]);
     res.status(201).json(message);
+    void deliverChatMessage(message, conversationId, req.user.userId);
   } catch (error) {
     logger.error('Error sending message', { error });
     res.status(500).json({ error: 'Error sending message' });

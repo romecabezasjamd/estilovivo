@@ -155,6 +155,8 @@ export interface ChatMessage {
     imageUrl?: string;
     productId?: string;
     sender?: ChatParticipant;
+    /** Solo en el cliente: envío en curso o fallido (los confirmados no lo llevan). */
+    status?: 'sending' | 'failed';
 }
 
 export interface StoryEntry {

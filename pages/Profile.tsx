@@ -1432,7 +1432,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                 </div>
                 <div className="px-4 pb-4 space-y-3 pt-3">
                   {[
-                    { key: 'emailChat', label: 'Mensajes del chat', desc: 'Cuando recibes un mensaje nuevo', icon: '💬' },
+                    // Los mensajes del chat ya no envían correo (solo avisos en el móvil)
                     { key: 'emailFollows', label: 'Usuarios seguidos', desc: 'Cuando alguien a quien sigues publica', icon: '👤' },
                     { key: 'emailWashing', label: 'Alertas de lavado', desc: 'Recordatorios de prendas en lavado', icon: '🧺' },
                     { key: 'emailChallenges', label: 'Retos semanales', desc: 'Nuevos retos y recordatorios', icon: '🏆' },

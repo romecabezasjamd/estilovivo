@@ -236,7 +236,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                 )}
                 <div className="bg-[var(--bg-base)] rounded-xl p-3">
                   <p className="text-xs text-[var(--text-secondary)] font-semibold mb-1">{t('shipping')}</p>
-                  <p className="text-sm font-bold text-[var(--text-primary)]">3,95€</p>
+                  <p className="text-sm font-bold text-[var(--text-muted)]">No disponible</p>
                 </div>
               </div>
             </div>
@@ -306,12 +306,6 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                 >
                   <CreditCard size={20} />
                   <span>{t('buyNow')}</span>
-                </button>
-                <button
-                  onClick={() => onAddToTrip?.()}
-                  className="w-full bg-blue-50 text-blue-600 font-bold py-2.5 rounded-xl hover:bg-blue-100 transition-colors active:scale-[0.98]"
-                >
-                  ✈️ {t('addToSuitcase')}
                 </button>
               </>
             )}
@@ -433,7 +427,11 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
               </div>
 
               <div className="space-y-3 mb-4">
-                <button className="w-full flex items-center p-4 border border-[var(--border-light)] rounded-2xl hover:border-primary hover:bg-primary/5 transition-all group">
+                <button
+                  type="button"
+                  onClick={() => { setShowBuyOptions(false); onMessage?.(product); onClose(); }}
+                  className="w-full flex items-center p-4 border border-[var(--border-light)] rounded-2xl hover:border-primary hover:bg-primary/5 transition-all group"
+                >
                   <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-400 to-green-500 flex items-center justify-center mr-4 group-hover:scale-110 transition-transform flex-shrink-0">
                     <Store size={20} className="text-white" />
                   </div>
@@ -444,21 +442,22 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                   <span className="text-sm font-bold text-emerald-600">{t('free')}</span>
                 </button>
 
-                <button className="w-full flex items-center p-4 border border-[var(--border-light)] rounded-2xl hover:border-primary hover:bg-primary/5 transition-all group">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center mr-4 group-hover:scale-110 transition-transform flex-shrink-0">
-                    <Truck size={20} className="text-white" />
+                <button
+                  type="button"
+                  disabled
+                  aria-disabled="true"
+                  className="w-full flex items-center p-4 border border-[var(--border-light)] rounded-2xl opacity-50 cursor-not-allowed"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-[var(--bg-base)] flex items-center justify-center mr-4 flex-shrink-0">
+                    <Truck size={20} className="text-[var(--text-muted)]" />
                   </div>
                   <div className="text-left flex-1">
                     <p className="font-bold text-[var(--text-primary)]">{t('homeDelivery')}</p>
-                    <p className="text-xs text-[var(--text-secondary)]">{t('receiveIn')}</p>
+                    <p className="text-xs text-[var(--text-secondary)]">Todavía no está disponible</p>
                   </div>
-                  <span className="text-sm font-bold text-[var(--text-primary)]">3,95€</span>
+                  <span className="text-sm font-bold text-[var(--text-muted)]">No disponible</span>
                 </button>
               </div>
-
-              <button className="w-full bg-gradient-to-r from-primary to-primary-dark text-white font-bold py-3 rounded-2xl shadow-lg hover:shadow-xl transition-all active:scale-[0.98]">
-                {t('continueAction')}
-              </button>
             </div>
           </div>
         )

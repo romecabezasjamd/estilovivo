@@ -100,9 +100,10 @@ const Wishlist: React.FC<WishlistProps> = ({ garments, onNavigate }) => {
         itemId: product.id,
         itemTitle: product.name,
         itemImage: product.imageUrl || product.images?.[0]?.url,
-        initialMessage: `Hola, me interesa "${product.name}". ¿Sigue disponible?`
       });
       localStorage.setItem('ev_chat_open', res.id);
+      // Sin mensaje automático: el chat ofrece la sugerencia y el comprador decide
+      localStorage.setItem('ev_chat_suggestion', JSON.stringify({ threadId: res.id, text: 'Hola, ¿sigue disponible esta prenda?' }));
     } catch (e) {
       console.warn('Could not create conversation:', e);
       localStorage.setItem('ev_chat_draft', JSON.stringify({
@@ -112,7 +113,7 @@ const Wishlist: React.FC<WishlistProps> = ({ garments, onNavigate }) => {
         itemId: product.id,
         targetUserId: product.user?.id,
         itemImage: product.imageUrl || product.images?.[0]?.url,
-        message: `Hola, me interesa "${product.name}". ¿Sigue disponible?`
+        message: 'Hola, ¿sigue disponible esta prenda?'
       }));
     }
     onNavigate('chat');
@@ -157,7 +158,7 @@ const Wishlist: React.FC<WishlistProps> = ({ garments, onNavigate }) => {
                 <>
                   <div className="aspect-[3/4] bg-gray-100 relative">
                     {fav.look.imageUrl || (fav.look.garments && fav.look.garments[0]?.imageUrl) ? (
-                      <img
+                      <imgloading="lazy" decoding="async" 
                         src={fav.look.imageUrl || fav.look.garments[0].imageUrl}
                         alt={fav.look.name}
                         className="w-full h-full object-cover"
@@ -188,7 +189,7 @@ const Wishlist: React.FC<WishlistProps> = ({ garments, onNavigate }) => {
                 <>
                   <div className="aspect-[3/4] bg-gray-100 relative">
                     {fav.product.imageUrl || fav.product.images?.[0]?.url ? (
-                      <img
+                      <imgloading="lazy" decoding="async" 
                         src={fav.product.imageUrl || fav.product.images?.[0]?.url}
                         alt={fav.product.name}
                         className="w-full h-full object-cover"
