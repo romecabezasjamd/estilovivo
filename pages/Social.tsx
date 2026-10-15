@@ -12,6 +12,7 @@ import { useGlobalState } from '../src/context/GlobalStateContext';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { xpProgress } from '../src/utils/xp';
 import { pickPhoto, dataUrlToFile, CameraSource } from '../src/utils/cameraPhoto';
+import Headline from '../components/Headline';
 
 interface StoryForm {
   type: 'image' | 'text';
@@ -1183,7 +1184,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
       {/* Header with Main Tabs */}
       <div className="bg-[var(--bg-card)] p-5 rounded-b-3xl shadow-sm mb-6 sticky top-0 z-10">
         <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Social</h1>
+          <Headline text="*Comunidad*" className="text-3xl" />
         </div>
 
         <div className="relative">

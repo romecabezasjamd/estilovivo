@@ -194,52 +194,39 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
       </AnimatePresence>
 
       <div className="fixed left-4 right-4 z-50 flex justify-center pointer-events-none" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 1.5rem)' }}>
-        <nav className="relative w-full max-w-lg h-16 bg-[var(--bg-card)]/80 backdrop-blur-md border border-[var(--border-light)]/40 shadow-xl rounded-full flex items-center p-1 pointer-events-auto">
-
-          {activeIndex !== -1 && (
-            <motion.div
-              layoutId="nav-indicator"
-              className="absolute top-1 bottom-1 rounded-full bg-primary shadow-lg shadow-primary/40 z-0"
-              transition={{ type: "spring", stiffness: 350, damping: 30 }}
-              style={{
-                left: `calc(0.25rem + ${activeIndex} * ((100% - 0.5rem) / ${navItems.length}))`,
-                width: `calc((100% - 0.5rem) / ${navItems.length})`
-              }}
-            />
-          )}
-
-          {navItems.map((item) => {
+        {/* Barra inferior como en la app: oscura y flotante; la pestaña activa se abre en una píldora con su nombre */}
+        <nav className="relative w-full max-w-md h-[68px] shadow-2xl rounded-full flex items-center p-2 gap-1 pointer-events-auto" style={{ background: 'var(--nav-bg)' }}>
+          {navItems.map((item, index) => {
             const Icon = item.icon;
-            const isActive = activeTab === item.id;
+            const isActive = activeTab === item.id; // lógica de clic (sin cambios)
+            const highlighted = index === activeIndex; // aspecto: planificador/maleta resaltan Armario, etc.
+            const onClick = item.id === 'wardrobe'
+              ? () => {
+                  if (isActive) setShowWardrobeSubmenu(!showWardrobeSubmenu);
+                  else { onTabChange(item.id); setShowWardrobeSubmenu(true); }
+                }
+              : () => { setShowWardrobeSubmenu(false); onTabChange(item.id); };
 
-            return item.id === 'wardrobe' ? (
-              <div 
-                key={item.id} 
-                className="relative z-10 flex-1 h-full"
-              >
-                <button
-                  onClick={() => {
-                    if (isActive) setShowWardrobeSubmenu(!showWardrobeSubmenu);
-                    else { onTabChange(item.id); setShowWardrobeSubmenu(true); }
-                  }}
-                  className="w-full h-full flex flex-col items-center justify-center group outline-none gap-1.5"
-                >
-                  <div className={`transition-all duration-300 transform ${isActive ? '-translate-y-0.5' : 'translate-y-0.5'}`}>
-                    <Icon size={22} strokeWidth={isActive ? 2.5 : 2} className={`transition-colors duration-300 ${isActive ? 'text-white' : 'text-gray-500 group-hover:text-primary/70'}`} />
-                  </div>
-                  <span className={`text-[10px] font-semibold tracking-wide transition-colors duration-300 ${isActive ? 'text-white/95' : 'text-gray-400'}`}>{item.label}</span>
-                </button>
-              </div>
-            ) : (
+            return (
               <button
                 key={item.id}
-                onClick={() => { setShowWardrobeSubmenu(false); onTabChange(item.id); }}
-                className="relative z-10 flex-1 h-full flex flex-col items-center justify-center group outline-none gap-1.5"
+                onClick={onClick}
+                aria-label={item.label}
+                aria-current={highlighted ? 'page' : undefined}
+                className={`relative h-full flex items-center justify-center outline-none rounded-full transition-[flex-grow] duration-300 ${highlighted ? 'flex-[2.2]' : 'flex-1'}`}
               >
-                <div className={`transition-all duration-300 transform ${isActive ? '-translate-y-0.5' : 'translate-y-0.5'}`}>
-                  <Icon size={22} strokeWidth={isActive ? 2.5 : 2} className={`transition-colors duration-300 ${isActive ? 'text-white' : 'text-gray-500 group-hover:text-primary/70'}`} />
-                </div>
-                <span className={`text-[10px] font-semibold tracking-wide transition-colors duration-300 ${isActive ? 'text-white/95' : 'text-gray-400'}`}>{item.label}</span>
+                {highlighted && (
+                  <motion.span
+                    layoutId="nav-indicator"
+                    className="absolute inset-0 rounded-full"
+                    style={{ background: 'var(--nav-active-bg)' }}
+                    transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+                  />
+                )}
+                <span className="relative z-10 flex items-center gap-2" style={{ color: highlighted ? 'var(--nav-active-fg)' : 'var(--nav-icon)' }}>
+                  <Icon size={22} strokeWidth={highlighted ? 2.4 : 2} />
+                  {highlighted && <span className="text-[15px] font-semibold whitespace-nowrap">{item.label}</span>}
+                </span>
               </button>
             );
           })}

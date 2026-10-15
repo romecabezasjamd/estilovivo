@@ -1,8 +1,16 @@
 import type { ThemeColor, ThemeColors } from './themeTypes';
 
-export const DEFAULT_THEME: ThemeColor = 'pink';
+// Igual que la app: 'classic' (negro editorial) por defecto; el color de marca solo cambia si se elige otro.
+export const DEFAULT_THEME: ThemeColor = 'classic';
 
 export const THEMES: Record<ThemeColor, ThemeColors> = {
+  classic: {
+    primary: '#0B0B0F',
+    light: '#2A2A33',
+    dark: '#000000',
+    accent: '#FF3B5C',
+    secondary: '#5E5E6B',
+  },
   pink: {
     primary: '#ec4899',
     light: '#f472b6',

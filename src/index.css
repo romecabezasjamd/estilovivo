@@ -86,23 +86,30 @@ html, body {
    ============================================ */
 
 :root {
-    --color-primary: #ff4d94;
-    --color-primary-light: #ff85b3;
-    --color-primary-dark: #d6337a;
-    --color-accent: #14b8a6;
-    --color-secondary: #a78bfa;
+    /* Marca por defecto = clásico de la app (tinta). Los temas elegidos la sustituyen (utils/theme.ts). */
+    --color-primary: #0B0B0F;
+    --color-primary-light: #2A2A33;
+    --color-primary-dark: #000000;
+    --color-accent: #FF3B5C;
+    --color-secondary: #5E5E6B;
 
-    /* Light mode surface colors */
-    --bg-base: #F8F9FA;
+    /* Superficies: mismos valores que la app (core/design/Color.kt, LightEvColors) */
+    --bg-base: #F1F1F4;
     --bg-card: #ffffff;
-    --bg-card-hover: #f3f4f6;
+    --bg-card-hover: #F4F4F7;
     --bg-elevated: #ffffff;
-    --text-primary: #1f2937;
-    --text-secondary: #6b7280;
-    --text-muted: #9ca3af;
-    --border-light: #e5e7eb;
-    --border-subtle: #f3f4f6;
-    --overlay: rgba(0, 0, 0, 0.5);
+    --text-primary: #0B0B0F;
+    --text-secondary: #5E5E6B;
+    --text-muted: #9A9AA8;
+    --border-light: #E3E3E9;
+    --border-subtle: #F4F4F7;
+    --overlay: rgba(11, 11, 15, 0.6);
+    /* Barra inferior: siempre oscura, como en la app */
+    --nav-bg: #0B0B0F;
+    --nav-icon: #9A9AA8;
+    --nav-active-bg: var(--color-primary);
+    --nav-active-fg: #ffffff;
+    --font-serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
 
     /* Utility colors - Light mode */
     --bg-purple-light: #f3e8ff;
@@ -126,15 +133,16 @@ html, body {
 }
 
 .dark {
-    --bg-base: #0f172a;
-    --bg-card: #1e293b;
-    --bg-card-hover: #334155;
-    --bg-elevated: #1e293b;
-    --text-primary: #f1f5f9;
-    --text-secondary: #94a3b8;
-    --text-muted: #64748b;
-    --border-light: #334155;
-    --border-subtle: #1e293b;
+    /* DarkEvColors de la app */
+    --bg-base: #0A0A0D;
+    --bg-card: #17171C;
+    --bg-card-hover: #212128;
+    --bg-elevated: #17171C;
+    --text-primary: #F5F5F8;
+    --text-secondary: #A2A2B0;
+    --text-muted: #6C6C7A;
+    --border-light: #2B2B34;
+    --border-subtle: #212128;
     --overlay: rgba(0, 0, 0, 0.7);
 
     /* Utility colors - Dark mode */
@@ -404,3 +412,58 @@ html[style*="font-size: 18px"] .text-xs { font-size: 13px !important; }
 
 /* SVG icons inherit currentColor */
 .dark svg { color: inherit; }
+
+/* ============================================
+   ESTÉTICA DE LA APP NATIVA (misma marca en web y app)
+   ============================================ */
+/* Tema clásico: la marca es la tinta. En oscuro se invierte (botones claros con texto oscuro), como en la app. */
+.theme-classic {
+    --nav-active-bg: #ffffff;
+    --nav-active-fg: #0B0B0F;
+}
+.dark.theme-classic {
+    --color-primary: #F5F5F8;
+    --color-primary-light: #ffffff;
+    --color-primary-dark: #E4E4EC;
+}
+.dark.theme-classic .bg-primary.text-white,
+.dark.theme-classic .bg-primary .text-white,
+.dark.theme-classic .bg-primary > svg {
+    color: #0B0B0F !important;
+}
+
+/* Titulares: Poppins + palabra destacada en serif cursiva (EvHeadline) */
+.ev-headline {
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.12;
+    color: var(--text-primary);
+}
+.ev-accent {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: 0;
+    font-size: 1.12em;
+    padding: 0 0.04em;
+    background: linear-gradient(transparent 70%, color-mix(in srgb, var(--color-primary) 22%, transparent) 70%, color-mix(in srgb, var(--color-primary) 22%, transparent) 90%, transparent 90%);
+}
+.theme-classic .ev-accent {
+    background: linear-gradient(transparent 70%, rgba(232, 67, 147, 0.22) 70%, rgba(232, 67, 147, 0.22) 90%, transparent 90%);
+}
+.ev-eyebrow {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+/* Panel oscuro (tarjeta de nivel, destacados), como asPanel() de la app */
+.ev-panel {
+    background: #0B0B0F;
+    color: #ffffff;
+}
+.dark .ev-panel {
+    background: #F5F5F8;
+    color: #0B0B0F;
+}

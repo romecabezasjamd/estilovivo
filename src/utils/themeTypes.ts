@@ -1,4 +1,5 @@
 export type ThemeColor =
+  | 'classic'
   | 'pink'
   | 'blue'
   | 'green'

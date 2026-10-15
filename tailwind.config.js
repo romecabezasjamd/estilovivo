@@ -12,6 +12,14 @@ export default {
         extend: {
             fontFamily: {
                 sans: ['Poppins', 'sans-serif'],
+                serif: ['"Instrument Serif"', 'Georgia', 'serif'],
+            },
+            // Esquinas como en la app (EvShapes: 14 / 20 / 26 / 32 dp)
+            borderRadius: {
+                lg: '0.875rem',
+                xl: '1.25rem',
+                '2xl': '1.625rem',
+                '3xl': '2rem',
             },
             colors: {
                 primary: 'var(--color-primary)',

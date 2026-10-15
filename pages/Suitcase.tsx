@@ -4,6 +4,7 @@ import { Calendar, CloudSun, CheckSquare, Plus, ArrowRight, Trash2, MapPin, Arro
 import { Garment, Trip, TripItem } from '../types';
 import DateRangePicker from '../components/DateRangePicker';
 import { useLanguage } from '../src/context/LanguageContext';
+import Headline from '../components/Headline';
 
 interface SuitcaseProps {
     trips: Trip[];
@@ -157,7 +158,7 @@ const Suitcase: React.FC<SuitcaseProps> = ({ trips, garments, onAddTrip, onDelet
             <div className={`h-full flex flex-col ${isEmbedded ? 'px-6 bg-transparent' : 'p-6 pb-24 bg-[var(--bg-base)]'}`}>
                 <header className={`flex justify-between items-end mb-6 ${isEmbedded ? 'mt-2' : 'mt-4'}`}>
                     <div>
-                        <h1 className={`${isEmbedded ? 'text-xl' : 'text-2xl'} font-bold text-[var(--text-primary)]`}>{t('myTrips')}</h1>
+                        <Headline text="Mis *viajes*" className={isEmbedded ? 'text-2xl' : 'text-3xl'} />
                         <p className="text-[var(--text-secondary)] text-sm">{trips.length} {t('plannedAdventures')}</p>
                     </div>
                     <button
@@ -227,7 +228,7 @@ const Suitcase: React.FC<SuitcaseProps> = ({ trips, garments, onAddTrip, onDelet
                     <button onClick={() => setIsCreating(false)} className="mr-4 text-[var(--text-secondary)] hover:bg-gray-100 p-1 rounded-full">
                         <ArrowLeft size={24} />
                     </button>
-                    <h1 className="text-xl font-bold text-[var(--text-primary)]">Nuevo Viaje</h1>
+                    <Headline text="Nuevo *viaje*" className="text-2xl" />
                 </div>
 
                 <div className="space-y-4 overflow-y-auto flex-1 px-6 pb-4" style={{ scrollbarWidth: 'thin' }}>

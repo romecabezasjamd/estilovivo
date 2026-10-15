@@ -11,8 +11,10 @@ import type { ThemeColor } from './themeTypes';
 const CUSTOM_COLOR_KEY = 'estilovivo_custom_color';
 const PRESET_STORAGE_KEY = 'estilovivo_theme';
 
-export const applyThemeColorsToDocument = (colors: ThemeColors) => {
+export const applyThemeColorsToDocument = (colors: ThemeColors, classic = false) => {
   const root = document.documentElement;
+  // Clásico (como la app): la marca es la tinta; en modo oscuro se invierte en CSS (.theme-classic)
+  root.classList.toggle('theme-classic', classic);
   root.style.setProperty('--color-primary', colors.primary);
   root.style.setProperty('--color-primary-light', colors.light);
   root.style.setProperty('--color-primary-dark', colors.dark);
@@ -23,7 +25,7 @@ export const applyThemeColorsToDocument = (colors: ThemeColors) => {
 /** Aplica paleta predefinida y persiste (local + borra color custom seguro). */
 export const applyThemeToDocument = (themeName: ThemeColor) => {
   const theme = THEMES[themeName] || THEMES[DEFAULT_THEME];
-  applyThemeColorsToDocument(theme);
+  applyThemeColorsToDocument(theme, theme === THEMES.classic);
   if (typeof localStorage !== 'undefined') {
     localStorage.setItem(PRESET_STORAGE_KEY, themeName);
   }

@@ -10,6 +10,7 @@ import {
   Award, Flame, Trophy, Gem, Crown
 } from 'lucide-react';
 import { ThemeColor, THEMES } from '../src/utils/theme';
+import Headline from '../components/Headline';
 import { useTheme } from '../src/context/ThemeContext';
 import { useDarkMode } from '../src/context/DarkModeContext';
 import { isHapticEnabled, setHapticEnabled } from '../src/utils/haptic';
@@ -644,15 +645,15 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
   return (
     <div className="max-w-md mx-auto pb-6 animate-fade-in">
       {/* Header */}
-      <div className="bg-gradient-to-br from-[var(--color-primary)] via-[var(--color-primary-dark)] to-[var(--color-accent)] rounded-b-3xl p-6 pb-24 relative transition-all duration-500 overflow-hidden">
+      <div className="p-6 pt-8 pb-28 relative">
         {/* Decorative circles */}
-        <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -mr-20 -mt-20" />
-        <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full -ml-16 -mb-16" />
 
-        <div className="flex justify-between items-start relative z-10">
+
+
+        <div className="flex justify-between items-start relative z-10 pr-14">
           <div>
-            <h1 className="text-white text-2xl font-bold mb-1">Mi Perfil</h1>
-            <p className="text-white/70 text-sm">Gestiona tu información</p>
+            <Headline text="Mi *perfil*" className="text-4xl mb-1" />
+            <p className="text-[var(--text-secondary)] text-sm">Gestiona tu información</p>
           </div>
           <div className="flex gap-2">
             {editing ? (
@@ -660,13 +661,13 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                 <button
                   onClick={handleSave}
                   disabled={saving}
-                  className="bg-white/20 backdrop-blur-sm p-2.5 rounded-xl text-white hover:bg-white/30 transition shadow-lg"
+                  className="bg-[var(--bg-card)] w-11 h-11 flex items-center justify-center rounded-full text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)] transition shadow-sm"
                 >
-                  {saving ? <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> : <Save size={20} />}
+                  {saving ? <div className="w-5 h-5 border-2 border-[var(--border-light)] border-t-[var(--text-primary)] rounded-full animate-spin" /> : <Save size={20} />}
                 </button>
                 <button
                   onClick={cancelEdit}
-                  className="bg-white/20 backdrop-blur-sm p-2.5 rounded-xl text-white hover:bg-white/30 transition shadow-lg"
+                  className="bg-[var(--bg-card)] w-11 h-11 flex items-center justify-center rounded-full text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)] transition shadow-sm"
                 >
                   <X size={20} />
                 </button>
@@ -674,7 +675,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
             ) : (
               <button
                 onClick={() => setEditing(true)}
-                className="bg-white/20 backdrop-blur-sm p-2.5 rounded-xl text-white hover:bg-white/30 transition shadow-lg"
+                className="bg-[var(--bg-card)] w-11 h-11 flex items-center justify-center rounded-full text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)] transition shadow-sm"
               >
                 <Edit3 size={20} />
               </button>
@@ -685,10 +686,10 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
 
       {/* Avatar & Info Card */}
       <div className="px-6 -mt-16 relative z-10">
-        <div className="bg-white rounded-3xl shadow-xl p-6 border border-gray-50">
+        <div className="bg-[var(--bg-card)] rounded-3xl shadow-sm p-6 border border-[var(--border-light)]">
           <div className="flex flex-col items-center -mt-20 mb-6">
             <div
-              className={`relative w-28 h-28 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center overflow-hidden shadow-xl border-4 border-white transition-all duration-300 ${editing ? 'cursor-pointer ring-4 ring-primary/30 scale-105' : ''}`}
+              className={`relative w-28 h-28 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center overflow-hidden shadow-xl border-4 border-[var(--bg-card)] transition-all duration-300 ${editing ? 'cursor-pointer ring-4 ring-primary/30 scale-105' : ''}`}
               onClick={handleAvatarClick}
             >
               {avatarUrl ? (
@@ -1504,7 +1505,8 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                           !isCustom && presetTheme === themeKey ? 'text-primary' : 'text-gray-400'
                         }`}
                       >
-                        {themeKey === 'pink' ? 'Rosa' :
+                        {themeKey === 'classic' ? 'Clásico' :
+                          themeKey === 'pink' ? 'Rosa' :
                           themeKey === 'blue' ? 'Azul' :
                             themeKey === 'green' ? 'Verde' :
                               themeKey === 'lavender' ? 'Lavanda' :

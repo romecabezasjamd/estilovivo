@@ -7,6 +7,7 @@ import { useGlobalState } from '../src/context/GlobalStateContext';
 import { getCyclePeriod, isDateInCycle } from '../src/utils/cycleTracking';
 import CycleDayMarker from '../src/components/CycleDayMarker';
 import { toLocalDateStr } from '../src/utils/date';
+import Headline from '../components/Headline';
 
 interface PlannerProps {
     looks: Look[];
@@ -152,7 +153,7 @@ const Planner: React.FC<PlannerProps> = ({ looks, plannerEntries, onUpdateEntry,
     return (
         <div className="p-6 pb-24 relative h-full">
             <header className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 mt-4 gap-3">
-                <h1 className="text-2xl font-bold text-[var(--text-primary)]">{t('planner')}</h1>
+                <Headline text="Planifica tu *semana* con estilo" className="text-3xl" />
                 <div className="flex items-center space-x-1 bg-[var(--border-light)] rounded-xl p-1 self-start">
                     <button
                         onClick={() => setViewMode('monthly')}

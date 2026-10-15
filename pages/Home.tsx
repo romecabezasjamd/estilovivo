@@ -5,8 +5,8 @@ import {
   Sun, TrendingUp, Heart, Sparkles, ChevronRight, Shirt
 } from 'lucide-react';
 import { useLanguage } from '../src/context/LanguageContext';
-import Logo from '../components/Logo';
 import LevelProgress from '../components/LevelProgress';
+import Headline from '../components/Headline';
 import WeatherWidget from '../components/WeatherWidget';
 import {
   getCyclePeriod,
@@ -128,12 +128,12 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
   return (
     <div className="p-6 space-y-8 animate-fade-in pb-16">
       {/* Header & Welcome */}
-      <header className="space-y-6">
-        <Logo variant="icon" className="w-16 h-16 mx-auto" />
-        <h1 className="text-3xl font-bold text-[var(--text-primary)] tracking-tight">
-          Hola, <span className="text-primary">{user.name}</span>
-        </h1>
-        <p className="text-[var(--text-secondary)] text-lg font-light">{t('howAreYouFeeling')}</p>
+      <header className="space-y-5 pt-6">
+        <div className="space-y-2 pr-14">
+          <p className="ev-eyebrow">{today.getHours() < 14 ? 'Buenos días' : today.getHours() < 21 ? 'Buenas tardes' : 'Buenas noches'}</p>
+          <Headline text={`Hola, *${(user.name || '').replace(/\*/g, '')}*`} className="text-4xl" />
+          <p className="text-[var(--text-secondary)] text-lg">{t('howAreYouFeeling')}</p>
+        </div>
         <LevelProgress user={user} />
       </header>
 

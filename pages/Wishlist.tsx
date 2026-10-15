@@ -4,6 +4,7 @@ import { api } from '../services/api';
 import { Garment } from '../types';
 import { useLanguage } from '../src/context/LanguageContext';
 import { useGlobalState } from '../src/context/GlobalStateContext';
+import Headline from '../components/Headline';
 
 interface WishlistProps {
   garments: Garment[];
@@ -121,7 +122,7 @@ const Wishlist: React.FC<WishlistProps> = ({ garments, onNavigate }) => {
     <div className="p-6 pb-24 bg-gray-50 min-h-full">
       <header className="flex justify-between items-center mb-6 mt-4">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--text-primary)]">{t('wishlist')}</h1>
+          <Headline text="Tu *wishlist*" className="text-3xl" />
           <p className="text-sm text-[var(--text-secondary)]">{favorites.length} {t('savedItems')}</p>
         </div>
         <button

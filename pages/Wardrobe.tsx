@@ -11,6 +11,7 @@ import { useLanguage } from '../src/context/LanguageContext';
 import { dataUrlToFile, pickPhoto, CameraSource } from '../src/utils/cameraPhoto';
 import ProductDetailModal, { ProductDisplayItem } from '../components/ProductDetailModal';
 import ConfirmDialog from '../components/ConfirmDialog';
+import Headline from '../components/Headline';
 
 interface WardrobeProps {
   garments: Garment[];
@@ -559,7 +560,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
       {/* Top Section */}
       <div className="bg-[var(--bg-card)] pb-3 pt-6 sticky top-0 z-20 shadow-sm rounded-b-3xl mb-4">
         <div className="px-6 mb-3">
-          <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-3">{t('wardrobe')}</h1>
+          <Headline text="Tu *armario*, a mano." className="text-3xl mb-3" />
           <div className="flex items-center gap-2">
             <div className="flex-1 flex items-center bg-gray-50 rounded-full px-4 py-2">
               <Search size={16} className="text-[var(--text-muted)] mr-2 shrink-0" />
