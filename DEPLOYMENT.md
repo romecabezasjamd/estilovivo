@@ -23,6 +23,7 @@ SMTP_HOST=
 SMTP_PORT=587
 SMTP_USER=
 SMTP_PASS=
+FIREBASE_SERVICE_ACCOUNT_BASE64=   # push FCM de la app Android (opcional, ver server/.env.example)
 ```
 
 ## Despliegue con Docker Compose

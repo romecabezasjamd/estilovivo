@@ -143,7 +143,7 @@ try {
   ok('ficheros subidos asociados borrados (avatar, historia, miniatura de preset, foto de reto, imagen de mensaje)');
   assert.equal(await prisma.look.count({ where: { id: lookY.id } }), 1);
   assert.equal(await prisma.comment.count({ where: { content: `SECRETO-comentario-de-Y-${run}` } }), 1);
-  assert.equal(await prisma.message.count({ where: { content: 'mensaje de Y a D' } }), 1);
+  assert.equal(await prisma.message.count({ where: { content: 'mensaje de Y a D', conversationId: convDY.id } }), 1);
   assert.equal(await prisma.conversation.count({ where: { id: convDY.id } }), 1);
   assert.equal(await prisma.user.count({ where: { id: Y.id } }), 1);
   ok('datos de otros se CONSERVAN: looks/comentarios de Y, su conversación con D (solo sus propios mensajes) y su cuenta');

@@ -75,6 +75,7 @@ model User {
   refreshTokens       RefreshToken[]
   blocksMade          Block[]    @relation("blocker")
   blocksReceived      Block[]    @relation("blocked")
+  pushTokens          PushToken[]
 }
 
 // Moderación (aditivo): bloqueos entre usuarios y denuncias de contenido
@@ -463,4 +464,18 @@ model RefreshToken {
   @@index([userId])
   @@index([token])
   @@index([expiresAt])
+}
+
+// Dispositivos que reciben push (FCM). Un token pertenece a una sola cuenta: si otra inicia sesión en el mismo
+// móvil, el token se reasigna.
+model PushToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  platform  String   @default("android")
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }

@@ -18,6 +18,7 @@ import cookieParser from 'cookie-parser';
 import { z } from 'zod';
 import logger from './logger.js';
 import { processImage } from './imageProcessor.js';
+import { initPush, isPushEnabled, isValidPushToken, registerPushToken, sendPushForNotification, unregisterPushToken } from './push.js';
 import {
   validate,
   registerSchema,
@@ -1120,6 +1121,33 @@ app.post('/api/auth/logout', async (req: Request, res: Response) => {
   res.json({ success: true });
 });
 
+// ============= PUSH (FCM) =============
+// La app registra el token del dispositivo tras iniciar sesión (y cuando FCM lo renueva) y lo anula al cerrar sesión.
+const pushTokenSchema = z.object({
+  token: z.string().refine(isValidPushToken, 'Token no válido'),
+  platform: z.enum(['android']).optional(),
+});
+
+app.post('/api/push/register', authenticateToken, validate(pushTokenSchema), async (req: any, res: Response) => {
+  try {
+    await registerPushToken(prisma, req.user.userId, req.body.token, req.body.platform || 'android');
+    res.json({ success: true, enabled: isPushEnabled() });
+  } catch (error: any) {
+    logger.error('Error registering push token', { error: error?.message });
+    res.status(500).json({ error: 'No se pudo registrar el dispositivo' });
+  }
+});
+
+app.delete('/api/push/register', authenticateToken, validate(pushTokenSchema), async (req: any, res: Response) => {
+  try {
+    const removed = await unregisterPushToken(prisma, req.user.userId, req.body.token);
+    res.json({ success: true, removed });
+  } catch (error: any) {
+    logger.error('Error unregistering push token', { error: error?.message });
+    res.status(500).json({ error: 'No se pudo anular el registro del dispositivo' });
+  }
+});
+
 app.post('/api/auth/refresh', validate(refreshSchema), async (req: Request, res: Response) => {
   try {
     const { refreshToken } = req.body;
@@ -1735,6 +1763,7 @@ app.put('/api/products/:id', authenticateToken, upload.array('images', 5), valid
         }
       });
       io.to(`user_${req.user.userId}`).emit('notification', notification);
+      void sendPushForNotification(prisma, notification);
       void sendPreferenceEmail({
         userId: req.user.userId,
         subject: 'Tu prenda está en la lavadora - Estilo Vivo',
@@ -2109,6 +2138,7 @@ app.post('/api/social/like', authenticateToken, async (req: any, res: Response) 
           data: { type: 'LIKE', content: `A ${me?.name || 'alguien'} le gustó tu publicación`, userId: look.userId, relatedId: lookId }
         });
         io.to(`user_${look.userId}`).emit('notification', notif);
+        void sendPushForNotification(prisma, notif);
         void sendPreferenceEmail({
           userId: look.userId,
           subject: 'A alguien le gustó tu publicación - Estilo Vivo',
@@ -2211,6 +2241,7 @@ app.post('/api/social/comment', authenticateToken, validate(commentSchema), asyn
         data: { type: 'COMMENT', content: `${me?.name || 'Alguien'} comentó tu publicación`, userId: look.userId, relatedId: lookId }
       });
       io.to(`user_${look.userId}`).emit('notification', notif);
+      void sendPushForNotification(prisma, notif);
       void sendPreferenceEmail({
         userId: look.userId,
         subject: 'Nuevo comentario en tu publicación - Estilo Vivo',
@@ -2227,6 +2258,7 @@ app.post('/api/social/comment', authenticateToken, validate(commentSchema), asyn
           data: { type: 'COMMENT', content: `${me?.name || 'Alguien'} respondió a tu comentario`, userId: parent.userId, relatedId: lookId }
         });
         io.to(`user_${parent.userId}`).emit('notification', notif);
+        void sendPushForNotification(prisma, notif);
         void sendPreferenceEmail({
           userId: parent.userId,
           subject: 'Respuesta a tu comentario - Estilo Vivo',
@@ -2377,6 +2409,7 @@ app.post('/api/social/follow', authenticateToken, validate(followSchema), async 
         data: { type: 'FOLLOW', content: `${me?.name || 'Alguien'} quiere seguirte`, userId: targetUserId, relatedId: userId }
       });
       io.to(`user_${targetUserId}`).emit('notification', notif);
+      void sendPushForNotification(prisma, notif);
       return res.json({ requesting: true });
     }
 
@@ -2396,6 +2429,7 @@ app.post('/api/social/follow', authenticateToken, validate(followSchema), async 
         data: { type: 'FOLLOW', content: `${me?.name || 'Alguien'} te siguió`, userId: targetUserId, relatedId: userId }
       });
       io.to(`user_${targetUserId}`).emit('notification', notif);
+      void sendPushForNotification(prisma, notif);
       void sendPreferenceEmail({
         userId: targetUserId,
         subject: 'Nuevo seguidor en Estilo Vivo',
@@ -2445,6 +2479,7 @@ app.put('/api/social/follow-requests/:id/approve', authenticateToken, async (req
       data: { type: 'FOLLOW', content: `${me?.name || 'Alguien'} aceptó tu solicitud de seguimiento`, userId: request.requesterId, relatedId: req.user.userId }
     });
     io.to(`user_${request.requesterId}`).emit('notification', notif);
+    void sendPushForNotification(prisma, notif);
     res.json({ approved: true });
   } catch (error) {
     logger.error('Error approving follow request', { error });
@@ -3517,6 +3552,21 @@ app.post('/api/chat/conversations', authenticateToken, validate(conversationSche
         sender: senderUser,
       };
       io.to(`user_${recipientId}`).emit('new_message', msgWithSender);
+      // Igual que en POST /messages: el destinatario recibe aviso (campana, socket y push)
+      try {
+        const notification = await prisma.notification.create({
+          data: {
+            type: 'CHAT',
+            content: `${senderUser?.name ?? 'Alguien'} te ha enviado un mensaje`,
+            userId: recipientId,
+            relatedId: conversation.id,
+          }
+        });
+        io.to(`user_${recipientId}`).emit('notification', notification);
+        void sendPushForNotification(prisma, notification);
+      } catch (e) {
+        logger.error('Error creating chat notification', { e });
+      }
     }
 
     res.status(201).json({ id: conversation.id, ...conversation });
@@ -3605,6 +3655,7 @@ app.post('/api/chat/conversations/:id/messages', authenticateToken, validate(mes
         }
       });
       io.to(`user_${op.userId}`).emit('notification', notification);
+      void sendPushForNotification(prisma, notification);
 
       const otherUser = await prisma.user.findUnique({ where: { id: op.userId } });
       if (transporter && otherUser?.email && otherUser.emailNotifications && otherUser.emailChat) {
@@ -3673,6 +3724,7 @@ app.post('/api/chat/messages', authenticateToken, validate(messageSchema), async
         }
       });
       io.to(`user_${p.userId}`).emit('notification', notification);
+      void sendPushForNotification(prisma, notification);
 
       const otherUser = await prisma.user.findUnique({ where: { id: p.userId } });
       if (transporter && otherUser?.email && otherUser.emailNotifications && otherUser.emailChat) {
@@ -3915,6 +3967,7 @@ app.post('/api/stories/:id/reaction', authenticateToken, async (req: any, res: R
           }
         });
         try { io.to(`user_${story.userId}`).emit('notification', notification); } catch (e) { logger.error('Error emitting notification', { e }); }
+        void sendPushForNotification(prisma, notification);
       } catch (e) { logger.error('Error creating notification', { e }); }
     }
 
@@ -4017,6 +4070,9 @@ const startServer = async () => {
         `CREATE UNIQUE INDEX IF NOT EXISTS "UserBadge_userId_badgeKey_key" ON "UserBadge" ("userId", "badgeKey");`,
         `CREATE INDEX IF NOT EXISTS "UserAchievement_userId_idx" ON "UserAchievement" ("userId");`,
         `CREATE INDEX IF NOT EXISTS "UserBadge_userId_idx" ON "UserBadge" ("userId");`,
+        `CREATE TABLE IF NOT EXISTS "PushToken" ("id" TEXT NOT NULL PRIMARY KEY, "token" TEXT NOT NULL, "platform" TEXT NOT NULL DEFAULT 'android', "userId" TEXT NOT NULL, "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" DATETIME NOT NULL, CONSTRAINT "PushToken_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE);`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS "PushToken_token_key" ON "PushToken" ("token");`,
+        `CREATE INDEX IF NOT EXISTS "PushToken_userId_idx" ON "PushToken" ("userId");`,
       ];
       for (const sql of tableChecks) {
         try { await prisma.$executeRawUnsafe(sql); } catch (e: any) { logger.warn('Table creation warning', { error: e.message }); }
@@ -4025,6 +4081,8 @@ const startServer = async () => {
     } catch (schemaError: any) {
       logger.warn('Schema startup checks could not be completed cleanly', { error: schemaError.message });
     }
+
+    await initPush();
 
     httpServer.listen(PORT, '0.0.0.0', () => {
       logger.info(`Server running on port ${PORT} in ${NODE_ENV} mode`);
