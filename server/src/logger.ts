@@ -50,6 +50,9 @@ if (NODE_ENV !== 'production') {
   logger.add(new winston.transports.Console({
     format: consoleFormat,
   }));
+} else {
+  // En producción también a la consola (JSON, una línea por evento): así se ve en Coolify › Runtime Logs
+  logger.add(new winston.transports.Console({ format: logFormat }));
 }
 
 // Create a stream object for Morgan HTTP logging
