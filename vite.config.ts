@@ -28,6 +28,8 @@ export default defineConfig(({ mode }) => {
           includeAssets: ['icon-192.png', 'icon-512.png', 'estilo-vivo-logo-full.png', 'estilo-vivo-logo-icon.png'],
           workbox: {
             globIgnores: ['**/ort-wasm-simd-threaded.jsep-*.wasm', '**/human-*', '**/tf-*', '**/pose-detection-*'],
+            // Páginas que sirve el servidor (no la web): el service worker no debe sustituirlas por index.html
+            navigateFallbackDenylist: [/^\/api\//, /^\/moderacion\//, /^\/privacidad/, /^\/privacy-policy/, /^\/eliminar-cuenta/, /^\/delete-account/, /^\/\.well-known\//],
             runtimeCaching: [
               {
                 urlPattern: /\/api\/auth\//,

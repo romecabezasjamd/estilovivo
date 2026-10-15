@@ -18,6 +18,8 @@ import cookieParser from 'cookie-parser';
 import { z } from 'zod';
 import logger from './logger.js';
 import { processImage } from './imageProcessor.js';
+import { renderPolicyPage } from './legal.js';
+import { MODERATION_CSP, REASON_LABEL, TYPE_LABEL, renderModerationError, renderModerationPage, signModerationLink, verifyModerationLink } from './moderation.js';
 import { renderEmail, REASON_ACCOUNT, REASON_PREFS, type EmailParams } from './emailTemplates.js';
 type EmailContent = Omit<EmailParams, 'reason' | 'baseUrl'>;
 import { initPush, isPushEnabled, isValidPushToken, registerPushToken, sendPushForNotification, unregisterPushToken } from './push.js';
@@ -499,11 +501,21 @@ app.get('/.well-known/assetlinks.json', (req: Request, res: Response) => {
   }]);
 });
 
+// Política de privacidad pública (sin sesión ni JavaScript): es la URL que se da a Google Play. Texto en legal.ts;
+// el responsable sale de DATA_CONTROLLER (Coolify) para no publicar datos personales en el repositorio.
+app.get(['/privacidad', '/privacy-policy'], (req: Request, res: Response) => {
+  const email = process.env.CONTACT_EMAIL || 'appestilovivo@gmail.com';
+  const controller = (process.env.DATA_CONTROLLER || '').trim() || 'la persona titular del proyecto Estilo Vivo (persona física)';
+  res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'");
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.type('html').send(renderPolicyPage(controller, email));
+});
+
 // Página pública (sin sesión ni JavaScript) para pedir el borrado de la cuenta: Google Play exige una URL así.
 // Contacto configurable con CONTACT_EMAIL; por defecto, el mismo que la política de privacidad.
 // email_off: Cloudflare no lo ofusca (su script de descifrado lo bloquearía esta CSP y el correo no se vería).
 app.get(['/eliminar-cuenta', '/delete-account'], (req: Request, res: Response) => {
-  const email = escapeHtml(process.env.CONTACT_EMAIL || 'privacidad@estilovivo.com');
+  const email = escapeHtml(process.env.CONTACT_EMAIL || 'appestilovivo@gmail.com');
   res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'");
   res.setHeader('Cache-Control', 'public, max-age=3600');
   res.type('html').send(`<!doctype html>
@@ -522,7 +534,7 @@ app.get(['/eliminar-cuenta', '/delete-account'], (req: Request, res: Response) =
 <ul><li>Tu perfil (nombre, correo, fecha de nacimiento, fotos de perfil y de cuerpo entero) y tus preferencias.</li><li>Tus prendas, looks, planificador, maletas, historias, participaciones en retos y sus imágenes.</li><li>Tus comentarios, me gusta, favoritos, seguidores y seguidos, bloqueos y notificaciones.</li><li>Los mensajes de chat que enviaste.</li></ul>
 <h2>Qué se conserva</h2>
 <ul><li>El contenido de otras personas (sus publicaciones, comentarios y los mensajes que te enviaron).</li><li>Las denuncias que hayas presentado, sin tus datos de perfil, para poder revisarlas.</li><li>Las copias de seguridad técnicas del servidor se sustituyen de forma rotativa; tus datos desaparecen de ellas al rotarse.</li></ul>
-<p><a href="/privacy">Política de privacidad</a></p>
+<p><a href="/privacidad">Política de privacidad</a></p>
 </body></html>`);
 });
 
@@ -580,9 +592,28 @@ const authenticateToken = (req: any, res: Response, next: NextFunction) => {
       logger.warn('Invalid token attempt', { error: err.message });
       return res.status(403).json({ error: 'Invalid or expired token' });
     }
-    req.user = user;
-    next();
+    isSuspended(user?.userId).then((suspended) => {
+      // La app intentará renovar la sesión, el refresh también se rechaza y vuelve al inicio de sesión
+      if (suspended) return res.status(403).json({ error: SUSPENDED_MESSAGE, code: 'ACCOUNT_SUSPENDED' });
+      req.user = user;
+      next();
+    }).catch(() => { req.user = user; next(); });
   });
+};
+
+// ============= CUENTAS SUSPENDIDAS (moderación) =============
+const SUSPENDED_MESSAGE = 'Tu cuenta está suspendida por incumplir las normas de la comunidad. Si crees que es un error, escribe a appestilovivo@gmail.com.';
+// Caché corta para no consultar la BD en cada petición (una suspensión tarda como mucho 60 s en aplicarse)
+const suspendedCache = new Map<string, { s: boolean; t: number }>();
+const isSuspended = async (userId?: string) => {
+  if (!userId) return false;
+  const hit = suspendedCache.get(userId);
+  if (hit && Date.now() - hit.t < 60_000) return hit.s;
+  const u = await prisma.user.findUnique({ where: { id: userId }, select: { suspendedAt: true } });
+  const s = !!u?.suspendedAt;
+  suspendedCache.set(userId, { s, t: Date.now() });
+  if (suspendedCache.size > 5000) suspendedCache.clear();
+  return s;
 };
 
 // Optional authentication - allows public access but sets req.user if token is valid
@@ -943,6 +974,11 @@ app.post('/api/auth/login', loginLimiter, validate(loginSchema), async (req: Req
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    if (user.suspendedAt) {
+      logger.warn('Login blocked: account suspended', { userId: user.id });
+      return res.status(403).json({ error: SUSPENDED_MESSAGE, code: 'ACCOUNT_SUSPENDED' });
+    }
+
     const requiresVerification = !user.isVerified;
     if (requiresVerification && transporter) {
       logger.warn('Login for unverified account allowed, verification still pending', { userId: user.id });
@@ -1082,6 +1118,11 @@ app.post('/api/auth/refresh', validate(refreshSchema), async (req: Request, res:
     if (storedToken.expiresAt < new Date()) {
       await prisma.refreshToken.delete({ where: { id: storedToken.id } });
       return res.status(401).json({ error: 'Refresh token expired' });
+    }
+
+    if (storedToken.user.suspendedAt) {
+      await prisma.refreshToken.deleteMany({ where: { userId: storedToken.userId } });
+      return res.status(401).json({ error: SUSPENDED_MESSAGE, code: 'ACCOUNT_SUSPENDED' });
     }
 
     // Rotate: delete old refresh token and issue new pair
@@ -2492,12 +2533,207 @@ app.post('/api/reports', authenticateToken, reportLimiter, validate(reportSchema
     const dup = await prisma.report.findFirst({ where: { reporterId, targetType, targetId, status: 'OPEN' }, select: { id: true } });
     if (dup) return res.status(200).json({ ok: true, duplicate: true });
 
-    await prisma.report.create({ data: { reporterId, targetType, targetId, reason, details: details || null } });
+    const report = await prisma.report.create({ data: { reporterId, targetType, targetId, reason, details: details || null } });
     logger.info('Report created', { reporterId, targetType, targetId, reason });
     res.status(201).json({ ok: true });
+    void notifyModerators(report.id);
   } catch (error) {
     logger.error('Error creating report', { error });
     res.status(500).json({ error: 'Error al enviar la denuncia' });
+  }
+});
+
+// ============= MODERACIÓN (denuncias) =============
+// Cada denuncia avisa por correo a MODERATION_EMAIL (o CONTACT_EMAIL) con un enlace firmado a /moderacion/:id,
+// donde se elimina el contenido, se suspende la cuenta del autor o se descarta. Ver moderation.ts.
+const moderationSecret = () => `${JWT_SECRET}:moderation`;
+const moderationEmail = () => (process.env.MODERATION_EMAIL || process.env.CONTACT_EMAIL || 'appestilovivo@gmail.com').trim();
+
+/** Autor, texto e imagen del contenido denunciado (null si ya no existe). */
+const describeReportTarget = async (targetType: string, targetId: string) => {
+  if (targetType === 'USER') {
+    const u = await prisma.user.findUnique({ where: { id: targetId }, select: { id: true, name: true, bio: true, avatar: true } });
+    return u ? { ownerId: u.id, text: [u.name, u.bio].filter(Boolean).join('\n'), image: u.avatar } : null;
+  }
+  if (targetType === 'LOOK') {
+    const l = await prisma.look.findUnique({ where: { id: targetId }, select: { userId: true, title: true, description: true, images: { take: 1, select: { url: true } } } });
+    return l ? { ownerId: l.userId, text: [l.title, l.description].filter(Boolean).join('\n'), image: l.images[0]?.url } : null;
+  }
+  if (targetType === 'COMMENT') {
+    const c = await prisma.comment.findUnique({ where: { id: targetId }, select: { userId: true, content: true } });
+    return c ? { ownerId: c.userId, text: c.content, image: null } : null;
+  }
+  if (targetType === 'STORY') {
+    const s = await prisma.story.findUnique({ where: { id: targetId }, select: { userId: true, text: true, imageUrl: true } });
+    return s ? { ownerId: s.userId, text: s.text, image: s.imageUrl } : null;
+  }
+  if (targetType === 'MESSAGE') {
+    const m = await prisma.message.findUnique({ where: { id: targetId }, select: { senderId: true, content: true, imageUrl: true } });
+    return m ? { ownerId: m.senderId, text: m.content, image: m.imageUrl } : null;
+  }
+  return null;
+};
+
+const moderationUrl = (reportId: string) => {
+  const { e, s } = signModerationLink(moderationSecret(), reportId);
+  return getEmailFriendlyUrl(`/moderacion/${encodeURIComponent(reportId)}?e=${e}&s=${encodeURIComponent(s)}`);
+};
+
+const notifyModerators = async (reportId: string) => {
+  if (!transporter) return;
+  try {
+    const report = await prisma.report.findUnique({ where: { id: reportId } });
+    if (!report) return;
+    const target = await describeReportTarget(report.targetType, report.targetId);
+    const [reporter, owner] = await Promise.all([
+      prisma.user.findUnique({ where: { id: report.reporterId }, select: { name: true } }),
+      target ? prisma.user.findUnique({ where: { id: target.ownerId }, select: { name: true } }) : null,
+    ]);
+    const typeLabel = TYPE_LABEL[report.targetType] || report.targetType;
+    const reasonLabel = REASON_LABEL[report.reason] || report.reason;
+    const url = moderationUrl(report.id);
+    const quote = [target?.text, report.details ? `Comentario de quien denuncia: ${report.details}` : ''].filter(Boolean).join('\n\n').slice(0, 600);
+    await sendMailWithRetry({
+      to: moderationEmail(),
+      subject: `Denuncia: ${typeLabel.toLowerCase()} · ${reasonLabel} - Estilo Vivo`,
+      text: `${reporter?.name || 'Alguien'} ha denunciado ${typeLabel.toLowerCase()} de ${owner?.name || 'un usuario'} por "${reasonLabel}".\n\n${quote}\n\nRevisar y decidir: ${url}`,
+      html: renderEmail({
+        preheader: `${typeLabel} de ${owner?.name || 'un usuario'} · ${reasonLabel}`,
+        eyebrow: 'Moderación',
+        headline: 'Nueva *denuncia* para revisar',
+        intro: `${reporter?.name || 'Alguien'} ha denunciado ${typeLabel.toLowerCase() === 'perfil' ? 'el perfil' : 'un/a ' + typeLabel.toLowerCase()} de ${owner?.name || 'un usuario'}. Motivo: ${reasonLabel}.`,
+        quote: quote || undefined,
+        imageUrl: emailAssetUrl(target?.image),
+        imageAlt: 'Contenido denunciado',
+        cta: { label: 'Revisar y decidir', url },
+        note: 'Google Play exige revisar las denuncias con rapidez. El enlace es privado y caduca en 30 días.',
+        reason: 'Recibes este correo porque esta dirección está configurada para moderar Estilo Vivo (MODERATION_EMAIL).',
+        baseUrl: emailBaseUrl(),
+      }),
+    });
+    logger.info('Moderation email sent', { reportId: report.id });
+  } catch (error: any) {
+    logger.error('Moderation email failed', { reportId, error: error?.message });
+  }
+};
+
+/** Borra el contenido denunciado (y sus ficheros). Devuelve false si ya no existía. */
+const removeReportedContent = async (targetType: string, targetId: string) => {
+  if (targetType === 'LOOK') {
+    const look = await prisma.look.findUnique({ where: { id: targetId }, include: { images: true } });
+    if (!look) return false;
+    await prisma.look.delete({ where: { id: targetId } });
+    for (const img of look.images) unlinkImageVariants(img.filename);
+    return true;
+  }
+  if (targetType === 'COMMENT') {
+    return (await prisma.comment.deleteMany({ where: { id: targetId } })).count > 0;
+  }
+  if (targetType === 'STORY') {
+    const story = await prisma.story.findUnique({ where: { id: targetId } });
+    if (!story) return false;
+    await prisma.story.delete({ where: { id: targetId } });
+    if (story.imageUrl?.startsWith('/api/uploads/stories/')) safeUnlink(path.join(STORIES_DIR, path.basename(story.imageUrl)));
+    return true;
+  }
+  if (targetType === 'MESSAGE') {
+    const msg = await prisma.message.findUnique({ where: { id: targetId } });
+    if (!msg) return false;
+    await prisma.message.delete({ where: { id: targetId } });
+    if (msg.imageUrl && isOwnUploadUrl(msg.imageUrl)) safeUnlink(path.join(UPLOADS_DIR, path.basename(msg.imageUrl)));
+    return true;
+  }
+  return false;
+};
+
+const moderationView = async (reportId: string, e: string, s: string, flash?: string) => {
+  const report = await prisma.report.findUnique({ where: { id: reportId } });
+  if (!report) return null;
+  const target = await describeReportTarget(report.targetType, report.targetId);
+  // Si el contenido ya no existe no se puede saber el autor (salvo denuncias de perfil)
+  const ownerId = target?.ownerId ?? (report.targetType === 'USER' ? report.targetId : null);
+  const [reporter, owner, others] = await Promise.all([
+    prisma.user.findUnique({ where: { id: report.reporterId }, select: { name: true } }),
+    ownerId ? prisma.user.findUnique({ where: { id: ownerId }, select: { name: true, email: true, suspendedAt: true } }) : null,
+    prisma.report.count({ where: { targetType: report.targetType, targetId: report.targetId, status: 'OPEN', id: { not: report.id } } }),
+  ]);
+  return {
+    report, ownerId,
+    view: {
+      reportId: report.id, e, s,
+      targetType: report.targetType, reason: report.reason, details: report.details, status: report.status, createdAt: report.createdAt,
+      reporterName: reporter?.name || '(cuenta eliminada)',
+      ownerName: owner ? `${owner.name} <${owner.email}>` : '(desconocido o eliminado)',
+      ownerSuspended: !!owner?.suspendedAt,
+      contentText: target?.text, contentImage: emailAssetUrl(target?.image) ?? null,
+      contentGone: !target, otherOpenReports: others, flash,
+    },
+  };
+};
+
+app.get('/moderacion/:id', async (req: Request, res: Response) => {
+  res.setHeader('Content-Security-Policy', MODERATION_CSP);
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  const { e, s } = req.query;
+  if (!verifyModerationLink(moderationSecret(), req.params.id, e, s)) {
+    return res.status(403).type('html').send(renderModerationError('El enlace no es válido o ha caducado.'));
+  }
+  try {
+    const data = await moderationView(req.params.id, String(e), String(s));
+    if (!data) return res.status(404).type('html').send(renderModerationError('La denuncia ya no existe.'));
+    res.type('html').send(renderModerationPage(data.view));
+  } catch (error: any) {
+    logger.error('Moderation page error', { error: error?.message });
+    res.status(500).type('html').send(renderModerationError('Error al cargar la denuncia.'));
+  }
+});
+
+app.post('/moderacion/:id', async (req: Request, res: Response) => {
+  res.setHeader('Content-Security-Policy', MODERATION_CSP);
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  const { e, s, action } = req.body || {};
+  if (!verifyModerationLink(moderationSecret(), req.params.id, e, s)) {
+    return res.status(403).type('html').send(renderModerationError('El enlace no es válido o ha caducado.'));
+  }
+  try {
+    const data = await moderationView(req.params.id, String(e), String(s));
+    if (!data) return res.status(404).type('html').send(renderModerationError('La denuncia ya no existe.'));
+    const { report, ownerId } = data;
+    const closeAll = (status: string) =>
+      prisma.report.updateMany({ where: { targetType: report.targetType, targetId: report.targetId, status: 'OPEN' }, data: { status } });
+    let flash = '';
+    if (action === 'remove' && report.targetType !== 'USER') {
+      const removed = await removeReportedContent(report.targetType, report.targetId);
+      await closeAll('REMOVED');
+      flash = removed ? 'Contenido eliminado. La denuncia queda cerrada.' : 'El contenido ya no existía. La denuncia queda cerrada.';
+    } else if (action === 'suspend' && ownerId && req.body.confirm === '1') {
+      await prisma.user.update({ where: { id: ownerId }, data: { suspendedAt: new Date() } });
+      await Promise.all([
+        prisma.refreshToken.deleteMany({ where: { userId: ownerId } }),
+        prisma.pushToken.deleteMany({ where: { userId: ownerId } }),
+      ]);
+      suspendedCache.delete(ownerId);
+      io.in(`user_${ownerId}`).disconnectSockets(true);
+      await closeAll('SUSPENDED');
+      flash = 'Cuenta suspendida: ya no puede entrar ni usar la app. Puedes reactivarla desde esta página.';
+    } else if (action === 'unsuspend' && ownerId) {
+      await prisma.user.update({ where: { id: ownerId }, data: { suspendedAt: null } });
+      suspendedCache.delete(ownerId);
+      flash = 'Cuenta reactivada.';
+    } else if (action === 'dismiss') {
+      await prisma.report.update({ where: { id: report.id }, data: { status: 'DISMISSED' } });
+      flash = 'Denuncia descartada.';
+    } else {
+      flash = 'No se ha hecho nada (falta la confirmación o la acción no aplica).';
+    }
+    logger.info('Moderation action', { reportId: report.id, action, targetType: report.targetType });
+    const after = await moderationView(req.params.id, String(e), String(s), flash);
+    res.type('html').send(renderModerationPage(after!.view));
+  } catch (error: any) {
+    logger.error('Moderation action error', { error: error?.message });
+    res.status(500).type('html').send(renderModerationError('No se pudo completar la acción.'));
   }
 });
 
@@ -3977,6 +4213,13 @@ const startServer = async () => {
       }
       try {
         await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN "level" INTEGER NOT NULL DEFAULT 1;`);
+      } catch (e: any) {
+        if (!String(e.message).toLowerCase().includes('duplicate column')) {
+          throw e;
+        }
+      }
+      try {
+        await prisma.$executeRawUnsafe(`ALTER TABLE "User" ADD COLUMN "suspendedAt" DATETIME;`);
       } catch (e: any) {
         if (!String(e.message).toLowerCase().includes('duplicate column')) {
           throw e;

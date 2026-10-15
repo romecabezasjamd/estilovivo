@@ -44,6 +44,7 @@ model User {
   darkModeSetting   String?    @default("off")
   fontSize          String?    @default("normal")
   highContrast      Boolean    @default(false)
+  suspendedAt       DateTime?  // moderación: cuenta suspendida (no puede entrar ni usar la API)
   language          String?    @default("es")
   dialect           String?    @default("none")
   createdAt         DateTime   @default(now())
