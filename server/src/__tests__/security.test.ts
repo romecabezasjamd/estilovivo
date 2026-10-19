@@ -15,7 +15,7 @@ describe('Security regressions', () => {
   const register = async (email: string) => {
     const res = await request(app)
       .post('/api/auth/register')
-      .send({ email, password: 'password123', name: 'Usuaria Test' });
+      .send({ email, password: 'password123', name: 'Usuaria Test', birthDate: '1995-05-05' });
     expect(res.status).toBe(201);
     return { token: res.body.token as string, id: res.body.user.id as string };
   };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense, useCallback, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import Layout from './components/Layout';
 const Home = lazy(() => import('./pages/Home'));
 const Wardrobe = lazy(() => import('./pages/Wardrobe'));
@@ -22,6 +22,7 @@ import { resolveNavigation } from './src/utils/navigation';
 import { api } from './services/api';
 import { App as CapApp } from '@capacitor/app';
 import { useNotification } from './src/context/NotificationContext';
+import AccountPrompts from './components/AccountPrompts';
 
 const AppContent: React.FC = () => {
   const { notify } = useNotification();
@@ -359,19 +360,20 @@ const AppContent: React.FC = () => {
           <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
         </div>
       }>
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="h-full"
-          >
-            {renderActivePage()}
-          </motion.div>
-        </AnimatePresence>
+        {/* Sin esperar a que la página anterior desaparezca (antes, con mode="wait", quedaba ~0,4 s el fondo vacío):
+            la nueva entra enseguida con un fundido corto, como en la app. */}
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0.35, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.18, ease: "easeOut" }}
+          className="h-full"
+        >
+          {renderActivePage()}
+        </motion.div>
       </Suspense>
+      {/* Tras registrarse o entrar: fecha de nacimiento (si falta) y permisos de avisos y ubicación */}
+      <AccountPrompts user={user} onUpdateUser={handleUpdateUser} />
     </Layout>
   );
 };

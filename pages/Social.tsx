@@ -1205,7 +1205,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
         </div>
 
         <div className="relative">
-          <div className="flex bg-[var(--border-light)] rounded-full p-1 overflow-x-auto scroll-smooth" style={{ maskImage: 'linear-gradient(to right, black 90%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to right, black 90%, transparent 100%)' }}>
+          <div className="flex rounded-full p-1 overflow-x-auto scroll-smooth no-scrollbar" style={{ backgroundColor: 'var(--bg-base)' }}>
             {[
               { key: 'feed', label: 'Feed', icon: '📰' },
               { key: 'shop', label: 'Tienda', icon: '🛍️' },
@@ -1215,9 +1215,8 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key as typeof activeTab)}
-                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${activeTab === tab.key ? 'bg-[var(--bg-card)] text-primary shadow-sm' : 'text-[var(--text-secondary)]'}`}
+                className={`flex-1 flex items-center justify-center px-3 py-2.5 rounded-full text-sm font-semibold transition-all whitespace-nowrap ${activeTab === tab.key ? 'bg-[var(--ink,#0B0B0F)] text-white shadow-sm' : 'text-[var(--text-secondary)]'}`}
               >
-                <span className="text-sm leading-none">{tab.icon}</span>
                 <span>{tab.label}</span>
               </button>
             ))}
@@ -1226,37 +1225,22 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
       </div>
 
       {activeTab === 'feed' && currentChallenge && !loadingChallenge && (
-        <div className="px-4">
+        <div className="px-4 mb-6">
           <div
             onClick={() => {
               if (!challengeSubmission) handleParticipateChallenge();
             }}
-            className="bg-gradient-to-r from-primary to-accent rounded-2xl p-4 text-white relative animate-fade-in mt-4 cursor-pointer transition-transform hover:scale-[1.01] active:scale-[0.99]"
+            className="bg-[var(--bg-card)] rounded-[28px] p-5 text-[var(--text-primary)] shadow-sm relative overflow-hidden animate-fade-in mt-4 cursor-pointer transition-transform active:scale-[0.99]"
           >
             <div className="absolute top-0 right-0 w-32 h-32 overflow-hidden">
-              <div className="w-32 h-32 bg-[var(--bg-card)]/10 rounded-full -mr-10 -mt-10" />
+              <div className="w-32 h-32 rounded-full -mr-10 -mt-10" style={{ backgroundColor: 'var(--bg-base)' }} />
             </div>
             <div className="relative z-10">
-              <span className="inline-flex items-center gap-1 px-2 py-1 bg-accent text-[10px] font-bold uppercase tracking-wider rounded-md mb-2">
+              <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-[var(--ink,#0B0B0F)] text-white text-[10px] font-bold uppercase tracking-wider rounded-full mb-3">
                 <Sparkles size={12} /> Reto Semanal
               </span>
-              <h3 className="font-bold text-lg mb-1">{currentChallenge.title}</h3>
-              <p className="text-sm text-teal-100 opacity-90 mb-3 line-clamp-2">{currentChallenge.description}</p>
-
-              {activeUser && (
-                <div className="mb-3">
-                  <div className="flex justify-between text-[10px] text-teal-100 mb-1">
-                    <span>Nivel {activeUser.level || 1}</span>
-                    <span>{xpProgress(activeUser.experiencePoints, activeUser.level).current} / {xpProgress(activeUser.experiencePoints, activeUser.level).needed} XP</span>
-                  </div>
-                  <div className="h-1.5 bg-[var(--bg-card)]/20 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-[var(--bg-card)] rounded-full transition-all duration-500"
-                      style={{ width: `${xpProgress(activeUser.experiencePoints, activeUser.level).percentage}%` }}
-                    />
-                  </div>
-                </div>
-              )}
+              <h3 className="font-bold text-2xl mb-1">{currentChallenge.title}</h3>
+              <p className="text-sm text-[var(--text-secondary)] opacity-90 mb-3 line-clamp-2">{currentChallenge.description}</p>
 
               <div className="flex items-center gap-2 flex-wrap">
                 {challengeSubmission ? (
@@ -1267,7 +1251,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                     <div className="relative">
                       <button
                         onClick={(e) => { e.stopPropagation(); setChallengeMenuOpen(!challengeMenuOpen); }}
-                        className="p-1.5 rounded-full text-white/80 hover:bg-white/20 transition-colors"
+                        className="p-1.5 rounded-full text-[var(--text-muted)] hover:bg-[var(--bg-base)] transition-colors"
                       >
                         <MoreHorizontal size={14} />
                       </button>
@@ -1289,7 +1273,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                         </div>
                       )}
                     </div>
-                    <span className="text-xs font-bold text-teal-100 bg-black/20 px-2 py-1 rounded-full">
+                    <span className="text-xs font-bold text-[var(--text-secondary)] bg-[var(--bg-base)] px-2 py-1 rounded-full">
                       +{currentChallenge.reward} XP
                     </span>
                   </>
@@ -1297,11 +1281,11 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                   <>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleParticipateChallenge(); }}
-                      className="text-xs font-semibold px-3 py-1.5 rounded-full bg-[var(--bg-card)] text-primary hover:bg-primary hover:text-white transition-all"
+                      className="text-xs font-semibold px-3 py-1.5 rounded-full bg-[var(--ink,#0B0B0F)] text-white transition-all active:scale-95"
                     >
                       Participar
                     </button>
-                    <span className="text-xs font-bold text-teal-100 bg-black/20 px-2 py-1 rounded-full">
+                    <span className="text-xs font-bold text-[var(--text-secondary)] bg-[var(--bg-base)] px-2 py-1 rounded-full">
                       +{currentChallenge.reward} XP
                     </span>
                   </>

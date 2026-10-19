@@ -154,8 +154,8 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
           <button
             key={m.id}
             onClick={() => onMoodChange(m.id)}
-            className={`flex-shrink-0 px-4 py-3 rounded-2xl border flex items-center space-x-2 transition-all transform active:scale-95 ${isActive
-              ? 'bg-primary text-white border-primary shadow-lg ring-2 ring-offset-2 ring-primary/30'
+            className={`flex-shrink-0 px-5 py-3.5 rounded-full border flex items-center space-x-2 transition-all transform active:scale-95 ${isActive
+              ? 'bg-primary text-white border-primary shadow-md'
               : 'bg-[var(--bg-card)] border-[var(--border-light)] text-[var(--text-secondary)] shadow-sm hover:border-[var(--border-light)]'
               } ${isCycleHighlight && !isSelected ? 'ring-2 ring-purple-300 border-purple-200' : ''}`}
           >

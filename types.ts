@@ -87,7 +87,17 @@ export interface UserState {
   highContrast?: boolean;
   language?: string;
   dialect?: string;
+  /** 14-17 años: perfil privado por defecto, chat solo con seguidores mutuos y compraventa con autorización. */
+  isMinor?: boolean;
+  /** Cuenta antigua sin fecha de nacimiento (se pide una vez). */
+  needsBirthDate?: boolean;
+  /** Puede comprar y vender (adulto, o menor autorizado por su adulto responsable). */
+  marketplaceAllowed?: boolean;
 }
+
+export interface GuardianPersonInfo { id: string; name: string; avatar?: string | null; email?: string }
+export interface GuardianLinkInfo { id: string; status: 'PENDING' | 'APPROVED'; marketplaceAllowed: boolean; guardian?: GuardianPersonInfo; minor?: GuardianPersonInfo }
+export interface GuardianOverview { asMinor: GuardianLinkInfo | null; asGuardian: GuardianLinkInfo[] }
 
 export interface MoodOption {
   id: string;

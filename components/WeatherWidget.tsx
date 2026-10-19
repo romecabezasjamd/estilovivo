@@ -22,6 +22,13 @@ export default function WeatherWidget({ garments, onNavigate, locationName, mood
     loadWeather();
   }, [locationName]);
 
+  // Al conceder la ubicación desde la pantalla de permisos, se vuelve a cargar el tiempo de tu zona
+  useEffect(() => {
+    const onGranted = () => { if (!locationName) loadWeather(); };
+    window.addEventListener('ev-location-granted', onGranted);
+    return () => window.removeEventListener('ev-location-granted', onGranted);
+  }, [locationName]);
+
   useEffect(() => {
     if (weather && garments.length > 0) {
       const result = getOutfitSuggestions(weather, garments);
@@ -128,109 +135,107 @@ export default function WeatherWidget({ garments, onNavigate, locationName, mood
     }
   };
 
+  // Mismo diseño que la tarjeta del tiempo de la app: degradado según el tiempo, icono grande y texto en blanco
   if (loading) {
+    return <div className="mb-3 h-[150px] rounded-[28px] animate-pulse" style={{ backgroundColor: 'var(--border-light)' }} />;
+  }
+
+  if (!weather) {
     return (
-      <div className="mx-3 mb-3 p-3 rounded-xl" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }}>
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-[var(--bg-blue-light)] flex items-center justify-center">
-            <Cloud size={16} className="text-[var(--text-blue-light)]" />
-          </div>
-          <div className="flex-1">
-            <div className="h-3 w-24 rounded bg-[var(--border-light)] animate-pulse" />
-            <div className="h-2 w-32 rounded bg-[var(--border-light)]/50 animate-pulse mt-1" />
-          </div>
+      <div className="mb-3 p-[18px] rounded-[28px] flex items-center gap-3" style={{ backgroundColor: 'var(--bg-card)' }}>
+        <Cloud size={28} style={{ color: 'var(--text-muted)' }} />
+        <div className="flex-1">
+          <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>Sin datos del tiempo</p>
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No hemos podido consultar el tiempo ahora mismo.</p>
         </div>
+        <button onClick={loadWeather} className="px-3 py-2 rounded-full text-sm font-semibold" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>Reintentar</button>
       </div>
     );
   }
 
-  if (!weather) return null;
-
+  const [from, to] = WEATHER_GRADIENT[weather.condition] || WEATHER_GRADIENT.sunny;
+  const picks = moodGarments.length > 0 ? moodGarments : [];
   return (
-    <div className="mx-3 mb-3 p-3 rounded-xl" style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-light)' }}>
-      <div className="flex items-center gap-3 mb-2">
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-2xl shadow-sm">
-          {weather.icon}
-        </div>
+    <div className="mb-3 p-[18px] rounded-[28px] text-white space-y-[14px]" style={{ background: `linear-gradient(135deg, ${from}, ${to})` }}>
+      <div className="flex items-center gap-[14px]">
+        <WeatherGlyph condition={weather.condition} />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1">
-            <span className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{weather.temp}°C</span>
-            <span className="text-[10px] capitalize" style={{ color: 'var(--text-muted)' }}>{weather.description}</span>
-          </div>
+          <p className="text-[44px] leading-none font-extrabold tracking-tight">{weather.temp}°</p>
+          <p className="text-base font-semibold capitalize opacity-90 mt-1">{weather.description}</p>
           {location && (
-            <div className="flex items-center gap-0.5">
-              <MapPin size={8} style={{ color: 'var(--text-muted)' }} />
-              <span className="text-[9px]" style={{ color: 'var(--text-muted)' }}>{location}</span>
-            </div>
+            <p className="flex items-center gap-0.5 text-[11px] opacity-80 truncate">
+              <MapPin size={12} /> {location}{weather.humidity > 0 ? ` · ${weather.humidity}% hum.` : ''}
+            </p>
           )}
         </div>
-        <button onClick={loadWeather} className="p-1.5 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-          <RefreshCw size={12} style={{ color: 'var(--text-muted)' }} />
+        <button onClick={loadWeather} aria-label="Actualizar el tiempo" className="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.18)' }}>
+          <RefreshCw size={20} />
         </button>
       </div>
 
-      <p className="text-[10px] mb-2" style={{ color: 'var(--text-secondary)' }}>{getWeatherAdvice(weather)}</p>
+      <p className="text-sm">{getWeatherAdvice(weather)}</p>
 
       {suggestions.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-[9px] font-semibold" style={{ color: 'var(--text-muted)' }}>SUGERENCIA PARA HOY</p>
+          <p className="text-[11px] font-medium tracking-wide opacity-75">SUGERENCIA PARA HOY</p>
           {suggestions.map((s, i) => (
-            <div key={i} className="flex items-center gap-2 py-1">
-              <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--color-primary)' }} />
-              <span className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>{s.reason}</span>
+            <div key={i} className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0" />
+              <span className="text-[13px]">{s.reason}</span>
             </div>
           ))}
-          {onNavigate && (
-            <button
-              onClick={() => onNavigate('wardrobe')}
-              className="w-full mt-1 py-1.5 rounded-lg text-[10px] font-medium"
-              style={{ backgroundColor: 'var(--color-primary)', color: 'white' }}
-            >
-              Ver mi armario
-            </button>
-          )}
         </div>
       )}
 
-      {moodGarments.length > 0 && (
-        <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border-light)' }}>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-sm">{getMoodEmoji(mood)}</span>
-            <p className="text-[9px] font-semibold" style={{ color: 'var(--text-muted)' }}>
-              PARA HOY · MOOD {getMoodLabel(mood).toUpperCase()}
-            </p>
-          </div>
-          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-            {moodGarments.map((g) => (
-              <button
-                key={g.id}
-                onClick={() => onNavigate?.('wardrobe')}
-                className="flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden border relative group"
-                style={{ borderColor: 'var(--border-light)' }}
-              >
-                <img
-                  src={g.imageUrl}
-                  alt={g.name}
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-200"
-                />
-                <div className="absolute inset-x-0 bottom-0 bg-black/50 text-white text-[7px] text-center py-0.5 truncate px-0.5">
-                  {g.name}
-                </div>
+      {picks.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[11px] font-medium tracking-wide opacity-75">DE TU ARMARIO PARA HOY</p>
+          <div className="flex gap-2 overflow-x-auto no-scrollbar">
+            {picks.map((g) => (
+              <button key={g.id} onClick={() => onNavigate?.('wardrobe')} aria-label={g.name}
+                className="flex-shrink-0 w-16 h-16 rounded-2xl overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}>
+                <img src={g.imageUrl} alt={g.name} loading="lazy" decoding="async" className="w-full h-full object-contain" />
               </button>
             ))}
           </div>
-          {onNavigate && (
-            <button
-              onClick={() => onNavigate('wardrobe')}
-              className="w-full mt-2 py-1.5 rounded-lg text-[10px] font-medium"
-              style={{ backgroundColor: 'var(--color-primary)', color: 'white' }}
-            >
-              Ver prendas sugeridas
-            </button>
-          )}
         </div>
       )}
     </div>
+  );
+}
+
+const WEATHER_GRADIENT: Record<string, [string, string]> = {
+  sunny: ['#F59E0B', '#EF6C3A'],
+  hot: ['#EF4444', '#EA580C'],
+  cloudy: ['#64748B', '#3B5B8C'],
+  rainy: ['#3B6FB6', '#1E3A8A'],
+  snowy: ['#5B8DB8', '#3B5B8C'],
+  windy: ['#0F8A8A', '#1E5F8C'],
+  cold: ['#4F8FD0', '#2D4F9C'],
+};
+
+/** Icono grande dibujado (sol, nube, lluvia, nieve o viento), como el de la app. */
+function WeatherGlyph({ condition }: { condition: string }) {
+  const sun = (cx: number, cy: number, r: number) => (
+    <g className="ev-weather-spin" style={{ transformOrigin: `${cx}px ${cy}px` }}>
+      {Array.from({ length: 8 }).map((_, i) => {
+        const a = (i * Math.PI) / 4;
+        return <line key={i} x1={cx + Math.cos(a) * (r + 6)} y1={cy + Math.sin(a) * (r + 6)} x2={cx + Math.cos(a) * (r + 13)} y2={cy + Math.sin(a) * (r + 13)} stroke="#FFD84D" strokeWidth="5" strokeLinecap="round" />;
+      })}
+      <circle cx={cx} cy={cy} r={r} fill="#FFD84D" />
+    </g>
+  );
+  const cloud = (x: number, y: number, s: number) => (
+    <path transform={`translate(${x} ${y}) scale(${s})`} fill="#F1F5FA" d="M14 30h34a10 10 0 0 0 0-20 14 14 0 0 0-26-4A12 12 0 0 0 14 30z" />
+  );
+  return (
+    <svg width="76" height="76" viewBox="0 0 76 76" aria-hidden="true" className="shrink-0">
+      {(condition === 'sunny' || condition === 'hot' || condition === 'cold') && sun(38, 38, condition === 'hot' ? 18 : 16)}
+      {condition === 'cloudy' && <>{sun(48, 26, 11)}{cloud(4, 26, 1.05)}</>}
+      {condition === 'rainy' && <>{cloud(4, 14, 1.05)}{[22, 36, 50].map((x) => <line key={x} x1={x} y1={52} x2={x - 4} y2={64} stroke="#BFDBFE" strokeWidth="4" strokeLinecap="round" />)}</>}
+      {condition === 'snowy' && <>{cloud(4, 14, 1.05)}{[22, 36, 50].map((x) => <circle key={x} cx={x} cy={58} r={3.5} fill="#fff" />)}</>}
+      {condition === 'windy' && [20, 34, 48].map((y, i) => <path key={y} d={`M10 ${y} h${44 - i * 8} a6 6 0 1 0 -6 -6`} fill="none" stroke="#fff" strokeWidth="4" strokeLinecap="round" />)}
+    </svg>
   );
 }
 

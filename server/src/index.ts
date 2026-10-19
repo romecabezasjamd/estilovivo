@@ -18,6 +18,8 @@ import cookieParser from 'cookie-parser';
 import { z } from 'zod';
 import logger from './logger.js';
 import { processImage } from './imageProcessor.js';
+import { rejectExplicitImages, warmUpNsfw } from './nsfw.js';
+import { MARKETPLACE_ERRORS, accountFlags, birthDateError, chatAllowed, isAdultDate, isMinorDate, marketplaceStatus } from './minors.js';
 import { renderPolicyPage } from './legal.js';
 import { MODERATION_CSP, REASON_LABEL, TYPE_LABEL, renderModerationError, renderModerationPage, signModerationLink, verifyModerationLink } from './moderation.js';
 import { renderEmail, REASON_ACCOUNT, REASON_PREFS, type EmailParams } from './emailTemplates.js';
@@ -322,6 +324,12 @@ const imageFileFilter = (_: any, file: Express.Multer.File, cb: multer.FileFilte
 };
 
 const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 }, fileFilter: imageFileFilter });
+
+/** Borra las fotos que multer ya guardó cuando la petición se rechaza antes de procesarlas. */
+function cleanupUploadedFiles(req: any) {
+  const list: any[] = req.file ? [req.file] : Array.isArray(req.files) ? req.files : Object.values(req.files || {}).flat();
+  for (const f of list) if (f?.path) safeUnlink(f.path);
+}
 
 // Middleware - CORS configuration
 const allowedOrigins = [
@@ -851,6 +859,8 @@ app.post('/api/auth/register', authLimiter, validate(registerSchema), async (req
   try {
     const normalizedEmail = normalizeEmail(req.body.email);
     const { password, name, gender, birthDate } = req.body;
+    const birthError = birthDateError(birthDate);
+    if (birthError) return res.status(400).json({ error: birthError, code: 'birthDate' });
 
     // Case-insensitive check to prevent duplicate emails with different casing
     const existingUser = (await findUsersByEmail(normalizedEmail))[0];
@@ -866,7 +876,8 @@ app.post('/api/auth/register', authLimiter, validate(registerSchema), async (req
         password: hashedPassword,
         name,
         gender: gender || 'female',
-        birthDate: birthDate ? new Date(birthDate) : null,
+        birthDate: new Date(birthDate),
+        isProfilePublic: !isMinorDate(birthDate),
         verificationToken
       }
     });
@@ -906,7 +917,7 @@ app.post('/api/auth/register', authLimiter, validate(registerSchema), async (req
     if (!emailSent && transporter) {
       logger.info('User registered (verification email failed, pending)', { userId: user.id });
       const { password: _p, verificationToken: _v, resetToken: _r, resetTokenExpiry: _re, ...pending } = user;
-      return res.status(201).json({ user: pending, message: 'verificationEmailFailed', requiresVerification: true });
+      return res.status(201).json({ user: { ...pending, ...(await accountFlags(prisma, user)) }, message: 'verificationEmailFailed', requiresVerification: true });
     }
     if (!emailSent) {
       await prisma.user.update({
@@ -920,7 +931,7 @@ app.post('/api/auth/register', authLimiter, validate(registerSchema), async (req
     if (emailSent) {
       logger.info('User registered (pending verification)', { userId: user.id, email: user.email });
       res.status(201).json({
-        user: safe,
+        user: { ...safe, ...(await accountFlags(prisma, user)) },
         message: 'verificationEmailSent',
         requiresVerification: true
       });
@@ -928,7 +939,7 @@ app.post('/api/auth/register', authLimiter, validate(registerSchema), async (req
       logger.info('User registered & auto-verified', { userId: user.id, email: user.email });
       const { accessToken, refreshToken } = await issueTokenPair(user.id, res);
       res.status(201).json({
-        user: safe,
+        user: { ...safe, ...(await accountFlags(prisma, user)) },
         token: accessToken,
         refreshToken,
         requiresVerification: false
@@ -996,7 +1007,7 @@ app.post('/api/auth/login', loginLimiter, validate(loginSchema), async (req: Req
     const { password: _, _count, verificationToken: _vt, resetToken: _rt, resetTokenExpiry: _rte, ...safe } = user;
     logger.info('User logged in', { userId: user.id });
     res.json({
-      user: { ...safe, followersCount: _count.followers, followingCount: _count.following },
+      user: { ...safe, followersCount: _count.followers, followingCount: _count.following, ...(await accountFlags(prisma, user)) },
       token: accessToken,
       refreshToken,
       requiresVerification
@@ -1133,7 +1144,7 @@ app.post('/api/auth/refresh', validate(refreshSchema), async (req: Request, res:
     res.json({
       token: accessToken,
       refreshToken: newRefreshToken,
-      user: safe
+      user: { ...safe, ...(await accountFlags(prisma, storedToken.user)) }
     });
   } catch (error: any) {
     logger.error('Refresh token error', { error: error.message });
@@ -1417,7 +1428,8 @@ app.get('/api/auth/me', authenticateToken, async (req: any, res: Response) => {
       followersCount: _count.followers,
       followingCount: _count.following,
       garmentCount: _count.products,
-      lookCount: _count.looks
+      lookCount: _count.looks,
+      ...(await accountFlags(prisma, user)),
     });
   } catch (error) {
     logger.error('Error occurred', { error });
@@ -1425,7 +1437,7 @@ app.get('/api/auth/me', authenticateToken, async (req: any, res: Response) => {
   }
 });
 
-app.put('/api/auth/profile', authenticateToken, upload.fields([{ name: 'avatar', maxCount: 1 }, { name: 'fullBodyAvatar', maxCount: 1 }]), validate(updateProfileSchema), async (req: any, res: Response) => {
+app.put('/api/auth/profile', authenticateToken, upload.fields([{ name: 'avatar', maxCount: 1 }, { name: 'fullBodyAvatar', maxCount: 1 }]), rejectExplicitImages, validate(updateProfileSchema), async (req: any, res: Response) => {
   try {
     const { name, bio, mood, cycleTracking, musicSync, emailNotifications, emailChat, emailFollows, emailWashing, emailChallenges, gender, birthDate, themePreset, customColor, fontSize, highContrast, isProfilePublic, locationName, darkModeSetting, language, dialect, styleColors, styleStyles, styleOccasions, styleFabrics } = req.body;
     const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
@@ -1446,7 +1458,17 @@ app.put('/api/auth/profile', authenticateToken, upload.fields([{ name: 'avatar',
     if (emailWashing !== undefined) updateData.emailWashing = emailWashing === 'true' || emailWashing === true;
     if (emailChallenges !== undefined) updateData.emailChallenges = emailChallenges === 'true' || emailChallenges === true;
     if (gender !== undefined) updateData.gender = gender;
-    if (birthDate !== undefined) updateData.birthDate = birthDate ? new Date(birthDate) : null;
+    if (birthDate !== undefined && birthDate) {
+      const current = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { birthDate: true } });
+      if (!current?.birthDate) {
+        const birthError = birthDateError(birthDate);
+        if (birthError) return res.status(400).json({ error: birthError, code: 'birthDate' });
+        updateData.birthDate = new Date(birthDate);
+        if (isMinorDate(birthDate)) updateData.isProfilePublic = false;
+      } else if (new Date(birthDate).toISOString().slice(0, 10) !== current.birthDate.toISOString().slice(0, 10)) {
+        return res.status(400).json({ error: 'La fecha de nacimiento no se puede cambiar. Si es incorrecta, escríbenos.', code: 'birthDateLocked' });
+      }
+    }
     if (fontSize !== undefined) updateData.fontSize = fontSize;
     if (highContrast !== undefined) updateData.highContrast = highContrast === 'true' || highContrast === true;
     if (isProfilePublic !== undefined) updateData.isProfilePublic = isProfilePublic === 'true' || isProfilePublic === true;
@@ -1479,7 +1501,7 @@ app.put('/api/auth/profile', authenticateToken, upload.fields([{ name: 'avatar',
     if (updateData.avatar && isOwnUploadUrl(previous?.avatar)) safeUnlink(path.join(UPLOADS_DIR, path.basename(previous!.avatar!)));
     if (updateData.fullBodyAvatar && isOwnUploadUrl(previous?.fullBodyAvatar)) safeUnlink(path.join(UPLOADS_DIR, path.basename(previous!.fullBodyAvatar!)));
     const { password: _, _count, verificationToken: _vt, resetToken: _rt, resetTokenExpiry: _rte, ...safe } = user;
-    res.json({ ...safe, followersCount: _count.followers, followingCount: _count.following });
+    res.json({ ...safe, followersCount: _count.followers, followingCount: _count.following, ...(await accountFlags(prisma, user)) });
   } catch (error) {
     logger.error('Error occurred', { error });
     res.status(500).json({ error: 'Error updating profile' });
@@ -1515,7 +1537,7 @@ app.put('/api/auth/preferences', authenticateToken, async (req: any, res: Respon
       data: updateData,
     });
     const { password: _, verificationToken: _vt, resetToken: _rt, resetTokenExpiry: _rte, ...safe } = user;
-    res.json(safe);
+    res.json({ ...safe, ...(await accountFlags(prisma, user)) });
   } catch (error) {
     logger.error('Error occurred', { error });
     res.status(500).json({ error: 'Error updating preferences' });
@@ -1580,13 +1602,15 @@ app.get('/api/products/shop', authenticateToken, async (req: any, res: Response)
   }
 });
 
-app.post('/api/products', authenticateToken, upload.array('images', 5), validate(productSchema), async (req: any, res: Response) => {
+app.post('/api/products', authenticateToken, upload.array('images', 5), rejectExplicitImages, validate(productSchema), async (req: any, res: Response) => {
   try {
     const { name, category, color, season, brand, size, condition, description, price, forSale, isWashing } = req.body;
     const files = req.files as Express.Multer.File[] | undefined;
 
     // Enforce sale limit for non-premium users (max 5 items for sale)
     if (forSale === true || forSale === 'true') {
+      const market = await marketplaceStatus(prisma, req.user.userId);
+      if (!market.allowed) { cleanupUploadedFiles(req); return res.status(403).json({ error: MARKETPLACE_ERRORS[market.reason!], code: market.reason }); }
       const saleCount = await prisma.product.count({
         where: { userId: req.user.userId, forSale: true }
       });
@@ -1639,7 +1663,7 @@ app.post('/api/products', authenticateToken, upload.array('images', 5), validate
   }
 });
 
-app.put('/api/products/:id', authenticateToken, upload.array('images', 5), validate(productSchema), async (req: any, res: Response) => {
+app.put('/api/products/:id', authenticateToken, upload.array('images', 5), rejectExplicitImages, validate(productSchema), async (req: any, res: Response) => {
   try {
     const { id } = req.params;
     const { name, category, color, season, brand, size, condition, description, price, forSale, usageCount, isWashing } = req.body;
@@ -1650,6 +1674,8 @@ app.put('/api/products/:id', authenticateToken, upload.array('images', 5), valid
 
     // Enforce sale limit for non-premium users when toggling forSale to true
     if ((forSale === true || forSale === 'true') && !existing.forSale) {
+      const market = await marketplaceStatus(prisma, req.user.userId);
+      if (!market.allowed) { cleanupUploadedFiles(req); return res.status(403).json({ error: MARKETPLACE_ERRORS[market.reason!], code: market.reason }); }
       const saleCount = await prisma.product.count({
         where: { userId: req.user.userId, forSale: true }
       });
@@ -1865,7 +1891,7 @@ app.get('/api/looks/feed', optionalAuth, async (req: any, res: Response) => {
   }
 });
 
-app.post('/api/looks', authenticateToken, upload.array('images', 10), validate(lookSchema), async (req: any, res: Response) => {
+app.post('/api/looks', authenticateToken, upload.array('images', 10), rejectExplicitImages, validate(lookSchema), async (req: any, res: Response) => {
   try {
     const { title, productIds, isPublic, mood, tags } = req.body;
     const files = req.files as Express.Multer.File[] | undefined;
@@ -3093,7 +3119,7 @@ app.get('/api/challenges/history', authenticateToken, async (req: any, res: Resp
   }
 });
 
-app.post('/api/challenges/submit', authenticateToken, upload.fields([{ name: 'image', maxCount: 1 }]), async (req: any, res: Response) => {
+app.post('/api/challenges/submit', authenticateToken, upload.fields([{ name: 'image', maxCount: 1 }]), rejectExplicitImages, async (req: any, res: Response) => {
   try {
     const { challengeId, description } = req.body;
     if (!challengeId) return res.status(400).json({ error: 'Falta el ID del reto' });
@@ -3677,6 +3703,139 @@ app.get('/api/chat/conversations', authenticateToken, async (req: any, res: Resp
   }
 });
 
+// ============= ADULTO RESPONSABLE (menores 14-17) =============
+// El menor indica el correo de un adulto con cuenta en Estilo Vivo (verificada y mayor de edad). El adulto recibe
+// aviso y correo; al aceptar, autoriza la compraventa y puede retirarla cuando quiera.
+
+const guardianUser = { select: { id: true, name: true, avatar: true, email: true } };
+
+async function notifyUser(userId: string, type: string, content: string, relatedId?: string) {
+  const notification = await prisma.notification.create({ data: { type, content, userId, relatedId: relatedId ?? null } });
+  io.to(`user_${userId}`).emit('notification', notification);
+  void sendPushForNotification(prisma, notification);
+}
+
+/** Retira la venta de las prendas de un menor (al revocar o desactivar la autorización). */
+async function unlistMinorProducts(minorId: string) {
+  await prisma.product.updateMany({ where: { userId: minorId, forSale: true }, data: { forSale: false } });
+}
+
+app.get('/api/guardian', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const [asMinor, asGuardian] = await Promise.all([
+      prisma.guardianLink.findUnique({ where: { minorId: req.user.userId }, include: { guardian: guardianUser } }),
+      prisma.guardianLink.findMany({ where: { guardianId: req.user.userId }, include: { minor: { select: { id: true, name: true, avatar: true } } }, orderBy: { createdAt: 'desc' } }),
+    ]);
+    res.json({
+      asMinor: asMinor ? { id: asMinor.id, status: asMinor.status, marketplaceAllowed: asMinor.marketplaceAllowed, guardian: { id: asMinor.guardian.id, name: asMinor.guardian.name, avatar: asMinor.guardian.avatar, email: asMinor.guardian.email } } : null,
+      asGuardian: asGuardian.map((l) => ({ id: l.id, status: l.status, marketplaceAllowed: l.marketplaceAllowed, minor: l.minor })),
+    });
+  } catch (error) {
+    logger.error('Error al leer adulto responsable', { error });
+    res.status(500).json({ error: 'Error al cargar los datos' });
+  }
+});
+
+app.post('/api/guardian/request', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const email = typeof req.body?.email === 'string' ? normalizeEmail(req.body.email) : '';
+    if (!email) return res.status(400).json({ error: 'Indica el correo del adulto responsable' });
+    const me = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { id: true, name: true, birthDate: true } });
+    if (!me || !isMinorDate(me.birthDate)) return res.status(400).json({ error: 'Solo las cuentas de menores de edad necesitan un adulto responsable' });
+    const guardian = (await findUsersByEmail(email))[0];
+    if (!guardian) return res.status(404).json({ error: 'No hay ninguna cuenta con ese correo. Pide a tu familiar que se registre en Estilo Vivo y vuelve a intentarlo.', code: 'guardianNotFound' });
+    if (guardian.id === me.id) return res.status(400).json({ error: 'No puedes ser tu propio adulto responsable' });
+    if (!guardian.isVerified) return res.status(400).json({ error: 'Esa cuenta aún no ha confirmado su correo', code: 'guardianNotVerified' });
+    if (!isAdultDate(guardian.birthDate)) return res.status(400).json({ error: 'El adulto responsable debe ser mayor de edad (y tener su fecha de nacimiento en su perfil)', code: 'guardianNotAdult' });
+
+    const link = await prisma.guardianLink.upsert({
+      where: { minorId: me.id },
+      create: { minorId: me.id, guardianId: guardian.id },
+      update: { guardianId: guardian.id, status: 'PENDING', marketplaceAllowed: false },
+    });
+    await unlistMinorProducts(me.id);
+    await notifyUser(guardian.id, 'GUARDIAN_REQUEST', `${me.name} te pide que seas su adulto responsable en Estilo Vivo`, link.id);
+    if (transporter) {
+      const url = getEmailFriendlyUrl('/profile?tab=settings&guardian=1');
+      void sendMailWithRetry({
+        to: guardian.email,
+        subject: `${me.name} te pide autorización en Estilo Vivo`,
+        text: `${me.name} (menor de edad) te ha indicado como su adulto responsable en Estilo Vivo. Si lo aceptas, podrá comprar y vender ropa de segunda mano en la app. Revísalo aquí: ${url}`,
+        html: renderEmail({
+          preheader: `${me.name} te ha indicado como su adulto responsable`,
+          eyebrow: 'Adulto responsable',
+          headline: `*${me.name}* te pide autorización`,
+          intro: `${me.name} es menor de edad y te ha indicado como su adulto responsable en Estilo Vivo. Si aceptas, podrá comprar y vender ropa de segunda mano en la app. Podrás retirar el permiso cuando quieras desde Ajustes.`,
+          cta: { label: 'Revisar la solicitud', url },
+          note: 'Si no conoces a esta persona, ignora este correo: no se activará nada.',
+          fallbackUrl: url,
+          reason: REASON_ACCOUNT,
+          baseUrl: emailBaseUrl(),
+        }),
+      }).catch((error: any) => logger.error('No se pudo enviar el correo al adulto responsable', { error }));
+    }
+    res.status(201).json({ id: link.id, status: link.status, marketplaceAllowed: link.marketplaceAllowed, guardian: { id: guardian.id, name: guardian.name, avatar: guardian.avatar, email: guardian.email } });
+  } catch (error) {
+    logger.error('Error al pedir adulto responsable', { error });
+    res.status(500).json({ error: 'No se pudo enviar la solicitud' });
+  }
+});
+
+app.post('/api/guardian/:id/approve', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const link = await prisma.guardianLink.findUnique({ where: { id: req.params.id }, include: { guardian: { select: { name: true } } } });
+    if (!link || link.guardianId !== req.user.userId) return res.status(404).json({ error: 'Solicitud no encontrada' });
+    const updated = await prisma.guardianLink.update({ where: { id: link.id }, data: { status: 'APPROVED', marketplaceAllowed: true } });
+    await notifyUser(link.minorId, 'GUARDIAN_APPROVED', `${link.guardian.name} ha aceptado ser tu adulto responsable: ya puedes comprar y vender`, link.id);
+    res.json({ id: updated.id, status: updated.status, marketplaceAllowed: updated.marketplaceAllowed });
+  } catch (error) {
+    logger.error('Error al aprobar adulto responsable', { error });
+    res.status(500).json({ error: 'No se pudo aprobar' });
+  }
+});
+
+app.post('/api/guardian/:id/marketplace', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const allowed = req.body?.allowed === true || req.body?.allowed === 'true';
+    const link = await prisma.guardianLink.findUnique({ where: { id: req.params.id }, include: { guardian: { select: { name: true } } } });
+    if (!link || link.guardianId !== req.user.userId || link.status !== 'APPROVED') return res.status(404).json({ error: 'Vínculo no encontrado' });
+    const updated = await prisma.guardianLink.update({ where: { id: link.id }, data: { marketplaceAllowed: allowed } });
+    if (!allowed) await unlistMinorProducts(link.minorId);
+    await notifyUser(link.minorId, 'GUARDIAN_UPDATED', allowed
+      ? `${link.guardian.name} te ha permitido comprar y vender`
+      : `${link.guardian.name} ha pausado tu permiso para comprar y vender`, link.id);
+    res.json({ id: updated.id, status: updated.status, marketplaceAllowed: updated.marketplaceAllowed });
+  } catch (error) {
+    logger.error('Error al cambiar permiso de compraventa', { error });
+    res.status(500).json({ error: 'No se pudo guardar' });
+  }
+});
+
+app.delete('/api/guardian/:id', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const link = await prisma.guardianLink.findUnique({ where: { id: req.params.id } });
+    if (!link || (link.guardianId !== req.user.userId && link.minorId !== req.user.userId)) return res.status(404).json({ error: 'Vínculo no encontrado' });
+    await prisma.guardianLink.delete({ where: { id: link.id } });
+    await unlistMinorProducts(link.minorId);
+    const other = link.guardianId === req.user.userId ? link.minorId : link.guardianId;
+    await notifyUser(other, 'GUARDIAN_REMOVED', link.guardianId === req.user.userId
+      ? 'Tu adulto responsable ha retirado el vínculo: la compraventa queda desactivada'
+      : 'Un menor ha quitado tu vínculo como adulto responsable', link.id);
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Error al quitar adulto responsable', { error });
+    res.status(500).json({ error: 'No se pudo quitar el vínculo' });
+  }
+});
+
+/** Reglas de menores para una conversación existente (otro participante + si es sobre una prenda). */
+async function conversationChatAllowed(conversationId: string, userId: string): Promise<boolean> {
+  const conv = await prisma.conversation.findUnique({ where: { id: conversationId }, select: { itemId: true, participants: { select: { userId: true } } } });
+  const other = conv?.participants.find((p) => p.userId !== userId)?.userId;
+  if (!conv || !other) return true;
+  return chatAllowed(prisma, userId, other, Boolean(conv.itemId));
+}
+
 app.post('/api/chat/conversations', authenticateToken, validate(conversationSchema), async (req: any, res: Response) => {
   try {
     // Accept both targetUserId (frontend) and otherUserId (legacy)
@@ -3687,6 +3846,9 @@ app.post('/api/chat/conversations', authenticateToken, validate(conversationSche
     const recipient = await prisma.user.findUnique({ where: { id: recipientId }, select: { id: true } });
     if (!recipient) return res.status(404).json({ error: 'Usuario no encontrado' });
     if (await isBlockedBetween(req.user.userId, recipientId)) return res.status(403).json({ error: 'No puedes enviar mensajes a este usuario' });
+    if (!(await chatAllowed(prisma, req.user.userId, recipientId, Boolean(itemId)))) {
+      return res.status(403).json({ error: MARKETPLACE_ERRORS.minorChat, code: 'minorChat' });
+    }
     const safeItemImage = itemImage && (isOwnUploadUrl(itemImage) || /^https:\/\//.test(itemImage)) ? itemImage : null;
 
     let whereClause: any = {
@@ -3777,7 +3939,7 @@ app.get('/api/chat/conversations/:id/messages', authenticateToken, async (req: a
   }
 });
 
-app.post('/api/chat/upload', authenticateToken, upload.single('image'), async (req: any, res: Response) => {
+app.post('/api/chat/upload', authenticateToken, upload.single('image'), rejectExplicitImages, async (req: any, res: Response) => {
   try {
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'No image provided' });
@@ -3824,6 +3986,7 @@ app.post('/api/chat/conversations/:id/messages', authenticateToken, validate(mes
     ]);
     if (!participation) return res.status(403).json({ error: 'Not authorized' });
     if (blocked) return res.status(403).json({ error: 'No puedes enviar mensajes a este usuario' });
+    if (!(await conversationChatAllowed(conversationId, req.user.userId))) return res.status(403).json({ error: MARKETPLACE_ERRORS.minorChat, code: 'minorChat' });
 
     // Se guarda y se confirma YA; el aviso al otro participante va después (no hace esperar a quien envía)
     const [message] = await prisma.$transaction([
@@ -3852,6 +4015,7 @@ app.post('/api/chat/messages', authenticateToken, validate(messageSchema), async
     ]);
     if (!participant) return res.status(403).json({ error: 'Not a participant in this conversation' });
     if (blocked) return res.status(403).json({ error: 'No puedes enviar mensajes a este usuario' });
+    if (!(await conversationChatAllowed(conversationId, req.user.userId))) return res.status(403).json({ error: MARKETPLACE_ERRORS.minorChat, code: 'minorChat' });
     const [message] = await prisma.$transaction([
       prisma.message.create({
         data: { conversationId, content: content || '', senderId: req.user.userId, imageUrl: imageUrl || null, productId: productId || null },
@@ -3939,7 +4103,7 @@ app.get('/api/stories', optionalAuth, async (req: any, res: Response) => {
   }
 });
 
-app.post('/api/stories', authenticateToken, storyUpload.single('image'), async (req: any, res: Response) => {
+app.post('/api/stories', authenticateToken, storyUpload.single('image'), rejectExplicitImages, async (req: any, res: Response) => {
   try {
     const { type, text } = req.body;
     const file = req.file;
@@ -4021,6 +4185,9 @@ app.post('/api/stories/:id/reaction', authenticateToken, async (req: any, res: R
     // Cannot react to own story
     if (story.userId === req.user.userId) {
       return res.status(200).json({ message: null, conversationId: null });
+    }
+    if (!(await chatAllowed(prisma, req.user.userId, story.userId, false))) {
+      return res.status(403).json({ error: MARKETPLACE_ERRORS.minorChat, code: 'minorChat' });
     }
 
     const reactor = await prisma.user.findUnique({
@@ -4204,6 +4371,8 @@ const startServer = async () => {
     }
 
     await initPush();
+    // Carga el detector de fotos íntimas en segundo plano (la primera subida no espera a la carga)
+    void warmUpNsfw();
 
     httpServer.listen(PORT, '0.0.0.0', () => {
       logger.info(`Server running on port ${PORT} in ${NODE_ENV} mode`);

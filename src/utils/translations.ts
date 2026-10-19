@@ -235,7 +235,7 @@ export const TRANSLATIONS: Record<Language, TranslationSchema> = {
         home: 'Inicio',
         wardrobe: 'Armario',
         profile: 'Perfil',
-        social: 'Comunidad',
+        social: 'Social',
         create: 'Crear',
         planner: 'Planificador',
         suitcase: 'Maleta',

@@ -123,12 +123,18 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                 localStorage.setItem('beyour_saved_email', normalizedEmail);
                 onAuthSuccess(data.user, rememberMe);
             } else {
+                if (!birthDate) throw new Error('Indica tu fecha de nacimiento.');
+                const b = new Date(birthDate), now = new Date();
+                let age = now.getFullYear() - b.getFullYear();
+                if (now.getMonth() < b.getMonth() || (now.getMonth() === b.getMonth() && now.getDate() < b.getDate())) age--;
+                if (b > now) throw new Error('La fecha no puede ser futura.');
+                if (age < 14) throw new Error('Debes tener al menos 14 años para usar Estilo Vivo.');
                 const data = await api.register({
                     email: normalizedEmail,
                     password,
                     name,
                     gender,
-                    birthDate: birthDate || undefined
+                    birthDate
                 }, rememberMe);
                 localStorage.setItem('beyour_saved_email', normalizedEmail);
                 if (data.requiresVerification) {
@@ -302,10 +308,13 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                                                 <input
                                                     type="date"
                                                     value={birthDate}
+                                                    required
+                                                    max={new Date().toISOString().slice(0, 10)}
                                                     onChange={(e) => setBirthDate(e.target.value)}
                                                     className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-[var(--text-primary)]"
                                                 />
                                             </div>
+                                            <p className="text-[11px] text-[var(--text-muted)] ml-1">Se pide para proteger a los menores de edad. No se muestra en tu perfil.</p>
                                         </div>
                                         <div className="space-y-2">
                                             <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest ml-1">{t('gender')}</label>

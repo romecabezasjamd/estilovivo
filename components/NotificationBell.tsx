@@ -76,6 +76,12 @@ const NotificationBell: React.FC = () => {
         newSocket.on('notification', (notif: Notification) => {
             if (!mountedRef.current) return;
             setNotifications(prev => [notif, ...prev]);
+            // Con la pestaña en segundo plano y permiso concedido, aviso del navegador
+            try {
+                if (document.hidden && typeof window.Notification !== 'undefined' && window.Notification.permission === 'granted') {
+                    new window.Notification('Estilo Vivo', { body: notif.content || 'Tienes una novedad', icon: '/icon-192.png', tag: notif.id });
+                }
+            } catch {}
         });
 
         return () => {
@@ -127,6 +133,12 @@ const NotificationBell: React.FC = () => {
             } else {
                 window.dispatchEvent(new CustomEvent('navigateTo', { detail: { tab: 'profile' } }));
             }
+        } else if (notif.type?.startsWith('GUARDIAN_')) {
+            // Adulto responsable de un menor: Perfil › Ajustes › Adulto responsable
+            setIsOpen(false);
+            try { localStorage.setItem('ev_open_guardian', '1'); } catch {}
+            window.dispatchEvent(new CustomEvent('navigateTo', { detail: { tab: 'profile' } }));
+            window.dispatchEvent(new CustomEvent('ev-open-guardian'));
         } else {
             setIsOpen(false);
         }

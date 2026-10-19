@@ -7,7 +7,7 @@ import {
   ShoppingBag, Shirt, Calendar, Star, TrendingUp, ChevronRight,
   Eye, Bookmark, Bell, Shield, Moon, BarChart3, Download,
   HelpCircle, Lock, Palette, Languages, Globe, AlertCircle, FileText,
-  Award, Flame, Trophy, Gem, Crown
+  Award, Flame, Trophy, Gem, Crown, MapPin
 } from 'lucide-react';
 import { ThemeColor, THEMES } from '../src/utils/theme';
 import Headline from '../components/Headline';
@@ -20,6 +20,7 @@ import { useLanguage } from '../src/context/LanguageContext';
 import { languages, dialects } from '../src/utils/translations';
 import Logo from '../components/Logo';
 import DonutChart from '../components/DonutChart';
+import GuardianSettings from '../components/GuardianSettings';
 import { useGlobalState } from '../src/context/GlobalStateContext';
 
 interface ProfileProps {
@@ -75,7 +76,18 @@ const FollowRequestsSection: React.FC = () => {
 
 const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdateUser, garments, onNavigate }) => {
   const { copyProductToWardrobe } = useGlobalState();
-  const [activeSection, setActiveSection] = useState<'stats' | 'favorites' | 'settings' | 'progress'>('stats');
+  // Enlaces a Ajustes (p. ej. el correo del adulto responsable: /profile?tab=settings&guardian=1)
+  const [activeSection, setActiveSection] = useState<'stats' | 'favorites' | 'settings' | 'progress'>(() => {
+    try {
+      if (new URLSearchParams(window.location.search).get('tab') === 'settings' || localStorage.getItem('ev_open_guardian') === '1') return 'settings';
+    } catch {}
+    return 'stats';
+  });
+  useEffect(() => {
+    const open = () => setActiveSection('settings');
+    window.addEventListener('ev-open-guardian', open);
+    return () => window.removeEventListener('ev-open-guardian', open);
+  }, []);
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(user.name);
   const [editBio, setEditBio] = useState(user.bio || '');
@@ -653,7 +665,6 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
         <div className="flex justify-between items-start relative z-10 pr-14">
           <div>
             <Headline text="Mi *perfil*" className="text-4xl mb-1" />
-            <p className="text-[var(--text-secondary)] text-sm">Gestiona tu información</p>
           </div>
           <div className="flex gap-2">
             {editing ? (
@@ -710,6 +721,8 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                 onChange={handleAvatarChange}
               />
             </div>
+            {/* Nivel bajo la foto, como en la app */}
+            <span className="-mt-4 relative z-10 px-3 py-1 rounded-full bg-[var(--ink,#0B0B0F)] text-white text-xs font-bold shadow">Nv {user.level || 1}</span>
 
             <div className="text-center mt-4 w-full">
               {editing ? (
@@ -722,7 +735,9 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
               ) : (
                 <h2 className="text-xl font-bold text-gray-800">{user.name}</h2>
               )}
-              <p className="text-sm text-gray-400 mt-1">{user.email}</p>
+              {user.locationName && (
+                <p className="text-sm text-gray-400 mt-1 flex items-center justify-center gap-1"><MapPin size={14} /> {user.locationName}</p>
+              )}
             </div>
           </div>
 
@@ -743,23 +758,23 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
             <p className="text-sm text-gray-600 text-center mb-6">{user.bio || 'Sin bio todavía...'}</p>
           )}
 
-          {/* Follow Stats */}
-          <div className="grid grid-cols-2 gap-3 mb-6">
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col items-center text-center group hover:border-primary/30 transition-colors">
-              <p className="text-2xl font-bold text-gray-800">{totalGarments}</p>
-              <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mt-1">{t('totalItems')}</p>
+          {/* Contadores (como en la app) */}
+          <div className="grid grid-cols-4 gap-2 mb-6">
+            <div className="bg-white rounded-[22px] px-2.5 py-4 shadow-sm border border-gray-100 min-w-0">
+              <p className="text-2xl font-extrabold text-gray-800 leading-none">{totalGarments}</p>
+              <p className="text-[10.5px] text-gray-500 mt-2">Prendas</p>
             </div>
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col items-center text-center group hover:border-primary/30 transition-colors">
-              <p className="text-2xl font-bold text-gray-800">{totalLooks}</p>
-              <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mt-1">{t('totalOutfits')}</p>
+            <div className="bg-white rounded-[22px] px-2.5 py-4 shadow-sm border border-gray-100 min-w-0">
+              <p className="text-2xl font-extrabold text-gray-800 leading-none">{totalLooks}</p>
+              <p className="text-[10.5px] text-gray-500 mt-2">Looks</p>
             </div>
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col items-center text-center group hover:border-primary/30 transition-colors">
-              <p className="text-2xl font-bold text-gray-800">{plannedDays}</p>
-              <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mt-1">{t('outfittedDays')}</p>
+            <div className="bg-white rounded-[22px] px-2.5 py-4 shadow-sm border border-gray-100 min-w-0">
+              <p className="text-2xl font-extrabold text-gray-800 leading-none">{user.followersCount ?? 0}</p>
+              <p className="text-[10.5px] text-gray-500 mt-2">Seguidores</p>
             </div>
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col items-center text-center group hover:border-primary/30 transition-colors">
-              <p className="text-2xl font-bold text-gray-800">{avgUsage}</p>
-              <p className="text-[10px] uppercase tracking-wider font-bold text-gray-400 mt-1">{t('avgUsageCount')}</p>
+            <div className="bg-white rounded-[22px] px-2.5 py-4 shadow-sm border border-gray-100 min-w-0">
+              <p className="text-2xl font-extrabold text-gray-800 leading-none">{user.followingCount ?? 0}</p>
+              <p className="text-[10.5px] text-gray-500 mt-2">Seguidos</p>
             </div>
           </div>
 
@@ -1736,6 +1751,12 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
               </div>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
             </button>
+
+            {/* Adulto responsable (menores 14-17) */}
+            <GuardianSettings
+              isMinor={!!user.isMinor}
+              onChanged={() => { api.getMe().then((u) => onUpdateUser(u, { persist: false })).catch(() => {}); }}
+            />
 
             {/* Privacy & Security Settings */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">

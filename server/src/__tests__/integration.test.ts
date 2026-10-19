@@ -15,6 +15,7 @@ describe('API Integration Tests', () => {
           email: testEmail,
           password: 'password123',
           name: 'Test User',
+          birthDate: '1995-05-05',
         });
 
       expect(response.status).toBe(201);

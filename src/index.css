@@ -489,3 +489,7 @@ html[style*="font-size: 18px"] .text-xs { font-size: 13px !important; }
     .ev-giant-letter, .ev-reveal { animation: none; opacity: 1; transform: none; }
     .ev-kenburns { animation: none; }
 }
+
+/* Sol de la tarjeta del tiempo: giro lento como en la app */
+.ev-weather-spin { animation: spin 30s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .ev-weather-spin { animation: none; } }

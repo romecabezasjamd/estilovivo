@@ -1,5 +1,5 @@
 import { Capacitor } from '@capacitor/core';
-import { Garment, Look, PlannerEntry, UserState, Trip, Comment, CommunityPost, ShopItem, ChatConversation, ChatMessage, StoryEntry } from '../types';
+import { Garment, Look, PlannerEntry, UserState, Trip, Comment, CommunityPost, ShopItem, ChatConversation, ChatMessage, StoryEntry, GuardianOverview, GuardianLinkInfo } from '../types';
 import { getSecureItem, setSecureItem, removeSecureItem } from '../src/utils/secureStorage';
 
 const normalizeApiBase = (value?: string) => {
@@ -628,6 +628,28 @@ export const api = {
         });
         const updated = await handleResponse(res);
         return normalizeUser(updated);
+    },
+
+    // ───── adulto responsable (menores 14-17) ─────
+    getGuardian: async (): Promise<GuardianOverview> => {
+        const res = await fetchWithTimeout(`${API_BASE}/guardian`, { headers: getHeaders(), credentials: 'include' });
+        return normalizeAssetsDeep(await handleResponse(res));
+    },
+    requestGuardian: async (email: string): Promise<GuardianLinkInfo> => {
+        const res = await fetchWithTimeout(`${API_BASE}/guardian/request`, { method: 'POST', headers: getHeaders(), credentials: 'include', body: JSON.stringify({ email }) });
+        return normalizeAssetsDeep(await handleResponse(res));
+    },
+    approveGuardian: async (id: string): Promise<void> => {
+        const res = await fetchWithTimeout(`${API_BASE}/guardian/${id}/approve`, { method: 'POST', headers: getHeaders(), credentials: 'include' });
+        await handleResponse(res);
+    },
+    setGuardianMarketplace: async (id: string, allowed: boolean): Promise<void> => {
+        const res = await fetchWithTimeout(`${API_BASE}/guardian/${id}/marketplace`, { method: 'POST', headers: getHeaders(), credentials: 'include', body: JSON.stringify({ allowed }) });
+        await handleResponse(res);
+    },
+    removeGuardian: async (id: string): Promise<void> => {
+        const res = await fetchWithTimeout(`${API_BASE}/guardian/${id}`, { method: 'DELETE', headers: getHeaders(), credentials: 'include' });
+        await handleResponse(res);
     },
 
     updateUserPreferences: async (preferences: Record<string, unknown>): Promise<void> => {

@@ -77,6 +77,8 @@ model User {
   blocksMade          Block[]    @relation("blocker")
   blocksReceived      Block[]    @relation("blocked")
   pushTokens          PushToken[]
+  guardianOf          GuardianLink[] @relation("guardian")
+  guardianLink        GuardianLink?  @relation("minor")
 }
 
 // Moderación (aditivo): bloqueos entre usuarios y denuncias de contenido
@@ -479,4 +481,19 @@ model PushToken {
   updatedAt DateTime @updatedAt
 
   @@index([userId])
+}
+
+// Adulto responsable de una persona menor (14-17): autoriza la compraventa. Un menor tiene como mucho uno.
+model GuardianLink {
+  id                 String   @id @default(cuid())
+  minorId            String   @unique
+  minor              User     @relation("minor", fields: [minorId], references: [id], onDelete: Cascade)
+  guardianId         String
+  guardian           User     @relation("guardian", fields: [guardianId], references: [id], onDelete: Cascade)
+  status             String   @default("PENDING") // PENDING | APPROVED
+  marketplaceAllowed Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([guardianId])
 }

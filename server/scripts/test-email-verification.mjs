@@ -40,7 +40,7 @@ const email = `verif-${run}@example.test`;
 const password = 'Prueba-segura-1';
 try {
   const since = Date.now();
-  const reg = await post('/api/auth/register', { email, password, name: 'Verif Test', gender: 'other' });
+  const reg = await post('/api/auth/register', { email, password, name: 'Verif Test', gender: 'other', birthDate: '1995-05-05' });
   assert.equal(reg.status, 201);
   assert.equal(reg.body.requiresVerification, true);
   assert.equal(reg.body.token, undefined, 'el registro no da sesión');

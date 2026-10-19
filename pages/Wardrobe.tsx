@@ -786,19 +786,19 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                 onDragStart={(e) => onDragStart(e, garment.id)}
                 onDragEnd={onDragEnd}
                 onClick={() => openDetailModal(garment)}
-                className={`group stagger-child relative bg-[var(--bg-card)] rounded-2xl overflow-hidden shadow-sm border border-[var(--border-light)] hover:shadow-md hover:border-primary/50 transition-all ${!garment.forSale ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
+                className={`group stagger-child relative bg-[var(--bg-card)] rounded-[24px] overflow-hidden p-2 transition-all active:scale-[0.97] ${!garment.forSale ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
               >
-                <div className="aspect-[3/4] overflow-hidden bg-gray-50 relative">
+                <div className="aspect-[3/4] overflow-hidden rounded-[18px] relative" style={{ backgroundColor: 'var(--bg-base)' }}>
                   <imgloading="lazy" decoding="async" 
                     src={garment.imageUrl}
                     alt={garment.name || garment.type}
-                    className={`w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500 ${garment.forSale ? 'opacity-70 grayscale-[0.5]' : ''}`}
+                    className={`w-full h-full object-contain p-2 transform group-hover:scale-105 transition-transform duration-500 ${garment.forSale ? 'opacity-70 grayscale-[0.5]' : ''}`}
                   />
                   {!garment.forSale && (
                     <div className="absolute top-2 w-full px-2 flex justify-between">
                       <button
                         onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(garment.id); }}
-                        className="bg-[var(--bg-card)]/90 backdrop-blur-sm p-1.5 rounded-full text-red-500 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shadow-sm"
+                        className="bg-[var(--bg-card)]/90 backdrop-blur-sm p-1.5 rounded-full text-red-500 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity shadow-sm"
                         title="Eliminar"
                       >
                         <Trash2 size={14} />
@@ -809,7 +809,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                           setSelectedForSale(garment);
                           setIsSelling(true);
                         }}
-                        className="bg-[var(--bg-card)]/90 backdrop-blur-sm p-1.5 rounded-full text-emerald-600 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shadow-sm"
+                        className="bg-[var(--bg-card)]/90 backdrop-blur-sm p-1.5 rounded-full text-emerald-600 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity shadow-sm"
                         title="Vender prenda"
                       >
                         <ShoppingBag size={14} />

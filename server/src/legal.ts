@@ -5,7 +5,7 @@
 // Los datos del responsable NO van en el código (el repositorio es público): salen de la variable de entorno
 // DATA_CONTROLLER (p. ej. "Nombre Apellidos, DNI 00000000X, dirección"), que se edita en Coolify.
 
-export const POLICY_UPDATED = '15 de octubre de 2026';
+export const POLICY_UPDATED = '19 de octubre de 2026';
 
 export interface PolicySection {
   title: string;
@@ -30,6 +30,7 @@ export function policySections(controller: string, email: string): PolicySection
         'Lo que publicas y haces: prendas, looks, fotos, historias, comentarios, me gusta, favoritos, seguidores, participaciones en retos, planificador, maletas y mensajes de chat.',
         'Avisos: un identificador del dispositivo para enviarte notificaciones al móvil, y tus preferencias de avisos por correo.',
         'Seguridad: denuncias y bloqueos que hagas o recibas.',
+        'Menores de edad: si tienes entre 14 y 17 años, el vínculo con tu adulto responsable (su cuenta y si te autoriza a comprar y vender).',
         'Ubicación aproximada: solo si das permiso, y únicamente para consultar el tiempo en ese momento; no la guardamos.',
         'Ciclo menstrual (opcional): se guarda cifrado solo en tu dispositivo y nunca se envía a nuestros servidores.',
       ],
@@ -42,6 +43,8 @@ export function policySections(controller: string, email: string): PolicySection
         'Enviarte avisos al móvil y por correo: tu consentimiento, que puedes retirar en Perfil › Ajustes o en los ajustes del móvil.',
         'Usar la cámara, la galería y la ubicación: solo con tu permiso y para la función que estás usando.',
         'Mantener la plataforma segura y revisar denuncias: interés legítimo en proteger a la comunidad.',
+        'Revisión automática de fotos: cada foto que subes se analiza en nuestro propio servidor con un sistema automático para bloquear desnudos y contenido sexual. La foto no se envía a terceros; si se bloquea, se borra al instante y no se guarda. Si crees que es un error, escríbenos (interés legítimo y protección de menores).',
+        'Fecha de nacimiento: para comprobar la edad mínima y aplicar las protecciones de menores (cumplimiento legal e interés legítimo). No se muestra a otras personas.',
         'Cumplir obligaciones legales.',
         'No vendemos tus datos, no mostramos publicidad y no usamos herramientas de analítica ni de seguimiento de terceros.',
       ],
@@ -83,7 +86,10 @@ export function policySections(controller: string, email: string): PolicySection
     },
     {
       title: '8. Edad mínima',
-      paragraphs: ['Debes tener al menos 14 años para usar Estilo Vivo. Si detectamos una cuenta de una persona menor de esa edad, la eliminaremos.'],
+      paragraphs: [
+        'Debes tener al menos 14 años para usar Estilo Vivo (en España, desde esa edad puedes consentir el tratamiento de tus datos: artículo 7 de la LOPDGDD). Si detectamos una cuenta de una persona menor de esa edad, la eliminaremos.',
+        'Si tienes entre 14 y 17 años: tu perfil es privado por defecto, solo puedes chatear con personas con las que os seguís mutuamente, y para comprar o vender necesitas que un adulto responsable (madre, padre, tutor o familiar mayor de edad con cuenta propia) lo autorice desde la app. Ese adulto puede retirar el permiso en cualquier momento.',
+      ],
     },
     {
       title: '9. Seguridad',
