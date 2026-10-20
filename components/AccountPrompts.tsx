@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Bell, CalendarDays, Check, MapPin } from 'lucide-react';
 import { api } from '../services/api';
 import type { UserState } from '../types';
@@ -96,7 +97,7 @@ const AccountPrompts: React.FC<Props> = ({ user, onUpdateUser }) => {
   const card = 'w-full max-w-md bg-[var(--bg-base)] rounded-[28px] p-6 shadow-2xl space-y-4 animate-fade-in';
 
   if (user.needsBirthDate && !birthDismissed) {
-    return (
+    return createPortal(
       <div className="fixed inset-0 z-[300] bg-black/50 flex items-center justify-center p-4">
         <div className={card} role="dialog" aria-modal="true">
           <Headline text="Tu fecha de *nacimiento*" />
@@ -109,7 +110,7 @@ const AccountPrompts: React.FC<Props> = ({ user, onUpdateUser }) => {
           <button onClick={saveBirth} disabled={savingBirth} className="w-full py-4 rounded-full bg-[var(--ink,#0B0B0F)] text-white font-bold disabled:opacity-50">{savingBirth ? '…' : 'Guardar'}</button>
           <button onClick={() => setBirthDismissed(true)} className="w-full py-2 text-sm font-bold text-[var(--text-muted)]">Más tarde</button>
         </div>
-      </div>
+      </div>, document.body,
     );
   }
 
@@ -124,7 +125,7 @@ const AccountPrompts: React.FC<Props> = ({ user, onUpdateUser }) => {
       {state === 'granted' && <Check className="text-primary shrink-0" size={22} />}
     </div>
   );
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[300] bg-black/50 flex items-center justify-center p-4">
       <div className={card} role="dialog" aria-modal="true">
         <Headline text="Un último *paso*." />
@@ -135,7 +136,7 @@ const AccountPrompts: React.FC<Props> = ({ user, onUpdateUser }) => {
         <button onClick={closePerms} className="w-full py-2 text-sm font-bold text-[var(--text-muted)]">Ahora no</button>
       </div>
     </div>
-  );
+    , document.body);
 };
 
 export default AccountPrompts;

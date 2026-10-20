@@ -13,6 +13,7 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 import { xpProgress } from '../src/utils/xp';
 import { pickPhoto, dataUrlToFile, CameraSource } from '../src/utils/cameraPhoto';
 import Headline from '../components/Headline';
+import StoryEditor from '../components/StoryEditor';
 
 // Mensaje sugerido al contactar con quien vende (no se envía solo; igual que en la app)
 const BUY_SUGGESTION = 'Hola, ¿sigue disponible esta prenda?';
@@ -110,6 +111,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
   const [stories, setStories] = useState<StoryEntry[]>([]);
   const [selectedStoryId, setSelectedStoryId] = useState<string | null>(null);
   const [isCreateStoryOpen, setIsCreateStoryOpen] = useState(false);
+  const [storyEditorSrc, setStoryEditorSrc] = useState<string | null>(null);
   const [storyForm, setStoryForm] = useState<StoryForm>({ type: 'image', text: '', imageUrl: '', selectedGarmentId: null, imageFile: null, textPosition: 'bottom', textSize: 'md' });
   const [storyUploadError, setStoryUploadError] = useState<string | null>(null);
   const [storyToast, setStoryToast] = useState<string | null>(null);
@@ -438,7 +440,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
       if (activeUser && result.experiencePoints !== undefined) {
         setGlobalUser({ ...activeUser, experiencePoints: result.experiencePoints, level: result.level || activeUser.level });
       }
-      setStoryToast(result.validationMessage || `+${currentChallenge.reward} XP por participar en el reto semanal`);
+      setStoryToast(result.validationMessage || `¡Reto superado! +${currentChallenge.reward} XP`);
       scheduleToastClear(() => setStoryToast(null), 4000);
     } catch (e: any) {
       setChallengeValidationMsg(e?.message || 'Error al participar');
@@ -1198,6 +1200,16 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
   // === RENDER ===
   return (
     <div className="pb-24 bg-[var(--bg-base)] min-h-full">
+      {storyEditorSrc && (
+        <StoryEditor
+          src={storyEditorSrc}
+          onCancel={() => setStoryEditorSrc(null)}
+          onDone={(file, url) => {
+            setStoryEditorSrc(null);
+            setStoryForm(prev => ({ ...prev, imageFile: file, imageUrl: url, selectedGarmentId: null, text: '' }));
+          }}
+        />
+      )}
       {/* Header with Main Tabs */}
       <div className="bg-[var(--bg-card)] p-5 rounded-b-3xl shadow-sm mb-6 sticky top-0 z-10">
         <div className="flex justify-between items-center mb-4">
@@ -2283,8 +2295,9 @@ loading="lazy" decoding="async"                   src={user.avatar || `https://u
                 return (
                   <div className="space-y-4 animate-fade-in-up">
                     {story.imageUrl ? (
-                      <div className="relative rounded-3xl overflow-hidden">
-                        <img src={story.imageUrl} alt="Historia" className="w-full object-cover transition-all duration-500" loading="lazy" />
+                      <div className="relative rounded-3xl overflow-hidden bg-black flex items-center justify-center" style={{ aspectRatio: '9 / 16', maxHeight: '70vh', margin: '0 auto' }}>
+                        <img src={story.imageUrl} alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-60 scale-110" />
+                        <img src={story.imageUrl} alt="Historia" className="relative w-full h-full object-contain transition-all duration-500" loading="lazy" />
                         {story.text && (
                           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4 pt-12">
                             <p className="text-white text-sm font-medium">{story.text}</p>
@@ -2411,6 +2424,12 @@ loading="lazy" decoding="async"                   src={user.avatar || `https://u
                       <p className="text-sm text-[var(--text-muted)] py-16 text-center">Selecciona una foto para tu historia.</p>
                     )}
                   </div>
+                  {storyForm.imageUrl && (
+                    <button type="button" onClick={() => setStoryEditorSrc(storyForm.imageUrl)}
+                      className="w-full rounded-full py-3 font-semibold bg-[var(--ink,#0B0B0F)] text-white flex items-center justify-center gap-2 active:scale-95 transition-transform">
+                      <Sparkles size={18} /> Editar: texto, filtros, pegatinas y encuadre
+                    </button>
+                  )}
                   {storyForm.imageUrl && (
                     <div className="space-y-3 animate-fade-in-up">
                       <input

@@ -29,6 +29,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
   const { garments, updateGarment, user } = useGlobalState();
 
   const washingAnimRef = React.useRef(washingAnimation);
+  const mainRef = React.useRef<HTMLElement>(null);
   washingAnimRef.current = washingAnimation;
 
   const handleDropWashing = (e: React.DragEvent) => {
@@ -106,7 +107,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
 
       <NotificationBell />
 
-      <main className="flex-1 min-h-0 overflow-y-auto no-scrollbar pb-32 pt-0">
+      <main ref={mainRef} className="flex-1 min-h-0 overflow-y-auto no-scrollbar pb-32 pt-0">
         {children}
       </main>
 
@@ -200,12 +201,14 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
             const Icon = item.icon;
             const isActive = activeTab === item.id; // lógica de clic (sin cambios)
             const highlighted = index === activeIndex; // aspecto: planificador/maleta resaltan Armario, etc.
+            // Volver a pulsar la pestaña abierta: la página sube arriba del todo (como en la app)
+            const toTop = () => { mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); window.dispatchEvent(new CustomEvent('ev-scroll-top')); };
             const onClick = item.id === 'wardrobe'
               ? () => {
-                  if (isActive) setShowWardrobeSubmenu(!showWardrobeSubmenu);
+                  if (isActive) { setShowWardrobeSubmenu(!showWardrobeSubmenu); toTop(); }
                   else { onTabChange(item.id); setShowWardrobeSubmenu(true); }
                 }
-              : () => { setShowWardrobeSubmenu(false); onTabChange(item.id); };
+              : () => { setShowWardrobeSubmenu(false); if (isActive) toTop(); else onTabChange(item.id); };
 
             return (
               <button

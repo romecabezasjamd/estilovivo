@@ -1,5 +1,5 @@
 import { Capacitor } from '@capacitor/core';
-import { Garment, Look, PlannerEntry, UserState, Trip, Comment, CommunityPost, ShopItem, ChatConversation, ChatMessage, StoryEntry, GuardianOverview, GuardianLinkInfo } from '../types';
+import { Garment, Look, PlannerEntry, UserState, Trip, Comment, CommunityPost, ShopItem, ChatConversation, ChatMessage, StoryEntry, GuardianOverview, GuardianLinkInfo, FollowPerson } from '../types';
 import { getSecureItem, setSecureItem, removeSecureItem } from '../src/utils/secureStorage';
 
 const normalizeApiBase = (value?: string) => {
@@ -1103,6 +1103,11 @@ export const api = {
             credentials: 'include', headers: getHeaders()
         });
         return handleResponse(res);
+    },
+
+    getFollowList: async (userId: string, kind: 'followers' | 'following'): Promise<FollowPerson[]> => {
+        const res = await fetchWithTimeout(`${API_BASE}/users/${userId}/${kind}`, { credentials: 'include', headers: getHeaders() });
+        return normalizeAssetsDeep(await handleResponse(res));
     },
 
     // ============= STATS =============

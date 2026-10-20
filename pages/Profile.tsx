@@ -21,6 +21,7 @@ import { languages, dialects } from '../src/utils/translations';
 import Logo from '../components/Logo';
 import DonutChart from '../components/DonutChart';
 import GuardianSettings from '../components/GuardianSettings';
+import FollowListModal from '../components/FollowListModal';
 import { useGlobalState } from '../src/context/GlobalStateContext';
 
 interface ProfileProps {
@@ -83,6 +84,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
     } catch {}
     return 'stats';
   });
+  const [followList, setFollowList] = useState<'followers' | 'following' | null>(null);
   useEffect(() => {
     const open = () => setActiveSection('settings');
     window.addEventListener('ev-open-guardian', open);
@@ -768,14 +770,14 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
               <p className="text-2xl font-extrabold text-gray-800 leading-none">{totalLooks}</p>
               <p className="text-[10.5px] text-gray-500 mt-2">Looks</p>
             </div>
-            <div className="bg-white rounded-[22px] px-2.5 py-4 shadow-sm border border-gray-100 min-w-0">
+            <button onClick={() => setFollowList('followers')} className="text-left bg-white rounded-[22px] px-2.5 py-4 shadow-sm border border-gray-100 min-w-0 active:scale-95 transition-transform">
               <p className="text-2xl font-extrabold text-gray-800 leading-none">{user.followersCount ?? 0}</p>
               <p className="text-[10.5px] text-gray-500 mt-2">Seguidores</p>
-            </div>
-            <div className="bg-white rounded-[22px] px-2.5 py-4 shadow-sm border border-gray-100 min-w-0">
+            </button>
+            <button onClick={() => setFollowList('following')} className="text-left bg-white rounded-[22px] px-2.5 py-4 shadow-sm border border-gray-100 min-w-0 active:scale-95 transition-transform">
               <p className="text-2xl font-extrabold text-gray-800 leading-none">{user.followingCount ?? 0}</p>
               <p className="text-[10.5px] text-gray-500 mt-2">Seguidos</p>
-            </div>
+            </button>
           </div>
 
           {/* Full Body Avatar */}
@@ -2196,6 +2198,10 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
             </div>
           </div>
         </div>
+      )}
+      {followList && user.id && (
+        <FollowListModal userId={user.id} initial={followList} onClose={() => setFollowList(null)}
+          onOpenProfile={(id) => window.dispatchEvent(new CustomEvent('navigateTo', { detail: { tab: 'userProfile', extra: id } }))} />
       )}
     </div>
   );

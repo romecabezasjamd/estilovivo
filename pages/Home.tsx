@@ -1,5 +1,7 @@
 
-import React, { useMemo, useEffect, useRef } from 'react';
+import React, { useMemo, useEffect, useRef, useState } from 'react';
+import MoodLookModal from '../components/MoodLookModal';
+import { moodLook, type MoodLook } from '../src/utils/moodLooks';
 import { UserState, MoodOption, Look, PlannerEntry, Garment } from '../types';
 import {
   Sun, TrendingUp, Heart, Sparkles, ChevronRight, Shirt
@@ -44,6 +46,8 @@ const getMoods = (gender?: string, t?: (key: any) => string): MoodOption[] => {
 };
 
 const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntries, looks, garments }) => {
+  // Look de ejemplo al elegir el ánimo (catálogo propio de prendas ilustradas)
+  const [moodSheet, setMoodSheet] = useState<MoodLook | null>(null);
   const { t } = useLanguage();
   const { notify } = useNotification();
   const moods = getMoods(user?.gender, t);
@@ -153,7 +157,11 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
           return (
           <button
             key={m.id}
-            onClick={() => onMoodChange(m.id)}
+            onClick={() => {
+              onMoodChange(m.id);
+              const w = (window as any).__evWeather;
+              setMoodSheet(moodLook(m.id, user?.gender, w?.temp, w?.condition === 'rainy'));
+            }}
             className={`flex-shrink-0 px-5 py-3.5 rounded-full border flex items-center space-x-2 transition-all transform active:scale-95 ${isActive
               ? 'bg-primary text-white border-primary shadow-md'
               : 'bg-[var(--bg-card)] border-[var(--border-light)] text-[var(--text-secondary)] shadow-sm hover:border-[var(--border-light)]'
@@ -319,6 +327,9 @@ loading="lazy" decoding="async"                   src={todayLook.imageUrl || tod
           <p className="text-[10px] text-[var(--text-muted)] mt-0.5">Inspírate con looks</p>
         </button>
       </div>
+      {moodSheet && (
+        <MoodLookModal look={moodSheet} onClose={() => setMoodSheet(null)} onOpenWardrobe={() => { setMoodSheet(null); onNavigate('wardrobe'); }} />
+      )}
     </div>
   );
 };

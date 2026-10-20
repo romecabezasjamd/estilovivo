@@ -114,6 +114,8 @@ export default function WeatherWidget({ garments, onNavigate, locationName, mood
       };
 
       setWeather(weatherData);
+      // Para el look de ejemplo por ánimo (Inicio): último tiempo conocido
+      (window as any).__evWeather = weatherData;
 
       // If we used geolocation (not manual), try to resolve city name
       if (!locationName && !location) {

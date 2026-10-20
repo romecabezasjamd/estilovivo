@@ -95,6 +95,8 @@ export interface UserState {
   marketplaceAllowed?: boolean;
 }
 
+export interface FollowPerson { id: string; name: string; avatar?: string | null; level?: number; isFollowing: boolean; isMe: boolean }
+
 export interface GuardianPersonInfo { id: string; name: string; avatar?: string | null; email?: string }
 export interface GuardianLinkInfo { id: string; status: 'PENDING' | 'APPROVED'; marketplaceAllowed: boolean; guardian?: GuardianPersonInfo; minor?: GuardianPersonInfo }
 export interface GuardianOverview { asMinor: GuardianLinkInfo | null; asGuardian: GuardianLinkInfo[] }

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Heart, MapPin, ShoppingBag, Shirt, Users, UserPlus, UserCheck, ExternalLink } from 'lucide-react';
 import { api } from '../services/api';
+import FollowListModal from '../components/FollowListModal';
 
 interface Props {
   userId: string;
@@ -30,6 +31,7 @@ interface UserProfileData {
 export default function UserProfile({ userId, onBack, onNavigate, onStartChat }: Props) {
   const [profile, setProfile] = useState<UserProfileData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [followList, setFollowList] = useState<'followers' | 'following' | null>(null);
   const [following, setFollowing] = useState(false);
   const [pendingRequest, setPendingRequest] = useState(false);
   const [activeTab, setActiveTab] = useState<'looks' | 'items'>('looks');
@@ -127,10 +129,14 @@ export default function UserProfile({ userId, onBack, onNavigate, onStartChat }:
                 <div className="text-lg font-bold text-[var(--text-primary)]">{profile.lookCount}</div>
                 <div className="text-xs text-[var(--text-muted)]">Looks</div>
               </div>
-              <div>
+              <button onClick={() => setFollowList('followers')}>
                 <div className="text-lg font-bold text-[var(--text-primary)]">{profile.followersCount}</div>
                 <div className="text-xs text-[var(--text-muted)]">Seguidores</div>
-              </div>
+              </button>
+              <button onClick={() => setFollowList('following')}>
+                <div className="text-lg font-bold text-[var(--text-primary)]">{profile.followingCount}</div>
+                <div className="text-xs text-[var(--text-muted)]">Seguidos</div>
+              </button>
             </div>
           </div>
         </div>
@@ -247,6 +253,10 @@ export default function UserProfile({ userId, onBack, onNavigate, onStartChat }:
         )}
         </>)}
       </div>
+      {followList && (
+        <FollowListModal userId={userId} initial={followList} onClose={() => setFollowList(null)}
+          onOpenProfile={(id) => window.dispatchEvent(new CustomEvent('navigateTo', { detail: { tab: 'userProfile', extra: id } }))} />
+      )}
     </div>
   );
 }

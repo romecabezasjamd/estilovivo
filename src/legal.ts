@@ -6,7 +6,7 @@
 // Los datos del responsable NO van en el código (el repositorio es público): salen de la variable de entorno
 // DATA_CONTROLLER (p. ej. "Nombre Apellidos, DNI 00000000X, dirección"), que se edita en Coolify.
 
-export const POLICY_UPDATED = '19 de octubre de 2026';
+export const POLICY_UPDATED = '20 de octubre de 2026';
 
 export interface PolicySection {
   title: string;
@@ -31,6 +31,7 @@ export function policySections(controller: string, email: string): PolicySection
         'Lo que publicas y haces: prendas, looks, fotos, historias, comentarios, me gusta, favoritos, seguidores, participaciones en retos, planificador, maletas y mensajes de chat.',
         'Avisos: un identificador del dispositivo para enviarte notificaciones al móvil, y tus preferencias de avisos por correo.',
         'Seguridad: denuncias y bloqueos que hagas o recibas.',
+        'Informes de error: si la app se cierra por un fallo, al abrirla se envía un informe técnico (versión de la app y de Android, modelo de móvil y el error) para poder arreglarlo. No incluye el contenido de tu cuenta.',
         'Menores de edad: si tienes entre 14 y 17 años, el vínculo con tu adulto responsable (su cuenta y si te autoriza a comprar y vender).',
         'Ubicación aproximada: solo si das permiso, y únicamente para consultar el tiempo en ese momento; no la guardamos.',
         'Ciclo menstrual (opcional): se guarda cifrado solo en tu dispositivo y nunca se envía a nuestros servidores.',
@@ -44,6 +45,7 @@ export function policySections(controller: string, email: string): PolicySection
         'Enviarte avisos al móvil y por correo: tu consentimiento, que puedes retirar en Perfil › Ajustes o en los ajustes del móvil.',
         'Usar la cámara, la galería y la ubicación: solo con tu permiso y para la función que estás usando.',
         'Mantener la plataforma segura y revisar denuncias: interés legítimo en proteger a la comunidad.',
+        'Arreglar errores de la app con los informes técnicos: interés legítimo en que la app funcione bien.',
         'Revisión automática de fotos: cada foto que subes se analiza en nuestro propio servidor con un sistema automático para bloquear desnudos y contenido sexual. La foto no se envía a terceros; si se bloquea, se borra al instante y no se guarda. Si crees que es un error, escríbenos (interés legítimo y protección de menores).',
         'Fecha de nacimiento: para comprobar la edad mínima y aplicar las protecciones de menores (cumplimiento legal e interés legítimo). No se muestra a otras personas.',
         'Cumplir obligaciones legales.',

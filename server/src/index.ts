@@ -19,6 +19,7 @@ import { z } from 'zod';
 import logger from './logger.js';
 import { processImage } from './imageProcessor.js';
 import { rejectExplicitImages, warmUpNsfw } from './nsfw.js';
+import { reviewChallengePhoto } from './challengeReview.js';
 import { MARKETPLACE_ERRORS, accountFlags, birthDateError, chatAllowed, isAdultDate, isMinorDate, marketplaceStatus } from './minors.js';
 import { renderPolicyPage } from './legal.js';
 import { MODERATION_CSP, REASON_LABEL, TYPE_LABEL, renderModerationError, renderModerationPage, signModerationLink, verifyModerationLink } from './moderation.js';
@@ -74,6 +75,15 @@ const prisma = new PrismaClient({
 
 // Trust first proxy (Docker / reverse proxy / Coolify)
 app.set('trust proxy', 1);
+// Registra los dominios públicos por los que llegan peticiones (para los enlaces de los correos)
+app.use((req, _res, next) => {
+  const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim().toLowerCase();
+  if (host && !/^(localhost|127\.|10\.|192\.168\.|\[?::1)/.test(host) && !/^\d+\.\d+\.\d+\.\d+(:\d+)?$/.test(host) && servedHosts.size < 20) {
+    servedHosts.add(host);
+    lastServedHost = host;
+  }
+  next();
+});
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const UPLOADS_DIR = process.env.UPLOADS_DIR || '/app/uploads';
@@ -148,12 +158,27 @@ const getFrontendUrl = () => {
 };
 
 // Generate email-friendly URLs that work on Android emulator and web
+// Dominios por los que llegan peticiones de verdad (los guarda el middleware de abajo). Sirven para no mandar en los
+// correos enlaces a un FRONTEND_URL antiguo o mal escrito: un dominio que no llega a este servidor da "no available server".
+const servedHosts = new Set<string>();
+let lastServedHost: string | null = null;
+const PRODUCTION_URL = 'https://estilovivo.xyoncloud.win';
+
+const hostOf = (url: string) => { try { return new URL(url).host.toLowerCase(); } catch { return ''; } };
+
 const getEmailFriendlyUrl = (path: string = '') => {
-  const defaultUrl = NODE_ENV === 'production' ? 'https://estilovivo.xyoncloud.win' : 'http://localhost:5173';
+  const defaultUrl = NODE_ENV === 'production' ? PRODUCTION_URL : 'http://localhost:5173';
   const rawUrl = process.env.FRONTEND_URL || '';
-  const baseUrl = (NODE_ENV === 'production' && (rawUrl.includes('localhost') || rawUrl.includes('127.0.0.1') || !rawUrl))
+  let baseUrl = (NODE_ENV === 'production' && (rawUrl.includes('localhost') || rawUrl.includes('127.0.0.1') || !rawUrl))
     ? defaultUrl
     : (rawUrl || defaultUrl);
+  if (NODE_ENV === 'production') {
+    const configured = hostOf(baseUrl);
+    // FRONTEND_URL solo se usa si ese dominio llega de verdad a este servidor (o es el oficial)
+    if (configured !== hostOf(PRODUCTION_URL) && !servedHosts.has(configured)) {
+      baseUrl = servedHosts.has(hostOf(PRODUCTION_URL)) || !lastServedHost ? PRODUCTION_URL : `https://${lastServedHost}`;
+    }
+  }
   const cleanBase = baseUrl.replace(/\/+$/, '');
   // Replace localhost with 10.0.2.2 ONLY in development for Android emulator compatibility
   const androidFriendly = NODE_ENV !== 'production'
@@ -2895,6 +2920,66 @@ app.get('/api/users/top', optionalAuth, async (req: any, res: Response) => {
   }
 });
 
+// Lista de seguidores o seguidos. Perfil privado: solo la propia persona o quien la sigue. Sin bloqueados.
+const followList = (kind: 'followers' | 'following') => async (req: any, res: Response) => {
+  try {
+    const { id } = req.params;
+    const viewerId = req.user.userId;
+    const target = await prisma.user.findUnique({ where: { id }, select: { id: true, isProfilePublic: true } });
+    if (!target || (id !== viewerId && (await isBlockedBetween(viewerId, id)))) return res.status(404).json({ error: 'Usuario no encontrado' });
+    if (id !== viewerId && target.isProfilePublic === false) {
+      const follows = await prisma.follow.findUnique({ where: { followerId_followingId: { followerId: viewerId, followingId: id } } });
+      if (!follows) return res.status(403).json({ error: 'Este perfil es privado', code: 'privateProfile' });
+    }
+    const blocked = await getBlockedIds(viewerId);
+    const rows = await prisma.follow.findMany({
+      where: kind === 'followers'
+        ? { followingId: id, ...(blocked.length ? { followerId: { notIn: blocked } } : {}) }
+        : { followerId: id, ...(blocked.length ? { followingId: { notIn: blocked } } : {}) },
+      select: kind === 'followers'
+        ? { follower: { select: { id: true, name: true, avatar: true, level: true } } }
+        : { following: { select: { id: true, name: true, avatar: true, level: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 500,
+    });
+    const people = rows.map((r: any) => (kind === 'followers' ? r.follower : r.following));
+    const mine = await prisma.follow.findMany({ where: { followerId: viewerId, followingId: { in: people.map((p: any) => p.id) } }, select: { followingId: true } });
+    const followed = new Set(mine.map((m) => m.followingId));
+    res.json(people.map((p: any) => ({ ...p, isFollowing: followed.has(p.id), isMe: p.id === viewerId })));
+  } catch (error) {
+    logger.error('Error al listar seguidores', { error });
+    res.status(500).json({ error: 'No se pudo cargar la lista' });
+  }
+};
+app.get('/api/users/:id/followers', authenticateToken, followList('followers'));
+app.get('/api/users/:id/following', authenticateToken, followList('following'));
+
+// ── Informes de error de la app (cuando se cierra sola): se envían al correo de moderación para poder arreglarlos.
+// Solo datos técnicos (traza, versión, modelo de móvil); nada del contenido de la cuenta.
+const crashLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false });
+app.post('/api/diagnostics/crash', crashLimiter, optionalAuth, async (req: any, res: Response) => {
+  try {
+    const clip = (v: unknown, n: number) => (typeof v === 'string' ? v.slice(0, n) : '');
+    const trace = clip(req.body?.trace, 12000);
+    if (!trace) return res.status(400).json({ error: 'Falta la traza' });
+    const info = { app: clip(req.body?.appVersion, 40), android: clip(req.body?.android, 40), device: clip(req.body?.device, 80), at: clip(req.body?.at, 40), user: req.user?.userId || 'sin sesión' };
+    logger.error('Informe de cierre de la app', info);
+    if (transporter) {
+      const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+      void sendMailWithRetry({
+        to: moderationEmail(),
+        subject: `Estilo Vivo: la app se ha cerrado (${info.app || 'versión ?'})`,
+        text: `Versión: ${info.app}\nAndroid: ${info.android}\nMóvil: ${info.device}\nCuándo: ${info.at}\nUsuario: ${info.user}\n\n${trace}`,
+        html: `<p>La app se cerró por un error. Reenvía este correo a quien mantiene la app.</p><p>Versión: ${esc(info.app)}<br>Android: ${esc(info.android)}<br>Móvil: ${esc(info.device)}<br>Cuándo: ${esc(info.at)}<br>Usuario: ${esc(info.user)}</p><pre style="white-space:pre-wrap;font-size:12px">${esc(trace)}</pre>`,
+      }).catch((error: any) => logger.error('No se pudo enviar el informe de cierre', { error }));
+    }
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Error al recibir informe de cierre', { error });
+    res.status(500).json({ error: 'No se pudo guardar el informe' });
+  }
+});
+
 app.get('/api/users/:id', authenticateToken, async (req: any, res: Response) => {
   try {
     const { id } = req.params;
@@ -2981,60 +3066,6 @@ async function getChallengeWeekBounds(now: Date): Promise<{ monday: Date; sunday
   sunday.setDate(monday.getDate() + 6);
   sunday.setHours(23, 59, 59, 999);
   return { monday, sunday };
-}
-
-async function analyzeChallengeImage(filePath: string): Promise<{ uniform: boolean; score: number; conclusive: boolean }> {
-  try {
-    const sharp = (await import('sharp')).default;
-    const { data, info } = await sharp(filePath)
-      .resize(32, 32, { fit: 'cover' })
-      .raw()
-      .toBuffer({ resolveWithObject: true });
-    const pixels = data;
-    const totalPixels = info.width * info.height;
-    let totalR = 0, totalG = 0, totalB = 0;
-    for (let i = 0; i < totalPixels; i++) {
-      totalR += pixels[i * 3];
-      totalG += pixels[i * 3 + 1];
-      totalB += pixels[i * 3 + 2];
-    }
-    const avgR = totalR / totalPixels;
-    const avgG = totalG / totalPixels;
-    const avgB = totalB / totalPixels;
-    let variance = 0;
-    for (let i = 0; i < totalPixels; i++) {
-      const dr = pixels[i * 3] - avgR;
-      const dg = pixels[i * 3 + 1] - avgG;
-      const db = pixels[i * 3 + 2] - avgB;
-      variance += dr * dr + dg * dg + db * db;
-    }
-    variance /= totalPixels * 3;
-    const maxVariance = 16384;
-    const score = Math.max(0, Math.min(100, 100 - (variance / maxVariance) * 100));
-    return { uniform: score >= 30, score, conclusive: true };
-  } catch {
-    // Sin análisis fiable: no se puede afirmar nada (nunca se marca INVALID por un fallo técnico)
-    return { uniform: true, score: 50, conclusive: false };
-  }
-}
-
-type ChallengeStatus = 'VALID' | 'INVALID' | 'PENDING';
-// Reglas objetivas por tag. 'monocromo' exige gama uniforme; 'Color Block' (y cualquier otro) NO.
-const challengeRequiresUniformColor = (tag: string | null | undefined) => (tag || '').toLowerCase().includes('monocromo');
-
-// Sin IA con visión no hay evidencia fiable de que la foto cumpla el reto: solo se marca INVALID en el caso
-// objetivo (monocromo con varianza alta). Nunca se devuelve VALID automáticamente (queda para moderación futura).
-function evaluateChallengeSubmission(tag: string | null | undefined, analysis: { uniform: boolean; conclusive: boolean }): { status: ChallengeStatus; reason: string; verified: boolean } {
-  if (challengeRequiresUniformColor(tag)) {
-    if (!analysis.conclusive) {
-      return { status: 'PENDING', reason: 'No se pudo analizar el color de la foto; pendiente de revisión.', verified: true };
-    }
-    if (!analysis.uniform) {
-      return { status: 'INVALID', reason: 'La foto no tiene una gama de color uniforme, que es lo que pide este reto.', verified: false };
-    }
-    return { status: 'PENDING', reason: 'La gama de color es uniforme, pero el servidor no puede comprobar que la foto sea un look; pendiente de revisión.', verified: true };
-  }
-  return { status: 'PENDING', reason: 'El servidor no puede validar automáticamente este tipo de reto; pendiente de revisión.', verified: true };
 }
 
 app.get('/api/challenges/current', optionalAuth, async (req: Request, res: Response) => {
@@ -3165,11 +3196,15 @@ app.post('/api/challenges/submit', authenticateToken, upload.fields([{ name: 'im
       return res.status(400).json({ error: descError });
     }
 
-    const analysis = await analyzeChallengeImage(imageFile.path);
+    // Revisión automática: foto real y nueva, no repetida, y que cumpla la regla de color del reto (si la tiene)
+    const previous = await prisma.challengeSubmission.findMany({ where: { imageHash: { not: null } }, select: { imageHash: true }, orderBy: { createdAt: 'desc' }, take: 2000 });
+    const review = await reviewChallengePhoto(imageFile.path, challenge.tag, previous.map((p) => p.imageHash!));
+    if (!review.ok) {
+      safeUnlink(imageFile.path);
+      return res.status(422).json({ error: review.reason, code: 'challengeRejected' });
+    }
     const storedName = await reencodeSingleImage(imageFile);
     if (!storedName) return res.status(400).json({ error: 'No se pudo procesar la imagen' });
-
-    const { status, reason, verified } = evaluateChallengeSubmission(challenge.tag, analysis);
 
     const submission = await prisma.challengeSubmission.create({
       data: {
@@ -3177,10 +3212,11 @@ app.post('/api/challenges/submit', authenticateToken, upload.fields([{ name: 'im
         challengeId,
         imageUrl: `/api/uploads/${storedName}`,
         description: desc,
-        verified,
-        status,
-        reason,
-        awarded: true, // XP: decisión pendiente (ver docs/API_CHALLENGE_VALIDATION.md); sin cambios por ahora
+        verified: true,
+        status: 'VALID',
+        reason: review.reason,
+        imageHash: review.hash,
+        awarded: true,
       }
     });
 
@@ -3195,7 +3231,7 @@ app.post('/api/challenges/submit', authenticateToken, upload.fields([{ name: 'im
       experiencePoints: xpResult.experiencePoints,
       level: xpResult.level,
       leveledUp: xpResult.leveledUp,
-      validationMessage: verified ? null : 'La imagen no parece tener una gama de color uniforme. Aún así, has ganado tus puntos.'
+      validationMessage: null
     });
   } catch (error) {
     logger.error('Error submitting challenge', { error });
@@ -4366,6 +4402,11 @@ const startServer = async () => {
         try { await prisma.$executeRawUnsafe(sql); } catch (e: any) { logger.warn('Table creation warning', { error: e.message }); }
       }
       logger.info('Database gamification schema checks passed.');
+      // Participaciones antiguas que se quedaron 'pendientes de revisión' (ya recibieron sus puntos): se dan por revisadas
+      try {
+        const fixed = await prisma.challengeSubmission.updateMany({ where: { status: 'PENDING' }, data: { status: 'VALID', verified: true, reason: 'Revisado automáticamente: ¡reto superado!' } });
+        if (fixed.count) logger.info('Retos pendientes marcados como revisados', { count: fixed.count });
+      } catch (e: any) { logger.warn('No se pudieron revisar los retos pendientes', { error: e.message }); }
     } catch (schemaError: any) {
       logger.warn('Schema startup checks could not be completed cleanly', { error: schemaError.message });
     }

@@ -406,6 +406,8 @@ model ChallengeSubmission {
   // Estado de la validación: VALID | INVALID | PENDING (aditivo, por defecto PENDING)
   status      String   @default("PENDING")
   reason      String?
+  // Huella de la foto (para no aceptar la misma foto dos veces en los retos)
+  imageHash   String?
   createdAt   DateTime @default(now())
 
   user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
