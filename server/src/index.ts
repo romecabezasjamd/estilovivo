@@ -22,7 +22,7 @@ import { rejectExplicitImages, warmUpNsfw, setBlockedUploadRecorder } from './ns
 import { registerAdminRoutes, recordCrash, purgeOldAdminData } from './admin.js';
 import { reviewChallengePhoto } from './challengeReview.js';
 import { MARKETPLACE_ERRORS, accountFlags, birthDateError, chatAllowed, isAdultDate, isMinorDate, marketplaceStatus } from './minors.js';
-import { renderPolicyPage } from './legal.js';
+import { renderPolicyPage, renderTermsPage } from './legal.js';
 import { MODERATION_CSP, REASON_LABEL, TYPE_LABEL, renderModerationError, renderModerationPage, signModerationLink, verifyModerationLink, decisionMessage, type ModerationDecision } from './moderation.js';
 import { renderEmail, REASON_ACCOUNT, REASON_PREFS, type EmailParams } from './emailTemplates.js';
 type EmailContent = Omit<EmailParams, 'reason' | 'baseUrl'>;
@@ -534,6 +534,15 @@ app.get(['/privacidad', '/privacy-policy'], (req: Request, res: Response) => {
   res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'");
   res.setHeader('Cache-Control', 'public, max-age=3600');
   res.type('html').send(renderPolicyPage(controller, email));
+});
+
+// Condiciones de uso y normas de la comunidad (públicas, sin JavaScript). Titular: el mismo DATA_CONTROLLER.
+app.get(['/condiciones', '/terminos', '/terms'], (req: Request, res: Response) => {
+  const email = process.env.CONTACT_EMAIL || 'appestilovivo@gmail.com';
+  const owner = (process.env.DATA_CONTROLLER || '').trim() || 'la persona titular del proyecto Estilo Vivo (persona física)';
+  res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'");
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.type('html').send(renderTermsPage(owner, email));
 });
 
 // Página pública (sin sesión ni JavaScript) para pedir el borrado de la cuenta: Google Play exige una URL así.

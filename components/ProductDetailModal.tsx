@@ -181,9 +181,6 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                     />
                     <div className="min-w-0">
                       <p className="font-bold text-[var(--text-primary)] truncate">{product.user}</p>
-                      <div className="flex text-yellow-400 text-xs">
-                        {'★'.repeat(5)} <span className="text-[var(--text-muted)] ml-1">(24 {t('reviews')})</span>
-                      </div>
                     </div>
                   </div>
                   <button

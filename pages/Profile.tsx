@@ -22,6 +22,7 @@ import Logo from '../components/Logo';
 import DonutChart from '../components/DonutChart';
 import GuardianSettings from '../components/GuardianSettings';
 import PrivacyRightsCard from '../components/PrivacyRightsCard';
+import { termsSections, TERMS_UPDATED } from '../src/legal';
 import FollowListModal from '../components/FollowListModal';
 import { useGlobalState } from '../src/context/GlobalStateContext';
 
@@ -2110,42 +2111,21 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
               <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 animate-fade-in" style={{ backgroundColor: 'rgba(0,0,0,0.55)', WebkitBackdropFilter: 'blur(6px)', backdropFilter: 'blur(6px)' }} onClick={() => setShowTerms(false)}>
                 <div className="bg-[var(--bg-card)] w-full max-w-lg rounded-3xl shadow-2xl animate-pop-in max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
                   <div className="flex items-center justify-between p-5 border-b border-[var(--border-light)] flex-shrink-0">
-                    <h3 className="text-lg font-bold text-[var(--text-primary)]">Términos y Condiciones</h3>
+                    <h3 className="text-lg font-bold text-[var(--text-primary)]">Condiciones de uso</h3>
                     <button onClick={() => setShowTerms(false)} className="p-1.5 rounded-full text-[var(--text-muted)] hover:bg-[var(--bg-card-hover)] transition-colors">
                       <X size={20} />
                     </button>
                   </div>
                   <div className="p-5 overflow-y-auto no-scrollbar space-y-4 text-sm text-[var(--text-secondary)] leading-relaxed flex-1">
-                    <div className="bg-gradient-to-r from-primary/5 to-accent/5 rounded-2xl p-4 border border-primary/10">
-                      <h4 className="font-bold text-primary text-sm mb-2">Originalidad del Diseño</h4>
-                      <p className="text-xs text-[var(--text-secondary)]">
-                        El diseño, estructura, interfaz y experiencia de usuario de Estilo Vivo son originales y propiedad exclusiva de JAMD Desarrollos IA S.L. Cualquier similitud con otras plataformas es únicamente por el uso de patrones de diseño comunes en la industria. Queda prohibida la copia, reproducción o uso no autorizado del software, diseño o identidad visual.
-                      </p>
-                    </div>
-
-                    <h4 className="font-bold text-[var(--text-primary)] text-sm pt-2">1. Aceptación de los Términos</h4>
-                    <p>Al acceder y usar Estilo Vivo, aceptas cumplir con estos términos y condiciones. Si no estás de acuerdo, no debes usar la plataforma.</p>
-
-                    <h4 className="font-bold text-[var(--text-primary)] text-sm pt-2">2. Propiedad Intelectual</h4>
-                    <p>Todo el contenido, diseño, logotipos, gráficos, interfaces y software de Estilo Vivo están protegidos por las leyes de propiedad intelectual. Queda prohibida su reproducción, distribución o modificación sin autorización expresa.</p>
-
-                    <h4 className="font-bold text-[var(--text-primary)] text-sm pt-2">3. Uso de la Plataforma</h4>
-                    <p>El usuario se compromete a usar Estilo Vivo de forma responsable, sin infringir derechos de terceros ni realizar actividades ilícitas. No está permitido publicar contenido ofensivo, discriminatorio o que viole la privacidad de otros usuarios.</p>
-
-                    <h4 className="font-bold text-[var(--text-primary)] text-sm pt-2">4. Privacidad y Datos</h4>
-                    <p>Los datos personales proporcionados se gestionan conforme a nuestra política de privacidad. No compartimos información personal con terceros sin consentimiento, salvo obligación legal.</p>
-                    <button onClick={() => onNavigate('privacy')} className="text-primary text-xs font-semibold underline">Ver Política de Privacidad completa</button>
-
-                    <h4 className="font-bold text-[var(--text-primary)] text-sm pt-2">5. Limitación de Responsabilidad</h4>
-                    <p>Estilo Vivo no se hace responsable por daños directos o indirectos derivados del uso de la plataforma, incluyendo pérdida de datos o interrupción del servicio.</p>
-
-                    <h4 className="font-bold text-[var(--text-primary)] text-sm pt-2">6. Modificaciones</h4>
-                    <p>Nos reservamos el derecho de modificar estos términos en cualquier momento. Los cambios serán notificados a través de la plataforma.</p>
-
-                    <h4 className="font-bold text-[var(--text-primary)] text-sm pt-2">7. Contacto</h4>
-                    <p>Para cualquier consulta sobre estos términos, contacta a través de: <a href="mailto:appestilovivo@gmail.com" className="text-primary font-semibold">appestilovivo@gmail.com</a></p>
-
-                    <p className="text-xs text-[var(--text-muted)] text-center pt-4 border-t border-[var(--border-light)]">Última actualización: Junio 2026</p>
+                    <p className="text-[10px] text-[var(--text-muted)]">Última actualización: {TERMS_UPDATED}</p>
+                    {termsSections('la persona titular del proyecto, cuyos datos figuran en la versión web de estas condiciones (estilovivo.xyoncloud.win/condiciones)', 'appestilovivo@gmail.com').map((sec) => (
+                      <section key={sec.title}>
+                        <h4 className="font-bold text-[var(--text-primary)] text-sm mb-1">{sec.title}</h4>
+                        {(sec.paragraphs || []).map((p) => <p key={p} className="mb-1">{p}</p>)}
+                        {sec.bullets?.length ? <ul className="list-disc pl-4 space-y-1">{sec.bullets.map((b) => <li key={b}>{b}</li>)}</ul> : null}
+                      </section>
+                    ))}
+                    <button onClick={() => onNavigate('privacy')} className="text-primary text-xs font-semibold underline">Ver la política de privacidad</button>
                   </div>
                 </div>
               </div>,

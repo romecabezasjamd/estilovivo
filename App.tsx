@@ -11,6 +11,7 @@ const AuthPage = lazy(() => import('./pages/AuthPage'));
 const Wishlist = lazy(() => import('./pages/Wishlist'));
 const VirtualTryOn = lazy(() => import('./pages/VirtualTryOn'));
 const Privacy = lazy(() => import('./pages/Privacy'));
+const Terms = lazy(() => import('./pages/Terms'));
 const Onboarding = lazy(() => import('./pages/Onboarding'));
 const Premium = lazy(() => import('./pages/Premium'));
 const UserProfile = lazy(() => import('./pages/UserProfile'));
@@ -30,6 +31,7 @@ const AppContent: React.FC = () => {
   const getInitialTab = () => {
     const path = window.location.pathname;
     if (path === '/privacy') return 'privacy';
+    if (path === '/terms') return 'terms';
     if (path.startsWith('/user/')) return 'viewProfile';
     if (path.startsWith('/look/')) return 'social'; // enlaces de correos (me gusta, comentarios)
     const tabMap: Record<string, string> = {
@@ -41,6 +43,7 @@ const AppContent: React.FC = () => {
       '/wishlist': 'wishlist',
       '/suitcase': 'suitcase',
       '/privacy': 'privacy',
+      '/terms': 'terms',
       '/premium': 'premium',
       '/admin': 'admin',
     };
@@ -97,6 +100,7 @@ const AppContent: React.FC = () => {
         '/wishlist': 'wishlist',
         '/suitcase': 'suitcase',
         '/privacy': 'privacy',
+      '/terms': 'terms',
         '/premium': 'premium',
       '/admin': 'admin',
       };
@@ -226,10 +230,11 @@ const AppContent: React.FC = () => {
   }
 
   if (!user) {
-    if (activeTab === 'privacy') {
+    if (activeTab === 'privacy' || activeTab === 'terms') {
+      const back = () => { window.history.pushState({}, '', '/'); setActiveTab('home') };
       return (
         <Suspense fallback={<div className="min-h-screen bg-[var(--bg-base)] flex items-center justify-center"><div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin" /></div>}>
-          <Privacy onBack={() => { window.history.pushState({}, '', '/'); setActiveTab('home') }} />
+          {activeTab === 'terms' ? <Terms onBack={back} /> : <Privacy onBack={back} />}
         </Suspense>
       );
     }
@@ -252,6 +257,8 @@ const AppContent: React.FC = () => {
 
   const renderActivePage = () => {
     switch (activeTab) {
+      case 'terms':
+        return <Terms onBack={() => { window.history.pushState({}, '', '/'); setActiveTab('home') }} />;
       case 'privacy':
         return <Privacy onBack={() => { window.history.pushState({}, '', '/'); setActiveTab('home') }} />;
       case 'admin':

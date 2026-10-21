@@ -493,7 +493,8 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
 
                         <p className="text-center text-[10px] text-[var(--text-muted)] mt-4">
                             Al continuar aceptas nuestros{' '}
-                            <a href="/privacy" onClick={(e) => { e.preventDefault(); window.history.pushState({}, '', '/privacy'); window.location.reload() }} className="text-primary font-semibold hover:underline">Términos y Política de Privacidad</a>
+                            <a href="/condiciones" target="_blank" rel="noopener" className="text-primary font-semibold hover:underline">Condiciones de uso</a>{' '}y nuestra{' '}
+                            <a href="/privacidad" target="_blank" rel="noopener" className="text-primary font-semibold hover:underline">Política de privacidad</a>
                         </p>
                     </form>
                 </div>

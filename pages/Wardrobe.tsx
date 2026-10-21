@@ -1063,7 +1063,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                   </div>
                 ) : (
                   <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden">
-                    <img loading="lazy" decoding="async" src={newImage} className="w-full h-full object-contain" />
+                    <img alt="Vista previa de la prenda" loading="lazy" decoding="async" src={newImage} className="w-full h-full object-contain" />
                     <button
                       onClick={() => { setNewImage(null); setNewFile(null); }}
                       className="absolute top-2 right-2 bg-black/50 text-white p-2 rounded-full"
@@ -1211,7 +1211,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                     </div>
                   ) : (
                     <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden">
-                      <img loading="lazy" decoding="async" src={saleImage} className="w-full h-full object-contain" />
+                      <img alt="Vista previa de la prenda en venta" loading="lazy" decoding="async" src={saleImage} className="w-full h-full object-contain" />
                       <button
                         onClick={() => { setSaleImage(null); setSaleFile(null); setSaleUploadError(null); }}
                         className="absolute top-2 right-2 bg-black/50 text-white p-2 rounded-full"

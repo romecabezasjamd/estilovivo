@@ -182,8 +182,8 @@ const LayersPanel = React.memo(({ layers, active, isMobile, showLayers, onToggle
               <div key={l.id} onClick={() => onSelect(idx)}
                 className="flex items-center gap-2 px-3 py-2 rounded-xl cursor-pointer"
                 style={{ backgroundColor: idx === active ? 'rgba(255,77,148,0.1)' : 'transparent', border: idx === active ? '1px solid rgba(255,77,148,0.3)' : '1px solid transparent' }}>
-                {isMobile ? <img src={l.url} className="w-8 h-8 rounded-lg object-cover" style={{ border: '1px solid var(--border-light)' }} /> : <GripVertical size={10} style={{ color: 'var(--text-muted)', cursor: 'grab' }} />}
-                {!isMobile && <img src={l.url} className="w-6 h-6 rounded object-cover" style={{ border: '1px solid var(--border-light)' }} />}
+                {isMobile ? <img alt="Prenda" src={l.url} className="w-8 h-8 rounded-lg object-cover" style={{ border: '1px solid var(--border-light)' }} /> : <GripVertical size={10} style={{ color: 'var(--text-muted)', cursor: 'grab' }} />}
+                {!isMobile && <img alt="Prenda" src={l.url} className="w-6 h-6 rounded object-cover" style={{ border: '1px solid var(--border-light)' }} />}
                 <div className="flex-1 min-w-0">
                   <p className="text-[10px] font-medium truncate" style={{ color: 'var(--text-primary)' }}>{l.garment.name}</p>
                 </div>
@@ -1031,7 +1031,7 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
           <div className="flex gap-2 overflow-x-auto pb-2">
             {photoList.map((p, i) => (
               <div key={i} className="relative shrink-0 w-16 h-20 rounded-lg overflow-hidden cursor-pointer" style={{ border: bodyUrl === p ? '2px solid var(--color-primary)' : '1px solid var(--border-light)' }} onClick={() => selectPhoto(p)}>
-                <img src={p} className="w-full h-full object-cover" />
+                <img alt="Pose de ejemplo" src={p} className="w-full h-full object-cover" />
                 <button onClick={e => deletePhoto(p, e)} className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/50 text-white flex items-center justify-center"><X size={8} /></button>
               </div>
             ))}
@@ -1045,7 +1045,7 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
     <div className="flex-1 flex flex-col overflow-hidden">
       {bodyUrl && (
         <div className="relative mx-auto w-28 aspect-[3/4] rounded-xl overflow-hidden mb-2 shrink-0" style={{ border: '1px solid var(--border-light)' }}>
-          <img src={bodyUrl} className="w-full h-full object-cover" />
+          <img alt="Tu foto de cuerpo entero" src={bodyUrl} className="w-full h-full object-cover" />
           <button onClick={() => { setBodyUrl(null); setBodyDim(null); setStep('photo'); setLayers([]) }} className="absolute top-1 right-1 p-1 rounded-full bg-black/40 text-white"><X size={10} /></button>
         </div>
       )}
@@ -1167,10 +1167,10 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
             const oX = (cW - rW) / 2, oY = (cH - rH) / 2
             return (
               <div className="absolute" style={{ left: oX, top: oY, width: rW, height: rH, transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`, transformOrigin: 'center center' }}>
-                <img src={bodyUrl} className="w-full h-full pointer-events-none" draggable={false}
+                <img alt="Tu foto de cuerpo entero" src={bodyUrl} className="w-full h-full pointer-events-none" draggable={false}
                   style={{ transform: mirror ? 'scaleX(-1)' : undefined }} />
                 {layers.map((l, i) => (
-                  <img key={l.id} src={l.url} draggable={false} data-garment="1"
+                  <img alt="Prenda superpuesta" key={l.id} src={l.url} draggable={false} data-garment="1"
                     ref={el => { if (el) garmentEls.current[i] = el; else delete garmentEls.current[i]; }}
                     onMouseDown={e => onGarmentDown(e, i)}
                     onTouchStart={e => onGarmentTouch(e, i)}
@@ -1205,7 +1205,7 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
               onTouchMove={e => { const t = e.touches[0]; const r = containerRef.current?.getBoundingClientRect(); if (r) setComparePos(((t.clientX - r.left) / r.width) * 100) }}
             >
               <div className="absolute inset-0 overflow-hidden" style={{ clipPath: `inset(0 ${100 - comparePos}% 0 0)` }}>
-                <img src={bodyUrl} className="w-full h-full object-contain pointer-events-none" draggable={false}
+                <img alt="Tu foto de cuerpo entero" src={bodyUrl} className="w-full h-full object-contain pointer-events-none" draggable={false}
                   style={{ transform: mirror ? 'scaleX(-1)' : undefined }} />
               </div>
               <div className="absolute top-0 bottom-0 w-0.5 bg-white shadow-lg" style={{ left: `${comparePos}%`, zIndex: 81 }}>
@@ -1307,7 +1307,7 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
                         onTouchStart={() => { const t = setTimeout(() => { setLongPressId(p.id); setPreviewLook(p) }, 500); setLongPressTimer(t) }}
                         onTouchEnd={() => { clearTimeout(longPressTimer); setLongPressId(null) }}>
                         <div className="w-16 h-20 rounded-xl overflow-hidden cursor-pointer" style={{ border: '1px solid var(--border-light)' }}>
-                          {p.thumbnail ? <img src={p.thumbnail} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: 'var(--bg-secondary)' }}><Shirt size={16} style={{ color: 'var(--text-muted)' }} /></div>}
+                          {p.thumbnail ? <img alt="Look guardado" src={p.thumbnail} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: 'var(--bg-secondary)' }}><Shirt size={16} style={{ color: 'var(--text-muted)' }} /></div>}
                         </div>
                         {p.occasion && <span className="absolute top-0.5 right-0.5 text-[7px] px-1 rounded-full" style={{ backgroundColor: 'var(--color-primary)', color: 'white' }}>{OCCASIONS.find(o => o.k === p.occasion)?.icon}</span>}
                         {longPressId === p.id && (
@@ -1426,7 +1426,7 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
                         onPointerUp={() => { if (longPressTimer) clearTimeout(longPressTimer); if (longPressId !== p.id) return; setLongPressId(null); setPreviewLook(null) }}
                         onPointerLeave={() => { if (longPressTimer) clearTimeout(longPressTimer); setLongPressId(null); setPreviewLook(null) }}
                         className="block rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-light)' }}>
-                        <img src={p.thumbnail} className="w-12 h-16 object-cover" />
+                        <img alt="Look guardado" src={p.thumbnail} className="w-12 h-16 object-cover" />
                       </button>
                       {p.rating && p.rating > 0 && (
                         <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-center" style={{ fontSize: '6px' }}>
@@ -1550,10 +1550,10 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
     const pct = (v: number, base: number) => `${(v / (base || 1)) * 100}%`
     const renderLook = (lookLayers: Layer[], mirrorLook: boolean) => (
       <div className="flex-1 relative overflow-hidden bg-gray-100">
-        <img src={bodyUrl} className="w-full h-full object-contain pointer-events-none" draggable={false}
+        <img alt="Tu foto de cuerpo entero" src={bodyUrl} className="w-full h-full object-contain pointer-events-none" draggable={false}
           style={{ transform: mirrorLook ? 'scaleX(-1)' : undefined }} />
         {lookLayers.map((l) => (
-          <img key={l.id} src={l.url} draggable={false} className="absolute pointer-events-none"
+          <img alt="Prenda superpuesta" key={l.id} src={l.url} draggable={false} className="absolute pointer-events-none"
             style={{
               left: pct(l.x, bodyDim.w), top: pct(l.y, bodyDim.h),
               width: pct(l.w, bodyDim.w), height: pct(l.h, bodyDim.h),
@@ -1626,7 +1626,7 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
       {previewLook && (
         <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/60" onClick={() => { setPreviewLook(null); setLongPressId(null) }}>
           <div className="rounded-xl overflow-hidden shadow-2xl" style={{ border: '2px solid var(--color-primary)' }}>
-            <img src={previewLook.thumbnail} className="w-40 h-56 object-cover" />
+            <img alt="Vista previa del look" src={previewLook.thumbnail} className="w-40 h-56 object-cover" />
           </div>
           <p className="absolute bottom-10 text-white text-xs font-medium">{previewLook.name}</p>
         </div>

@@ -532,7 +532,7 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
                         onClick={() => { setActiveId(item.id); triggerHaptic('light'); }}
                         className={`relative w-14 h-14 rounded-xl border-2 transition-all overflow-hidden flex-shrink-0 ${activeId === item.id ? 'border-primary ring-2 ring-primary/30' : 'border-white/10 opacity-60'}`}
                     >
-                        <img src={item.garment.imageUrl} className="w-full h-full object-contain p-1" />
+                        <img alt="Prenda" src={item.garment.imageUrl} className="w-full h-full object-contain p-1" />
                         <div className="absolute bottom-0 right-0 bg-black/60 text-[8px] text-white px-1 font-bold">
                             {items.length - idx}
                         </div>
@@ -574,7 +574,7 @@ export default function FittingRoomModal({ garment: initialGarment, user, onClos
                         onClick={() => handleAddGarment(g)} 
                         className="flex-shrink-0 w-24 h-24 bg-white/5 rounded-3xl border border-white/10 p-3 flex items-center justify-center cursor-pointer hover:bg-white/10 transition-colors snap-center"
                         >
-                            <img src={g.imageUrl} className="max-w-full max-h-full object-contain drop-shadow-2xl pointer-events-none" />
+                            <img alt="Prenda que te estás probando" src={g.imageUrl} className="max-w-full max-h-full object-contain drop-shadow-2xl pointer-events-none" />
                         </motion.div>
                     ))}
                     </div>

@@ -1,6 +1,6 @@
-// Política de privacidad: texto ÚNICO. Lo sirve el servidor como página pública /privacidad (sin JavaScript, la URL
-// que se da a Google Play) y lo copian la app (PremiumPrivacyScreens.kt) y la web (pages/Privacy.tsx).
-// Si cambias algo aquí, cámbialo también allí.
+// Política de privacidad y condiciones de uso: texto ÚNICO. El servidor los sirve como páginas públicas /privacidad
+// y /condiciones (sin JavaScript; la primera es la URL que se da a Google Play) y los copian la app
+// (PremiumPrivacyScreens.kt, LegalScreens) y la web (pages/Privacy.tsx, pages/Terms.tsx). Si cambias algo aquí, cámbialo también allí.
 //
 // Los datos del responsable NO van en el código (el repositorio es público): salen de la variable de entorno
 // DATA_CONTROLLER (p. ej. "Nombre Apellidos, DNI 00000000X, dirección"), que se edita en Coolify.
@@ -101,8 +101,113 @@ export function policySections(controller: string, email: string): PolicySection
       paragraphs: ['Toda la comunicación va cifrada (HTTPS). Las contraseñas se guardan con un hash irreversible y la sesión de la app se guarda cifrada en tu dispositivo. Las claves del servidor no están en el código.'],
     },
     {
-      title: '10. Cambios en esta política',
+      title: '10. Cookies y almacenamiento en tu dispositivo',
+      paragraphs: [
+        'Solo usamos lo técnicamente necesario para que la web y la app funcionen: una cookie de sesión segura para mantenerte conectada y el almacenamiento del navegador o del móvil para recordar tus preferencias (tema, idioma) y guardar copias temporales que aceleran la carga.',
+        'No usamos cookies de analítica, de publicidad ni de seguimiento, propias ni de terceros. Por eso no te pedimos aceptar cookies: las estrictamente necesarias están exentas de consentimiento (artículo 22.2 de la LSSI). Si las borras desde tu navegador, tendrás que volver a iniciar sesión.',
+      ],
+    },
+    {
+      title: '11. Cambios en esta política',
       paragraphs: ['Si cambiamos algo importante, lo indicaremos en la app y actualizaremos la fecha de esta página.'],
+    },
+  ];
+}
+
+// ============= CONDICIONES DE USO Y NORMAS DE LA COMUNIDAD =============
+export const TERMS_UPDATED = '21 de octubre de 2026';
+
+export function termsSections(owner: string, email: string): PolicySection[] {
+  return [
+    {
+      title: '1. Quién presta el servicio',
+      paragraphs: [
+        `Estilo Vivo es un servicio gratuito ofrecido por ${owner}.`,
+        `Contacto: ${email}.`,
+      ],
+    },
+    {
+      title: '2. Aceptación y edad mínima',
+      paragraphs: [
+        'Al crear una cuenta aceptas estas condiciones y la política de privacidad. Si no estás de acuerdo, no uses Estilo Vivo.',
+        'Debes tener al menos 14 años. Entre los 14 y los 17 años tu perfil es privado por defecto, solo puedes chatear con personas con las que os seguís mutuamente y, para comprar o vender, necesitas la autorización de un adulto responsable desde la app.',
+      ],
+    },
+    {
+      title: '3. Tu cuenta',
+      bullets: [
+        'Usa datos reales y una sola cuenta por persona. Tu cuenta es personal: no la compartas ni la vendas.',
+        'Cuida tu contraseña. Eres responsable de lo que se haga desde tu cuenta.',
+        'Puedes eliminar tu cuenta cuando quieras desde Perfil › Ajustes.',
+      ],
+    },
+    {
+      title: '4. Normas de la comunidad',
+      paragraphs: ['No está permitido publicar, enviar ni vender:'],
+      bullets: [
+        'Desnudos, contenido sexual o fotos íntimas. El contenido que sexualice a menores se denuncia a las autoridades.',
+        'Acoso, insultos, amenazas, discursos de odio o contenido violento.',
+        'Suplantar a otra persona o marca, o publicar datos personales de otras personas sin su permiso.',
+        'Fotos que no son tuyas o de las que no tienes permiso (derechos de autor y derecho a la propia imagen).',
+        'Spam, publicidad no autorizada o enlaces para llevar a otras tiendas.',
+        'Falsificaciones, artículos robados, armas, drogas, alcohol, tabaco, medicamentos, animales o cualquier producto ilegal.',
+        'Engaños o estafas.',
+      ],
+    },
+    {
+      title: '5. Compraventa entre personas',
+      bullets: [
+        'Estilo Vivo solo pone en contacto a quien vende y a quien compra. No interviene en la venta, no cobra comisiones y no gestiona pagos ni envíos.',
+        'El acuerdo es entre vosotros: precio, estado de la prenda, entrega y, en su caso, devoluciones o reembolsos. Estilo Vivo no realiza reembolsos de estas ventas porque no recibe el dinero.',
+        'Recomendaciones: quedad en un lugar público, revisad la prenda antes de pagar y no adelantéis dinero a personas desconocidas.',
+        'Si vendes como profesional, debes cumplir la normativa de consumo que te corresponda.',
+        'Puedes denunciar un anuncio o una persona desde la app; lo revisaremos.',
+      ],
+    },
+    {
+      title: '6. Premium',
+      paragraphs: [
+        'Durante la beta, todas las funciones son gratuitas y no hay pagos dentro de la app. Si en el futuro hubiera funciones de pago, te avisaríamos antes; se cobrarían a través de Google Play y se aplicaría su política de reembolsos.',
+      ],
+    },
+    {
+      title: '7. Tu contenido',
+      paragraphs: [
+        'Lo que subes sigue siendo tuyo. Nos das permiso, gratuito y no exclusivo, para guardarlo y mostrarlo dentro de Estilo Vivo según tu configuración de privacidad, solo mientras lo mantengas publicado. Si lo borras, deja de mostrarse.',
+      ],
+    },
+    {
+      title: '8. Moderación y cómo reclamar',
+      bullets: [
+        'Cada foto que subes la revisa un sistema automático que bloquea desnudos y contenido sexual.',
+        'Las denuncias las revisa una persona del equipo. Si algo incumple estas normas o la ley, podemos retirarlo, anular una participación en un reto o suspender la cuenta. Quien repita infracciones puede perder la cuenta.',
+        'Si una decisión te afecta, te explicamos el motivo. Puedes reclamar en los 6 meses siguientes respondiendo al correo o escribiéndonos; otra persona lo revisará de nuevo. También puedes acudir a un órgano de resolución extrajudicial certificado o a los tribunales.',
+        `Cualquier persona, aunque no tenga cuenta, puede avisarnos de contenido ilegal escribiendo a ${email} con el enlace o la descripción y el motivo.`,
+      ],
+    },
+    {
+      title: '9. Funciones orientativas',
+      paragraphs: [
+        'El probador virtual superpone la prenda sobre tu foto para darte una idea; no es una representación exacta de la talla ni del ajuste. Las sugerencias de looks según el tiempo o el ánimo son orientativas.',
+      ],
+    },
+    {
+      title: '10. Responsabilidad',
+      paragraphs: [
+        'Intentamos que Estilo Vivo funcione siempre bien, pero puede haber interrupciones o errores. No respondemos del contenido que publican otras personas ni de los acuerdos entre ellas, salvo en lo que exija la ley. Nada de estas condiciones limita tus derechos como persona consumidora.',
+      ],
+    },
+    {
+      title: '11. Cambios y fin del servicio',
+      paragraphs: [
+        'Si cambiamos estas condiciones de forma importante, te avisaremos en la app antes de que se apliquen. Si algún día cerramos Estilo Vivo, avisaremos con antelación para que puedas descargar tus datos.',
+      ],
+    },
+    {
+      title: '12. Ley aplicable',
+      paragraphs: [
+        'Se aplica la ley española. Si eres consumidora, puedes reclamar ante los juzgados de tu domicilio.',
+      ],
     },
   ];
 }
@@ -112,9 +217,17 @@ const esc = (s: string) =>
 
 /** Página pública sin JavaScript. El correo va entre email_off para que Cloudflare no lo ofusque. */
 export function renderPolicyPage(controller: string, email: string): string {
+  return renderLegalPage('Política de privacidad', 'Política de <em>privacidad</em>', POLICY_UPDATED, policySections(controller, email), email);
+}
+
+export function renderTermsPage(owner: string, email: string): string {
+  return renderLegalPage('Condiciones de uso', 'Condiciones de <em>uso</em>', TERMS_UPDATED, termsSections(owner, email), email);
+}
+
+function renderLegalPage(title: string, headline: string, updated: string, sections: PolicySection[], email: string): string {
   const mail = (t: string) =>
     esc(t).replace(esc(email), `<!--email_off--><a href="mailto:${esc(email)}">${esc(email)}</a><!--/email_off-->`);
-  const body = policySections(controller, email)
+  const body = sections
     .map(
       (s) => `<section><h2>${esc(s.title)}</h2>${(s.paragraphs || []).map((p) => `<p>${mail(p)}</p>`).join('')}${
         s.bullets?.length ? `<ul>${s.bullets.map((b) => `<li>${mail(b)}</li>`).join('')}</ul>` : ''
@@ -123,7 +236,7 @@ export function renderPolicyPage(controller: string, email: string): string {
     .join('');
   return `<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Política de privacidad · Estilo Vivo</title>
+<title>${esc(title)} · Estilo Vivo</title>
 <style>
 body{margin:0;background:#F2F2F4;color:#0F0F12;font-family:'Poppins','Helvetica Neue',Helvetica,Arial,sans-serif;line-height:1.65}
 main{max-width:720px;margin:0 auto;padding:36px 18px 56px}
@@ -135,9 +248,9 @@ h2{font-size:18px;margin:0 0 6px}p,li{color:#4A4A55;font-size:15px}ul{padding-le
 a{color:#0F0F12}.foot{text-align:center;color:#8A8A96;font-size:13px;margin-top:24px}
 </style></head><body><main>
 <div class="brand">Estilo <em>Vivo</em></div>
-<h1>Política de <em>privacidad</em></h1>
-<p class="updated">Última actualización: ${POLICY_UPDATED}</p>
+<h1>${headline}</h1>
+<p class="updated">Última actualización: ${updated}</p>
 ${body}
-<p class="foot"><a href="/eliminar-cuenta">Eliminar tu cuenta</a> · <a href="/">estilovivo.xyoncloud.win</a></p>
+<p class="foot"><a href="/privacidad">Privacidad</a> · <a href="/condiciones">Condiciones de uso</a> · <a href="/eliminar-cuenta">Eliminar tu cuenta</a> · <a href="/">estilovivo.xyoncloud.win</a></p>
 </main></body></html>`;
 }
