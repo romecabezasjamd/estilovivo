@@ -161,14 +161,14 @@ const Admin: React.FC<Props> = ({ onBack }) => {
       </div>
       {!unlocked ? <Gate onOk={() => setUnlocked(true)} /> : (
         <>
-          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-3 -mx-1 px-1">
+          <nav aria-label="Secciones del panel" className="flex flex-wrap gap-2 pb-3">
             {SECTIONS.map(({ id, label, icon: Icon }) => (
-              <button key={id} onClick={() => setSection(id)}
-                className={`shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold transition-colors ${section === id ? 'bg-[var(--ink,#0B0B0F)] text-white' : 'bg-white text-[var(--text-secondary)] border border-gray-100'}`}>
+              <button key={id} onClick={() => setSection(id)} aria-current={section === id ? 'page' : undefined}
+                className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-full text-sm font-bold transition-colors ${section === id ? 'bg-[var(--ink,#0B0B0F)] text-white' : 'bg-white text-[var(--text-secondary)] border border-gray-100'}`}>
                 <Icon size={14} /> {label}
               </button>
             ))}
-          </div>
+          </nav>
           <div className="space-y-3">
             {section === 'overview' && <Overview need2fa={need2fa} go={setSection} />}
             {section === 'reports' && <Reports need2fa={need2fa} act={act} setAsk={setAsk} goUser={goUser} />}

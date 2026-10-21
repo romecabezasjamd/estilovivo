@@ -671,6 +671,17 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
             <Headline text="Mi *perfil*" className="text-4xl mb-1" />
           </div>
           <div className="flex gap-2">
+            {/* Panel de administración: solo cuentas con permiso concedido en el servidor */}
+            {user.isAdmin && !editing && (
+              <button
+                onClick={() => onNavigate('admin')}
+                aria-label="Abrir el panel de administración"
+                className="h-11 px-4 flex items-center gap-2 rounded-full bg-[var(--ink,#0B0B0F)] text-white text-sm font-bold shadow-sm hover:opacity-90 transition"
+              >
+                <Shield size={18} />
+                Panel
+              </button>
+            )}
             {editing ? (
               <>
                 <button
@@ -1740,23 +1751,6 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                 )}
               </div>
             </div>
-
-            {/* Panel de administración (solo cuentas con permiso concedido en el servidor) */}
-            {user.isAdmin && (
-              <button
-                onClick={() => onNavigate('admin')}
-                className="w-full bg-[var(--ink,#0B0B0F)] rounded-xl p-4 flex items-center gap-3 shadow-sm"
-              >
-                <div className="w-10 h-10 bg-white/15 rounded-xl flex items-center justify-center">
-                  <Shield size={20} className="text-white" />
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="text-sm font-bold text-white">Panel de administración</p>
-                  <p className="text-[10px] text-white/70">Denuncias, usuarios, tienda, retos y más</p>
-                </div>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
-              </button>
-            )}
 
             {/* Premium Upgrade */}
             <button
