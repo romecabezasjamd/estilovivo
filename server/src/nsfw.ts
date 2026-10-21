@@ -9,8 +9,19 @@ type Prediction = { className: string; probability: number };
 type Model = { classify: (img: tf.Tensor3D, topk?: number) => Promise<Prediction[]> };
 
 // Umbrales: "Porn" y "Hentai" son contenido sexual explícito; "Sexy" (ropa de baño, lencería...) se permite
-// porque en una app de moda es normal. Se bloquea si la suma de explícito supera el umbral.
-export const EXPLICIT_THRESHOLD = Number(process.env.NSFW_THRESHOLD || 0.7);
+// porque en una app de moda es normal. Se bloquea:
+//  - si la suma de explícito supera EXPLICIT_THRESHOLD, o
+//  - si hay desnudo parcial o pose sexual (pecho o glúteos): algo de "Porn" y, sumado a "Sexy", mucho contenido sugerente.
+//    Bikinis, lencería de catálogo y ropa deportiva quedan por debajo (probado con fotos de moda).
+export const EXPLICIT_THRESHOLD = Number(process.env.NSFW_THRESHOLD || 0.45);
+export const PARTIAL_PORN_THRESHOLD = Number(process.env.NSFW_PARTIAL_PORN || 0.25);
+export const PARTIAL_TOTAL_THRESHOLD = Number(process.env.NSFW_PARTIAL_TOTAL || 0.75);
+
+export function isExplicit(p: (name: string) => number): boolean {
+  const explicitScore = p('Porn') + p('Hentai');
+  if (explicitScore >= EXPLICIT_THRESHOLD) return true;
+  return explicitScore >= PARTIAL_PORN_THRESHOLD && explicitScore + p('Sexy') >= PARTIAL_TOTAL_THRESHOLD;
+}
 
 let modelPromise: Promise<Model | null> | null = null;
 
@@ -50,7 +61,7 @@ export async function checkImage(input: string | Buffer): Promise<NsfwResult> {
     const predictions = await model.classify(tensor, 5);
     const p = (name: string) => predictions.find((x) => x.className === name)?.probability ?? 0;
     const score = p('Porn') + p('Hentai');
-    return { explicit: score >= EXPLICIT_THRESHOLD, score, checked: true, predictions };
+    return { explicit: isExplicit(p), score, checked: true, predictions };
   } finally {
     tensor.dispose();
   }

@@ -29,7 +29,7 @@ const link = (reportId) => {
 const page = async (reportId, form) => {
   const l = link(reportId);
   const res = form
-    ? await fetch(l.url, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ e: l.e, s: l.s, ...form }) })
+    ? await fetch(l.url, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', Origin: 'null' }, body: new URLSearchParams({ e: l.e, s: l.s, ...form }) })
     : await fetch(l.url);
   return { status: res.status, html: await res.text(), csp: res.headers.get('content-security-policy') };
 };

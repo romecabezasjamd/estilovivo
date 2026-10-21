@@ -369,7 +369,7 @@ const allowedOrigins = [
   'http://localhost',
 ].filter(Boolean) as string[]; // Remove undefined values
 
-app.use(cors({
+const corsMiddleware = cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (like mobile apps or curl)
     if (!origin) return callback(null, true);
@@ -383,7 +383,10 @@ app.use(cors({
     }
   },
   credentials: true,
-}));
+});
+// La página de moderación (enlace firmado del correo) envía sus formularios con "Origin: null" porque usa
+// Referrer-Policy: no-referrer; CORS la bloqueaba con un error 500. Su seguridad es la firma del enlace.
+app.use((req, res, next) => (req.path.startsWith('/moderacion/') ? next() : corsMiddleware(req, res, next)));
 
 const io = new Server(httpServer, {
   cors: {

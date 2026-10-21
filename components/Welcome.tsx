@@ -1,5 +1,5 @@
 import React from 'react'
-import { ArrowRight } from 'lucide-react'
+import SlideToStart from './SlideToStart'
 
 interface Props {
   onStart: () => void
@@ -38,14 +38,7 @@ export default function Welcome({ onStart }: Props) {
           <p className="text-white/80 text-[15px] leading-relaxed ev-reveal" style={{ animationDelay: '1350ms' }}>
             Organiza tu ropa, crea looks, pruébatelos y comparte tu estilo con la comunidad.
           </p>
-          <button
-            onClick={onStart}
-            className="ev-reveal w-full h-16 rounded-full bg-white/15 backdrop-blur-md border border-white/25 flex items-center p-2 text-white font-semibold text-lg active:scale-[.98] transition"
-            style={{ animationDelay: '1600ms' }}
-          >
-            <span className="w-12 h-12 rounded-full bg-white text-[#0B0B0F] flex items-center justify-center"><ArrowRight size={22} /></span>
-            <span className="flex-1 text-center pr-12">Empezar</span>
-          </button>
+          <SlideToStart label="Empezar" onComplete={onStart} className="ev-reveal" style={{ animationDelay: '1600ms' }} />
         </div>
       </div>
     </div>

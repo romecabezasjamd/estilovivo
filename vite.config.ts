@@ -27,6 +27,10 @@ export default defineConfig(({ mode }) => {
           registerType: 'autoUpdate',
           includeAssets: ['icon-192.png', 'icon-512.png', 'estilo-vivo-logo-full.png', 'estilo-vivo-logo-icon.png'],
           workbox: {
+            // Al publicar una versión nueva, la antigua se sustituye enseguida y se borran sus cachés
+            cleanupOutdatedCaches: true,
+            skipWaiting: true,
+            clientsClaim: true,
             globIgnores: ['**/ort-wasm-simd-threaded.jsep-*.wasm', '**/human-*', '**/tf-*', '**/tensorflow-*', '**/mediapipe-*', '**/pose-detection-*'],
             // Páginas que sirve el servidor (no la web): el service worker no debe sustituirlas por index.html
             navigateFallbackDenylist: [/^\/api\//, /^\/moderacion\//, /^\/privacidad/, /^\/privacy-policy/, /^\/eliminar-cuenta/, /^\/delete-account/, /^\/\.well-known\//],

@@ -493,3 +493,8 @@ html[style*="font-size: 18px"] .text-xs { font-size: 13px !important; }
 /* Sol de la tarjeta del tiempo: giro lento como en la app */
 .ev-weather-spin { animation: spin 30s linear infinite; }
 @media (prefers-reduced-motion: reduce) { .ev-weather-spin { animation: none; } }
+
+/* Flechas del botón deslizable de bienvenida */
+.ev-slide-hint { animation: evSlideHint 1.6s ease-in-out infinite; opacity: .7; letter-spacing: -2px; }
+@keyframes evSlideHint { 0%, 100% { transform: translateX(0); opacity: .35; } 50% { transform: translateX(6px); opacity: .9; } }
+@media (prefers-reduced-motion: reduce) { .ev-slide-hint { animation: none; } }

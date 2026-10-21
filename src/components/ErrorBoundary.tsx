@@ -1,4 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { isStaleChunkError, recoverFromStaleBuild, reportWebError } from '../utils/staleRecovery';
 
 interface Props {
   children: ReactNode;
@@ -26,6 +27,9 @@ class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Uncaught error:', error, errorInfo);
+    // Versión antigua guardada en el móvil: se borra y se recarga con la nueva (sin el aviso de error)
+    if (isStaleChunkError(error)) { void recoverFromStaleBuild(); return; }
+    reportWebError(error, String(errorInfo?.componentStack || '').split('\n').filter(Boolean)[0]?.trim() || 'render');
   }
 
   componentDidUpdate(_prevProps: Props, prevState: State) {
