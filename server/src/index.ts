@@ -20,6 +20,7 @@ import logger from './logger.js';
 import { processImage } from './imageProcessor.js';
 import { rejectExplicitImages, warmUpNsfw, setBlockedUploadRecorder } from './nsfw.js';
 import { registerAdminRoutes, recordCrash, purgeOldAdminData } from './admin.js';
+import { trustedProxies } from './trustedProxies.js';
 import { reviewChallengePhoto } from './challengeReview.js';
 import { MARKETPLACE_ERRORS, accountFlags, birthDateError, chatAllowed, isAdultDate, isMinorDate, marketplaceStatus } from './minors.js';
 import { renderPolicyPage, renderTermsPage } from './legal.js';
@@ -74,8 +75,8 @@ const prisma = new PrismaClient({
   })
 });
 
-// Trust first proxy (Docker / reverse proxy / Coolify)
-app.set('trust proxy', 1);
+// Dirección real de cada persona detrás de Cloudflare y del proxy de Coolify (ver trustedProxies.ts)
+app.set('trust proxy', trustedProxies());
 // Registra los dominios públicos por los que llegan peticiones (para los enlaces de los correos)
 app.use((req, _res, next) => {
   const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim().toLowerCase();

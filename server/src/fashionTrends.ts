@@ -113,25 +113,25 @@ class FashionTrendService {
     }
 
     private getFallbackTrends(): FashionTrend[] {
-        // Tendencias de backup por si falla la conexión
+        // Respaldo si fallan las revistas. Son propuestas propias: nunca se atribuyen a otras marcas o fuentes.
         return [
             {
                 id: 'f1',
                 title: 'Maximalismo Sensorial',
                 category: 'Textura',
-                description: 'Mezcla audaz de texturas como bouclé y ante. La moda de 2026 se centra en la experiencia táctil.',
+                description: 'Propuesta de Estilo Vivo: mezcla texturas como el bouclé y el ante en un mismo look.',
                 image: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&q=80&w=800',
                 tags: ['Texturas', '2026', 'Moda'],
-                source: 'Estilo Vivo Insights'
+                source: 'Estilo Vivo'
             },
             {
                 id: 'f2',
                 title: 'Rojo Cereza Profundo',
                 category: 'Color',
-                description: 'El color absoluto de la temporada. Visto en abrigos estructurados y accesorios de piel.',
+                description: 'Propuesta de Estilo Vivo: el rojo cereza en abrigos estructurados y accesorios.',
                 image: 'https://images.unsplash.com/photo-1506152983158-b4a74a01c721?auto=format&fit=crop&q=80&w=800',
-                tags: ['Color', 'Tendencia', 'WGSN'],
-                source: 'Pantone Fashion'
+                tags: ['Color', 'Tendencia'],
+                source: 'Estilo Vivo'
             }
         ];
     }
