@@ -262,8 +262,10 @@ const isAdminUser = async (userId?: string) => {
   if (!userId) return false;
   if (ADMIN_USER_IDS.includes(userId)) return true;
   if (ADMIN_EMAILS.length === 0) return false;
-  const u = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, isVerified: true } });
-  return !!u && u.isVerified && ADMIN_EMAILS.includes(u.email.toLowerCase());
+  const u = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, isVerified: true, createdAt: true } });
+  // Correo verificado, o cuenta anterior a la verificación obligatoria (entonces se entraba sin verificar). Las cuentas
+  // nuevas no pueden entrar sin verificar, así que nadie puede registrarse ahora con ese correo y obtener el permiso.
+  return !!u && (u.isVerified || !mustVerifyBeforeLogin(u.createdAt)) && ADMIN_EMAILS.includes(u.email.toLowerCase());
 };
 
 // Borra un fichero subido sin lanzar si ya no existe

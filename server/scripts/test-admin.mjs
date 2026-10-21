@@ -44,6 +44,14 @@ try {
   assert.equal((await api('/api/admin/overview', tA, {}, 'falso')).body.code, 'ADMIN_2FA_REQUIRED');
   ok('solo la cuenta de administración entra, y solo con el segundo paso');
 
+  // Cuenta antigua (anterior a la verificación obligatoria) sin verificar: sí; cuenta nueva sin verificar: no
+  await prisma.user.update({ where: { id: A.id }, data: { isVerified: false, createdAt: new Date('2026-10-01T10:00:00Z') } });
+  assert.equal((await api('/api/auth/me', tA)).body.isAdmin, true);
+  await prisma.user.update({ where: { id: A.id }, data: { createdAt: new Date() } });
+  assert.equal((await api('/api/auth/me', tA)).body.isAdmin, false);
+  await prisma.user.update({ where: { id: A.id }, data: { isVerified: true } });
+  ok('cuenta antigua sin verificar vale; una nueva sin verificar no');
+
   const start = await api('/api/admin/session/start', tA, { method: 'POST', body: '{}' });
   assert.equal(start.status, 200);
   assert.ok(start.body.email.includes('•'));
