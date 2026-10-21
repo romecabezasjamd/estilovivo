@@ -89,6 +89,8 @@ export interface UserState {
   dialect?: string;
   /** 14-17 años: perfil privado por defecto, chat solo con seguidores mutuos y compraventa con autorización. */
   isMinor?: boolean;
+  /** Permiso de administración (lo concede solo el servidor). */
+  isAdmin?: boolean;
   /** Cuenta antigua sin fecha de nacimiento (se pide una vez). */
   needsBirthDate?: boolean;
   /** Puede comprar y vender (adulto, o menor autorizado por su adulto responsable). */

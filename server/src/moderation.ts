@@ -127,3 +127,41 @@ export function renderModerationError(message: string): string {
 <title>Moderación · Estilo Vivo</title><style>body{font-family:Helvetica,Arial,sans-serif;background:#F2F2F4;margin:0}main{max-width:560px;margin:60px auto;background:#fff;border-radius:24px;padding:24px}</style>
 </head><body><main><h1>No se puede abrir</h1><p>${esc(message)}</p></main></body></html>`;
 }
+
+// ============= AVISO A LA PERSONA AFECTADA =============
+// Reglamento de Servicios Digitales (UE 2022/2065, art. 17): quien sufre una decisión de moderación recibe una
+// explicación clara con el motivo, si fue automática o no, y cómo reclamar.
+export type ModerationDecision =
+  | { kind: 'removed'; what: string; reason: string }
+  | { kind: 'suspended'; reason: string }
+  | { kind: 'unsuspended'; reason: string }
+  | { kind: 'submission_invalid'; what: string; reason: string };
+
+export function decisionMessage(d: ModerationDecision, contactEmail: string): { subject: string; text: string; notification?: string } {
+  const appeal = `Si crees que es un error, responde a este correo o escribe a ${contactEmail} explicando por qué y lo revisaremos de nuevo. También puedes acudir a un órgano de resolución extrajudicial o a los tribunales.`;
+  const manual = 'La decisión la ha tomado una persona del equipo de Estilo Vivo tras revisarlo.';
+  switch (d.kind) {
+    case 'removed':
+      return {
+        subject: 'Hemos retirado contenido tuyo - Estilo Vivo',
+        text: `Hola:\n\nHemos retirado tu ${d.what} porque incumple las normas de la comunidad de Estilo Vivo.\n\nMotivo: ${d.reason}.\n${manual}\n\n${appeal}\n\nEstilo Vivo`,
+        notification: `Hemos retirado tu ${d.what}. Motivo: ${d.reason}. Te hemos enviado los detalles por correo.`,
+      };
+    case 'suspended':
+      return {
+        subject: 'Tu cuenta está suspendida - Estilo Vivo',
+        text: `Hola:\n\nHemos suspendido tu cuenta de Estilo Vivo por incumplir las normas de la comunidad. Mientras esté suspendida no podrás entrar ni usar la app.\n\nMotivo: ${d.reason}.\n${manual}\n\n${appeal}\n\nTus datos siguen protegidos y puedes pedir una copia o su borrado escribiendo a ${contactEmail}.\n\nEstilo Vivo`,
+      };
+    case 'unsuspended':
+      return {
+        subject: 'Tu cuenta vuelve a estar activa - Estilo Vivo',
+        text: `Hola:\n\nHemos revisado tu caso y tu cuenta de Estilo Vivo vuelve a estar activa. Ya puedes entrar con normalidad.\n\nEstilo Vivo`,
+      };
+    case 'submission_invalid':
+      return {
+        subject: 'Hemos invalidado una participación en un reto - Estilo Vivo',
+        text: `Hola:\n\nHemos invalidado ${d.what} y retirado sus puntos.\n\nMotivo: ${d.reason}.\n${manual}\n\n${appeal}\n\nEstilo Vivo`,
+        notification: `Hemos invalidado ${d.what}. Motivo: ${d.reason}.`,
+      };
+  }
+}

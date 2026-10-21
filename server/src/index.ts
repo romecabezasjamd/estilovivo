@@ -18,11 +18,12 @@ import cookieParser from 'cookie-parser';
 import { z } from 'zod';
 import logger from './logger.js';
 import { processImage } from './imageProcessor.js';
-import { rejectExplicitImages, warmUpNsfw } from './nsfw.js';
+import { rejectExplicitImages, warmUpNsfw, setBlockedUploadRecorder } from './nsfw.js';
+import { registerAdminRoutes, recordCrash, purgeOldAdminData } from './admin.js';
 import { reviewChallengePhoto } from './challengeReview.js';
 import { MARKETPLACE_ERRORS, accountFlags, birthDateError, chatAllowed, isAdultDate, isMinorDate, marketplaceStatus } from './minors.js';
 import { renderPolicyPage } from './legal.js';
-import { MODERATION_CSP, REASON_LABEL, TYPE_LABEL, renderModerationError, renderModerationPage, signModerationLink, verifyModerationLink } from './moderation.js';
+import { MODERATION_CSP, REASON_LABEL, TYPE_LABEL, renderModerationError, renderModerationPage, signModerationLink, verifyModerationLink, decisionMessage, type ModerationDecision } from './moderation.js';
 import { renderEmail, REASON_ACCOUNT, REASON_PREFS, type EmailParams } from './emailTemplates.js';
 type EmailContent = Omit<EmailParams, 'reason' | 'baseUrl'>;
 import { initPush, isPushEnabled, isValidPushToken, registerPushToken, sendPushForNotification, unregisterPushToken } from './push.js';
@@ -254,9 +255,16 @@ const escapeHtml = (value: unknown) => String(value ?? '')
 const isOwnUploadUrl = (value: unknown): value is string =>
   typeof value === 'string' && /^\/api\/uploads\/[A-Za-z0-9._\/-]+$/.test(value) && !value.includes('..');
 
-// Administradores: IDs separados por comas en ADMIN_USER_IDS
+// Administración: se concede SOLO desde el servidor, por correo (ADMIN_EMAILS) o por id (ADMIN_USER_IDS), separados por comas.
 const ADMIN_USER_IDS = (process.env.ADMIN_USER_IDS || '').split(',').map(v => v.trim()).filter(Boolean);
-const isAdmin = (userId?: string) => !!userId && ADMIN_USER_IDS.includes(userId);
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(v => v.trim().toLowerCase()).filter(Boolean);
+const isAdminUser = async (userId?: string) => {
+  if (!userId) return false;
+  if (ADMIN_USER_IDS.includes(userId)) return true;
+  if (ADMIN_EMAILS.length === 0) return false;
+  const u = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, isVerified: true } });
+  return !!u && u.isVerified && ADMIN_EMAILS.includes(u.email.toLowerCase());
+};
 
 // Borra un fichero subido sin lanzar si ya no existe
 const safeUnlink = (filePath?: string) => {
@@ -852,7 +860,7 @@ app.get('/api/health', async (req: Request, res: Response) => {
 
 // Health check detallado (solo para desarrollo o admin)
 app.get('/api/health/detailed', authenticateToken, async (req: any, res: Response) => {
-  if (!isAdmin(req.user.userId)) return res.status(403).json({ error: 'Admin only' });
+  if (!(await isAdminUser(req.user.userId))) return res.status(403).json({ error: 'Admin only' });
   try {
     const [userCount, productCount, lookCount] = await Promise.all([
       prisma.user.count(),
@@ -1211,7 +1219,7 @@ app.post('/api/auth/change-password', authenticateToken, validate(changePassword
 });
 
 app.post('/api/auth/test-email', authenticateToken, validate(testEmailSchema), async (req: any, res: Response) => {
-  if (!isAdmin(req.user.userId)) return res.status(403).json({ error: 'Admin only' });
+  if (!(await isAdminUser(req.user.userId))) return res.status(403).json({ error: 'Admin only' });
   if (!transporter) return res.status(503).json({ error: 'SMTP not configured. Set SMTP_HOST, SMTP_USER, SMTP_PASS.' });
   try {
     await transporter.verify();
@@ -1458,6 +1466,7 @@ app.get('/api/auth/me', authenticateToken, async (req: any, res: Response) => {
       garmentCount: _count.products,
       lookCount: _count.looks,
       ...(await accountFlags(prisma, user)),
+      isAdmin: await isAdminUser(user.id),
     });
   } catch (error) {
     logger.error('Error occurred', { error });
@@ -2700,6 +2709,44 @@ const removeReportedContent = async (targetType: string, targetId: string) => {
   return false;
 };
 
+/** Suspende una cuenta: cierra sus sesiones, quita sus avisos push y la desconecta al momento. */
+const suspendUser = async (userId: string) => {
+  await prisma.user.update({ where: { id: userId }, data: { suspendedAt: new Date() } });
+  await Promise.all([
+    prisma.refreshToken.deleteMany({ where: { userId } }),
+    prisma.pushToken.deleteMany({ where: { userId } }),
+  ]);
+  suspendedCache.delete(userId);
+  io.in(`user_${userId}`).disconnectSockets(true);
+};
+
+const unsuspendUser = async (userId: string) => {
+  await prisma.user.update({ where: { id: userId }, data: { suspendedAt: null } });
+  suspendedCache.delete(userId);
+};
+
+/** Retira una prenda o anuncio (y sus fotos). Devuelve su dueño y nombre, o null si no existía. */
+const removeProduct = async (productId: string) => {
+  const p = await prisma.product.findUnique({ where: { id: productId }, include: { images: true } });
+  if (!p) return null;
+  await prisma.product.delete({ where: { id: productId } });
+  for (const img of p.images) unlinkImageVariants(img.filename);
+  return { userId: p.userId, name: p.name };
+};
+
+/** Explica a la persona afectada la decisión de moderación (aviso en la app y correo). */
+const notifyModerationDecision = async (userId: string, d: ModerationDecision) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+    if (!user) return;
+    const msg = decisionMessage(d, moderationEmail());
+    if (msg.notification) await notifyUser(userId, 'MODERATION', msg.notification);
+    if (transporter) await sendMailWithRetry({ to: user.email, subject: msg.subject, text: msg.text });
+  } catch (error: any) {
+    logger.error('No se pudo avisar de la decisión de moderación', { userId, error: error?.message });
+  }
+};
+
 const moderationView = async (reportId: string, e: string, s: string, flash?: string) => {
   const report = await prisma.report.findUnique({ where: { id: reportId } });
   if (!report) return null;
@@ -2761,20 +2808,16 @@ app.post('/moderacion/:id', async (req: Request, res: Response) => {
     if (action === 'remove' && report.targetType !== 'USER') {
       const removed = await removeReportedContent(report.targetType, report.targetId);
       await closeAll('REMOVED');
+      if (removed && ownerId) void notifyModerationDecision(ownerId, { kind: 'removed', what: (TYPE_LABEL[report.targetType] || 'contenido').toLowerCase(), reason: REASON_LABEL[report.reason] || report.reason });
       flash = removed ? 'Contenido eliminado. La denuncia queda cerrada.' : 'El contenido ya no existía. La denuncia queda cerrada.';
     } else if (action === 'suspend' && ownerId && req.body.confirm === '1') {
-      await prisma.user.update({ where: { id: ownerId }, data: { suspendedAt: new Date() } });
-      await Promise.all([
-        prisma.refreshToken.deleteMany({ where: { userId: ownerId } }),
-        prisma.pushToken.deleteMany({ where: { userId: ownerId } }),
-      ]);
-      suspendedCache.delete(ownerId);
-      io.in(`user_${ownerId}`).disconnectSockets(true);
+      await suspendUser(ownerId);
       await closeAll('SUSPENDED');
+      void notifyModerationDecision(ownerId, { kind: 'suspended', reason: REASON_LABEL[report.reason] || report.reason });
       flash = 'Cuenta suspendida: ya no puede entrar ni usar la app. Puedes reactivarla desde esta página.';
     } else if (action === 'unsuspend' && ownerId) {
-      await prisma.user.update({ where: { id: ownerId }, data: { suspendedAt: null } });
-      suspendedCache.delete(ownerId);
+      await unsuspendUser(ownerId);
+      void notifyModerationDecision(ownerId, { kind: 'unsuspended', reason: '' });
       flash = 'Cuenta reactivada.';
     } else if (action === 'dismiss') {
       await prisma.report.update({ where: { id: report.id }, data: { status: 'DISMISSED' } });
@@ -2967,7 +3010,8 @@ app.post('/api/diagnostics/crash', crashLimiter, optionalAuth, async (req: any, 
     if (!trace) return res.status(400).json({ error: 'Falta la traza' });
     const info = { app: clip(req.body?.appVersion, 40), android: clip(req.body?.android, 40), device: clip(req.body?.device, 80), at: clip(req.body?.at, 40), user: req.user?.userId || 'sin sesión' };
     logger.error('Informe de cierre de la app', info);
-    if (transporter) {
+    const { isNew } = await recordCrash(prisma, { trace, source: info.app === 'web' ? 'web' : 'app', version: info.app, device: info.device, userId: req.user?.userId });
+    if (transporter && isNew) {
       const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
       void sendMailWithRetry({
         to: moderationEmail(),
@@ -2981,6 +3025,23 @@ app.post('/api/diagnostics/crash', crashLimiter, optionalAuth, async (req: any, 
     logger.error('Error al recibir informe de cierre', { error });
     res.status(500).json({ error: 'No se pudo guardar el informe' });
   }
+});
+
+// ============= PANEL DE ADMINISTRACIÓN (ver admin.ts) =============
+registerAdminRoutes(app, {
+  prisma, logger, jwtSecret: JWT_SECRET!, production: process.env.NODE_ENV === 'production',
+  authenticateToken, isAdminUser,
+  sendMail: transporter ? (m) => sendMailWithRetry(m) : null,
+  teamEmail: moderationEmail,
+  describeReportTarget, removeReportedContent, removeProduct, suspendUser, unsuspendUser, notifyModerationDecision,
+  removeXp: (userId, xp) => removeXp(prisma, userId, xp),
+  broadcast: async (content) => {
+    const users = await prisma.user.findMany({ where: { suspendedAt: null }, select: { id: true } });
+    for (let i = 0; i < users.length; i += 50) {
+      await Promise.all(users.slice(i, i + 50).map((u) => notifyUser(u.id, 'ANNOUNCEMENT', content).catch(() => {})));
+    }
+    return users.length;
+  },
 });
 
 app.get('/api/users/:id', authenticateToken, async (req: any, res: Response) => {
@@ -3267,7 +3328,7 @@ app.delete('/api/challenges/submissions/:id', authenticateToken, async (req: any
 });
 
 app.post('/api/challenges/force-rotate', authenticateToken, async (req: any, res: Response) => {
-  if (!isAdmin(req.user.userId)) return res.status(403).json({ error: 'Admin only' });
+  if (!(await isAdminUser(req.user.userId))) return res.status(403).json({ error: 'Admin only' });
   try {
     const now = new Date();
     const startOfToday = new Date(now);
@@ -4417,6 +4478,10 @@ const startServer = async () => {
     await initPush();
     // Carga el detector de fotos íntimas en segundo plano (la primera subida no espera a la carga)
     void warmUpNsfw();
+    setBlockedUploadRecorder((e) => prisma.blockedUpload.create({ data: e }).then(() => undefined));
+    const purge = () => purgeOldAdminData(prisma).catch((error) => logger.error('Error al limpiar datos antiguos del panel', { error }));
+    void purge();
+    setInterval(purge, 24 * 3600 * 1000).unref();
 
     httpServer.listen(PORT, '0.0.0.0', () => {
       logger.info(`Server running on port ${PORT} in ${NODE_ENV} mode`);

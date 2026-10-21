@@ -1364,3 +1364,48 @@ export const api = {
     },
 };
 
+
+// ============= PANEL DE ADMINISTRACIÓN =============
+// El token del panel (segundo paso con código por correo) se guarda solo en esta pestaña y caduca a las 12 h.
+const ADMIN_TOKEN_KEY = 'ev_admin_panel_token';
+export const getAdminToken = (): string | null => {
+    try {
+        const raw = sessionStorage.getItem(ADMIN_TOKEN_KEY);
+        if (!raw) return null;
+        const { token, exp } = JSON.parse(raw);
+        return token && Date.parse(exp) > Date.now() ? token : null;
+    } catch { return null; }
+};
+export const setAdminToken = (token: string | null, exp?: string) => {
+    try {
+        if (token) sessionStorage.setItem(ADMIN_TOKEN_KEY, JSON.stringify({ token, exp }));
+        else sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+    } catch { /* sin almacenamiento: habrá que repetir el código */ }
+};
+
+export class AdminApiError extends Error {
+    constructor(message: string, public code?: string, public status?: number) { super(message); }
+}
+
+/** Llamada al panel. Si falta o caduca el segundo paso lanza AdminApiError con code ADMIN_2FA_REQUIRED. */
+export const adminFetch = async <T = any>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> => {
+    const token = getAdminToken();
+    const res = await fetchWithTimeout(`${API_BASE}${path}`, {
+        method: init.method || 'GET',
+        credentials: 'include',
+        headers: { ...getHeaders(), ...(token ? { 'X-Admin-Token': token } : {}) },
+        ...(init.body !== undefined ? { body: JSON.stringify(init.body) } : {}),
+    });
+    if (!res.ok) {
+        const body = await res.json().catch(() => ({} as any));
+        if (body?.code === 'ADMIN_2FA_REQUIRED') setAdminToken(null);
+        throw new AdminApiError(body?.error || `Error ${res.status}`, body?.code, res.status);
+    }
+    return normalizeAssetsDeep(await res.json()) as T;
+};
+
+// ============= DERECHOS DE PRIVACIDAD (RGPD) =============
+export const privacyApi = {
+    send: (type: string, message: string) => adminFetch<{ id: string; dueAt: string; message: string }>('/privacy-requests', { method: 'POST', body: { type, message } }),
+    mine: () => adminFetch<{ id: string; type: string; typeLabel: string; status: string; response: string | null; createdAt: string; resolvedAt: string | null }[]>('/privacy-requests/mine'),
+};

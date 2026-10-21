@@ -49,7 +49,14 @@ export function warmUpNsfw() {
   return modelPromise;
 }
 
-export type NsfwResult = { explicit: boolean; score: number; checked: boolean; predictions?: Prediction[] };
+// Registro de subidas bloqueadas para el panel (solo quién, dónde y la puntuación; nunca la foto)
+type BlockedUploadEvent = { userId: string | null; route: string; score: number };
+let recordBlocked: ((e: BlockedUploadEvent) => Promise<void>) | null = null;
+export function setBlockedUploadRecorder(fn: typeof recordBlocked) {
+  recordBlocked = fn;
+}
+
+export type NsfwResult ={ explicit: boolean; score: number; checked: boolean; predictions?: Prediction[] };
 
 /** Clasifica una imagen (ruta o buffer). Si el modelo no carga, no bloquea (checked=false) y se registra. */
 export async function checkImage(input: string | Buffer): Promise<NsfwResult> {
@@ -80,6 +87,7 @@ export async function rejectExplicitImages(req: any, res: any, next: any) {
       if (r.explicit) {
         await Promise.all(files.map((x) => unlink(x.path).catch(() => {})));
         logger.warn('Foto íntima bloqueada en la subida', { userId: req.user?.userId, route: req.originalUrl, score: Number(r.score.toFixed(3)) });
+        recordBlocked?.({ userId: req.user?.userId ?? null, route: String(req.originalUrl || '').split('?')[0].slice(0, 120), score: r.score }).catch(() => {});
         return res.status(422).json({
           error: 'explicitImage',
           message: 'No se puede subir esta foto: parece contenido íntimo o sexual. Las fotos de este tipo no están permitidas en Estilo Vivo.',

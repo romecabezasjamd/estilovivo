@@ -499,3 +499,62 @@ model GuardianLink {
 
   @@index([guardianId])
 }
+
+// ============= PANEL DE ADMINISTRACIÓN =============
+// Registro de cada acción del panel (quién, qué y cuándo). Se conserva 3 años.
+model AdminAction {
+  id         String   @id @default(cuid())
+  adminId    String   // id simple (sin FK) para conservar el registro
+  action     String   // p. ej. REPORT_REMOVE, USER_SUSPEND, PRODUCT_REMOVE, BROADCAST...
+  targetType String?
+  targetId   String?
+  details    String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+// Subidas bloqueadas por el detector de fotos íntimas. NUNCA se guarda la foto, solo estos datos (90 días).
+model BlockedUpload {
+  id        String   @id @default(cuid())
+  userId    String?
+  route     String
+  score     Float
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId])
+}
+
+// Cierres de la app y errores de la web, para poder arreglarlos (90 días).
+model CrashReport {
+  id        String   @id @default(cuid())
+  signature String   // huella de las primeras líneas, para agrupar el mismo fallo
+  title     String
+  source    String   // app | web
+  version   String?
+  device    String?
+  userId    String?
+  trace     String
+  createdAt DateTime @default(now())
+
+  @@index([signature, createdAt])
+  @@index([createdAt])
+}
+
+// Solicitudes de derechos de privacidad (RGPD arts. 15-22): plazo de respuesta de un mes.
+model PrivacyRequest {
+  id         String    @id @default(cuid())
+  userId     String?
+  email      String
+  name       String?
+  type       String    // ACCESS | RECTIFY | DELETE | OBJECT | RESTRICT | PORTABILITY | OTHER
+  message    String
+  status     String    @default("OPEN") // OPEN | DONE | REJECTED
+  response   String?
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+
+  @@index([status, createdAt])
+  @@index([userId])
+}

@@ -14,6 +14,7 @@ const Privacy = lazy(() => import('./pages/Privacy'));
 const Onboarding = lazy(() => import('./pages/Onboarding'));
 const Premium = lazy(() => import('./pages/Premium'));
 const UserProfile = lazy(() => import('./pages/UserProfile'));
+const Admin = lazy(() => import('./pages/Admin'));
 import { GlobalStateProvider, useGlobalState } from './src/context/GlobalStateContext';
 import { LanguageProvider } from './src/context/LanguageContext';
 import { ThemeProvider } from './src/context/ThemeContext';
@@ -41,6 +42,7 @@ const AppContent: React.FC = () => {
       '/suitcase': 'suitcase',
       '/privacy': 'privacy',
       '/premium': 'premium',
+      '/admin': 'admin',
     };
     return tabMap[path] || 'home';
   };
@@ -96,6 +98,7 @@ const AppContent: React.FC = () => {
         '/suitcase': 'suitcase',
         '/privacy': 'privacy',
         '/premium': 'premium',
+      '/admin': 'admin',
       };
       skipHistory.current = true;
       setActiveTab(tabMap[path] || 'home');
@@ -251,6 +254,10 @@ const AppContent: React.FC = () => {
     switch (activeTab) {
       case 'privacy':
         return <Privacy onBack={() => { window.history.pushState({}, '', '/'); setActiveTab('home') }} />;
+      case 'admin':
+        return user?.isAdmin
+          ? <Admin onBack={() => { window.history.pushState({}, '', '/profile'); setActiveTab('profile') }} />
+          : null;
       case 'premium':
         return <Premium onBack={() => { window.history.pushState({}, '', '/'); setActiveTab('home') }} />;
       case 'home':

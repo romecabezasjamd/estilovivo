@@ -6,7 +6,7 @@
 // Los datos del responsable NO van en el código (el repositorio es público): salen de la variable de entorno
 // DATA_CONTROLLER (p. ej. "Nombre Apellidos, DNI 00000000X, dirección"), que se edita en Coolify.
 
-export const POLICY_UPDATED = '20 de octubre de 2026';
+export const POLICY_UPDATED = '21 de octubre de 2026';
 
 export interface PolicySection {
   title: string;
@@ -30,8 +30,9 @@ export function policySections(controller: string, email: string): PolicySection
         'Perfil: foto de perfil, foto de cuerpo entero (para el probador), biografía, ciudad para el tiempo y preferencias de estilo y de la app.',
         'Lo que publicas y haces: prendas, looks, fotos, historias, comentarios, me gusta, favoritos, seguidores, participaciones en retos, planificador, maletas y mensajes de chat.',
         'Avisos: un identificador del dispositivo para enviarte notificaciones al móvil, y tus preferencias de avisos por correo.',
-        'Seguridad: denuncias y bloqueos que hagas o recibas.',
-        'Informes de error: si la app se cierra por un fallo, al abrirla se envía un informe técnico (versión de la app y de Android, modelo de móvil y el error) para poder arreglarlo. No incluye el contenido de tu cuenta.',
+        'Seguridad: denuncias y bloqueos que hagas o recibas, las decisiones de moderación sobre tu cuenta o tu contenido y, si el sistema bloquea una foto que intentas subir, un registro sin la foto (cuándo, en qué parte de la app y la puntuación del análisis).',
+        'Informes de error: si la app se cierra o la web falla, se envía un informe técnico (versión, modelo de móvil o navegador y el error) para poder arreglarlo. No incluye el contenido de tu cuenta.',
+        'Solicitudes de privacidad: lo que nos pidas desde Mis derechos de privacidad y nuestra respuesta.',
         'Menores de edad: si tienes entre 14 y 17 años, el vínculo con tu adulto responsable (su cuenta y si te autoriza a comprar y vender).',
         'Ubicación aproximada: solo si das permiso, y únicamente para consultar el tiempo en ese momento; no la guardamos.',
         'Ciclo menstrual (opcional): se guarda cifrado solo en tu dispositivo y nunca se envía a nuestros servidores.',
@@ -44,7 +45,8 @@ export function policySections(controller: string, email: string): PolicySection
         'Mostrar tu contenido a otras personas según tu configuración de privacidad (perfil público o privado).',
         'Enviarte avisos al móvil y por correo: tu consentimiento, que puedes retirar en Perfil › Ajustes o en los ajustes del móvil.',
         'Usar la cámara, la galería y la ubicación: solo con tu permiso y para la función que estás usando.',
-        'Mantener la plataforma segura y revisar denuncias: interés legítimo en proteger a la comunidad.',
+        'Mantener la plataforma segura y revisar denuncias: interés legítimo en proteger a la comunidad. Las denuncias las revisa una persona del equipo con permiso de administración, que puede retirar contenido, anular participaciones en retos o suspender cuentas. Si te afecta, te explicamos el motivo y cómo reclamar (Reglamento de Servicios Digitales de la UE). Cada acción queda registrada.',
+        'Avisos del servicio a todas las cuentas (mantenimiento, cambios de normas o de esta política): ejecución del contrato. Nunca los usamos para publicidad.',
         'Arreglar errores de la app con los informes técnicos: interés legítimo en que la app funcione bien.',
         'Revisión automática de fotos: cada foto que subes se analiza en nuestro propio servidor con un sistema automático para bloquear desnudos y contenido sexual. La foto no se envía a terceros; si se bloquea, se borra al instante y no se guarda. Si crees que es un error, escríbenos (interés legítimo y protección de menores).',
         'Fecha de nacimiento: para comprobar la edad mínima y aplicar las protecciones de menores (cumplimiento legal e interés legítimo). No se muestra a otras personas.',
@@ -74,6 +76,7 @@ export function policySections(controller: string, email: string): PolicySection
       title: '6. Cuánto tiempo los conservamos',
       paragraphs: [
         'Mientras tu cuenta esté activa. Si la eliminas, borramos tu perfil, tus prendas, looks, historias, comentarios, me gusta, mensajes enviados, notificaciones y dispositivos registrados.',
+        'Registros técnicos y de seguridad: los informes de error y los registros de fotos bloqueadas se borran a los 90 días. Las decisiones de moderación y las solicitudes de privacidad se guardan 3 años para poder demostrar que se atendieron correctamente.',
         'Se conservan el contenido de otras personas (por ejemplo, los mensajes que te enviaron) y las denuncias que hayas presentado, sin tus datos de perfil, para poder revisarlas. Las copias de seguridad técnicas se sustituyen de forma rotativa y tus datos desaparecen de ellas al rotarse.',
       ],
     },
@@ -83,7 +86,7 @@ export function policySections(controller: string, email: string): PolicySection
         'Acceso y portabilidad: Perfil › Ajustes › Descargar mis datos (archivo JSON).',
         'Rectificación: Perfil › Editar perfil.',
         'Supresión: Perfil › Ajustes › Eliminar mi cuenta, o la página pública de eliminación de cuenta.',
-        'Oposición, limitación y retirada del consentimiento: escríbenos al correo de contacto.',
+        'Oposición, limitación, retirada del consentimiento o cualquier otra petición: Perfil › Ajustes › Mis derechos de privacidad, o escríbenos al correo de contacto. Respondemos en un mes como máximo.',
         'Si crees que no hemos tratado bien tus datos, puedes reclamar ante la Agencia Española de Protección de Datos (www.aepd.es).',
       ],
     },
