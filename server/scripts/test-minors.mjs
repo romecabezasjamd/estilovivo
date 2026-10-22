@@ -37,6 +37,8 @@ try {
   // --- Chat de menores ---
   const minor = await mk('menor', yearsAgo(15)), adult = await mk('adulto', yearsAgo(30)), friend = await mk('amiga', yearsAgo(16));
   const [tM, tA, tF] = [tok(minor), tok(adult), tok(friend)];
+  // Compraventa solo entre particulares: el menor ya declaró vender como particular (lo que se prueba aquí es el permiso)
+  await prisma.user.update({ where: { id: minor.id }, data: { sellerDeclaredAt: new Date() } });
   assert.equal((await post('/api/chat/conversations', tA, { targetUserId: minor.id })).status, 403); ok('un adulto desconocido no puede escribir a un menor');
   assert.equal((await post('/api/chat/conversations', tM, { targetUserId: adult.id })).status, 403); ok('un menor no puede escribir a un desconocido');
   await prisma.follow.createMany({ data: [{ followerId: minor.id, followingId: friend.id }, { followerId: friend.id, followingId: minor.id }] });
