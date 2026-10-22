@@ -20,7 +20,7 @@ import logger from './logger.js';
 import { processImage } from './imageProcessor.js';
 import { rejectExplicitImages, warmUpNsfw, setBlockedUploadRecorder } from './nsfw.js';
 import { registerAdminRoutes, recordCrash, purgeOldAdminData } from './admin.js';
-import { trustedProxies } from './trustedProxies.js';
+import { trustedProxies, realClientIp } from './trustedProxies.js';
 import { reviewChallengePhoto } from './challengeReview.js';
 import { MARKETPLACE_ERRORS, accountFlags, birthDateError, chatAllowed, isAdultDate, isMinorDate, marketplaceStatus } from './minors.js';
 import { renderPolicyPage, renderTermsPage } from './legal.js';
@@ -78,6 +78,7 @@ const prisma = new PrismaClient({
 
 // Dirección real de cada persona detrás de Cloudflare y del proxy de Coolify (ver trustedProxies.ts)
 app.set('trust proxy', trustedProxies());
+app.use(realClientIp(app.get('trust proxy fn')));
 // Registra los dominios públicos por los que llegan peticiones (para los enlaces de los correos)
 app.use((req, _res, next) => {
   const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim().toLowerCase();
@@ -895,7 +896,14 @@ app.get('/api/health/detailed', authenticateToken, async (req: any, res: Respons
       memory: process.memoryUsage(),
       versions: {
         node: process.version,
-      }
+      },
+      // Para comprobar que los límites de intentos ven la dirección real (solo administración)
+      network: {
+        clientIp: req.ip,
+        peer: req.socket?.remoteAddress,
+        cfConnectingIp: req.headers['cf-connecting-ip'] || null,
+        forwardedFor: req.headers['x-forwarded-for'] || null,
+      },
     });
   } catch (error) {
     res.status(500).json({ error: 'Error fetching health details' });

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import express from 'express';
 import request from 'supertest';
-import { trustedProxies } from '../trustedProxies.js';
+import { trustedProxies, realClientIp } from '../trustedProxies.js';
 
 // Igual que en producción: la petición llega desde el proxy interno (aquí, localhost) con X-Forwarded-For.
 const app = express();
@@ -18,6 +18,17 @@ describe('dirección real detrás de Cloudflare', () => {
     // La persona envía "1.2.3.4"; Cloudflare añade su dirección real (203.0.113.5) y la suya propia
     const r = await request(app).get('/ip').set('X-Forwarded-For', '1.2.3.4, 203.0.113.5, 172.64.1.1');
     expect(r.text).toBe('203.0.113.5');
+  });
+
+  it('usa CF-Connecting-IP cuando llega por el proxy interno', async () => {
+    const app2 = express();
+    app2.set('trust proxy', trustedProxies({}));
+    app2.use(realClientIp(app2.get('trust proxy fn')));
+    app2.get('/ip', (req, res) => { res.send(req.ip); });
+    const r = await request(app2).get('/ip').set('CF-Connecting-IP', '198.51.100.20').set('X-Forwarded-For', '203.0.113.9, 8.8.8.8');
+    expect(r.text).toBe('198.51.100.20');
+    const bad = await request(app2).get('/ip').set('CF-Connecting-IP', 'no-es-una-ip').set('X-Forwarded-For', '203.0.113.9');
+    expect(bad.text).toBe('203.0.113.9');
   });
 
   it('con Cloudflare por IPv6 también', async () => {

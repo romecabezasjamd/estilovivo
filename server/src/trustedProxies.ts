@@ -1,3 +1,5 @@
+import { isIP } from 'net';
+
 // Proxies de confianza para saber la dirección real de cada persona (req.ip), que usan los límites de intentos.
 // Camino de una petición: persona → Cloudflare → proxy de Coolify (red interna) → servidor. Solo se confía en
 // las redes internas y en los rangos publicados de Cloudflare (https://www.cloudflare.com/ips/), así que nadie
@@ -14,4 +16,20 @@ export const CLOUDFLARE_RANGES = [
 export function trustedProxies(env: NodeJS.ProcessEnv = process.env): string[] {
   const extra = (env.TRUSTED_PROXIES || '').split(',').map((v) => v.trim()).filter(Boolean);
   return ['loopback', 'linklocal', 'uniquelocal', ...CLOUDFLARE_RANGES, ...extra];
+}
+
+/**
+ * Cloudflare manda la dirección real de la persona en CF-Connecting-IP. Si la petición llega desde un proxy de
+ * confianza (la red interna de Coolify), se usa esa dirección como req.ip: así los límites de intentos cuentan
+ * por persona aunque haya más saltos de proxy de los previstos. Desde fuera (sin pasar por el proxy) se ignora.
+ */
+export function realClientIp(trust: (addr: string, i: number) => boolean) {
+  return (req: any, _res: unknown, next: () => void) => {
+    const cf = req.headers?.['cf-connecting-ip'];
+    const peer: string = req.socket?.remoteAddress || '';
+    if (typeof cf === 'string' && isIP(cf.trim()) && peer && trust(peer, 0)) {
+      Object.defineProperty(req, 'ip', { value: cf.trim(), configurable: true, enumerable: true });
+    }
+    next();
+  };
 }
