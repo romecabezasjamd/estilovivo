@@ -29,7 +29,7 @@ const TrendBoard: React.FC<Props> = ({ data, currentUserId, onOpenProfile }) => 
 
   const LookTile = ({ i, className = '' }: { i: number; className?: string }) => {
     const l = looks[i];
-    if (!l) return <div className={`rounded-2xl bg-[var(--bg-base)] ${className}`} />;
+    if (!l) return null;
     return (
       <button
         onClick={() => { if (l.userId !== currentUserId) onOpenProfile(l.userId); }}
@@ -50,10 +50,11 @@ const TrendBoard: React.FC<Props> = ({ data, currentUserId, onOpenProfile }) => 
         <Headline text={data.period === 'month' ? 'Tablero *del mes*' : 'Tablero *de la semana*'} as="h2" className="text-2xl" />
         <p className="text-xs text-[var(--text-muted)] mt-1" id="tablero">Hecho con los looks públicos de la comunidad, sus colores y las palabras de moda {period}.</p>
       </div>
-      <div className="grid grid-cols-3 gap-2" style={{ gridAutoRows: '96px' }}>
-        <LookTile i={0} className="col-span-2 row-span-3" />
+      <div className="grid grid-cols-3 gap-2 grid-flow-row-dense" style={{ gridAutoRows: '96px' }}>
+        {/* Sin huecos vacíos: si falta un look o la paleta, la pieza de al lado ocupa todo el ancho */}
+        <LookTile i={0} className={palette.length > 0 ? 'col-span-2 row-span-3' : 'col-span-3 row-span-3'} />
         {/* Paleta: muestras de color con nombre propio (no se usan códigos ni marcas de cartas de color) */}
-        <div className="row-span-3 flex flex-col gap-2">
+        {palette.length > 0 && <div className={looks[0] ? 'row-span-3 flex flex-col gap-2' : 'col-span-3 row-span-1 flex gap-2'}>
           {palette.map((c) => (
             <div key={c.name} className="flex-1 rounded-2xl overflow-hidden border border-black/10 flex flex-col bg-white">
               <div className="flex-1" style={{ background: c.hex || '#C9C9CE' }} />
@@ -63,30 +64,30 @@ const TrendBoard: React.FC<Props> = ({ data, currentUserId, onOpenProfile }) => 
               </div>
             </div>
           ))}
-        </div>
+        </div>}
         {data.keywords.length > 0 && (
-          <div className="col-span-2 row-span-1 rounded-2xl p-3 flex items-center" style={{ background: 'var(--ink, #0B0B0F)' }}>
+          <div className={`${looks[1] ? 'col-span-2' : 'col-span-3'} row-span-1 rounded-2xl p-3 flex items-center`} style={{ background: 'var(--ink, #0B0B0F)' }}>
             <p className="text-white leading-snug" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 18 }}>
               {data.keywords.join(' · ')}
             </p>
           </div>
         )}
-        <LookTile i={1} className={data.keywords.length > 0 ? 'row-span-2' : 'row-span-2'} />
+        <LookTile i={1} className={data.keywords.length > 0 && data.star ? 'row-span-2' : 'row-span-1'} />
         {data.star && (
-          <div className="col-span-2 row-span-1 rounded-2xl bg-[var(--bg-base)] p-2 flex items-center gap-3">
+          <div className={`${looks[1] ? 'col-span-2' : 'col-span-3'} row-span-1 rounded-2xl bg-[var(--bg-base)] p-2 flex items-center gap-3`}>
             <div className="w-16 h-16 shrink-0">
               <GarmentArt kind={STAR_KIND[data.star.category] || 'tshirt'} color={data.star.hex || '#8C8F96'} label={`${data.star.category} ${data.star.color}`} />
             </div>
             <div className="min-w-0">
               <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">Prenda estrella</p>
               <p className="text-sm font-bold text-[var(--text-primary)] leading-tight">{data.star.category}</p>
-              <p className="text-xs text-[var(--text-secondary)]">en {data.star.color.toLowerCase()}</p>
+              <p className="text-xs text-[var(--text-secondary)]">{data.star.color ? `en ${data.star.color.toLowerCase()}` : 'la más usada'}</p>
             </div>
           </div>
         )}
         {looks[2] && <LookTile i={2} className="col-span-2 row-span-2" />}
         {data.challenge && (
-          <div className="row-span-2 rounded-2xl p-3 flex flex-col justify-between text-white" style={{ background: 'linear-gradient(160deg,#E84393,#7B1F35)' }}>
+          <div className={`${looks[2] ? 'row-span-2' : 'col-span-3 row-span-1'} rounded-2xl p-3 flex flex-col justify-between text-white`} style={{ background: 'linear-gradient(160deg,#E84393,#7B1F35)' }}>
             <Trophy size={18} />
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest opacity-80">Reto</p>

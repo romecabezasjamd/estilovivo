@@ -216,6 +216,14 @@ function Overview({ need2fa, go }: Common & { go: (s: Section) => void }) {
         ))}
       </div>
       {data.privacySoon > 0 && <p className={`${card} text-sm text-red-600 font-semibold`}>{data.privacySoon} solicitud(es) de privacidad vencen en menos de una semana. La ley da un mes para responder.</p>}
+      {data.unsplash && (
+        <p className={`${card} text-sm ${data.unsplash.ok ? 'text-[var(--text-secondary)]' : 'text-red-600 font-semibold'}`}>
+          Fotos de Unsplash:{' '}
+          {!data.unsplash.configured ? 'sin clave (falta UNSPLASH_ACCESS_KEY en Coolify).'
+            : data.unsplash.ok ? `funcionan (${data.unsplash.photos} fotos en el tablero).`
+            : data.unsplash.lastError ? `error — ${data.unsplash.lastError}` : 'aún sin comprobar.'}
+        </p>
+      )}
     </>
   );
 }

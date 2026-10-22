@@ -47,13 +47,35 @@ const MIN_REFRESH = 60 * 60 * 1000;
 let cache: { at: number; key: string; photos: InspirationPhoto[] } = { at: 0, key: '', photos: [] };
 let inFlight: Promise<InspirationPhoto[]> | null = null;
 const notified = new Set<string>();
+// Estado para el panel de administración y para no reintentar en bucle si Unsplash falla (límite: 50 búsquedas/hora en modo demo)
+const RETRY_AFTER_ERROR = 15 * 60 * 1000;
+let status: { lastOkAt: number | null; lastErrorAt: number | null; lastError: string | null } = { lastOkAt: null, lastErrorAt: null, lastError: null };
+
+/** Estado de la conexión con Unsplash (sin la clave): para el resumen del panel de administración. */
+export function unsplashStatus() {
+  const configured = !!process.env.UNSPLASH_ACCESS_KEY?.trim();
+  return {
+    configured,
+    ok: configured && status.lastOkAt != null && (status.lastErrorAt == null || status.lastOkAt > status.lastErrorAt),
+    lastOkAt: status.lastOkAt ? new Date(status.lastOkAt).toISOString() : null,
+    lastError: status.lastError,
+    lastErrorAt: status.lastErrorAt ? new Date(status.lastErrorAt).toISOString() : null,
+    photos: cache.photos.length,
+  };
+}
 
 async function api(path: string, key: string): Promise<any> {
   const res = await fetch(API_BASE + path, {
     headers: { Authorization: `Client-ID ${key}`, 'Accept-Version': 'v1' },
     signal: AbortSignal.timeout(8000),
   });
-  if (!res.ok) throw new Error(`Unsplash ${res.status}`);
+  if (!res.ok) {
+    // Los mensajes de error de Unsplash no contienen datos personales ni la clave
+    const body = await res.text().catch(() => '');
+    let msg = '';
+    try { msg = (JSON.parse(body).errors || []).join('; '); } catch { msg = body.slice(0, 120); }
+    throw new Error(`Unsplash ${res.status}${msg ? `: ${msg}` : ''}`);
+  }
   return res.json();
 }
 
@@ -91,16 +113,25 @@ export async function inspirationPhotos(keywords: string[]): Promise<Inspiration
   const age = Date.now() - cache.at;
   if (cache.photos.length > 0 && (age < MIN_REFRESH || (cache.key === cacheKey && age < TTL))) return cache.photos;
   if (inFlight) return inFlight;
+  if (status.lastErrorAt && Date.now() - status.lastErrorAt < RETRY_AFTER_ERROR && (status.lastOkAt ?? 0) < status.lastErrorAt) return cache.photos;
   inFlight = (async () => {
     try {
       const used = new Set<string>();
       const list = words.length > 0 ? words : ['', '', ''];
       const photos: InspirationPhoto[] = [];
+      let lastError: string | null = null;
       for (const w of list) {
-        const p = await search(w, key, used).catch(() => null);
+        const p = await search(w, key, used).catch((e) => { lastError = String(e?.message || e); return null; });
         if (p) photos.push(p);
+        if (lastError && photos.length === 0) break; // si la primera falla (clave, límite…), no se gastan más búsquedas
       }
-      if (photos.length > 0) cache = { at: Date.now(), key: cacheKey, photos };
+      if (photos.length > 0) {
+        cache = { at: Date.now(), key: cacheKey, photos };
+        status.lastOkAt = Date.now();
+      } else if (lastError) {
+        status = { ...status, lastErrorAt: Date.now(), lastError };
+        logger.warn('No se pudieron cargar las fotos de Unsplash', { error: lastError });
+      }
       return photos.length > 0 ? photos : cache.photos;
     } catch (error) {
       logger.warn('No se pudieron cargar las fotos de Unsplash', { error: String(error) });
@@ -110,4 +141,17 @@ export async function inspirationPhotos(keywords: string[]): Promise<Inspiration
     }
   })();
   return inFlight;
+}
+
+/** Comprobación ligera (1 búsqueda) para el panel cuando aún no se ha intentado nada desde que arrancó el servidor. */
+export async function probeUnsplash(): Promise<void> {
+  const key = process.env.UNSPLASH_ACCESS_KEY?.trim();
+  if (!key || status.lastOkAt || status.lastErrorAt) return;
+  try {
+    await api('/search/photos?query=fashion&per_page=1&content_filter=high', key);
+    status.lastOkAt = Date.now();
+  } catch (e: any) {
+    status = { ...status, lastErrorAt: Date.now(), lastError: String(e?.message || e) };
+    logger.warn('No se pudieron cargar las fotos de Unsplash', { error: status.lastError });
+  }
 }

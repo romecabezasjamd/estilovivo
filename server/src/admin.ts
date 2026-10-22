@@ -9,6 +9,7 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { REASON_LABEL, TYPE_LABEL, type ModerationDecision } from './moderation.js';
 import { ageFrom, ADULT_AGE } from './minors.js';
+import { probeUnsplash, unsplashStatus } from './unsplash.js';
 
 type Mail = { to: string; subject: string; text: string; html?: string };
 
@@ -183,7 +184,8 @@ export function registerAdminRoutes(app: Express, deps: AdminDeps) {
       prisma.user.count({ where: { suspendedAt: { not: null } } }),
       prisma.product.count({ where: { forSale: true } }),
     ]);
-    res.json({ openReports, blocked7, crashes7, privacyOpen, privacySoon, users, newUsers, suspended, forSale });
+    await probeUnsplash();
+    res.json({ openReports, blocked7, crashes7, privacyOpen, privacySoon, users, newUsers, suspended, forSale, unsplash: unsplashStatus() });
   }));
 
   // ---------- Denuncias ----------

@@ -54,6 +54,9 @@ export function topShares(values: string[], n: number): { name: string; share: n
 }
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+// "Sin color" y similares no son un color: no entran en la paleta ni en la prenda estrella
+const NO_COLOR = /^(sin color|ninguno|ninguna|otro|otros|n\/a|-)$/;
+export const realColor = (c: string | null | undefined) => { const v = (c || '').trim().toLowerCase(); return v && !NO_COLOR.test(v) ? v : ''; };
 
 export async function communityTrends(prisma: PrismaClient, hiddenUserIds: string[] = [], headlineTexts: string[] = []): Promise<CommunityTrends> {
   const adultBorn = new Date(); adultBorn.setFullYear(adultBorn.getFullYear() - 18);
@@ -79,7 +82,7 @@ export async function communityTrends(prisma: PrismaClient, hiddenUserIds: strin
   if (looks.length < 3) { period = 'month'; looks = await load(new Date(Date.now() - 30 * DAY)); }
 
   const products = looks.flatMap((l) => l.products);
-  const colors = topShares(products.map((p) => (p.color || '').trim().toLowerCase()), 5).map((c) => ({ ...c, name: cap(c.name), hex: colorHex(c.name) }));
+  const colors = topShares(products.map((p) => realColor(p.color)), 5).map((c) => ({ ...c, name: cap(c.name), hex: colorHex(c.name) }));
   const categories = topShares(products.map((p) => (p.category ? categoryLabel(p.category) : '')), 4);
   const moods = topShares(looks.map((l) => (l.mood ? MOOD_LABEL[l.mood] || cap(l.mood) : '')), 3);
 
@@ -90,9 +93,11 @@ export async function communityTrends(prisma: PrismaClient, hiddenUserIds: strin
     .map((l) => ({ id: l.id, title: l.title, image: l.images[0].url, likes: l._count.likes, userId: l.userId, userName: l.user.name, userAvatar: l.user.avatar }));
 
   const starCount = new Map<string, number>();
-  for (const p of products) if (p.color && p.category) { const k = `${categoryLabel(p.category)}|${p.color.trim().toLowerCase()}`; starCount.set(k, (starCount.get(k) || 0) + 1); }
+  // Tipo + color más repetido; si nadie ha indicado colores, solo el tipo (color vacío)
+  for (const p of products) if (p.category) { const k = `${categoryLabel(p.category)}|${realColor(p.color)}`; starCount.set(k, (starCount.get(k) || 0) + (realColor(p.color) ? 1 : 0.5)); }
   const starKey = [...starCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
-  const star = starKey ? { category: starKey.split('|')[0], color: cap(starKey.split('|')[1]), hex: colorHex(starKey.split('|')[1]) } : null;
+  const starColor = starKey?.split('|')[1] || '';
+  const star = starKey ? { category: starKey.split('|')[0], color: starColor ? cap(starColor) : '', hex: starColor ? colorHex(starColor) : null } : null;
   const keywords = weeklyKeywords([...headlineTexts, ...products.map((p) => `${p.name} ${p.color || ''}`)]);
 
   const ch = await prisma.weeklyChallenge.findFirst({ where: { active: true, endDate: { gte: new Date() } }, orderBy: { startDate: 'desc' }, include: { _count: { select: { submissions: true } } } });
