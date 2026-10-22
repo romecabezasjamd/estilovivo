@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowUpRight, Heart, Trophy, Users, Newspaper } from 'lucide-react';
 import { api } from '../services/api';
 import type { CommunityTrends, MagazineHeadline } from '../types';
@@ -12,11 +12,22 @@ interface Props {
 
 const card = 'bg-[var(--bg-card)] rounded-3xl border border-[var(--border-light)] shadow-sm';
 
-// Diseño propio de cada revista (no se usan sus fotos ni logotipos)
-const MAGAZINE_STYLE: Record<MagazineHeadline['source'], { bg: string; fg: string; mark: string }> = {
-  Vogue: { bg: 'linear-gradient(135deg,#F7D6E6 0%,#E84393 100%)', fg: '#FFFFFF', mark: 'V' },
-  GQ: { bg: 'linear-gradient(135deg,#2B2B33 0%,#0B0B0F 100%)', fg: '#FFFFFF', mark: 'GQ' },
+// Sello de cada publicación con diseño PROPIO: su nombre en nuestra tipografía y colores, no su logotipo oficial
+// (marca registrada). Solo identifica de dónde viene el titular.
+type Brand = { bg: string; fg: string; label: string; font: React.CSSProperties };
+const SERIF: React.CSSProperties = { fontFamily: 'var(--font-serif)', letterSpacing: '0.08em' };
+const SANS: React.CSSProperties = { fontFamily: 'Poppins, sans-serif', fontWeight: 700 };
+const BRANDS: Record<string, Brand> = {
+  Vogue: { bg: '#0B0B0F', fg: '#FFFFFF', label: 'VOGUE', font: { ...SERIF, fontSize: 30, letterSpacing: '0.18em' } },
+  GQ: { bg: '#23232B', fg: '#FFFFFF', label: 'GQ', font: { ...SERIF, fontSize: 32, fontWeight: 700 } },
+  Glamour: { bg: '#F9DCE8', fg: '#B0175A', label: 'Glamour', font: { ...SERIF, fontSize: 30, fontStyle: 'italic', letterSpacing: 0 } },
+  'Marie Claire': { bg: '#C8102E', fg: '#FFFFFF', label: 'marie claire', font: { ...SANS, fontSize: 20, letterSpacing: '0.02em' } },
+  Telva: { bg: '#F2ECE3', fg: '#6E1D2A', label: 'TELVA', font: { ...SERIF, fontSize: 28, letterSpacing: '0.2em' } },
+  'Yo Dona': { bg: '#4B2A7A', fg: '#FFFFFF', label: 'YO DONA', font: { ...SANS, fontSize: 18, letterSpacing: '0.12em' } },
+  Mujerhoy: { bg: '#F4876B', fg: '#FFFFFF', label: 'mujerhoy', font: { ...SANS, fontSize: 20 } },
+  Trendencias: { bg: '#E3F4EF', fg: '#0E6B5B', label: 'Trendencias', font: { ...SANS, fontSize: 18 } },
 };
+const brandOf = (source: string): Brand => BRANDS[source] || { bg: 'var(--bg-base)', fg: 'var(--text-primary)', label: source, font: { ...SANS, fontSize: 18 } };
 
 function when(iso: string | null): string {
   if (!iso) return '';
@@ -28,11 +39,12 @@ function when(iso: string | null): string {
   return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
 }
 
-/** Tendencias: lo que se lleva en Estilo Vivo (looks públicos de la semana) y titulares de Vogue y GQ con enlace. */
+/** Tendencias: primero titulares de revistas y webs de moda (con enlace), después lo que se lleva en Estilo Vivo. */
 const TrendsView: React.FC<Props> = ({ currentUserId, onOpenProfile, onParticipate }) => {
   const [community, setCommunity] = useState<CommunityTrends | null>(null);
   const [headlines, setHeadlines] = useState<MagazineHeadline[] | null>(null);
   const [error, setError] = useState(false);
+  const [source, setSource] = useState<string>('Todas');
 
   const load = useCallback(() => {
     setError(false);
@@ -41,12 +53,73 @@ const TrendsView: React.FC<Props> = ({ currentUserId, onOpenProfile, onParticipa
   }, []);
   useEffect(() => { load(); }, [load]);
 
+  const sources = useMemo(() => ['Todas', ...Array.from(new Set((headlines || []).map((h) => h.source)))], [headlines]);
+  const visible = (headlines || []).filter((h) => source === 'Todas' || h.source === source);
   const period = community?.period === 'month' ? 'este mes' : 'esta semana';
 
   return (
     <div className="px-4 pb-6 space-y-5 animate-fade-in">
-      {/* ── En la comunidad ── */}
+      {/* ── En las revistas ── */}
       <div className="px-1">
+        <Headline text="En las *revistas*" as="h2" className="text-3xl" />
+        <p className="text-sm text-[var(--text-muted)] mt-1">Lo último de las revistas y webs de moda. Al pulsar se abre el artículo en su web.</p>
+      </div>
+
+      {sources.length > 2 && (
+        <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-1 px-1" role="tablist" aria-label="Filtrar por publicación">
+          {sources.map((s) => (
+            <button
+              key={s}
+              role="tab"
+              aria-selected={source === s}
+              onClick={() => setSource(s)}
+              className={`shrink-0 px-4 py-2 rounded-full text-sm font-bold transition-colors ${source === s ? 'bg-[var(--ink,#0B0B0F)] text-white' : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border border-[var(--border-light)]'}`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {headlines === null && <div className="h-40 rounded-3xl bg-[var(--bg-card)] animate-pulse" />}
+      {headlines?.length === 0 && (
+        <div className={`${card} p-5 text-sm text-[var(--text-secondary)] flex items-center gap-3`}><Newspaper size={18} /> Ahora mismo no hay titulares disponibles.</div>
+      )}
+      <div className="space-y-4">
+        {visible.map((h) => {
+          const b = brandOf(h.source);
+          return (
+            <a
+              key={h.id}
+              href={h.link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`${card} block overflow-hidden hover:shadow-md transition-shadow`}
+              aria-label={`${h.title}. Leer en ${h.sourceName}`}
+            >
+              <div className="h-16 px-5 flex items-center justify-between" style={{ background: b.bg, color: b.fg }} aria-hidden="true">
+                <span style={b.font}>{b.label}</span>
+                {h.publishedAt && <span className="text-xs font-semibold opacity-80">{when(h.publishedAt)}</span>}
+              </div>
+              <div className="p-5">
+                <span className="text-[11px] font-bold uppercase tracking-widest text-[var(--text-muted)]">{h.category}</span>
+                <p className="text-lg font-bold text-[var(--text-primary)] leading-snug mt-1">{h.title}</p>
+                <span className="inline-flex items-center gap-1 text-sm font-bold text-[var(--text-primary)] mt-3">
+                  Leer en {h.source} <ArrowUpRight size={16} />
+                </span>
+              </div>
+            </a>
+          );
+        })}
+      </div>
+      {headlines && headlines.length > 0 && (
+        <p className="text-[11px] text-[var(--text-muted)] px-1">
+          Fuentes: {Array.from(new Set(headlines.map((h) => h.sourceName))).join(', ')}. Los titulares y artículos pertenecen a sus publicaciones; Estilo Vivo no tiene relación con ellas.
+        </p>
+      )}
+
+      {/* ── Lo que se lleva en Estilo Vivo ── */}
+      <div className="px-1 pt-4">
         <Headline text="Lo que se *lleva*" as="h2" className="text-3xl" />
         <p className="text-sm text-[var(--text-muted)] mt-1">
           {community
@@ -59,7 +132,7 @@ const TrendsView: React.FC<Props> = ({ currentUserId, onOpenProfile, onParticipa
 
       {error && (
         <div className={`${card} p-5 text-center text-sm text-[var(--text-secondary)]`}>
-          No se pudieron cargar las tendencias. <button onClick={load} className="font-bold underline">Reintentar</button>
+          No se pudieron cargar las tendencias de la comunidad. <button onClick={load} className="font-bold underline">Reintentar</button>
         </div>
       )}
       {!community && !error && <div className="h-40 rounded-3xl bg-[var(--bg-card)] animate-pulse" />}
@@ -141,45 +214,6 @@ const TrendsView: React.FC<Props> = ({ currentUserId, onOpenProfile, onParticipa
           </div>
         </section>
       )}
-
-      {/* ── En las revistas ── */}
-      <div className="px-1 pt-2">
-        <Headline text="En las *revistas*" as="h2" className="text-3xl" />
-        <p className="text-sm text-[var(--text-muted)] mt-1">Titulares de moda de Vogue España y GQ España. Al pulsar se abre el artículo en su web.</p>
-      </div>
-      {headlines === null && <div className="h-24 rounded-3xl bg-[var(--bg-card)] animate-pulse" />}
-      {headlines?.length === 0 && (
-        <div className={`${card} p-5 text-sm text-[var(--text-secondary)] flex items-center gap-3`}><Newspaper size={18} /> Ahora mismo no hay titulares disponibles.</div>
-      )}
-      <div className="space-y-3">
-        {headlines?.map((h) => {
-          const st = MAGAZINE_STYLE[h.source] || MAGAZINE_STYLE.Vogue;
-          return (
-            <a
-              key={h.id}
-              href={h.link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`${card} p-3 flex gap-3 items-stretch hover:shadow-md transition-shadow`}
-              aria-label={`${h.title}. Leer en ${h.sourceName}`}
-            >
-              <div className="w-20 shrink-0 rounded-2xl flex items-center justify-center" style={{ background: st.bg }} aria-hidden="true">
-                <span className="font-serif italic text-3xl" style={{ color: st.fg }}>{st.mark}</span>
-              </div>
-              <div className="min-w-0 flex-1 py-1">
-                <div className="flex items-center gap-2 text-[11px] text-[var(--text-muted)]">
-                  <span className="font-bold uppercase tracking-wider">{h.category}</span>
-                  {h.publishedAt && <span>· {when(h.publishedAt)}</span>}
-                </div>
-                <p className="text-sm font-semibold text-[var(--text-primary)] leading-snug mt-1 line-clamp-3">{h.title}</p>
-                <span className="inline-flex items-center gap-1 text-xs font-bold text-[var(--text-primary)] mt-2">
-                  Leer en {h.source} <ArrowUpRight size={14} />
-                </span>
-              </div>
-            </a>
-          );
-        })}
-      </div>
     </div>
   );
 };

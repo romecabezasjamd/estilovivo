@@ -266,7 +266,8 @@ export interface CommunityTrends {
 export interface MagazineHeadline {
   id: string;
   title: string;
-  source: 'Vogue' | 'GQ';
+  /** Nombre corto de la publicación (Vogue, GQ, Telva…). */
+  source: string;
   sourceName: string;
   link: string;
   publishedAt: string | null;

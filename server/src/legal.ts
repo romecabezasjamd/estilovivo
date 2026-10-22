@@ -115,7 +115,7 @@ export function policySections(controller: string, email: string): PolicySection
 }
 
 // ============= CONDICIONES DE USO Y NORMAS DE LA COMUNIDAD =============
-export const TERMS_UPDATED = '21 de octubre de 2026';
+export const TERMS_UPDATED = '22 de octubre de 2026';
 
 export function termsSections(owner: string, email: string): PolicySection[] {
   return [
@@ -186,9 +186,10 @@ export function termsSections(owner: string, email: string): PolicySection[] {
       ],
     },
     {
-      title: '9. Funciones orientativas',
+      title: '9. Funciones orientativas y enlaces a otras webs',
       paragraphs: [
         'El probador virtual superpone la prenda sobre tu foto para darte una idea; no es una representación exacta de la talla ni del ajuste. Las sugerencias de looks según el tiempo o el ánimo son orientativas.',
+        'En Tendencias mostramos titulares de revistas y webs de moda con un enlace a su artículo. Esos titulares, artículos y marcas pertenecen a cada publicación, que no tiene relación con Estilo Vivo; al pulsar se abre su web, con sus propias condiciones y política de privacidad. "Lo que se lleva" se calcula con los looks públicos de la comunidad y solo muestra cifras de conjunto y looks que sus autores han hecho públicos.',
       ],
     },
     {

@@ -13,6 +13,8 @@ interface Props {
 
 export default function WeatherWidget({ garments, onNavigate, locationName, mood }: Props) {
   const [weather, setWeather] = useState<WeatherData | null>(null);
+  /** Hora en que se consultó el tiempo por última vez. */
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const [suggestions, setSuggestions] = useState<OutfitSuggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [location, setLocation] = useState('');
@@ -114,6 +116,7 @@ export default function WeatherWidget({ garments, onNavigate, locationName, mood
       };
 
       setWeather(weatherData);
+      setUpdatedAt(new Date());
       // Para el look de ejemplo por ánimo (Inicio): último tiempo conocido
       (window as any).__evWeather = weatherData;
 
@@ -167,6 +170,11 @@ export default function WeatherWidget({ garments, onNavigate, locationName, mood
           {location && (
             <p className="flex items-center gap-0.5 text-[11px] opacity-80 truncate">
               <MapPin size={12} /> {location}{weather.humidity > 0 ? ` · ${weather.humidity}% hum.` : ''}
+            </p>
+          )}
+          {updatedAt && (
+            <p className="text-[11px] opacity-80">
+              Actualizado a las {updatedAt.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
             </p>
           )}
         </div>
