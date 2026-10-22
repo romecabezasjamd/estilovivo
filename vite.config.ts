@@ -90,14 +90,13 @@ export default defineConfig(({ mode }) => {
         'process.env.API_KEY': JSON.stringify(geminiKey || ''),
         'process.env.GEMINI_API_KEY': JSON.stringify(geminiKey || ''),
       },
-      optimizeDeps: {
-        // pose-detection importa backends opcionales no instalados (@mediapipe/pose, webgpu)
-        // que tumbaban el dev server; en build ya se marcan como external.
-        exclude: ['@tensorflow-models/pose-detection'],
-      },
+      // pose-detection importa backends opcionales no instalados (@mediapipe/pose, webgpu): se sustituyen por
+      // módulos vacíos (alias de abajo) para que se pueda cargar tanto en desarrollo como en la web publicada.
       resolve: {
         alias: {
           '@': path.resolve(__dirname, '.'),
+          '@mediapipe/pose': path.resolve(__dirname, 'src/shims/mediapipe-pose.ts'),
+          '@tensorflow/tfjs-backend-webgpu': path.resolve(__dirname, 'src/shims/tfjs-backend-webgpu.ts'),
         }
       },
       build: {
@@ -106,6 +105,8 @@ export default defineConfig(({ mode }) => {
         chunkSizeWarningLimit: 1300,
         rollupOptions: {
           external: (id) => {
+            // Estos dos tienen sustituto propio (alias): se empaquetan, nunca externos
+            if (id === '@mediapipe/pose' || id === '@tensorflow/tfjs-backend-webgpu') return false;
             const installedMediapipe = ['@mediapipe/selfie_segmentation'];
             const installedTfjs = ['@tensorflow/tfjs-backend-cpu', '@tensorflow/tfjs-backend-webgl', '@tensorflow/tfjs-converter', '@tensorflow/tfjs-core'];
             if (id.startsWith('@mediapipe/') && !installedMediapipe.some(p => id === p || id.startsWith(p + '/'))) return true;
