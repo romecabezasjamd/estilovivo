@@ -273,6 +273,12 @@ export interface CommunityTrends {
 export type IdeaPiece =
   | { kind: 'own'; id: string; name: string; image: string | null; slot: string }
   | { kind: 'drawn'; slot: string; shape: string; color: string; colorName: string; label: string };
+/** Foto de Unsplash para el tablero (se muestra siempre con su crédito). */
+export interface InspirationPhoto {
+  id: string; image: string; alt: string; color: string | null; keyword: string;
+  photographer: string; photographerUrl: string; photoUrl: string; unsplashUrl: string;
+}
+
 export interface GarmentIdeas {
   garment: { id: string; name: string; image: string | null };
   ideas: { title: string; pieces: IdeaPiece[] }[];

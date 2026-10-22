@@ -4,6 +4,7 @@ import { api } from '../services/api';
 import type { CommunityTrends, MagazineHeadline } from '../types';
 import Headline from './Headline';
 import TrendBoard from './TrendBoard';
+import UnsplashInspiration from './UnsplashInspiration';
 
 interface Props {
   currentUserId?: string;
@@ -131,8 +132,9 @@ const TrendsView: React.FC<Props> = ({ currentUserId, onOpenProfile, onParticipa
 
       </div>
       {/* ── Tablero de la semana (a la derecha en pantallas grandes) ── */}
-      <div className="lg:sticky lg:top-4">
+      <div className="space-y-4">
         {community && <TrendBoard data={community} currentUserId={currentUserId} onOpenProfile={onOpenProfile} />}
+        <UnsplashInspiration />
       </div>
       </div>
 

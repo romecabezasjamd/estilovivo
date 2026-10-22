@@ -55,6 +55,7 @@ import {
 import { magazineHeadlines } from './fashionTrends.js';
 import { communityTrends, type CommunityTrends } from './communityTrends.js';
 import { buildIdeas, slotOf, colorFamily } from './outfitIdeas.js';
+import { inspirationPhotos } from './unsplash.js';
 import { awardPoints } from './gamification.js';
 import {
   awardXp, removeXp, levelFromXp, xpProgress,
@@ -3579,6 +3580,22 @@ app.get('/api/trends/community', authenticateToken, async (req: any, res: Respon
   } catch (error) {
     logger.error('Error al calcular las tendencias de la comunidad', { error });
     res.status(500).json({ error: 'No se pudieron cargar las tendencias' });
+  }
+});
+
+// Fotos de inspiración de Unsplash con las palabras de la semana (las imágenes las carga el dispositivo desde Unsplash
+// solo cuando la persona lo decide; aquí solo se devuelven las URL y el crédito).
+app.get('/api/trends/inspiration', authenticateToken, async (_req: any, res: Response) => {
+  try {
+    let keywords = communityCache.data?.keywords;
+    if (!keywords) {
+      const headlines = await magazineHeadlines.get().catch(() => []);
+      keywords = (await communityTrends(prisma, [], headlines.map((h) => h.title))).keywords;
+    }
+    res.json({ photos: await inspirationPhotos(keywords) });
+  } catch (error) {
+    logger.error('Error al cargar la inspiración de Unsplash', { error });
+    res.json({ photos: [] });
   }
 });
 

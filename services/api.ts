@@ -1301,6 +1301,11 @@ export const api = {
     },
 
     /** Ideas con una prenda del propio armario. */
+    // Fotos de Unsplash: sus URL se usan tal cual (no pasan por normalizeAssets)
+    getInspiration: async () => {
+        const res = await fetchWithRetry(`${API_BASE}/trends/inspiration`, { headers: getHeaders(), credentials: 'include' });
+        return handleResponse(res);
+    },
     getGarmentIdeas: async (garmentId: string) => {
         const res = await fetchWithRetry(`${API_BASE}/ideas/garment/${encodeURIComponent(garmentId)}`, { headers: getHeaders(), credentials: 'include' });
         return normalizeAssetsDeep(await handleResponse(res));

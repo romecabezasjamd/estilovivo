@@ -5,7 +5,7 @@
 // Los datos del responsable NO van en el código (el repositorio es público): salen de la variable de entorno
 // DATA_CONTROLLER (p. ej. "Nombre Apellidos, DNI 00000000X, dirección"), que se edita en Coolify.
 
-export const POLICY_UPDATED = '22 de octubre de 2026';
+export const POLICY_UPDATED = '23 de octubre de 2026';
 
 export interface PolicySection {
   title: string;
@@ -43,6 +43,7 @@ export function policySections(controller: string, email: string): PolicySection
         'Prestarte el servicio (armario, looks, probador, comunidad y chat): ejecución del contrato que aceptas al registrarte.',
         'Mostrar tu contenido a otras personas según tu configuración de privacidad (perfil público o privado).',
         'Tablero de Tendencias: si tu perfil es público y eres mayor de edad, tus looks públicos más queridos pueden aparecer en el tablero de la semana y en la inspiración de otras personas, con tu nombre y enlace a tu perfil (interés legítimo en mostrar lo que se lleva en la comunidad). Nunca se muestran looks de menores. Puedes oponerte cuando quieras desactivando Perfil › Ajustes › Mostrar mis looks en Tendencias.',
+        'Fotos de inspiración de Unsplash en Tendencias: solo se cargan si pulsas "Ver fotos de Unsplash" (y puedes dejar de verlas cuando quieras). Entonces tu dispositivo descarga las fotos directamente de Unsplash, que recibe tu dirección IP y cuenta las visualizaciones con un identificador aleatorio. Nosotros no le enviamos ningún dato de tu cuenta: las búsquedas las hace nuestro servidor solo con palabras de moda (tu consentimiento, al pulsar el botón).',
         'Ideas con esta prenda: para sugerirte combinaciones, nuestro servidor compara la prenda con las demás de tu armario (tipo y color) en el momento en que lo pides. Solo lo ves tú, no se guarda ningún perfil y no se usa ningún servicio externo ni de inteligencia artificial (ejecución del contrato).',
         'Enviarte avisos al móvil y por correo: tu consentimiento, que puedes retirar en Perfil › Ajustes o en los ajustes del móvil.',
         'Usar la cámara, la galería y la ubicación: solo con tu permiso y para la función que estás usando.',
@@ -64,6 +65,7 @@ export function policySections(controller: string, email: string): PolicySection
         'Google Firebase Cloud Messaging: entrega las notificaciones al móvil (recibe el identificador del dispositivo y el texto del aviso).',
         'Google (Gmail): envía los correos de la cuenta y de avisos.',
         'Open-Meteo: devuelve el tiempo para tu zona (recibe la ciudad o una ubicación aproximada, sin tus datos de cuenta).',
+        'Unsplash (Unsplash Inc.): sirve las fotos de inspiración de Tendencias si eliges verlas. Recibe tu dirección IP y datos técnicos de la visualización, que trata como responsable independiente según su propia política de privacidad (unsplash.com/privacy).',
         'UI Avatars: genera una imagen con tus iniciales si no tienes foto de perfil (recibe tu nombre visible).',
         'Google ML Kit: recorta las prendas y detecta la pose en tu propio dispositivo; las fotos no se envían a Google para esto.',
         'Las demás personas usuarias ven lo que publicas según tu configuración de privacidad.',
@@ -71,7 +73,7 @@ export function policySections(controller: string, email: string): PolicySection
     },
     {
       title: '5. Transferencias fuera del Espacio Económico Europeo',
-      paragraphs: ['Algunos proveedores (Google, Cloudflare) pueden tratar datos fuera del EEE. Lo hacen con las garantías que exige el RGPD, como las cláusulas contractuales tipo de la Comisión Europea.'],
+      paragraphs: ['Algunos proveedores (Google, Cloudflare y, si eliges ver sus fotos, Unsplash) pueden tratar datos fuera del EEE. Lo hacen con las garantías que exige el RGPD, como las cláusulas contractuales tipo de la Comisión Europea.'],
     },
     {
       title: '6. Cuánto tiempo los conservamos',
@@ -107,6 +109,7 @@ export function policySections(controller: string, email: string): PolicySection
       paragraphs: [
         'Solo usamos lo técnicamente necesario para que la web y la app funcionen: una cookie de sesión segura para mantenerte conectada y el almacenamiento del navegador o del móvil para recordar tus preferencias (tema, idioma) y guardar copias temporales que aceleran la carga.',
         'No usamos cookies de analítica, de publicidad ni de seguimiento, propias ni de terceros. Por eso no te pedimos aceptar cookies: las estrictamente necesarias están exentas de consentimiento (artículo 22.2 de la LSSI). Si las borras desde tu navegador, tendrás que volver a iniciar sesión.',
+        'Las fotos de inspiración de Unsplash no se cargan hasta que lo eliges con el botón "Ver fotos de Unsplash"; tu elección se guarda en tu dispositivo y puedes retirarla con "Dejar de verlas".',
       ],
     },
     {
@@ -117,7 +120,7 @@ export function policySections(controller: string, email: string): PolicySection
 }
 
 // ============= CONDICIONES DE USO Y NORMAS DE LA COMUNIDAD =============
-export const TERMS_UPDATED = '22 de octubre de 2026';
+export const TERMS_UPDATED = '23 de octubre de 2026';
 
 export function termsSections(owner: string, email: string): PolicySection[] {
   return [
@@ -194,7 +197,7 @@ export function termsSections(owner: string, email: string): PolicySection[] {
       title: '9. Funciones orientativas y enlaces a otras webs',
       paragraphs: [
         'El probador virtual superpone la prenda sobre tu foto para darte una idea; no es una representación exacta de la talla ni del ajuste. Las sugerencias de looks según el tiempo o el ánimo son orientativas.',
-        'En Tendencias mostramos titulares de revistas y webs de moda con un enlace a su artículo. Esos titulares, artículos y marcas pertenecen a cada publicación, que no tiene relación con Estilo Vivo; al pulsar se abre su web, con sus propias condiciones y política de privacidad. El tablero de la semana y "Lo que se lleva" se hacen solo con los looks públicos de personas adultas de la comunidad (quien no quiera aparecer puede desactivarlo en sus ajustes), con colores y palabras propias; no usan fotos de revistas ni marcas.',
+        'En Tendencias mostramos titulares de revistas y webs de moda con un enlace a su artículo. Esos titulares, artículos y marcas pertenecen a cada publicación, que no tiene relación con Estilo Vivo; al pulsar se abre su web, con sus propias condiciones y política de privacidad. El tablero de la semana y "Lo que se lleva" se hacen solo con los looks públicos de personas adultas de la comunidad (quien no quiera aparecer puede desactivarlo en sus ajustes), con colores y palabras propias; no usan fotos de revistas ni marcas. Si eliges verlas, también mostramos fotos libres de Unsplash buscadas con esas palabras: cada una pertenece a su fotógrafo, se ofrece bajo la licencia de Unsplash y aparece con su crédito y enlace. No implican que el fotógrafo, las personas que salen ni las marcas que se vean recomienden Estilo Vivo.',
         'Las ideas con una prenda de tu armario son sugerencias orientativas. Las prendas dibujadas son solo ilustraciones de lo que podría combinar; no son productos a la venta ni recomendaciones de ninguna marca.',
       ],
     },
