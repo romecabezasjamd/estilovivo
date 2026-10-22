@@ -21,6 +21,7 @@ import { processImage } from './imageProcessor.js';
 import { rejectExplicitImages, warmUpNsfw, setBlockedUploadRecorder } from './nsfw.js';
 import { registerAdminRoutes, recordCrash, purgeOldAdminData } from './admin.js';
 import { trustedProxies, realClientIp } from './trustedProxies.js';
+import { SELLER_DECLARATION_REQUIRED, salePrice, PRICE_ERROR } from './marketplace.js';
 import { reviewChallengePhoto } from './challengeReview.js';
 import { MARKETPLACE_ERRORS, accountFlags, birthDateError, chatAllowed, isAdultDate, isMinorDate, marketplaceStatus } from './minors.js';
 import { renderPolicyPage, renderTermsPage } from './legal.js';
@@ -1488,6 +1489,7 @@ app.get('/api/auth/me', authenticateToken, async (req: any, res: Response) => {
       lookCount: _count.looks,
       ...(await accountFlags(prisma, user)),
       isAdmin: await isAdminUser(user.id),
+      sellerDeclared: !!user.sellerDeclaredAt,
     });
   } catch (error) {
     logger.error('Error occurred', { error });
@@ -1660,21 +1662,37 @@ app.get('/api/products/shop', authenticateToken, async (req: any, res: Response)
   }
 });
 
+/** Motivo por el que no se puede poner a la venta (o null si se puede). Durante la beta no hay límite de anuncios. */
+const saleBlocked = async (userId: string, price: unknown): Promise<{ status: number; body: Record<string, string> } | null> => {
+  const market = await marketplaceStatus(prisma, userId);
+  if (!market.allowed) return { status: 403, body: { error: MARKETPLACE_ERRORS[market.reason!], code: market.reason! } };
+  const u = await prisma.user.findUnique({ where: { id: userId }, select: { sellerDeclaredAt: true } });
+  if (!u?.sellerDeclaredAt) return { status: 403, body: { ...SELLER_DECLARATION_REQUIRED } };
+  if (salePrice(price) === null) return { status: 400, body: { error: PRICE_ERROR, code: 'INVALID_PRICE' } };
+  return null;
+};
+
+// Declaración única de quien vende: "vendo como particular, no como profesional" (ver marketplace.ts)
+app.post('/api/marketplace/seller-declaration', authenticateToken, async (req: any, res: Response) => {
+  try {
+    if (req.body?.particular !== true) return res.status(400).json({ error: 'Debes confirmar que vendes como particular' });
+    const u = await prisma.user.update({ where: { id: req.user.userId }, data: { sellerDeclaredAt: new Date() }, select: { sellerDeclaredAt: true } });
+    res.json({ ok: true, sellerDeclaredAt: u.sellerDeclaredAt });
+  } catch (error) {
+    logger.error('Error al guardar la declaración de vendedor', { error });
+    res.status(500).json({ error: 'No se pudo guardar' });
+  }
+});
+
 app.post('/api/products', authenticateToken, upload.array('images', 5), rejectExplicitImages, validate(productSchema), async (req: any, res: Response) => {
   try {
     const { name, category, color, season, brand, size, condition, description, price, forSale, isWashing } = req.body;
     const files = req.files as Express.Multer.File[] | undefined;
 
-    // Enforce sale limit for non-premium users (max 5 items for sale)
+    // Poner a la venta: permiso (menores), declaración de particular y precio válido (ver marketplace.ts)
     if (forSale === true || forSale === 'true') {
-      const market = await marketplaceStatus(prisma, req.user.userId);
-      if (!market.allowed) { cleanupUploadedFiles(req); return res.status(403).json({ error: MARKETPLACE_ERRORS[market.reason!], code: market.reason }); }
-      const saleCount = await prisma.product.count({
-        where: { userId: req.user.userId, forSale: true }
-      });
-      if (saleCount >= 5) {
-        return res.status(403).json({ error: 'Los usuarios gratuitos pueden tener un máximo de 5 prendas a la venta. Actualiza a Premium para ventas ilimitadas.' });
-      }
+      const blocked = await saleBlocked(req.user.userId, price);
+      if (blocked) { cleanupUploadedFiles(req); return res.status(blocked.status).json(blocked.body); }
     }
 
     const processedImages = await processUploadedImages(files, true);
@@ -1730,16 +1748,11 @@ app.put('/api/products/:id', authenticateToken, upload.array('images', 5), rejec
     const existing = await prisma.product.findUnique({ where: { id } });
     if (!existing || existing.userId !== req.user.userId) return res.status(403).json({ error: 'Not authorized' });
 
-    // Enforce sale limit for non-premium users when toggling forSale to true
-    if ((forSale === true || forSale === 'true') && !existing.forSale) {
-      const market = await marketplaceStatus(prisma, req.user.userId);
-      if (!market.allowed) { cleanupUploadedFiles(req); return res.status(403).json({ error: MARKETPLACE_ERRORS[market.reason!], code: market.reason }); }
-      const saleCount = await prisma.product.count({
-        where: { userId: req.user.userId, forSale: true }
-      });
-      if (saleCount >= 5) {
-        return res.status(403).json({ error: 'Los usuarios gratuitos pueden tener un máximo de 5 prendas a la venta. Actualiza a Premium para ventas ilimitadas.' });
-      }
+    // Poner a la venta (o cambiar el precio de algo en venta): mismas reglas que al crear
+    const willBeForSale = forSale === undefined ? existing.forSale : (forSale === true || forSale === 'true');
+    if (willBeForSale && (!existing.forSale || price !== undefined)) {
+      const blocked = await saleBlocked(req.user.userId, price !== undefined ? price : existing.price);
+      if (blocked) { cleanupUploadedFiles(req); return res.status(blocked.status).json(blocked.body); }
     }
 
     const updateData: any = {};
@@ -2569,8 +2582,8 @@ app.put('/api/social/follow-requests/:id/reject', authenticateToken, async (req:
 
 // ============= MODERACIÓN: DENUNCIAS Y BLOQUEOS =============
 
-const REPORT_TARGETS = ['USER', 'LOOK', 'COMMENT', 'STORY', 'MESSAGE'] as const;
-const REPORT_REASONS = ['SPAM', 'HARASSMENT', 'INAPPROPRIATE', 'IMPERSONATION', 'OTHER'] as const;
+const REPORT_TARGETS = ['USER', 'LOOK', 'COMMENT', 'STORY', 'MESSAGE', 'PRODUCT'] as const;
+const REPORT_REASONS = ['SPAM', 'HARASSMENT', 'INAPPROPRIATE', 'IMPERSONATION', 'ILLEGAL_ITEM', 'SCAM', 'OTHER'] as const;
 const reportSchema = z.object({
   targetType: z.enum(REPORT_TARGETS),
   targetId: z.string().trim().min(1).max(100),
@@ -2603,6 +2616,10 @@ app.post('/api/reports', authenticateToken, reportLimiter, validate(reportSchema
     } else if (targetType === 'STORY') {
       const s = await prisma.story.findUnique({ where: { id: targetId }, select: { userId: true, expiresAt: true } });
       if (s && (s.userId === reporterId || !(await isBlockedBetween(reporterId, s.userId)))) ownerId = s.userId;
+    } else if (targetType === 'PRODUCT') {
+      // Solo anuncios a la venta, y no de alguien con quien hay un bloqueo
+      const p = await prisma.product.findUnique({ where: { id: targetId }, select: { userId: true, forSale: true } });
+      if (p?.forSale && !(await isBlockedBetween(reporterId, p.userId))) ownerId = p.userId;
     } else if (targetType === 'MESSAGE') {
       const m = await prisma.message.findUnique({ where: { id: targetId }, select: { senderId: true, conversationId: true } });
       if (m) {
@@ -2654,6 +2671,10 @@ const describeReportTarget = async (targetType: string, targetId: string) => {
   if (targetType === 'MESSAGE') {
     const m = await prisma.message.findUnique({ where: { id: targetId }, select: { senderId: true, content: true, imageUrl: true } });
     return m ? { ownerId: m.senderId, text: m.content, image: m.imageUrl } : null;
+  }
+  if (targetType === 'PRODUCT') {
+    const p = await prisma.product.findUnique({ where: { id: targetId }, select: { userId: true, name: true, description: true, price: true, forSale: true, images: { take: 1, select: { url: true } } } });
+    return p && p.forSale ? { ownerId: p.userId, text: [p.name, p.price != null ? `${p.price} €` : null, p.description].filter(Boolean).join('\n'), image: p.images[0]?.url } : null;
   }
   return null;
 };
@@ -2720,6 +2741,9 @@ const removeReportedContent = async (targetType: string, targetId: string) => {
     if (story.imageUrl?.startsWith('/api/uploads/stories/')) safeUnlink(path.join(STORIES_DIR, path.basename(story.imageUrl)));
     return true;
   }
+  if (targetType === 'PRODUCT') {
+    return (await prisma.product.updateMany({ where: { id: targetId, forSale: true }, data: { forSale: false } })).count > 0;
+  }
   if (targetType === 'MESSAGE') {
     const msg = await prisma.message.findUnique({ where: { id: targetId } });
     if (!msg) return false;
@@ -2746,12 +2770,11 @@ const unsuspendUser = async (userId: string) => {
   suspendedCache.delete(userId);
 };
 
-/** Retira una prenda o anuncio (y sus fotos). Devuelve su dueño y nombre, o null si no existía. */
+/** Retira un anuncio de la tienda: deja de estar a la venta, pero la prenda sigue en el armario de su dueña. */
 const removeProduct = async (productId: string) => {
-  const p = await prisma.product.findUnique({ where: { id: productId }, include: { images: true } });
-  if (!p) return null;
-  await prisma.product.delete({ where: { id: productId } });
-  for (const img of p.images) unlinkImageVariants(img.filename);
+  const p = await prisma.product.findUnique({ where: { id: productId }, select: { userId: true, name: true, forSale: true } });
+  if (!p || !p.forSale) return null;
+  await prisma.product.update({ where: { id: productId }, data: { forSale: false } });
   return { userId: p.userId, name: p.name };
 };
 

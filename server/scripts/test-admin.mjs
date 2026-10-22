@@ -102,8 +102,8 @@ try {
   assert.equal(prods.body.length, 1);
   assert.equal((await adm(`/api/admin/products/${prod.id}/remove`, { method: 'POST', body: '{}' })).status, 400);
   assert.equal((await adm(`/api/admin/products/${prod.id}/remove`, { method: 'POST', body: JSON.stringify({ reason: 'Imitación de marca' }) })).status, 200);
-  assert.equal(await prisma.product.findUnique({ where: { id: prod.id } }), null);
-  ok('tienda: retirar un anuncio con motivo');
+  assert.equal((await prisma.product.findUnique({ where: { id: prod.id } })).forSale, false, "retirado de la venta, sigue en el armario");
+  ok('tienda: retirar un anuncio con motivo (sale de la venta, la prenda sigue en el armario)');
 
   // Retos
   const before = await prisma.weeklyChallenge.findFirst({ where: { active: true } });

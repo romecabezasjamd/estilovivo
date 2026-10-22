@@ -91,6 +91,8 @@ export interface UserState {
   isMinor?: boolean;
   /** Permiso de administración (lo concede solo el servidor). */
   isAdmin?: boolean;
+  /** Ya declaró que vende como particular (necesario para poner prendas a la venta). */
+  sellerDeclared?: boolean;
   /** Cuenta antigua sin fecha de nacimiento (se pide una vez). */
   needsBirthDate?: boolean;
   /** Puede comprar y vender (adulto, o menor autorizado por su adulto responsable). */

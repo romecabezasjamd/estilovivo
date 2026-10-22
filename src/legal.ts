@@ -156,13 +156,16 @@ export function termsSections(owner: string, email: string): PolicySection[] {
       ],
     },
     {
-      title: '5. Compraventa entre personas',
+      title: '5. Compraventa entre particulares',
       bullets: [
-        'Estilo Vivo solo pone en contacto a quien vende y a quien compra. No interviene en la venta, no cobra comisiones y no gestiona pagos ni envíos.',
-        'El acuerdo es entre vosotros: precio, estado de la prenda, entrega y, en su caso, devoluciones o reembolsos. Estilo Vivo no realiza reembolsos de estas ventas porque no recibe el dinero.',
+        'La tienda es solo para que particulares vendan su propia ropa y accesorios. No está permitido vender como profesional o empresa: antes de tu primera venta confirmas que vendes como particular, y los anuncios lo indican.',
+        'Estilo Vivo solo pone en contacto a quien vende y a quien compra. No es parte de la venta, no cobra comisiones y no gestiona pagos ni envíos.',
+        'Cada persona es responsable de lo que anuncia y de lo que acuerda: precio, estado real de la prenda, entrega y, en su caso, devoluciones. Estilo Vivo no realiza reembolsos de estas ventas porque no recibe el dinero.',
+        'Al comprar a un particular no se aplican el derecho de desistimiento ni la garantía legal que la ley de consumidores da en las compras a empresas.',
+        'Los anuncios aparecen del más reciente al más antiguo y puedes filtrarlos por categoría o buscarlos. No hay anuncios patrocinados ni posiciones de pago.',
+        'Cada anuncio necesita un precio entre 0 y 10.000 €. Las personas de 14 a 17 años solo pueden vender o comprar con la autorización de su adulto responsable.',
         'Recomendaciones: quedad en un lugar público, revisad la prenda antes de pagar y no adelantéis dinero a personas desconocidas.',
-        'Si vendes como profesional, debes cumplir la normativa de consumo que te corresponda.',
-        'Puedes denunciar un anuncio o una persona desde la app; lo revisaremos.',
+        'Puedes denunciar un anuncio desde su ficha. Lo revisaremos y, si incumple estas normas o la ley, lo retiraremos de la venta y avisaremos a quien lo publicó.',
       ],
     },
     {

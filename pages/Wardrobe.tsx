@@ -12,6 +12,8 @@ import { dataUrlToFile, pickPhoto, CameraSource } from '../src/utils/cameraPhoto
 import ProductDetailModal, { ProductDisplayItem } from '../components/ProductDetailModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import Headline from '../components/Headline';
+import { SellerDeclarationDialog } from '../components/MarketplaceDialogs';
+import { useGlobalState } from '../src/context/GlobalStateContext';
 
 interface WardrobeProps {
   garments: Garment[];
@@ -434,8 +436,8 @@ const Wardrobe: React.FC<WardrobeProps> = ({
 
   const parseSalePrice = (): number | null => {
     const value = parseFloat(String(salePrice).replace(',', '.'));
-    if (isNaN(value) || value <= 0 || value > 100000) {
-      setSaleUploadError('Introduce un precio válido mayor que 0 €.');
+    if (isNaN(value) || value <= 0 || value > 10000) {
+      setSaleUploadError('Pon un precio entre 0 y 10.000 €.');
       return null;
     }
     return Math.round(value * 100) / 100;
@@ -466,6 +468,14 @@ const Wardrobe: React.FC<WardrobeProps> = ({
     onAddGarment(garment, fileToUpload);
     resetSellModal();
     setActiveView('sales');
+  };
+
+  // La tienda es solo entre particulares: la primera vez se confirma (el servidor también lo exige)
+  const { user: me, setUser } = useGlobalState();
+  const [showSellerDeclaration, setShowSellerDeclaration] = useState(false);
+  const requestSale = () => {
+    if (!me?.sellerDeclared) { setShowSellerDeclaration(true); return; }
+    confirmSale();
   };
 
   const confirmSale = () => {
@@ -557,6 +567,12 @@ const Wardrobe: React.FC<WardrobeProps> = ({
 
   return (
     <div className="h-full flex flex-col relative bg-gray-50">
+      {showSellerDeclaration && (
+        <SellerDeclarationDialog
+          onCancel={() => setShowSellerDeclaration(false)}
+          onDone={() => { setShowSellerDeclaration(false); setUser((u) => (u ? { ...u, sellerDeclared: true } : u)); confirmSale(); }}
+        />
+      )}
       {/* Top Section */}
       <div className="bg-[var(--bg-card)] pb-3 pt-6 sticky top-0 z-20 shadow-sm rounded-b-3xl mb-4">
         <div className="px-6 mb-3">
@@ -1310,7 +1326,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                 Cancelar
               </button>
               <button
-                onClick={confirmSale}
+                onClick={requestSale}
                 className="flex-[2] bg-emerald-500 text-white py-3 rounded-xl text-sm font-bold shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-colors"
                 disabled={!salePrice || (!selectedForSale && (!saleImage || !saleName.trim()))}
               >

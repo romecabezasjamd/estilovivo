@@ -1304,6 +1304,8 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
 
       {activeTab === 'shop' && (
         <div className="px-4">
+          {/* Cómo se ordenan las ofertas (LGDCU art. 97 bis) */}
+          <p className="text-[11px] text-[var(--text-muted)] mt-3">Anuncios de particulares, del más reciente al más antiguo. No hay anuncios patrocinados.</p>
           <div className="flex items-center gap-2 mt-4 animate-fade-in">
             <form onSubmit={handleSearchSubmit} className="flex-1 flex space-x-2">
               <div className="flex-1 bg-[var(--border-light)] rounded-xl px-3 py-2 flex items-center text-[var(--text-muted)]">

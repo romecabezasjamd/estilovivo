@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Share2, Heart, CreditCard, MessageCircle, Truck, Store, Copy, Send, Eye } from 'lucide-react';
+import { X, Share2, Heart, MessageCircle, Truck, Store, Copy, Send, Eye, Flag } from 'lucide-react';
+import { ReportDialog } from './MarketplaceDialogs';
 import { useLanguage } from '../src/context/LanguageContext';
 import { api } from '../services/api';
 
@@ -35,6 +36,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
   if (!product) return null;
   const { t } = useLanguage();
   const [showBuyOptions, setShowBuyOptions] = useState(false);
+  const [showReport, setShowReport] = useState(false);
   const [showShareOptions, setShowShareOptions] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -94,6 +96,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
 
   return (
     <>
+      {showReport && <ReportDialog targetType="PRODUCT" targetId={String(product.id)} what="anuncio" onClose={() => setShowReport(false)} />}
       {/* Main Product Modal */}
       <div
         className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none p-4"
@@ -192,6 +195,18 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                 </div>
                 <p className="text-xs text-[var(--text-secondary)]">{t('verifiedSeller')} • {t('fastDelivery')}</p>
               </div>
+
+              {/* Compra entre particulares: aviso obligatorio de derechos (LGDCU art. 97 bis) y denuncia (DSA art. 16) */}
+              {onMessage && (
+                <div className="rounded-2xl border border-[var(--border-light)] bg-[var(--bg-base)] p-4 space-y-2">
+                  <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                    <b className="text-[var(--text-primary)]">Compra entre particulares.</b> Al comprar a un particular no se aplican el derecho de desistimiento ni la garantía legal de los consumidores. Estilo Vivo no participa en la venta ni gestiona pagos: quedad en un lugar público y revisa la prenda antes de pagar.
+                  </p>
+                  <button onClick={() => setShowReport(true)} className="inline-flex items-center gap-1 text-xs font-bold text-red-600">
+                    <Flag size={14} /> Denunciar anuncio
+                  </button>
+                </div>
+              )}
 
               {/* Description */}
               <div className="space-y-2">
@@ -301,7 +316,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
                   onClick={() => setShowBuyOptions(true)}
                   className="w-full bg-gradient-to-r from-primary to-primary-dark text-white font-bold py-3 rounded-2xl shadow-lg shadow-primary/30 hover:shadow-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2"
                 >
-                  <CreditCard size={20} />
+                  <Store size={20} />
                   <span>{t('buyNow')}</span>
                 </button>
               </>

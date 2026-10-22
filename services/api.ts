@@ -1416,6 +1416,18 @@ export const adminFetch = async <T = any>(path: string, init: { method?: string;
     return normalizeAssetsDeep(await res.json()) as T;
 };
 
+// ============= COMPRAVENTA Y DENUNCIAS =============
+export const marketplaceApi = {
+    /** Declaración única: "vendo como particular, no como profesional". */
+    declareSeller: () => adminFetch<{ ok: boolean }>('/marketplace/seller-declaration', { method: 'POST', body: { particular: true } }),
+};
+
+export type ReportTargetType = 'USER' | 'LOOK' | 'COMMENT' | 'STORY' | 'MESSAGE' | 'PRODUCT';
+export const reportApi = {
+    send: (targetType: ReportTargetType, targetId: string, reason: string, details?: string) =>
+        adminFetch<{ ok: boolean }>('/reports', { method: 'POST', body: { targetType, targetId, reason, ...(details ? { details } : {}) } }),
+};
+
 // ============= DERECHOS DE PRIVACIDAD (RGPD) =============
 export const privacyApi = {
     send: (type: string, message: string) => adminFetch<{ id: string; dueAt: string; message: string }>('/privacy-requests', { method: 'POST', body: { type, message } }),

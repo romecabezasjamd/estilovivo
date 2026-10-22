@@ -8,6 +8,8 @@ export const REASON_LABEL: Record<string, string> = {
   HARASSMENT: 'Acoso o insultos',
   INAPPROPRIATE: 'Contenido inapropiado',
   IMPERSONATION: 'Suplantación de identidad',
+  ILLEGAL_ITEM: 'Falsificación o producto prohibido',
+  SCAM: 'Posible estafa',
   OTHER: 'Otro motivo',
 };
 
@@ -17,6 +19,7 @@ export const TYPE_LABEL: Record<string, string> = {
   COMMENT: 'Comentario',
   STORY: 'Historia',
   MESSAGE: 'Mensaje de chat',
+  PRODUCT: 'Anuncio de la tienda',
 };
 
 export const STATUS_LABEL: Record<string, string> = {
