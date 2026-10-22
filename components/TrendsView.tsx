@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowUpRight, Heart, Trophy, Users, Newspaper } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, Heart, Trophy, Users, Newspaper } from 'lucide-react';
 import { api } from '../services/api';
 import type { CommunityTrends, MagazineHeadline } from '../types';
 import Headline from './Headline';
@@ -31,6 +31,26 @@ const BRANDS: Record<string, Brand> = {
 };
 const brandOf = (source: string): Brand => BRANDS[source] || { bg: 'var(--bg-base)', fg: 'var(--text-primary)', label: source, font: { ...SANS, fontSize: 18 } };
 
+/**
+ * Adelanto plegable: se ve solo el principio (con un degradado) y un botón para desplegar el resto. Así, de un
+ * vistazo, se ven las tres secciones de Tendencias.
+ */
+function Peek({ open, onToggle, height, more, less = 'Ver menos', children }: {
+  open: boolean; onToggle: () => void; height: number; more: string; less?: string; children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="relative" style={open ? undefined : { maxHeight: height, overflow: 'hidden' }} aria-expanded={open}>
+        {children}
+        {!open && <div className="absolute inset-x-0 bottom-0 h-20 pointer-events-none" style={{ background: 'linear-gradient(to bottom, transparent, var(--bg-base))' }} aria-hidden="true" />}
+      </div>
+      <button onClick={onToggle} className="w-full py-3 rounded-full border border-[var(--border-light)] bg-[var(--bg-card)] text-sm font-bold text-[var(--text-primary)] flex items-center justify-center gap-1.5">
+        {open ? less : more} <ChevronDown size={16} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+    </div>
+  );
+}
+
 function when(iso: string | null): string {
   if (!iso) return '';
   const d = new Date(iso);
@@ -48,6 +68,8 @@ const TrendsView: React.FC<Props> = ({ currentUserId, onOpenProfile, onParticipa
   const [error, setError] = useState(false);
   const [source, setSource] = useState<string>('Todas');
   const [showAll, setShowAll] = useState(false);
+  const [boardOpen, setBoardOpen] = useState(false);
+  const [communityOpen, setCommunityOpen] = useState(false);
 
   const load = useCallback(() => {
     setError(false);
@@ -58,13 +80,22 @@ const TrendsView: React.FC<Props> = ({ currentUserId, onOpenProfile, onParticipa
 
   const sources = useMemo(() => ['Todas', ...Array.from(new Set((headlines || []).map((h) => h.source)))], [headlines]);
   const filtered = (headlines || []).filter((h) => source === 'Todas' || h.source === source);
-  // En "Todas" se ven 3 y el resto con "Ver todas las revistas" (para que el tablero quede a la vista)
-  const visible = source === 'Todas' && !showAll ? filtered.slice(0, 3) : filtered;
+  // Plegado se ve 1 titular; "Ver todas las revistas" despliega el resto
+  const visible = !showAll ? filtered.slice(0, 1) : filtered;
   const period = community?.period === 'month' ? 'este mes' : 'esta semana';
 
   return (
-    <div className="px-4 pb-6 space-y-5 animate-fade-in">
-      <div className="lg:grid lg:grid-cols-2 lg:gap-6 lg:items-start space-y-5 lg:space-y-0">
+    <div className="px-4 pb-6 space-y-5 animate-fade-in max-w-3xl mx-auto">
+      {/* Orden: 1) Tablero de la semana, 2) Revistas, 3) Lo que se lleva. Una sola columna también en el ordenador. */}
+      {community && (
+        <Peek open={boardOpen} onToggle={() => setBoardOpen(!boardOpen)} height={330} more="Ver el tablero completo">
+          <div className="space-y-4">
+            <TrendBoard data={community} currentUserId={currentUserId} onOpenProfile={onOpenProfile} />
+            {boardOpen && <UnsplashInspiration />}
+          </div>
+        </Peek>
+      )}
+
       <div className="space-y-5">
       {/* ── En las revistas ── */}
       <div className="px-1">
@@ -119,23 +150,17 @@ const TrendsView: React.FC<Props> = ({ currentUserId, onOpenProfile, onParticipa
           );
         })}
       </div>
-      {source === 'Todas' && filtered.length > 3 && (
+      {filtered.length > 1 && (
         <button onClick={() => setShowAll(!showAll)} className="w-full py-3 rounded-full border border-[var(--border-light)] bg-[var(--bg-card)] text-sm font-bold text-[var(--text-primary)]">
           {showAll ? 'Ver menos' : `Ver todas las revistas (${filtered.length})`}
         </button>
       )}
-      {headlines && headlines.length > 0 && (
+      {showAll && headlines && headlines.length > 0 && (
         <p className="text-[11px] text-[var(--text-muted)] px-1">
           Fuentes: {Array.from(new Set(headlines.map((h) => h.sourceName))).join(', ')}. Los titulares y artículos pertenecen a sus publicaciones; Estilo Vivo no tiene relación con ellas.
         </p>
       )}
 
-      </div>
-      {/* ── Tablero de la semana (a la derecha en pantallas grandes) ── */}
-      <div className="space-y-4">
-        {community && <TrendBoard data={community} currentUserId={currentUserId} onOpenProfile={onOpenProfile} />}
-        <UnsplashInspiration />
-      </div>
       </div>
 
       {/* ── Lo que se lleva en Estilo Vivo ── */}
@@ -157,7 +182,10 @@ const TrendsView: React.FC<Props> = ({ currentUserId, onOpenProfile, onParticipa
       )}
       {!community && !error && <div className="h-40 rounded-3xl bg-[var(--bg-card)] animate-pulse" />}
 
-      {community && community.colors.length > 0 && (
+      {community && (community.colors.length > 0 || community.categories.length > 0 || community.topLooks.length > 0 || community.challenge) && (
+      <Peek open={communityOpen} onToggle={() => setCommunityOpen(!communityOpen)} height={230} more="Ver todo lo que se lleva">
+      <div className="space-y-5">
+      {community.colors.length > 0 && (
         <section className={`${card} p-5`} aria-labelledby="t-colores">
           <h3 id="t-colores" className="text-xs font-bold uppercase tracking-widest text-[var(--text-muted)] mb-4">Colores {period}</h3>
           <div className="flex gap-4 overflow-x-auto no-scrollbar pb-1">
@@ -233,6 +261,9 @@ const TrendsView: React.FC<Props> = ({ currentUserId, onOpenProfile, onParticipa
             <button onClick={onParticipate} className="px-4 py-2 rounded-full bg-white text-[#0B0B0F] text-sm font-bold">Participar</button>
           </div>
         </section>
+      )}
+      </div>
+      </Peek>
       )}
     </div>
   );
