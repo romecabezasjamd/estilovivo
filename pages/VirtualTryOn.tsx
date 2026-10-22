@@ -7,6 +7,7 @@ import { pickPhoto, type CameraSource } from '../src/utils/cameraPhoto'
 import { successImpact, errorImpact } from '../src/utils/haptic'
 import { requestReview } from '../src/utils/review'
 import PoseGuide from '../components/PoseGuide'
+import OutfitIdeasModal from '../components/OutfitIdeasModal'
 import { api } from '../services/api'
 import { saveBodyPhoto, loadBodyPhoto, clearBodyPhoto, loadBodyPhotos, removeBodyPhoto } from '../src/utils/syncStore'
 
@@ -221,6 +222,8 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
   const [filter, setFilter] = useState('all')
   const [occasion, setOccasion] = useState('all')
   const [selIds, setSelIds] = useState<Set<string>>(new Set())
+  // "Tengo esto, dame ideas": combinaciones con el resto del armario para la prenda elegida
+  const [ideasFor, setIdeasFor] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [bodyPose, setBodyPose] = useState<BodyPose | null>(null)
   const [detecting, setDetecting] = useState(false)
@@ -1072,7 +1075,12 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
           ))}
         </div>
       </div>
-      <div className="p-4 border-t" style={{ borderColor: 'var(--border-light)' }}>
+      <div className="p-4 border-t space-y-2" style={{ borderColor: 'var(--border-light)' }}>
+        <button onClick={() => { const first = [...selIds][0]; if (first) setIdeasFor(first) }} disabled={selIds.size !== 1 || busy}
+          className="w-full py-3 rounded-xl text-sm font-semibold disabled:opacity-40 border"
+          style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}>
+          {selIds.size === 1 ? 'Tengo esto, dame ideas' : 'Elige 1 prenda para pedir ideas'}
+        </button>
         <button onClick={process} disabled={selIds.size === 0 || busy}
           className="w-full py-3 rounded-xl text-sm font-semibold text-white disabled:opacity-40 flex items-center justify-center gap-2"
           style={{ backgroundColor: 'var(--color-primary)' }}>
@@ -1622,6 +1630,13 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
         <div className="fixed bottom-20 left-1/2 -translate-x-1/2 px-4 py-2 rounded-xl text-xs font-medium text-white z-[210] shadow-lg" style={{ backgroundColor: 'var(--color-primary)' }}>
           {toast}
         </div>
+      )}
+      {ideasFor && (
+        <OutfitIdeasModal
+          garmentId={ideasFor}
+          onClose={() => setIdeasFor(null)}
+          onOpenProfile={(id) => { setIdeasFor(null); onClose(); window.dispatchEvent(new CustomEvent('navigateTo', { detail: { tab: 'userProfile', extra: id } })) }}
+        />
       )}
       {previewLook && (
         <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/60" onClick={() => { setPreviewLook(null); setLongPressId(null) }}>

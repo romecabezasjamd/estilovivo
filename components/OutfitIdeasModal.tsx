@@ -40,7 +40,7 @@ const OutfitIdeasModal: React.FC<Props> = ({ garmentId, onClose, onOpenProfile }
   }, [garmentId]);
 
   return createPortal(
-    <div className="fixed inset-0 z-[85] bg-black/55 flex items-end sm:items-center justify-center animate-fade-in" onClick={onClose}>
+    <div className="fixed inset-0 z-[220] bg-black/55 flex items-end sm:items-center justify-center animate-fade-in" onClick={onClose}>
       <div className="bg-[var(--bg-base)] w-full sm:max-w-2xl max-h-[92vh] rounded-t-3xl sm:rounded-3xl overflow-y-auto no-scrollbar" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Ideas con esta prenda">
         <div className="sticky top-0 z-10 bg-[var(--bg-base)] px-5 pt-5 pb-3 flex items-start justify-between gap-3">
           <div>
