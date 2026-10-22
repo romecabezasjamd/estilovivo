@@ -51,7 +51,8 @@ import {
   tripSchema,
   refreshSchema
 } from './validators.js';
-import { fashionTrendsService } from './fashionTrends.js';
+import { magazineHeadlines } from './fashionTrends.js';
+import { communityTrends, type CommunityTrends } from './communityTrends.js';
 import { awardPoints } from './gamification.js';
 import {
   awardXp, removeXp, levelFromXp, xpProgress,
@@ -3482,13 +3483,30 @@ app.post('/api/gamification/login', authenticateToken, async (req: any, res: Res
 });
 
 // ============= TRENDS =============
-app.get('/api/trends', async (req: Request, res: Response) => {
+// Titulares de Vogue y GQ: solo titular, revista, fecha y enlace (ver fashionTrends.ts)
+app.get('/api/trends', async (_req: Request, res: Response) => {
   try {
-    const trends = await fashionTrendsService.getTrends();
-    res.json(trends);
+    res.json(await magazineHeadlines.get());
   } catch (error) {
-    logger.error('Error in trends route:', error);
-    res.status(500).json({ error: 'Error fetching trends' });
+    logger.error('Error al leer los titulares de moda', { error });
+    res.status(500).json({ error: 'No se pudieron cargar las tendencias' });
+  }
+});
+
+// Lo que se lleva en la comunidad (looks públicos), sin las cuentas bloqueadas con quien lo pide. Caché de 10 min.
+const communityCache = { at: 0, data: null as CommunityTrends | null };
+app.get('/api/trends/community', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const me: string = req.user.userId;
+    const blocks = await prisma.block.findMany({ where: { OR: [{ blockerId: me }, { blockedId: me }] }, select: { blockerId: true, blockedId: true } });
+    const hidden = blocks.map((b) => (b.blockerId === me ? b.blockedId : b.blockerId));
+    if (hidden.length === 0 && communityCache.data && Date.now() - communityCache.at < 10 * 60 * 1000) return res.json(communityCache.data);
+    const data = await communityTrends(prisma, hidden);
+    if (hidden.length === 0) { communityCache.data = data; communityCache.at = Date.now(); }
+    res.json(data);
+  } catch (error) {
+    logger.error('Error al calcular las tendencias de la comunidad', { error });
+    res.status(500).json({ error: 'No se pudieron cargar las tendencias' });
   }
 });
 

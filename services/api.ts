@@ -1288,6 +1288,18 @@ export const api = {
         return data;
     },
 
+    /** Lo que se lleva en la comunidad (looks públicos de la semana). */
+    getCommunityTrends: async (forceRefresh = false) => {
+        if (!forceRefresh) {
+            const cached = getCached('trends-community');
+            if (cached) return cached;
+        }
+        const res = await fetchWithRetry(`${API_BASE}/trends/community`, { headers: getHeaders(), credentials: 'include' });
+        const data = normalizeAssetsDeep(await handleResponse(res));
+        setCache('trends-community', data);
+        return data;
+    },
+
     invalidateCache: (prefix?: string) => invalidateCache(prefix),
 
     // ============= CHALLENGES =============

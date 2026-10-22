@@ -251,3 +251,24 @@ export interface GamificationProgress {
   newlyUnlocked: any[];
   challengeCount: number;
 }
+/** Tendencias: lo que se lleva en la comunidad (looks públicos) y titulares de revistas (solo titular y enlace). */
+export interface CommunityTrends {
+  period: 'week' | 'month';
+  looks: number;
+  people: number;
+  colors: { name: string; hex: string | null; share: number }[];
+  categories: { name: string; share: number }[];
+  moods: { name: string; share: number }[];
+  topLooks: { id: string; title: string; image: string | null; likes: number; userId: string; userName: string; userAvatar: string | null }[];
+  challenge: { id: string; title: string; description: string; endDate: string; participants: number } | null;
+}
+
+export interface MagazineHeadline {
+  id: string;
+  title: string;
+  source: 'Vogue' | 'GQ';
+  sourceName: string;
+  link: string;
+  publishedAt: string | null;
+  category: string;
+}

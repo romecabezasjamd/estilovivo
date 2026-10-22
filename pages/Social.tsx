@@ -14,6 +14,7 @@ import { xpProgress } from '../src/utils/xp';
 import { pickPhoto, dataUrlToFile, CameraSource } from '../src/utils/cameraPhoto';
 import Headline from '../components/Headline';
 import StoryEditor from '../components/StoryEditor';
+import TrendsView from '../components/TrendsView';
 
 // Mensaje sugerido al contactar con quien vende (no se envía solo; igual que en la app)
 const BUY_SUGGESTION = 'Hola, ¿sigue disponible esta prenda?';
@@ -291,9 +292,6 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
     }
   }, [searchQuery, shopFilter]);
 
-  // Fashion Trends
-  const [fashionTrends, setFashionTrends] = useState<any[]>([]);
-  const [loadingTrends, setLoadingTrends] = useState(false);
 
   const loadFavorites = useCallback(async () => {
     setIsLoading(true);
@@ -312,18 +310,6 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
       console.warn('Could not load favorites:', e);
     } finally {
       setIsLoading(false);
-    }
-  }, []);
-
-  const loadTrends = useCallback(async () => {
-    setLoadingTrends(true);
-    try {
-      const data = await api.getTrends();
-      setFashionTrends(data);
-    } catch (e) {
-      console.warn('Could not load trends:', e);
-    } finally {
-      setLoadingTrends(false);
     }
   }, []);
 
@@ -659,8 +645,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
     }
     else if (activeTab === 'favorites') loadFavorites();
     else if (activeTab === 'chat') loadConversations();
-    else if (activeTab === 'trends') loadTrends();
-  }, [activeTab, loadFeed, loadShop, loadFavorites, loadConversations, loadTrends]);
+  }, [activeTab, loadFeed, loadShop, loadFavorites, loadConversations]);
 
   // Socket connection for real-time chat — keep alive across all tabs
   const seenMessageIdsRef = useRef(new Set<string>());
@@ -1347,7 +1332,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
       )}
 
       {/* Content Area */}
-      {isLoading || (activeTab === 'chat' && loadingConversations) || (activeTab === 'trends' && loadingTrends) ? (
+      {isLoading || (activeTab === 'chat' && loadingConversations) ? (
         <div className="flex justify-center py-20">
           <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
         </div>
@@ -1850,88 +1835,11 @@ loading="lazy" decoding="async"                                 src={fav.product
 
           {/* TRENDS TAB */}
           {activeTab === 'trends' && (
-            <div className="px-4 pb-4 animate-fade-in space-y-6">
-              <div className="flex items-center gap-2 mb-2 px-2">
-                <Sparkles className="text-primary" size={20} />
-                <h2 className="text-lg font-bold text-[var(--text-primary)]">Tendencias Feb 2026</h2>
-              </div>
-
-              <div className="grid grid-cols-1 gap-6">
-                {fashionTrends.map((trend) => (
-                  <div
-                    key={trend.id}
-                    className="stagger-child bg-[var(--bg-card)] rounded-3xl overflow-hidden shadow-sm border border-[var(--border-light)] group transition-all hover:shadow-lg"
-                  >
-                    <div className="aspect-[16/9] relative overflow-hidden">
-                      <img
-loading="lazy" decoding="async"                         src={trend.image}
-                        alt={trend.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                      />
-                      <div className="absolute top-4 left-4">
-                        <span className="bg-[var(--bg-card)]/90 backdrop-blur-md text-primary text-[10px] font-bold px-3 py-1.5 rounded-full shadow-sm">
-                          {trend.category}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="p-5">
-                      <div className="flex justify-between items-start mb-2">
-                        <h3 className="font-bold text-[var(--text-primary)] text-lg">{trend.title}</h3>
-                        <span className="text-[10px] font-medium text-[var(--text-muted)] bg-[var(--bg-base)] px-2 py-1 rounded-md border border-[var(--border-light)]">
-                          {trend.source}
-                        </span>
-                      </div>
-                      <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-4">
-                        {trend.description}
-                      </p>
-                      <div className="flex justify-between items-center">
-                        <div className="flex flex-wrap gap-2">
-                          {trend.tags.map((tag: string) => (
-                            <span key={tag} className="text-[10px] font-semibold text-[var(--text-muted)]">
-                              #{tag.toLowerCase().replace(/\s+/g, '')}
-                            </span>
-                          ))}
-                        </div>
-                        <div className="flex gap-3">
-                          {trend.link && (
-                            <a
-                              href={trend.link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-[10px] font-bold text-[var(--text-muted)] flex items-center gap-1 hover:text-gray-600 transition-colors"
-                            >
-                              Leer más <ExternalLink size={12} />
-                            </a>
-                          )}
-                          <button
-                            onClick={() => {
-                              setSearchQuery(trend.title.split(' ').slice(0, 3).join(' '));
-                              setActiveTab('shop');
-                              window.scrollTo({ top: 0, behavior: 'smooth' });
-                            }}
-                            className="bg-primary/10 text-primary text-[10px] font-bold px-3 py-1.5 rounded-full hover:bg-primary hover:text-white transition-all flex items-center gap-1"
-                          >
-                            Comprar Estilo <ShoppingBag size={12} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Verified Badge */}
-              <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex items-center gap-3">
-                <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 flex-shrink-0">
-                  <CheckCircle2 size={24} />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-emerald-800">Información Verificada</p>
-                  <p className="text-xs text-emerald-600">Estas tendencias se basan en reportes reales de las Fashion Weeks de Febrero 2026.</p>
-                </div>
-              </div>
-            </div>
+            <TrendsView
+              currentUserId={currentUserId}
+              onOpenProfile={(id) => onNavigate('userProfile', undefined, id)}
+              onParticipate={() => { setActiveTab('feed'); handleParticipateChallenge(); }}
+            />
           )}
 
           {/* CHAT TAB */}
