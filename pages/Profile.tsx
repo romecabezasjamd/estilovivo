@@ -176,6 +176,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
   const [emailWashing, setEmailWashing] = useState(user.emailWashing ?? true);
   const [emailChallenges, setEmailChallenges] = useState(user.emailChallenges ?? true);
   const [isProfilePublic, setIsProfilePublic] = useState(user.isProfilePublic ?? true);
+  const [hideFromTrends, setHideFromTrends] = useState(user.hideFromTrends ?? false);
   const [locationName, setLocationName] = useState(user.locationName || '');
   const [cycleStartDate, setCycleStartDate] = useState('');
   const [cycleEndDate, setCycleEndDate] = useState('');
@@ -377,7 +378,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
   // Save settings
   const handleToggleSetting = async (setting: string, value: boolean) => {
     const prev: any = {
-      cycleTracking, emailNotifications, emailChat, emailFollows, emailWashing, emailChallenges, isProfilePublic,
+      cycleTracking, emailNotifications, emailChat, emailFollows, emailWashing, emailChallenges, isProfilePublic, hideFromTrends,
     };
 
     if (setting === 'cycleTracking') {
@@ -396,6 +397,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
     else if (setting === 'emailWashing') setEmailWashing(value);
     else if (setting === 'emailChallenges') setEmailChallenges(value);
     else if (setting === 'isProfilePublic') setIsProfilePublic(value);
+    else if (setting === 'hideFromTrends') setHideFromTrends(value);
 
     setSettingsError(null);
     try {
@@ -414,6 +416,7 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
       else if (setting === 'emailWashing') setEmailWashing(prevVal);
       else if (setting === 'emailChallenges') setEmailChallenges(prevVal);
       else if (setting === 'isProfilePublic') setIsProfilePublic(prevVal);
+      else if (setting === 'hideFromTrends') setHideFromTrends(prevVal);
       setSettingsError(e?.message || 'No se pudo guardar la preferencia');
       console.warn('Error saving setting:', e);
     }
@@ -1867,6 +1870,22 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                           className={`w-11 h-6 rounded-full transition-colors ${isProfilePublic ? 'bg-gradient-to-r from-primary to-accent' : 'bg-gray-200'}`}
                         >
                           <div className={`w-5 h-5 rounded-full bg-white shadow transform transition-transform ${isProfilePublic ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                        </button>
+                      </div>
+                      {/* Derecho de oposición: los looks públicos pueden salir en el tablero de Tendencias salvo que se desactive */}
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-xs font-medium text-gray-700">Mostrar mis looks en Tendencias</span>
+                          <p className="text-[10px] text-gray-400 mt-0.5">Tus looks públicos pueden salir en el tablero de la semana</p>
+                        </div>
+                        <button
+                          role="switch"
+                          aria-checked={!hideFromTrends}
+                          aria-label="Mostrar mis looks en Tendencias"
+                          onClick={() => handleToggleSetting('hideFromTrends', !hideFromTrends)}
+                          className={`w-11 h-6 rounded-full transition-colors ${!hideFromTrends ? 'bg-gradient-to-r from-primary to-accent' : 'bg-gray-200'}`}
+                        >
+                          <div className={`w-5 h-5 rounded-full bg-white shadow transform transition-transform ${!hideFromTrends ? 'translate-x-5' : 'translate-x-0.5'}`} />
                         </button>
                       </div>
                     </div>

@@ -117,6 +117,7 @@ export const updateProfileSchema = z.object({
   fontSize: z.string().optional().nullable(),
   highContrast: z.union([z.boolean(), z.string()]).optional().nullable(),
   isProfilePublic: z.union([z.boolean(), z.string()]).optional().nullable(),
+  hideFromTrends: z.union([z.boolean(), z.string()]).optional().nullable(),
   locationName: z.string().max(120).optional().nullable(),
   hapticFeedback: z.union([z.boolean(), z.string()]).optional().nullable(),
 }).passthrough();

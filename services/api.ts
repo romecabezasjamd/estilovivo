@@ -1300,6 +1300,12 @@ export const api = {
         return data;
     },
 
+    /** Ideas con una prenda del propio armario. */
+    getGarmentIdeas: async (garmentId: string) => {
+        const res = await fetchWithRetry(`${API_BASE}/ideas/garment/${encodeURIComponent(garmentId)}`, { headers: getHeaders(), credentials: 'include' });
+        return normalizeAssetsDeep(await handleResponse(res));
+    },
+
     invalidateCache: (prefix?: string) => invalidateCache(prefix),
 
     // ============= CHALLENGES =============

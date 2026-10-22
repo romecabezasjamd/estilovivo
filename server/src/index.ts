@@ -54,6 +54,7 @@ import {
 } from './validators.js';
 import { magazineHeadlines } from './fashionTrends.js';
 import { communityTrends, type CommunityTrends } from './communityTrends.js';
+import { buildIdeas, slotOf, colorFamily } from './outfitIdeas.js';
 import { awardPoints } from './gamification.js';
 import {
   awardXp, removeXp, levelFromXp, xpProgress,
@@ -1570,7 +1571,7 @@ app.put('/api/auth/profile', authenticateToken, upload.fields([{ name: 'avatar',
 
 app.put('/api/auth/preferences', authenticateToken, async (req: any, res: Response) => {
   try {
-    const booleanKeys = ['cycleTracking', 'musicSync', 'emailNotifications', 'emailChat', 'emailFollows', 'emailWashing', 'emailChallenges', 'isProfilePublic', 'highContrast'];
+    const booleanKeys = ['cycleTracking', 'musicSync', 'emailNotifications', 'emailChat', 'emailFollows', 'emailWashing', 'emailChallenges', 'isProfilePublic', 'highContrast', 'hideFromTrends'];
     const stringKeys = ['themePreset', 'customColor', 'styleColors', 'styleStyles', 'styleOccasions', 'styleFabrics', 'locationName', 'darkModeSetting', 'fontSize', 'language', 'dialect'];
     const updateData: any = {};
     for (const key of booleanKeys) {
@@ -3524,6 +3525,45 @@ app.get('/api/trends', async (_req: Request, res: Response) => {
   }
 });
 
+// "Ideas con esta prenda": combinaciones con el propio armario (y piezas dibujadas si faltan) + looks públicos de la
+// comunidad con una prenda parecida. El armario solo se usa para quien lo pide (ver outfitIdeas.ts).
+app.get('/api/ideas/garment/:id', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const me: string = req.user.userId;
+    const mine = await prisma.product.findMany({
+      where: { userId: me, isWashing: false },
+      select: { id: true, name: true, category: true, color: true, forSale: true, images: { take: 1, select: { url: true } } },
+      take: 500,
+    });
+    const base = mine.find((p) => p.id === req.params.id);
+    if (!base) return res.status(404).json({ error: 'Prenda no encontrada' });
+    const toItem = (p: (typeof mine)[number]) => ({ id: p.id, name: p.name, category: p.category, color: p.color, image: p.images[0]?.url ?? null });
+    const ideas = buildIdeas(toItem(base), mine.filter((p) => !p.forSale).map(toItem));
+
+    // Inspiración: looks públicos (adultos, perfiles públicos, sin bloqueos) con una prenda del mismo tipo y familia de color
+    const slot = slotOf(base.category);
+    const family = colorFamily(base.color);
+    const blocks = await prisma.block.findMany({ where: { OR: [{ blockerId: me }, { blockedId: me }] }, select: { blockerId: true, blockedId: true } });
+    const hidden = [me, ...blocks.map((b) => (b.blockerId === me ? b.blockedId : b.blockerId))];
+    const adultBorn = new Date(); adultBorn.setFullYear(adultBorn.getFullYear() - 18);
+    const looks = await prisma.look.findMany({
+      where: { isPublic: true, userId: { notIn: hidden }, user: { isProfilePublic: true, suspendedAt: null, birthDate: { lte: adultBorn } }, images: { some: {} } },
+      select: { id: true, title: true, userId: true, user: { select: { name: true } }, images: { take: 1, select: { url: true } }, products: { select: { category: true, color: true } }, _count: { select: { likes: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 300,
+    });
+    const community = looks
+      .filter((l) => l.products.some((p) => slotOf(p.category) === slot && (!family || colorFamily(p.color) === family)))
+      .sort((a, b) => b._count.likes - a._count.likes)
+      .slice(0, 6)
+      .map((l) => ({ id: l.id, title: l.title, image: l.images[0]?.url ?? null, likes: l._count.likes, userId: l.userId, userName: l.user.name }));
+    res.json({ garment: toItem(base), ideas, community });
+  } catch (error) {
+    logger.error('Error al calcular ideas con una prenda', { error });
+    res.status(500).json({ error: 'No se pudieron calcular las ideas' });
+  }
+});
+
 // Lo que se lleva en la comunidad (looks públicos), sin las cuentas bloqueadas con quien lo pide. Caché de 10 min.
 const communityCache = { at: 0, data: null as CommunityTrends | null };
 app.get('/api/trends/community', authenticateToken, async (req: any, res: Response) => {
@@ -3532,7 +3572,8 @@ app.get('/api/trends/community', authenticateToken, async (req: any, res: Respon
     const blocks = await prisma.block.findMany({ where: { OR: [{ blockerId: me }, { blockedId: me }] }, select: { blockerId: true, blockedId: true } });
     const hidden = blocks.map((b) => (b.blockerId === me ? b.blockedId : b.blockerId));
     if (hidden.length === 0 && communityCache.data && Date.now() - communityCache.at < 10 * 60 * 1000) return res.json(communityCache.data);
-    const data = await communityTrends(prisma, hidden);
+    const headlines = await magazineHeadlines.get().catch(() => []);
+    const data = await communityTrends(prisma, hidden, headlines.map((h) => h.title));
     if (hidden.length === 0) { communityCache.data = data; communityCache.at = Date.now(); }
     res.json(data);
   } catch (error) {

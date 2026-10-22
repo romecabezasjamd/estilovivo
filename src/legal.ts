@@ -6,7 +6,7 @@
 // Los datos del responsable NO van en el código (el repositorio es público): salen de la variable de entorno
 // DATA_CONTROLLER (p. ej. "Nombre Apellidos, DNI 00000000X, dirección"), que se edita en Coolify.
 
-export const POLICY_UPDATED = '21 de octubre de 2026';
+export const POLICY_UPDATED = '22 de octubre de 2026';
 
 export interface PolicySection {
   title: string;
@@ -43,6 +43,8 @@ export function policySections(controller: string, email: string): PolicySection
       bullets: [
         'Prestarte el servicio (armario, looks, probador, comunidad y chat): ejecución del contrato que aceptas al registrarte.',
         'Mostrar tu contenido a otras personas según tu configuración de privacidad (perfil público o privado).',
+        'Tablero de Tendencias: si tu perfil es público y eres mayor de edad, tus looks públicos más queridos pueden aparecer en el tablero de la semana y en la inspiración de otras personas, con tu nombre y enlace a tu perfil (interés legítimo en mostrar lo que se lleva en la comunidad). Nunca se muestran looks de menores. Puedes oponerte cuando quieras desactivando Perfil › Ajustes › Mostrar mis looks en Tendencias.',
+        'Ideas con esta prenda: para sugerirte combinaciones, nuestro servidor compara la prenda con las demás de tu armario (tipo y color) en el momento en que lo pides. Solo lo ves tú, no se guarda ningún perfil y no se usa ningún servicio externo ni de inteligencia artificial (ejecución del contrato).',
         'Enviarte avisos al móvil y por correo: tu consentimiento, que puedes retirar en Perfil › Ajustes o en los ajustes del móvil.',
         'Usar la cámara, la galería y la ubicación: solo con tu permiso y para la función que estás usando.',
         'Mantener la plataforma segura y revisar denuncias: interés legítimo en proteger a la comunidad. Las denuncias las revisa una persona del equipo con permiso de administración, que puede retirar contenido, anular participaciones en retos o suspender cuentas. Si te afecta, te explicamos el motivo y cómo reclamar (Reglamento de Servicios Digitales de la UE). Cada acción queda registrada.',
@@ -193,7 +195,8 @@ export function termsSections(owner: string, email: string): PolicySection[] {
       title: '9. Funciones orientativas y enlaces a otras webs',
       paragraphs: [
         'El probador virtual superpone la prenda sobre tu foto para darte una idea; no es una representación exacta de la talla ni del ajuste. Las sugerencias de looks según el tiempo o el ánimo son orientativas.',
-        'En Tendencias mostramos titulares de revistas y webs de moda con un enlace a su artículo. Esos titulares, artículos y marcas pertenecen a cada publicación, que no tiene relación con Estilo Vivo; al pulsar se abre su web, con sus propias condiciones y política de privacidad. "Lo que se lleva" se calcula con los looks públicos de la comunidad y solo muestra cifras de conjunto y looks que sus autores han hecho públicos.',
+        'En Tendencias mostramos titulares de revistas y webs de moda con un enlace a su artículo. Esos titulares, artículos y marcas pertenecen a cada publicación, que no tiene relación con Estilo Vivo; al pulsar se abre su web, con sus propias condiciones y política de privacidad. El tablero de la semana y "Lo que se lleva" se hacen solo con los looks públicos de personas adultas de la comunidad (quien no quiera aparecer puede desactivarlo en sus ajustes), con colores y palabras propias; no usan fotos de revistas ni marcas.',
+        'Las ideas con una prenda de tu armario son sugerencias orientativas. Las prendas dibujadas son solo ilustraciones de lo que podría combinar; no son productos a la venta ni recomendaciones de ninguna marca.',
       ],
     },
     {

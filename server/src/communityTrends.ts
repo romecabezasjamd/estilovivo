@@ -1,6 +1,8 @@
-// "Lo que se lleva en Estilo Vivo": tendencias calculadas con los looks PÚBLICOS de la comunidad (perfiles públicos
-// y cuentas no suspendidas). Solo se muestran cifras agregadas (colores, prendas) y los looks públicos más queridos.
+// "Lo que se lleva en Estilo Vivo" y el tablero de la semana: se calculan con los looks PÚBLICOS de perfiles públicos de
+// personas ADULTAS que no han pedido quedar fuera (hideFromTrends) y no están suspendidas. Solo se muestran cifras de
+// conjunto (colores, prendas, palabras) y los looks públicos más queridos.
 import type { PrismaClient } from '@prisma/client';
+import { weeklyKeywords } from './outfitIdeas.js';
 
 const DAY = 24 * 3600 * 1000;
 
@@ -37,6 +39,10 @@ export interface CommunityTrends {
   moods: { name: string; share: number }[];
   topLooks: { id: string; title: string; image: string | null; likes: number; userId: string; userName: string; userAvatar: string | null }[];
   challenge: { id: string; title: string; description: string; endDate: string; participants: number } | null;
+  /** Palabras de la semana (vocabulario de moda propio, de titulares y prendas). */
+  keywords: string[];
+  /** Prenda estrella: el tipo y color más repetidos. */
+  star: { category: string; color: string; hex: string | null } | null;
 }
 
 /** Cuenta y devuelve los [n] más frecuentes con su porcentaje. */
@@ -49,18 +55,20 @@ export function topShares(values: string[], n: number): { name: string; share: n
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-export async function communityTrends(prisma: PrismaClient, hiddenUserIds: string[] = []): Promise<CommunityTrends> {
+export async function communityTrends(prisma: PrismaClient, hiddenUserIds: string[] = [], headlineTexts: string[] = []): Promise<CommunityTrends> {
+  const adultBorn = new Date(); adultBorn.setFullYear(adultBorn.getFullYear() - 18);
   const load = (since: Date) => prisma.look.findMany({
     where: {
       isPublic: true, createdAt: { gte: since },
-      user: { isProfilePublic: true, suspendedAt: null },
+      // Nunca menores (ni cuentas sin fecha de nacimiento) ni quien pidió no aparecer
+      user: { isProfilePublic: true, suspendedAt: null, hideFromTrends: false, birthDate: { lte: adultBorn } },
       ...(hiddenUserIds.length ? { userId: { notIn: hiddenUserIds } } : {}),
     },
     select: {
       id: true, title: true, mood: true, userId: true,
       user: { select: { name: true, avatar: true } },
       images: { take: 1, select: { url: true } },
-      products: { select: { color: true, category: true } },
+      products: { select: { color: true, category: true, name: true } },
       _count: { select: { likes: true } },
     },
     orderBy: { createdAt: 'desc' },
@@ -81,13 +89,19 @@ export async function communityTrends(prisma: PrismaClient, hiddenUserIds: strin
     .slice(0, 6)
     .map((l) => ({ id: l.id, title: l.title, image: l.images[0].url, likes: l._count.likes, userId: l.userId, userName: l.user.name, userAvatar: l.user.avatar }));
 
+  const starCount = new Map<string, number>();
+  for (const p of products) if (p.color && p.category) { const k = `${categoryLabel(p.category)}|${p.color.trim().toLowerCase()}`; starCount.set(k, (starCount.get(k) || 0) + 1); }
+  const starKey = [...starCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  const star = starKey ? { category: starKey.split('|')[0], color: cap(starKey.split('|')[1]), hex: colorHex(starKey.split('|')[1]) } : null;
+  const keywords = weeklyKeywords([...headlineTexts, ...products.map((p) => `${p.name} ${p.color || ''}`)]);
+
   const ch = await prisma.weeklyChallenge.findFirst({ where: { active: true, endDate: { gte: new Date() } }, orderBy: { startDate: 'desc' }, include: { _count: { select: { submissions: true } } } });
 
   return {
     period,
     looks: looks.length,
     people: new Set(looks.map((l) => l.userId)).size,
-    colors, categories, moods, topLooks,
+    colors, categories, moods, topLooks, keywords, star,
     challenge: ch ? { id: ch.id, title: ch.title, description: ch.description, endDate: ch.endDate.toISOString(), participants: ch._count.submissions } : null,
   };
 }

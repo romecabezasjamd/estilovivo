@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Share2, Heart, MessageCircle, Truck, Store, Copy, Send, Eye, Flag } from 'lucide-react';
+import { X, Share2, Heart, MessageCircle, Truck, Store, Copy, Send, Eye, Flag, Sparkles } from 'lucide-react';
 import { ReportDialog } from './MarketplaceDialogs';
+import OutfitIdeasModal from './OutfitIdeasModal';
 import { useLanguage } from '../src/context/LanguageContext';
 import { api } from '../services/api';
 
@@ -37,6 +38,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
   const { t } = useLanguage();
   const [showBuyOptions, setShowBuyOptions] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  const [showIdeas, setShowIdeas] = useState(false);
   const [showShareOptions, setShowShareOptions] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -96,6 +98,7 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
 
   return (
     <>
+      {showIdeas && <OutfitIdeasModal garmentId={String(product.id)} onClose={() => setShowIdeas(false)} onOpenProfile={(id) => { setShowIdeas(false); onClose(); window.dispatchEvent(new CustomEvent('navigateTo', { detail: { tab: 'userProfile', extra: id } })); }} />}
       {showReport && <ReportDialog targetType="PRODUCT" targetId={String(product.id)} what="anuncio" onClose={() => setShowReport(false)} />}
       {/* Main Product Modal */}
       <div
@@ -259,6 +262,12 @@ const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product, onClos
             {product.isOwnItem ? (
               /* Own Item Actions */
               <>
+                <button
+                  onClick={() => setShowIdeas(true)}
+                  className="w-full bg-[var(--ink,#0B0B0F)] text-white font-bold py-3 rounded-2xl flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
+                >
+                  <Sparkles size={18} /> Ideas con esta prenda
+                </button>
                 <button
                   onClick={() => {
                     onAddToTrip?.();

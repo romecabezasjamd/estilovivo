@@ -93,6 +93,8 @@ export interface UserState {
   isAdmin?: boolean;
   /** Ya declaró que vende como particular (necesario para poner prendas a la venta). */
   sellerDeclared?: boolean;
+  /** No mostrar sus looks públicos en el tablero de Tendencias. */
+  hideFromTrends?: boolean;
   /** Cuenta antigua sin fecha de nacimiento (se pide una vez). */
   needsBirthDate?: boolean;
   /** Puede comprar y vender (adulto, o menor autorizado por su adulto responsable). */
@@ -263,6 +265,18 @@ export interface CommunityTrends {
   moods: { name: string; share: number }[];
   topLooks: { id: string; title: string; image: string | null; likes: number; userId: string; userName: string; userAvatar: string | null }[];
   challenge: { id: string; title: string; description: string; endDate: string; participants: number } | null;
+  keywords: string[];
+  star: { category: string; color: string; hex: string | null } | null;
+}
+
+/** Ideas con una prenda: combinaciones con el propio armario y piezas dibujadas si faltan. */
+export type IdeaPiece =
+  | { kind: 'own'; id: string; name: string; image: string | null; slot: string }
+  | { kind: 'drawn'; slot: string; shape: string; color: string; colorName: string; label: string };
+export interface GarmentIdeas {
+  garment: { id: string; name: string; image: string | null };
+  ideas: { title: string; pieces: IdeaPiece[] }[];
+  community: { id: string; title: string; image: string | null; likes: number; userId: string; userName: string }[];
 }
 
 export interface MagazineHeadline {

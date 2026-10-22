@@ -3,6 +3,7 @@ import { ArrowUpRight, Heart, Trophy, Users, Newspaper } from 'lucide-react';
 import { api } from '../services/api';
 import type { CommunityTrends, MagazineHeadline } from '../types';
 import Headline from './Headline';
+import TrendBoard from './TrendBoard';
 
 interface Props {
   currentUserId?: string;
@@ -45,6 +46,7 @@ const TrendsView: React.FC<Props> = ({ currentUserId, onOpenProfile, onParticipa
   const [headlines, setHeadlines] = useState<MagazineHeadline[] | null>(null);
   const [error, setError] = useState(false);
   const [source, setSource] = useState<string>('Todas');
+  const [showAll, setShowAll] = useState(false);
 
   const load = useCallback(() => {
     setError(false);
@@ -54,11 +56,15 @@ const TrendsView: React.FC<Props> = ({ currentUserId, onOpenProfile, onParticipa
   useEffect(() => { load(); }, [load]);
 
   const sources = useMemo(() => ['Todas', ...Array.from(new Set((headlines || []).map((h) => h.source)))], [headlines]);
-  const visible = (headlines || []).filter((h) => source === 'Todas' || h.source === source);
+  const filtered = (headlines || []).filter((h) => source === 'Todas' || h.source === source);
+  // En "Todas" se ven 3 y el resto con "Ver todas las revistas" (para que el tablero quede a la vista)
+  const visible = source === 'Todas' && !showAll ? filtered.slice(0, 3) : filtered;
   const period = community?.period === 'month' ? 'este mes' : 'esta semana';
 
   return (
     <div className="px-4 pb-6 space-y-5 animate-fade-in">
+      <div className="lg:grid lg:grid-cols-2 lg:gap-6 lg:items-start space-y-5 lg:space-y-0">
+      <div className="space-y-5">
       {/* ── En las revistas ── */}
       <div className="px-1">
         <Headline text="En las *revistas*" as="h2" className="text-3xl" />
@@ -112,11 +118,23 @@ const TrendsView: React.FC<Props> = ({ currentUserId, onOpenProfile, onParticipa
           );
         })}
       </div>
+      {source === 'Todas' && filtered.length > 3 && (
+        <button onClick={() => setShowAll(!showAll)} className="w-full py-3 rounded-full border border-[var(--border-light)] bg-[var(--bg-card)] text-sm font-bold text-[var(--text-primary)]">
+          {showAll ? 'Ver menos' : `Ver todas las revistas (${filtered.length})`}
+        </button>
+      )}
       {headlines && headlines.length > 0 && (
         <p className="text-[11px] text-[var(--text-muted)] px-1">
           Fuentes: {Array.from(new Set(headlines.map((h) => h.sourceName))).join(', ')}. Los titulares y artículos pertenecen a sus publicaciones; Estilo Vivo no tiene relación con ellas.
         </p>
       )}
+
+      </div>
+      {/* ── Tablero de la semana (a la derecha en pantallas grandes) ── */}
+      <div className="lg:sticky lg:top-4">
+        {community && <TrendBoard data={community} currentUserId={currentUserId} onOpenProfile={onOpenProfile} />}
+      </div>
+      </div>
 
       {/* ── Lo que se lleva en Estilo Vivo ── */}
       <div className="px-1 pt-4">

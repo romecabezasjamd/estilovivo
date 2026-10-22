@@ -46,6 +46,7 @@ model User {
   highContrast      Boolean    @default(false)
   suspendedAt       DateTime?  // moderación: cuenta suspendida (no puede entrar ni usar la API)
   sellerDeclaredAt  DateTime?  // compraventa: declaró vender como particular (no profesional)
+  hideFromTrends    Boolean    @default(false) // no mostrar sus looks en Tendencias (derecho de oposición)
   language          String?    @default("es")
   dialect           String?    @default("none")
   createdAt         DateTime   @default(now())
