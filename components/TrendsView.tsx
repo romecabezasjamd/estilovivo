@@ -88,10 +88,11 @@ const TrendsView: React.FC<Props> = ({ currentUserId, onOpenProfile, onParticipa
     <div className="px-4 pb-6 space-y-5 animate-fade-in max-w-3xl mx-auto">
       {/* Orden: 1) Tablero de la semana, 2) Revistas, 3) Lo que se lleva. Una sola columna también en el ordenador. */}
       {community && (
-        <Peek open={boardOpen} onToggle={() => setBoardOpen(!boardOpen)} height={330} more="Ver el tablero completo">
+        <Peek open={boardOpen} onToggle={() => setBoardOpen(!boardOpen)} height={420} more="Ver el tablero completo">
+          {/* Dentro del tablero: primero las fotos de Unsplash y después los looks de la comunidad */}
           <div className="space-y-4">
+            <UnsplashInspiration />
             <TrendBoard data={community} currentUserId={currentUserId} onOpenProfile={onOpenProfile} />
-            {boardOpen && <UnsplashInspiration />}
           </div>
         </Peek>
       )}
