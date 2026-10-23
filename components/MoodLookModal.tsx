@@ -14,10 +14,10 @@ export function GarmentArt({ kind, color, label }: { kind: keyof typeof GARMENT_
   );
 }
 
-interface Props { look: MoodLook; onClose: () => void; onOpenWardrobe: () => void }
+interface Props { look: MoodLook; onClose: () => void; onOpenWardrobe: () => void; /** Frase del día para ese ánimo (va cambiando) */ moodPhrase?: string | null }
 
 /** Aparece al elegir "¿Cómo te sientes hoy?": look de ejemplo con prendas ilustradas y una frase. */
-const MoodLookModal: React.FC<Props> = ({ look, onClose, onOpenWardrobe }) => createPortal(
+const MoodLookModal: React.FC<Props> = ({ look, onClose, onOpenWardrobe, moodPhrase }) => createPortal(
   <div className="fixed inset-0 z-[300] bg-black/50 flex items-end sm:items-center justify-center" onClick={onClose}>
     <div className="w-full max-w-md max-h-[90vh] overflow-y-auto bg-[var(--bg-base)] rounded-t-[28px] sm:rounded-[28px] p-5 space-y-4 animate-fade-in-up" onClick={(e) => e.stopPropagation()}>
       <div className="flex items-start justify-between gap-3">
@@ -25,6 +25,7 @@ const MoodLookModal: React.FC<Props> = ({ look, onClose, onOpenWardrobe }) => cr
         <button onClick={onClose} aria-label="Cerrar" className="w-10 h-10 shrink-0 rounded-full bg-[var(--bg-card)] flex items-center justify-center"><X size={20} /></button>
       </div>
       {look.moodLabel && <span className="inline-block px-3.5 py-2 rounded-full bg-[var(--bg-card)] text-sm font-semibold text-[var(--text-primary)]">{look.moodLabel}</span>}
+      {moodPhrase && <p className="text-lg leading-snug text-[var(--text-primary)]" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>«{moodPhrase}»</p>}
       <p className="text-sm text-[var(--text-secondary)]">{look.phrase}</p>
       <div className="grid grid-cols-3 gap-2.5">
         {look.items.map((it, i) => (

@@ -2,6 +2,7 @@
 import React, { useMemo, useEffect, useRef, useState } from 'react';
 import MoodLookModal from '../components/MoodLookModal';
 import { moodLook, type MoodLook } from '../src/utils/moodLooks';
+import { moodPhrase, weatherKind } from '../src/utils/moodPhrases';
 import { UserState, MoodOption, Look, PlannerEntry, Garment } from '../types';
 import {
   Sun, TrendingUp, Heart, Sparkles, ChevronRight, Shirt
@@ -48,6 +49,14 @@ const getMoods = (gender?: string, t?: (key: any) => string): MoodOption[] => {
 const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntries, looks, garments }) => {
   // Look de ejemplo al elegir el ánimo (catálogo propio de prendas ilustradas)
   const [moodSheet, setMoodSheet] = useState<MoodLook | null>(null);
+  // Frase del estado de ánimo: cambia cada día y con cada toque; tiene en cuenta el tiempo si ya se conoce
+  const [phraseStep, setPhraseStep] = useState(0);
+  const [wx, setWx] = useState<{ temp?: number; condition?: string } | null>(() => (window as any).__evWeather || null);
+  useEffect(() => {
+    const on = (e: Event) => setWx((e as CustomEvent).detail);
+    window.addEventListener('ev-weather', on);
+    return () => window.removeEventListener('ev-weather', on);
+  }, []);
   const { t } = useLanguage();
   const { notify } = useNotification();
   const moods = getMoods(user?.gender, t);
@@ -158,6 +167,7 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
           <button
             key={m.id}
             onClick={() => {
+              setPhraseStep((s) => (user.mood === m.id ? s + 1 : 0));
               onMoodChange(m.id);
               const w = (window as any).__evWeather;
               setMoodSheet(moodLook(m.id, user?.gender, w?.temp, w?.condition === 'rainy'));
@@ -173,6 +183,15 @@ const Home: React.FC<HomeProps> = ({ user, onMoodChange, onNavigate, plannerEntr
         );
         })}
       </section>
+
+      {user.mood && (() => {
+        const phrase = moodPhrase(user.mood, user.gender, weatherKind(wx?.temp, wx?.condition), phraseStep);
+        return phrase ? (
+          <p key={`${user.mood}-${phraseStep}`} className="-mt-2 px-1 text-[15px] leading-snug text-[var(--text-secondary)] animate-fade-in" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }} aria-live="polite">
+            {phrase}
+          </p>
+        ) : null;
+      })()}
 
       {/* Weather & Outfit Suggestions */}
       <WeatherWidget garments={garments} onNavigate={onNavigate} locationName={user.locationName} mood={user.mood} />
@@ -328,7 +347,7 @@ loading="lazy" decoding="async"                   src={todayLook.imageUrl || tod
         </button>
       </div>
       {moodSheet && (
-        <MoodLookModal look={moodSheet} onClose={() => setMoodSheet(null)} onOpenWardrobe={() => { setMoodSheet(null); onNavigate('wardrobe'); }} />
+        <MoodLookModal look={moodSheet} moodPhrase={user.mood ? moodPhrase(user.mood, user.gender, weatherKind(wx?.temp, wx?.condition), phraseStep) : null} onClose={() => setMoodSheet(null)} onOpenWardrobe={() => { setMoodSheet(null); onNavigate('wardrobe'); }} />
       )}
     </div>
   );

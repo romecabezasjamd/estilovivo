@@ -119,6 +119,8 @@ export default function WeatherWidget({ garments, onNavigate, locationName, mood
       setUpdatedAt(new Date());
       // Para el look de ejemplo por ánimo (Inicio): último tiempo conocido
       (window as any).__evWeather = weatherData;
+      // Aviso para la frase del estado de ánimo (Inicio), que tiene en cuenta el tiempo de hoy
+      window.dispatchEvent(new CustomEvent('ev-weather', { detail: weatherData }));
 
       // If we used geolocation (not manual), try to resolve city name
       if (!locationName && !location) {
