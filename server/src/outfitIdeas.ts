@@ -163,3 +163,56 @@ export function weeklyKeywords(texts: string[], limit = 6): string[] {
   }
   return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, limit).map(([w]) => w);
 }
+
+// ── "Recrea este look con tu armario" (desde una foto de inspiración) ──
+// Solo se usa la PALABRA de la semana con la que se buscó la foto (no se analiza la imagen ni a quien sale en ella).
+// Con esa palabra se elige una prenda del propio armario como base y se combinan las demás con buildIdeas; si no hay
+// ninguna, la base se dibuja (silueta propia) y el resto sale igualmente del armario.
+type KeywordSpec = { slot?: Slot; shape?: ExampleKind; family?: string };
+const KEYWORD_SPEC: Record<string, KeywordSpec> = {
+  Vaqueros: { slot: 'bottom', shape: 'jeans', family: 'vaquero' }, Abrigos: { slot: 'outer', shape: 'coat' }, Chaquetas: { slot: 'outer', shape: 'blazer' },
+  Americanas: { slot: 'outer', shape: 'blazer' }, Gabardinas: { slot: 'outer', shape: 'coat', family: 'beige' }, Plumas: { slot: 'outer', shape: 'coat' },
+  Punto: { slot: 'top', shape: 'sweater' }, Faldas: { slot: 'bottom', shape: 'skirt' }, Vestidos: { slot: 'dress', shape: 'tshirt' },
+  Pantalones: { slot: 'bottom', shape: 'trousers' }, Camisas: { slot: 'top', shape: 'shirt', family: 'blanco' }, Camisetas: { slot: 'top', shape: 'tshirt', family: 'blanco' },
+  Zapatillas: { slot: 'shoes', shape: 'sneakers', family: 'blanco' }, Bailarinas: { slot: 'shoes', shape: 'loafers' }, 'Náuticos': { slot: 'shoes', shape: 'loafers', family: 'marrón' },
+  Mocasines: { slot: 'shoes', shape: 'loafers' }, Botas: { slot: 'shoes', shape: 'boots' }, Tacones: { slot: 'shoes', shape: 'loafers' },
+  Bolsos: { slot: 'accessory', shape: 'bag' }, Relojes: { slot: 'accessory' }, 'Gafas de sol': { slot: 'accessory' },
+  Burdeos: { family: 'burdeos' }, 'Marrón': { family: 'marrón' }, Camel: { family: 'camel' }, Beige: { family: 'beige' }, Negro: { family: 'negro' },
+  Blanco: { family: 'blanco' }, Rojo: { family: 'rojo' }, Rosa: { family: 'rosa' }, Verde: { family: 'verde' }, 'Azul marino': { family: 'azul marino' },
+  Cuadros: { slot: 'top', shape: 'shirt' }, Rayas: { slot: 'top', shape: 'sweater' }, Lunares: { slot: 'dress', shape: 'tshirt' }, Tweed: { slot: 'outer', shape: 'blazer' },
+  Piel: { slot: 'outer', shape: 'blazer', family: 'negro' }, Terciopelo: { slot: 'outer', shape: 'blazer', family: 'burdeos' }, Midi: { slot: 'bottom', shape: 'skirt' },
+  Oversize: { slot: 'top', shape: 'sweater' }, Paisley: { slot: 'top', shape: 'shirt' }, 'Animal print': { slot: 'top', shape: 'shirt', family: 'camel' },
+  Vintage: { slot: 'outer', shape: 'blazer' }, Minimalismo: { slot: 'top', shape: 'tshirt', family: 'blanco' },
+};
+
+export interface KeywordIdeas { keyword: string; found: boolean; base: string | null; ideas: OutfitIdea[] }
+
+/** Ideas para recrear la tendencia [word] con el armario. Palabra desconocida → null (no se inventa nada). */
+export function ideasForKeyword(word: string, wardrobe: WardrobeItem[]): KeywordIdeas | null {
+  const spec = KEYWORD_SPEC[word];
+  const re = VOCAB.find(([, w]) => w === word)?.[0];
+  if (!spec || !re) return null;
+  const score = (w: WardrobeItem) => {
+    const slot = slotOf(w.category);
+    const fam = colorFamily(w.color);
+    let s = 0;
+    if (re.test(w.name)) s += 5; // la palabra aparece en el nombre de la prenda ("Vaqueros claros")
+    else if (re.test(`${w.color || ''}`)) s += 3;
+    if (spec.slot && slot === spec.slot) s += 2;
+    if (spec.family && fam === spec.family) s += 2;
+    if (!spec.slot && spec.family && fam === spec.family && (slot === 'top' || slot === 'bottom' || slot === 'outer')) s += 1;
+    return s;
+  };
+  // Hace falta algo más que "es del mismo tipo": coincidir en nombre/color, o en tipo Y color
+  const best = wardrobe.map((w) => ({ w, s: score(w) })).filter((x) => x.s >= 3).sort((a, b) => b.s - a.s || a.w.name.localeCompare(b.w.name))[0]?.w;
+  if (best) return { keyword: word, found: true, base: best.name, ideas: buildIdeas(best, wardrobe) };
+
+  const slot: Slot = spec.slot ?? 'top';
+  const shape: ExampleKind = spec.shape ?? (slot === 'accessory' ? 'bag' : DRAWN_KIND[slot][0]);
+  const family = spec.family ?? 'negro';
+  const noun = KIND_NOUN[shape];
+  const drawn: DrawnPiece = { kind: 'drawn', slot, shape, color: COLOR_HEX[family] || '#1F1F24', colorName: family, label: `${noun} ${colorWord(family, noun)}` };
+  const virtual: WardrobeItem = { id: '__tendencia', name: drawn.label, category: slot, color: family, image: null };
+  const ideas = buildIdeas(virtual, wardrobe).map((idea) => ({ ...idea, pieces: [drawn, ...idea.pieces.slice(1)] }));
+  return { keyword: word, found: false, base: null, ideas };
+}

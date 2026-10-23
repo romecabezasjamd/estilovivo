@@ -2,13 +2,16 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Heart, Lock, X } from 'lucide-react';
 import { api } from '../services/api';
-import type { GarmentIdeas, IdeaPiece } from '../types';
+import type { GarmentIdeas, IdeaPiece, KeywordIdeas } from '../types';
 import { GarmentArt } from './MoodLookModal';
 import type { ExampleKind } from '../src/utils/moodLooks';
 import Headline from './Headline';
 
 interface Props {
-  garmentId: string;
+  /** Ideas con una prenda del armario… */
+  garmentId?: string;
+  /** …o "Recrea este look": ideas con la palabra de la semana de una foto de inspiración */
+  keyword?: string;
   onClose: () => void;
   onOpenProfile?: (userId: string) => void;
 }
@@ -29,22 +32,30 @@ function Piece({ p, big = false }: { p: IdeaPiece; big?: boolean }) {
 }
 
 /** "Ideas con esta prenda": tableros con tu armario + inspiración de looks públicos de la comunidad. */
-const OutfitIdeasModal: React.FC<Props> = ({ garmentId, onClose, onOpenProfile }) => {
+const OutfitIdeasModal: React.FC<Props> = ({ garmentId, keyword, onClose, onOpenProfile }) => {
   const [data, setData] = useState<GarmentIdeas | null>(null);
+  const [kw, setKw] = useState<KeywordIdeas | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
-    api.getGarmentIdeas(garmentId).then((d: GarmentIdeas) => { if (alive) setData(d); }).catch((e: any) => { if (alive) setError(e?.message || 'No se pudieron cargar las ideas'); });
+    const fail = (e: any) => { if (alive) setError(e?.message || 'No se pudieron cargar las ideas'); };
+    if (keyword) api.getKeywordIdeas(keyword).then((d: KeywordIdeas) => { if (alive) { setKw(d); setData({ garment: { id: '', name: d.base || keyword, image: null }, ideas: d.ideas, community: [] }); } }).catch(fail);
+    else if (garmentId) api.getGarmentIdeas(garmentId).then((d: GarmentIdeas) => { if (alive) setData(d); }).catch(fail);
     return () => { alive = false; };
-  }, [garmentId]);
+  }, [garmentId, keyword]);
 
   return createPortal(
     <div className="fixed inset-0 z-[220] bg-black/55 flex items-end sm:items-center justify-center animate-fade-in" onClick={onClose}>
-      <div className="bg-[var(--bg-base)] w-full sm:max-w-2xl max-h-[92vh] rounded-t-3xl sm:rounded-3xl overflow-y-auto no-scrollbar" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Ideas con esta prenda">
+      <div className="bg-[var(--bg-base)] w-full sm:max-w-2xl max-h-[92vh] rounded-t-3xl sm:rounded-3xl overflow-y-auto no-scrollbar" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={keyword ? `Recrea ${keyword}` : 'Ideas con esta prenda'}>
         <div className="sticky top-0 z-10 bg-[var(--bg-base)] px-5 pt-5 pb-3 flex items-start justify-between gap-3">
           <div>
-            <Headline text="Ideas con *tu prenda*" as="h2" className="text-2xl" />
+            <Headline text={keyword ? `Recrea *${keyword.toLowerCase()}*` : 'Ideas con *tu prenda*'} as="h2" className="text-2xl" />
+            {kw && (
+              <p className="text-xs text-[var(--text-secondary)] mt-1">
+                {kw.found ? `Con tu prenda «${kw.base}» y el resto de tu armario.` : 'No tienes nada parecido: te lo dibujamos y lo combinamos con tu armario.'}
+              </p>
+            )}
             <p className="text-xs text-[var(--text-muted)] mt-1 flex items-center gap-1"><Lock size={12} /> Solo tú ves estas ideas con tu armario.</p>
           </div>
           <button onClick={onClose} aria-label="Cerrar" className="w-10 h-10 rounded-full bg-[var(--bg-card)] flex items-center justify-center shrink-0"><X size={20} /></button>

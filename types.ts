@@ -279,6 +279,9 @@ export interface InspirationPhoto {
   photographer: string; photographerUrl: string; photoUrl: string; unsplashUrl: string;
 }
 
+/** "Recrea este look": ideas con la palabra de la semana de una foto de inspiración. */
+export interface KeywordIdeas { keyword: string; found: boolean; base: string | null; ideas: { title: string; pieces: IdeaPiece[] }[] }
+
 export interface GarmentIdeas {
   garment: { id: string; name: string; image: string | null };
   ideas: { title: string; pieces: IdeaPiece[] }[];

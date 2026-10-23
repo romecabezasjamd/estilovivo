@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildIdeas, slotOf, colorFamily, colorScore, weeklyKeywords, type WardrobeItem } from '../outfitIdeas.js';
+import { buildIdeas, slotOf, colorFamily, colorScore, weeklyKeywords, ideasForKeyword, type WardrobeItem } from '../outfitIdeas.js';
 
 const item = (id: string, category: string, color: string | null, name = id): WardrobeItem => ({ id, name, category, color, image: `/api/uploads/${id}.jpg` });
 
@@ -54,5 +54,35 @@ describe('palabras de la semana', () => {
     ]);
     expect(words.slice(0, 3)).toEqual(expect.arrayContaining(['Vaqueros', 'Abrigos', 'Burdeos']));
     expect(words.length).toBeLessThanOrEqual(6);
+  });
+});
+
+describe('recrea este look con tu armario', () => {
+  const wardrobe = [
+    item('b1', 'pantalon', 'azul', 'Vaqueros claros'), item('t1', 'camiseta', 'blanco', 'Camiseta blanca'),
+    item('s1', 'zapatillas', 'blanco', 'Zapatillas blancas'), item('o1', 'abrigo', 'camel', 'Abrigo camel'),
+  ];
+
+  it('usa como base la prenda del armario que encaja con la palabra', () => {
+    const r = ideasForKeyword('Vaqueros', wardrobe)!;
+    expect(r.found).toBe(true);
+    expect(r.base).toBe('Vaqueros claros');
+    expect(r.ideas[0].pieces[0]).toMatchObject({ kind: 'own', id: 'b1' });
+    expect(r.ideas[0].pieces.some((p) => p.kind === 'own' && p.id === 't1')).toBe(true);
+  });
+
+  it('una palabra de color elige una prenda de ese color', () => {
+    expect(ideasForKeyword('Camel', wardrobe)!.base).toBe('Abrigo camel');
+  });
+
+  it('si no tienes nada parecido, la base sale dibujada y el resto del armario', () => {
+    const r = ideasForKeyword('Faldas', wardrobe)!;
+    expect(r.found).toBe(false);
+    expect(r.ideas[0].pieces[0]).toMatchObject({ kind: 'drawn', slot: 'bottom', shape: 'skirt' });
+    expect(r.ideas[0].pieces.some((p) => p.kind === 'own' && p.id === 't1')).toBe(true);
+  });
+
+  it('una palabra desconocida no se inventa', () => {
+    expect(ideasForKeyword('Cualquier cosa', wardrobe)).toBeNull();
   });
 });

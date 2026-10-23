@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Camera, X } from 'lucide-react';
+import { Camera, Sparkles, X } from 'lucide-react';
+import OutfitIdeasModal from './OutfitIdeasModal';
 import { api } from '../services/api';
 import type { InspirationPhoto } from '../types';
 
@@ -12,6 +13,7 @@ const saveChoice = (ok: boolean) => { try { if (ok) localStorage.setItem(KEY, '1
 const UnsplashInspiration: React.FC = () => {
   const [photos, setPhotos] = useState<InspirationPhoto[] | null>(null);
   const [allowed, setAllowed] = useState(readChoice);
+  const [recreate, setRecreate] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -58,10 +60,14 @@ const UnsplashInspiration: React.FC = () => {
                 <a href={p.photographerUrl} target="_blank" rel="noopener noreferrer" className="underline">{p.photographer}</a> en{' '}
                 <a href={p.unsplashUrl} target="_blank" rel="noopener noreferrer" className="underline">Unsplash</a>
               </figcaption>
+              <button onClick={() => setRecreate(p.keyword)} className="w-full mt-1 py-2 rounded-full bg-[var(--text-primary)] text-[var(--bg-base)] text-[11px] font-bold flex items-center justify-center gap-1">
+                <Sparkles size={12} /> Recrea este look
+              </button>
             </figure>
           ))}
         </div>
       )}
+      {recreate && <OutfitIdeasModal keyword={recreate} onClose={() => setRecreate(null)} />}
     </section>
   );
 };

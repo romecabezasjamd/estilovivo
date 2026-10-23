@@ -1306,6 +1306,10 @@ export const api = {
         const res = await fetchWithRetry(`${API_BASE}/trends/inspiration`, { headers: getHeaders(), credentials: 'include' });
         return handleResponse(res);
     },
+    getKeywordIdeas: async (word: string) => {
+        const res = await fetchWithRetry(`${API_BASE}/ideas/keyword?word=${encodeURIComponent(word)}`, { headers: getHeaders(), credentials: 'include' });
+        return normalizeAssetsDeep(await handleResponse(res));
+    },
     getGarmentIdeas: async (garmentId: string) => {
         const res = await fetchWithRetry(`${API_BASE}/ideas/garment/${encodeURIComponent(garmentId)}`, { headers: getHeaders(), credentials: 'include' });
         return normalizeAssetsDeep(await handleResponse(res));

@@ -5,7 +5,7 @@
 // Los datos del responsable NO van en el código (el repositorio es público): salen de la variable de entorno
 // DATA_CONTROLLER (p. ej. "Nombre Apellidos, DNI 00000000X, dirección"), que se edita en Coolify.
 
-export const POLICY_UPDATED = '23 de octubre de 2026';
+export const POLICY_UPDATED = '24 de octubre de 2026';
 
 export interface PolicySection {
   title: string;
@@ -44,7 +44,7 @@ export function policySections(controller: string, email: string): PolicySection
         'Mostrar tu contenido a otras personas según tu configuración de privacidad (perfil público o privado).',
         'Tablero de Tendencias: si tu perfil es público y eres mayor de edad, tus looks públicos más queridos pueden aparecer en el tablero de la semana y en la inspiración de otras personas, con tu nombre y enlace a tu perfil (interés legítimo en mostrar lo que se lleva en la comunidad). Nunca se muestran looks de menores. Puedes oponerte cuando quieras desactivando Perfil › Ajustes › Mostrar mis looks en Tendencias.',
         'Fotos de inspiración de Unsplash en Tendencias: solo se cargan si pulsas "Ver fotos de Unsplash" (y puedes dejar de verlas cuando quieras). Entonces tu dispositivo descarga las fotos directamente de Unsplash, que recibe tu dirección IP y cuenta las visualizaciones con un identificador aleatorio. Nosotros no le enviamos ningún dato de tu cuenta: las búsquedas las hace nuestro servidor solo con palabras de moda (tu consentimiento, al pulsar el botón).',
-        'Ideas con esta prenda: para sugerirte combinaciones, nuestro servidor compara la prenda con las demás de tu armario (tipo y color) en el momento en que lo pides. Solo lo ves tú, no se guarda ningún perfil y no se usa ningún servicio externo ni de inteligencia artificial (ejecución del contrato).',
+        'Ideas con esta prenda: para sugerirte combinaciones, nuestro servidor compara la prenda con las demás de tu armario (tipo y color) en el momento en que lo pides. Solo lo ves tú, no se guarda ningún perfil y no se usa ningún servicio externo ni de inteligencia artificial (ejecución del contrato). En "Recrea este look" se usa solo la palabra de moda con la que se buscó la foto de inspiración: no se analiza la imagen ni a la persona que sale en ella.',
         'Enviarte avisos al móvil y por correo: tu consentimiento, que puedes retirar en Perfil › Ajustes o en los ajustes del móvil.',
         'Usar la cámara, la galería y la ubicación: solo con tu permiso y para la función que estás usando.',
         'Mantener la plataforma segura y revisar denuncias: interés legítimo en proteger a la comunidad. Las denuncias las revisa una persona del equipo con permiso de administración, que puede retirar contenido, anular participaciones en retos o suspender cuentas. Si te afecta, te explicamos el motivo y cómo reclamar (Reglamento de Servicios Digitales de la UE). Cada acción queda registrada.',
@@ -120,7 +120,7 @@ export function policySections(controller: string, email: string): PolicySection
 }
 
 // ============= CONDICIONES DE USO Y NORMAS DE LA COMUNIDAD =============
-export const TERMS_UPDATED = '23 de octubre de 2026';
+export const TERMS_UPDATED = '24 de octubre de 2026';
 
 export function termsSections(owner: string, email: string): PolicySection[] {
   return [
@@ -198,7 +198,7 @@ export function termsSections(owner: string, email: string): PolicySection[] {
       paragraphs: [
         'El probador virtual superpone la prenda sobre tu foto para darte una idea; no es una representación exacta de la talla ni del ajuste. Las sugerencias de looks según el tiempo o el ánimo son orientativas.',
         'En Tendencias mostramos titulares de revistas y webs de moda con un enlace a su artículo. Esos titulares, artículos y marcas pertenecen a cada publicación, que no tiene relación con Estilo Vivo; al pulsar se abre su web, con sus propias condiciones y política de privacidad. El tablero de la semana y "Lo que se lleva" se hacen solo con los looks públicos de personas adultas de la comunidad (quien no quiera aparecer puede desactivarlo en sus ajustes), con colores y palabras propias; no usan fotos de revistas ni marcas. Si eliges verlas, también mostramos fotos libres de Unsplash buscadas con esas palabras: cada una pertenece a su fotógrafo, se ofrece bajo la licencia de Unsplash y aparece con su crédito y enlace. No implican que el fotógrafo, las personas que salen ni las marcas que se vean recomienden Estilo Vivo.',
-        'Las ideas con una prenda de tu armario son sugerencias orientativas. Las prendas dibujadas son solo ilustraciones de lo que podría combinar; no son productos a la venta ni recomendaciones de ninguna marca.',
+        'Las ideas con una prenda de tu armario son sugerencias orientativas. Las prendas dibujadas son solo ilustraciones de lo que podría combinar; no son productos a la venta ni recomendaciones de ninguna marca. "Recrea este look" se inspira en la tendencia de la foto, no copia la prenda concreta que aparece en ella.',
       ],
     },
     {

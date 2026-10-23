@@ -54,7 +54,7 @@ import {
 } from './validators.js';
 import { magazineHeadlines } from './fashionTrends.js';
 import { communityTrends, type CommunityTrends } from './communityTrends.js';
-import { buildIdeas, slotOf, colorFamily } from './outfitIdeas.js';
+import { buildIdeas, slotOf, colorFamily, ideasForKeyword } from './outfitIdeas.js';
 import { inspirationPhotos } from './unsplash.js';
 import { awardPoints } from './gamification.js';
 import {
@@ -3528,6 +3528,24 @@ app.get('/api/trends', async (_req: Request, res: Response) => {
 
 // "Ideas con esta prenda": combinaciones con el propio armario (y piezas dibujadas si faltan) + looks públicos de la
 // comunidad con una prenda parecida. El armario solo se usa para quien lo pide (ver outfitIdeas.ts).
+// "Recrea este look con tu armario": ideas a partir de la palabra de la semana de una foto de inspiración
+app.get('/api/ideas/keyword', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const word = String(req.query.word || '').slice(0, 40);
+    const mine = await prisma.product.findMany({
+      where: { userId: req.user.userId, isWashing: false, forSale: false },
+      select: { id: true, name: true, category: true, color: true, images: { take: 1, select: { url: true } } },
+      take: 500,
+    });
+    const result = ideasForKeyword(word, mine.map((p) => ({ id: p.id, name: p.name, category: p.category, color: p.color, image: p.images[0]?.url ?? null })));
+    if (!result) return res.status(400).json({ error: 'No hay ideas para esa tendencia' });
+    res.json(result);
+  } catch (error) {
+    logger.error('Error al calcular ideas de una tendencia', { error });
+    res.status(500).json({ error: 'No se pudieron calcular las ideas' });
+  }
+});
+
 app.get('/api/ideas/garment/:id', authenticateToken, async (req: any, res: Response) => {
   try {
     const me: string = req.user.userId;
@@ -3548,7 +3566,8 @@ app.get('/api/ideas/garment/:id', authenticateToken, async (req: any, res: Respo
     const hidden = [me, ...blocks.map((b) => (b.blockerId === me ? b.blockedId : b.blockerId))];
     const adultBorn = new Date(); adultBorn.setFullYear(adultBorn.getFullYear() - 18);
     const looks = await prisma.look.findMany({
-      where: { isPublic: true, userId: { notIn: hidden }, user: { isProfilePublic: true, suspendedAt: null, birthDate: { lte: adultBorn } }, images: { some: {} } },
+      // Respeta "Mostrar mis looks en Tendencias" (oposición, RGPD art. 21), como el tablero
+      where: { isPublic: true, userId: { notIn: hidden }, user: { isProfilePublic: true, suspendedAt: null, hideFromTrends: false, birthDate: { lte: adultBorn } }, images: { some: {} } },
       select: { id: true, title: true, userId: true, user: { select: { name: true } }, images: { take: 1, select: { url: true } }, products: { select: { category: true, color: true } }, _count: { select: { likes: true } } },
       orderBy: { createdAt: 'desc' },
       take: 300,
