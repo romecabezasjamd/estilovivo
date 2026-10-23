@@ -80,6 +80,45 @@ function autoPos(pose: BodyPose | null, type: string, pw: number, ph: number): {
   return r
 }
 
+/** Proporción alto/ancho de una imagen (1 si no se puede leer a tiempo). */
+function imageAspect(url: string): Promise<number> {
+  return new Promise(res => {
+    const img = new window.Image()
+    const t = setTimeout(() => res(1), 4000)
+    img.onload = () => { clearTimeout(t); res(img.naturalWidth > 0 ? img.naturalHeight / img.naturalWidth : 1) }
+    img.onerror = () => { clearTimeout(t); res(1) }
+    img.src = url
+  })
+}
+
+/**
+ * Ajusta la caja a la forma real de la foto (sin deformarla). Las prendas de arriba se dimensionan como en la app:
+ * la distancia entre hombros es menor que el cuerpo y las fotos incluyen las mangas, así que el ancho parte de
+ * 1,75 × hombros y se asegura que cubra del cuello a la cadera (antes una foto ancha y baja quedaba pequeña o estirada).
+ */
+function fitToImage(pose: BodyPose | null, type: string, box: { x: number; y: number; w: number; h: number }, aspect: number, pw: number, ph: number) {
+  const a = Math.min(6, Math.max(0.1, aspect || 1))
+  const t = type.toLowerCase()
+  const trunk = !/dress|vestido|enterizo|bottom|pantal|falda|short|jean|trouser|shoe|zapat|bota|sandal|boot|accesorio|sombrero|gorra|bolso|gafas|collar/.test(t)
+  let r: { x: number; y: number; w: number; h: number }
+  if (pose && trunk) {
+    const outer = /outer|chaqueta|abrigo|saco|jacket|coat/.test(t)
+    const sw = pose.shoulderWidth, tl = pose.torsoHeight
+    let w = Math.min(Math.max(sw * (outer ? 1.9 : 1.75), (tl * (outer ? 1.25 : 1.05)) / a), sw * (outer ? 3 : 2.8))
+    if (w * a > tl * (outer ? 1.8 : 1.45)) w = (tl * (outer ? 1.8 : 1.45)) / a
+    const h = w * a
+    r = { x: pose.shoulderCenter.x - w / 2, y: pose.shoulderCenter.y - tl * (outer ? 0.12 : 0.1), w, h }
+  } else {
+    // Resto: la foto entera dentro de la caja calculada, centrada y pegada arriba
+    let w = box.w, h = w * a
+    if (h > box.h) { h = box.h; w = h / a }
+    r = { x: box.x + (box.w - w) / 2, y: box.y, w, h }
+  }
+  r.x = Math.max(0, Math.min(r.x, pw - r.w))
+  r.y = Math.max(0, Math.min(r.y, ph - r.h))
+  return r
+}
+
 const MAX_HISTORY = 50
 
 interface SelectionHandlesProps {
@@ -809,7 +848,7 @@ export default function VirtualTryOn({ garments, onClose, user }: Props) {
         if (exists) { newLayers.push(exists); continue }
         let url = g.imageUrl
         try { url = await removeBg(g.imageUrl) } catch {}
-        const p = autoPos(pose, g.type, bodyDim.w, bodyDim.h)
+        const p = fitToImage(pose, g.type, autoPos(pose, g.type, bodyDim.w, bodyDim.h), await imageAspect(url), bodyDim.w, bodyDim.h)
         newLayers.push({
           id: `${g.id}_${Date.now()}`, garment: g, url,
           x: p.x, y: p.y, w: p.w, h: p.h,
