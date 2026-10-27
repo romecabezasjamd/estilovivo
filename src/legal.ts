@@ -121,7 +121,7 @@ export function policySections(controller: string, email: string): PolicySection
 }
 
 // ============= CONDICIONES DE USO Y NORMAS DE LA COMUNIDAD =============
-export const TERMS_UPDATED = '24 de octubre de 2026';
+export const TERMS_UPDATED = '27 de octubre de 2026';
 
 export function termsSections(owner: string, email: string): PolicySection[] {
   return [
@@ -129,7 +129,7 @@ export function termsSections(owner: string, email: string): PolicySection[] {
       title: '1. Quién presta el servicio',
       paragraphs: [
         `Estilo Vivo es un servicio gratuito ofrecido por ${owner}.`,
-        `Contacto: ${email}.`,
+        `Contacto: ${email}. Puedes escribirnos en español o en inglés.`,
       ],
     },
     {
@@ -151,7 +151,7 @@ export function termsSections(owner: string, email: string): PolicySection[] {
       title: '4. Normas de la comunidad',
       paragraphs: ['No está permitido publicar, enviar ni vender:'],
       bullets: [
-        'Desnudos, contenido sexual o fotos íntimas. El contenido que sexualice a menores se denuncia a las autoridades.',
+        'Desnudos, contenido sexual o fotos íntimas. El contenido que sexualice a menores se denuncia a las autoridades (ver las normas de seguridad infantil en estilovivo.xyoncloud.win/seguridad-infantil).',
         'Acoso, insultos, amenazas, discursos de odio o contenido violento.',
         'Suplantar a otra persona o marca, o publicar datos personales de otras personas sin su permiso.',
         'Fotos que no son tuyas o de las que no tienes permiso (derechos de autor y derecho a la propia imagen).',
@@ -264,4 +264,53 @@ a{color:#0F0F12}.foot{text-align:center;color:#8A8A96;font-size:13px;margin-top:
 ${body}
 <p class="foot"><a href="/privacidad">Privacidad</a> · <a href="/condiciones">Condiciones de uso</a> · <a href="/eliminar-cuenta">Eliminar tu cuenta</a> · <a href="/">estilovivo.xyoncloud.win</a></p>
 </main></body></html>`;
+}
+
+// ============= NORMAS DE SEGURIDAD INFANTIL =============
+// Google Play exige a las apps sociales publicar sus normas contra el abuso y la explotación sexual infantil (CSAE)
+// y tener un punto de contacto. Estilo Vivo admite cuentas desde los 14 años, con protecciones para menores.
+export const CHILD_SAFETY_UPDATED = '27 de octubre de 2026';
+
+export function childSafetySections(email: string): PolicySection[] {
+  return [
+    {
+      title: '1. Tolerancia cero',
+      paragraphs: [
+        'En Estilo Vivo está totalmente prohibido cualquier contenido o conducta de abuso o explotación sexual infantil: imágenes o vídeos de menores con contenido sexual, sexualizar a menores, el acoso con fines sexuales (grooming), pedir fotos íntimas, la sextorsión o cualquier intento de contactar con menores con esa intención.',
+        'La cuenta que lo haga se elimina de inmediato y no puede volver a registrarse.',
+      ],
+    },
+    {
+      title: '2. Cómo protegemos a las personas menores',
+      bullets: [
+        'Edad mínima de 14 años y fecha de nacimiento obligatoria al registrarse.',
+        'Entre 14 y 17 años el perfil es privado por defecto y solo se puede chatear con personas con las que hay seguimiento mutuo.',
+        'Para comprar o vender, una persona menor necesita la autorización de un adulto responsable desde la app.',
+        'Los looks de menores nunca salen en el tablero de Tendencias ni en la inspiración de otras personas.',
+        'Cada foto que se sube la revisa un sistema automático que bloquea desnudos y contenido sexual antes de publicarse.',
+      ],
+    },
+    {
+      title: '3. Cómo denunciar',
+      bullets: [
+        'Desde la app: en cualquier perfil, look, comentario, mensaje o anuncio, con la opción "Denunciar". También puedes bloquear a la persona.',
+        `Por correo, tengas o no cuenta: ${email}, con el enlace o la descripción del contenido. Las denuncias sobre menores se revisan con prioridad.`,
+        'Si alguien corre peligro, avisa también a la policía (112) o a la línea de ayuda a la infancia de la Fundación ANAR (900 20 20 10).',
+      ],
+    },
+    {
+      title: '4. Qué hacemos',
+      paragraphs: [
+        'Retiramos el contenido, eliminamos la cuenta y conservamos las pruebas necesarias. El material de abuso sexual infantil se denuncia a las autoridades competentes (Policía Nacional o Guardia Civil) y colaboramos con ellas según la ley.',
+      ],
+    },
+    {
+      title: '5. Punto de contacto',
+      paragraphs: [`Persona responsable de estas normas y contacto para autoridades y usuarios: ${email}. Puedes escribirnos en español o en inglés.`],
+    },
+  ];
+}
+
+export function renderChildSafetyPage(email: string): string {
+  return renderLegalPage('Normas de seguridad infantil', 'Seguridad <em>infantil</em>', CHILD_SAFETY_UPDATED, childSafetySections(email), email);
 }

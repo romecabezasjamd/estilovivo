@@ -24,7 +24,7 @@ import { trustedProxies, realClientIp } from './trustedProxies.js';
 import { SELLER_DECLARATION_REQUIRED, salePrice, PRICE_ERROR } from './marketplace.js';
 import { reviewChallengePhoto } from './challengeReview.js';
 import { MARKETPLACE_ERRORS, accountFlags, birthDateError, chatAllowed, isAdultDate, isMinorDate, marketplaceStatus } from './minors.js';
-import { renderPolicyPage, renderTermsPage } from './legal.js';
+import { renderPolicyPage, renderTermsPage, renderChildSafetyPage } from './legal.js';
 import { MODERATION_CSP, REASON_LABEL, TYPE_LABEL, renderModerationError, renderModerationPage, signModerationLink, verifyModerationLink, decisionMessage, type ModerationDecision } from './moderation.js';
 import { renderEmail, REASON_ACCOUNT, REASON_PREFS, type EmailParams } from './emailTemplates.js';
 type EmailContent = Omit<EmailParams, 'reason' | 'baseUrl'>;
@@ -551,6 +551,19 @@ app.get(['/condiciones', '/terminos', '/terms'], (req: Request, res: Response) =
   res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'");
   res.setHeader('Cache-Control', 'public, max-age=3600');
   res.type('html').send(renderTermsPage(owner, email));
+});
+
+// Normas de seguridad infantil (CSAE): Google Play las exige publicadas a las apps sociales
+app.get(['/seguridad-infantil', '/child-safety'], (req: Request, res: Response) => {
+  const email = process.env.CONTACT_EMAIL || 'appestilovivo@gmail.com';
+  res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'");
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.type('html').send(renderChildSafetyPage(email));
+});
+
+// Para buscadores: la web pública (páginas legales) se puede indexar; la API no
+app.get('/robots.txt', (_req: Request, res: Response) => {
+  res.type('text/plain').send(['User-agent: *', 'Disallow: /api/', 'Allow: /', ''].join('\n'));
 });
 
 // Página pública (sin sesión ni JavaScript) para pedir el borrado de la cuenta: Google Play exige una URL así.
@@ -2224,7 +2237,7 @@ const LIKES_PAGE_MAX = 50;
 const likesQuerySchema = z.object({
   limit: z.preprocess(
     (v) => (v === undefined || v === '' ? LIKES_PAGE_DEFAULT : typeof v === 'string' && /^\d+$/.test(v) ? Number(v) : NaN),
-    z.number({ invalid_type_error: 'limit debe ser un entero' }).int().min(1, 'limit mínimo 1').max(LIKES_PAGE_MAX, `limit máximo ${LIKES_PAGE_MAX}`)
+    z.number({ error: 'limit debe ser un entero' }).int().min(1, 'limit mínimo 1').max(LIKES_PAGE_MAX, `limit máximo ${LIKES_PAGE_MAX}`)
   ),
   cursor: z.string().max(200, 'cursor inválido').optional()
 });
@@ -2247,7 +2260,7 @@ app.get('/api/social/likes/:lookId', authenticateToken, async (req: any, res: Re
     if (!parsed.success) {
       return res.status(400).json({
         error: 'Error de validación',
-        details: parsed.error.errors.map(e => ({ field: e.path.join('.'), message: e.message }))
+        details: parsed.error.issues.map(e => ({ field: e.path.join('.'), message: e.message }))
       });
     }
     const { limit, cursor } = parsed.data;
