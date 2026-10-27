@@ -5,7 +5,7 @@
 // Los datos del responsable NO van en el código (el repositorio es público): salen de la variable de entorno
 // DATA_CONTROLLER (p. ej. "Nombre Apellidos, DNI 00000000X, dirección"), que se edita en Coolify.
 
-export const POLICY_UPDATED = '24 de octubre de 2026';
+export const POLICY_UPDATED = '27 de octubre de 2026';
 
 export interface PolicySection {
   title: string;
@@ -46,6 +46,7 @@ export function policySections(controller: string, email: string): PolicySection
         'Fotos de inspiración de Unsplash en Tendencias: solo se cargan si pulsas "Ver fotos de Unsplash" (y puedes dejar de verlas cuando quieras). Entonces tu dispositivo descarga las fotos directamente de Unsplash, que recibe tu dirección IP y cuenta las visualizaciones con un identificador aleatorio. Nosotros no le enviamos ningún dato de tu cuenta: las búsquedas las hace nuestro servidor solo con palabras de moda (tu consentimiento, al pulsar el botón).',
         'Ideas con esta prenda: para sugerirte combinaciones, nuestro servidor compara la prenda con las demás de tu armario (tipo y color) en el momento en que lo pides. Solo lo ves tú, no se guarda ningún perfil y no se usa ningún servicio externo ni de inteligencia artificial (ejecución del contrato). En "Recrea este look" se usa solo la palabra de moda con la que se buscó la foto de inspiración: no se analiza la imagen ni a la persona que sale en ella.',
         'Enviarte avisos al móvil y por correo: tu consentimiento, que puedes retirar en Perfil › Ajustes o en los ajustes del móvil.',
+        'Aviso "Tu look de hoy" cada mañana: solo llega si has dado permiso de notificaciones al móvil (tu consentimiento) y lo puedes desactivar cuando quieras en Perfil › Ajustes › Avisos en el móvil o en los ajustes de Android. Lo genera el propio móvil, sin enviar nada a nuestros servidores, y no contiene publicidad.',
         'Usar la cámara, la galería y la ubicación: solo con tu permiso y para la función que estás usando.',
         'Mantener la plataforma segura y revisar denuncias: interés legítimo en proteger a la comunidad. Las denuncias las revisa una persona del equipo con permiso de administración, que puede retirar contenido, anular participaciones en retos o suspender cuentas. Si te afecta, te explicamos el motivo y cómo reclamar (Reglamento de Servicios Digitales de la UE). Cada acción queda registrada.',
         'Avisos del servicio a todas las cuentas (mantenimiento, cambios de normas o de esta política): ejecución del contrato. Nunca los usamos para publicidad.',
