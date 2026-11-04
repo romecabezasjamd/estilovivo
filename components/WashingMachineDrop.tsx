@@ -97,8 +97,17 @@ const WasherSvg: React.FC<{ spinning: boolean; glow: boolean }> = ({ spinning, g
       <linearGradient id="wm-water" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#93c5fd" /><stop offset="1" stopColor="#2563eb" /></linearGradient>
       <radialGradient id="wm-glass" cx=".35" cy=".3" r=".8"><stop offset="0" stopColor="#ffffff" stopOpacity=".7" /><stop offset=".5" stopColor="#ffffff" stopOpacity=".05" /></radialGradient>
       <clipPath id="wm-hole"><circle cx="59" cy="82" r="34" /></clipPath>
+      <radialGradient id="wm-floor" cx=".5" cy=".5" r=".5"><stop offset="0" stopColor="#000" stopOpacity=".45" /><stop offset=".6" stopColor="#000" stopOpacity=".18" /><stop offset="1" stopColor="#000" stopOpacity="0" /></radialGradient>
+      <linearGradient id="wm-side" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#000" stopOpacity=".07" /><stop offset=".18" stopColor="#000" stopOpacity="0" /><stop offset=".8" stopColor="#000" stopOpacity="0" /><stop offset="1" stopColor="#000" stopOpacity=".16" /></linearGradient>
+      <radialGradient id="wm-inset" cx=".5" cy=".5" r=".5"><stop offset=".82" stopColor="#000" stopOpacity="0" /><stop offset="1" stopColor="#000" stopOpacity=".35" /></radialGradient>
     </defs>
+    {/* Sombra en el suelo: elipse difuminada bajo la lavadora, más oscura en el centro */}
+    <ellipse cx="59" cy="139" rx="62" ry="9" fill="url(#wm-floor)" />
+    {/* Patas */}
+    <rect x="12" y="131" width="12" height="7" rx="2" fill="#9ca3af" /><rect x="94" y="131" width="12" height="7" rx="2" fill="#9ca3af" />
     <rect x="2" y="2" width="114" height="134" rx="16" fill="url(#wm-body)" stroke="#cfcfd8" strokeWidth="2" />
+    {/* Volumen: laterales algo más oscuros, como si la luz viniera de arriba a la izquierda */}
+    <rect x="2" y="2" width="114" height="134" rx="16" fill="url(#wm-side)" />
     <rect x="2" y="2" width="114" height="30" rx="16" fill="#f4f4f8" />
     <line x1="4" y1="32" x2="114" y2="32" stroke="#d6d6de" strokeWidth="2" />
     <rect x="12" y="12" width="34" height="11" rx="4" fill="#1f2937" /><rect x="15" y="15" width="16" height="5" rx="2" fill="#60a5fa" />
@@ -107,6 +116,7 @@ const WasherSvg: React.FC<{ spinning: boolean; glow: boolean }> = ({ spinning, g
     <circle cx="59" cy="82" r="44" fill="#d9d9e1" />
     <circle cx="59" cy="82" r="40" fill={glow ? '#3b82f6' : '#9ca3af'} style={{ transition: 'fill .2s' }} />
     <circle cx="59" cy="82" r="34" fill="#1e293b" />
+    <circle cx="59" cy="82" r="34" fill="url(#wm-inset)" />
     <g clipPath="url(#wm-hole)">
       <motion.g
         style={{ originX: '59px', originY: '82px' }}
@@ -141,6 +151,12 @@ const WashingMachineDrop: React.FC<Props> = ({ wash, count, garments }) => {
     const t = window.setTimeout(() => setSpinning(false), 1850);
     return () => window.clearTimeout(t);
   }, [spins]);
+  const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(() => {
+    const onMenu = (e: Event) => setMenuOpen(!!(e as CustomEvent<boolean>).detail);
+    window.addEventListener('ev:wardrobe-menu', onMenu);
+    return () => window.removeEventListener('ev:wardrobe-menu', onMenu);
+  }, []);
   const over = hovering || nativeOver;
 
   return (
@@ -156,10 +172,13 @@ const WashingMachineDrop: React.FC<Props> = ({ wash, count, garments }) => {
           const g = garments.find((x) => x.id === e.dataTransfer.getData('garmentId'));
           if (g && !g.isWashing && !g.forSale) drop(g);
         }}
-        animate={{ scale: over ? 1.12 : drag ? 1.05 : 1, x: spinning ? [0, 1.5, -1.5, 1, -1, 0] : 0 }}
+        tabIndex={menuOpen ? -1 : 0}
+        aria-hidden={menuOpen || undefined}
+        animate={{ scale: menuOpen ? 0.6 : over ? 1.12 : drag ? 1.05 : 1, opacity: menuOpen ? 0 : 1, x: spinning ? [0, 1.5, -1.5, 1, -1, 0] : 0 }}
         transition={spinning ? { x: { duration: 0.18, repeat: 9 } } : { type: 'spring', stiffness: 400, damping: 18 }}
-        className="fixed z-[56] left-4 drop-shadow-xl"
-        style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 100px)' }}
+        // Justo a la izquierda del botón redondo de añadir (right-6 + 56 px + hueco), con la base alineada
+        className="fixed z-[56] bottom-28 right-[92px]"
+        style={{ pointerEvents: menuOpen ? 'none' : undefined, filter:'drop-shadow(0 10px 12px rgba(0,0,0,.18)) drop-shadow(0 2px 3px rgba(0,0,0,.12))' }}
         aria-label={count > 0 ? `Lavadora: ${count} ${count === 1 ? 'prenda' : 'prendas'} dentro. Abrir` : 'Lavadora. Arrastra aquí una prenda para lavarla'}
       >
         <WasherSvg spinning={spinning} glow={over} />

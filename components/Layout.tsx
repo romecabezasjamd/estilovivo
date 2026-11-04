@@ -54,6 +54,13 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
     }
   };
 
+  // La lavadora flotante del armario se aparta mientras está abierto este menú (comparten la misma zona),
+  // salvo si se abrió al arrastrar una prenda: entonces la lavadora tiene que seguir ahí para soltarla encima
+  const draggingRef = React.useRef(false);
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('ev:wardrobe-menu', { detail: showWardrobeSubmenu && !draggingRef.current }));
+  }, [showWardrobeSubmenu]);
+
   useEffect(() => {
     const handleAnimate = () => {
       setShowWardrobeSubmenu(true);
@@ -64,9 +71,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
       }, 2100);
     };
 
-    const handleDragStart = () => setShowWardrobeSubmenu(true);
+    const handleDragStart = () => { draggingRef.current = true; setShowWardrobeSubmenu(true); };
     const handleDragEnd = () => {
       setTimeout(() => {
+        draggingRef.current = false;
         if (!washingAnimRef.current) {
           setShowWardrobeSubmenu(false);
         }
