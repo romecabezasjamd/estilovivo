@@ -1443,6 +1443,13 @@ export const reportApi = {
         adminFetch<{ ok: boolean }>('/reports', { method: 'POST', body: { targetType, targetId, reason, ...(details ? { details } : {}) } }),
 };
 
+export type FeedbackKind = 'idea' | 'bug' | 'other';
+export const feedbackApi = {
+    /** Perfil › Enviar opinión: llega por correo al equipo (no se guarda). */
+    send: (kind: FeedbackKind, message: string, rating?: number) =>
+        adminFetch<{ ok: boolean }>('/feedback', { method: 'POST', body: { kind, message, platform: 'web', ...(rating ? { rating } : {}) } }),
+};
+
 // ============= DERECHOS DE PRIVACIDAD (RGPD) =============
 export const privacyApi = {
     send: (type: string, message: string) => adminFetch<{ id: string; dueAt: string; message: string }>('/privacy-requests', { method: 'POST', body: { type, message } }),

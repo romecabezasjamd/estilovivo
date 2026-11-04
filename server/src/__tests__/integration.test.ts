@@ -151,6 +151,27 @@ describe('API Integration Tests', () => {
       expect(tooManyRequests.length).toBeGreaterThan(0);
     });
   });
+
+  describe('Feedback (Enviar opinión)', () => {
+    it('POST /api/feedback - requires login', async () => {
+      const response = await request(app).post('/api/feedback').send({ kind: 'idea', message: 'Me encanta la lavadora' });
+      expect(response.status).toBe(401);
+    });
+
+    it('POST /api/feedback - rejects an empty message and unknown kinds', async () => {
+      const short = await request(app).post('/api/feedback').set('Authorization', `Bearer ${authToken}`).send({ kind: 'idea', message: 'ok' });
+      expect(short.status).toBe(400);
+      const kind = await request(app).post('/api/feedback').set('Authorization', `Bearer ${authToken}`).send({ kind: 'spam', message: 'Mensaje largo de prueba' });
+      expect(kind.status).toBe(400);
+    });
+
+    it('POST /api/feedback - without SMTP answers 503 with the contact address', async () => {
+      const response = await request(app).post('/api/feedback').set('Authorization', `Bearer ${authToken}`)
+        .send({ kind: 'bug', message: 'El probador tarda en cargar', rating: 4, platform: 'web' });
+      expect([201, 503]).toContain(response.status);
+      if (response.status === 503) expect(response.body.error).toMatch(/@/);
+    });
+  });
 });
 
 /* 

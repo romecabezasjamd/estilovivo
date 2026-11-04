@@ -7,7 +7,7 @@ import {
   ShoppingBag, Shirt, Calendar, Star, TrendingUp, ChevronRight,
   Eye, Bookmark, Bell, Shield, Moon, BarChart3, Download,
   HelpCircle, Lock, Palette, Languages, Globe, AlertCircle, FileText,
-  Award, Flame, Trophy, Gem, Crown, MapPin
+  Award, Flame, Trophy, Gem, MapPin
 } from 'lucide-react';
 import { ThemeColor, THEMES } from '../src/utils/theme';
 import Headline from '../components/Headline';
@@ -22,6 +22,7 @@ import Logo from '../components/Logo';
 import DonutChart from '../components/DonutChart';
 import GuardianSettings from '../components/GuardianSettings';
 import PrivacyRightsCard from '../components/PrivacyRightsCard';
+import FeedbackCard from '../components/FeedbackCard';
 import { termsSections, TERMS_UPDATED } from '../src/legal';
 import FollowListModal from '../components/FollowListModal';
 import { useGlobalState } from '../src/context/GlobalStateContext';
@@ -1467,7 +1468,6 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
                   {[
                     // Los mensajes del chat ya no envían correo (solo avisos en el móvil)
                     { key: 'emailFollows', label: 'Usuarios seguidos', desc: 'Cuando alguien a quien sigues publica', icon: '👤' },
-                    { key: 'emailWashing', label: 'Alertas de lavado', desc: 'Recordatorios de prendas en lavado', icon: '🧺' },
                     { key: 'emailChallenges', label: 'Retos semanales', desc: 'Nuevos retos y recordatorios', icon: '🏆' },
                   ].map(item => {
                     const val = item.key === 'emailChat' ? emailChat : item.key === 'emailFollows' ? emailFollows : item.key === 'emailWashing' ? emailWashing : emailChallenges;
@@ -1755,20 +1755,8 @@ const Profile: React.FC<ProfileProps> = ({ user, plannerEntries, looks, onUpdate
               </div>
             </div>
 
-            {/* Premium Upgrade */}
-            <button
-              onClick={() => onNavigate('premium')}
-              className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl p-4 flex items-center gap-3 shadow-sm"
-            >
-              <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                <Crown size={20} className="text-white" />
-              </div>
-              <div className="flex-1 text-left">
-                <p className="text-sm font-bold text-white">Estilo Vivo Premium</p>
-                <p className="text-[10px] text-white/80">Desbloquea todo el potencial</p>
-              </div>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
-            </button>
+            {/* Primera versión toda gratis: sin acceso a Premium (la página se conserva para cuando haya planes) */}
+            <FeedbackCard />
 
             {/* Adulto responsable (menores 14-17) */}
             <GuardianSettings

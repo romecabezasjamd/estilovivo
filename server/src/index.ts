@@ -1823,22 +1823,7 @@ app.put('/api/products/:id', authenticateToken, upload.array('images', 5), rejec
       });
       io.to(`user_${req.user.userId}`).emit('notification', notification);
       void sendPushForNotification(prisma, notification);
-      void sendPreferenceEmail({
-        userId: req.user.userId,
-        subject: 'Tu prenda está en la lavadora - Estilo Vivo',
-        text: `La prenda "${product.name}" está ahora en la lavadora`,
-        email: {
-          preheader: `"${product.name}" ya está en la lavadora`,
-          eyebrow: 'Tu armario',
-          headline: 'Tu prenda está en la *lavadora*',
-          intro: `"${product.name}" no aparecerá en tu armario ni en las sugerencias hasta que la saques. Así no te proponemos looks con ropa que se está lavando.`,
-          imageUrl: emailAssetUrl(product.images?.[0]?.url),
-          imageAlt: product.name,
-          cta: { label: 'Ver mi armario', url: getEmailFriendlyUrl('/wardrobe') },
-        },
-        context: { type: 'WASHING', productId: product.id },
-        preference: 'emailWashing'
-      });
+      // Sin correo: quien mete la prenda en la lavadora ya lo sabe (solo aviso dentro de la app)
     }
 
     res.json(product);
@@ -2656,6 +2641,52 @@ app.post('/api/reports', authenticateToken, reportLimiter, validate(reportSchema
   } catch (error) {
     logger.error('Error creating report', { error });
     res.status(500).json({ error: 'Error al enviar la denuncia' });
+  }
+});
+
+// ============= OPINIONES (Perfil › Enviar opinión) =============
+// Solo se envían por correo al equipo (no se guardan en la base de datos). Nombre y correo van para poder contestar.
+const FEEDBACK_KINDS = { idea: 'Idea o sugerencia', bug: 'Algo no funciona', other: 'Otra cosa' } as const;
+const feedbackSchema = z.object({
+  kind: z.enum(['idea', 'bug', 'other']),
+  message: z.string().trim().min(5, { error: 'Cuéntanos un poco más (mínimo 5 caracteres)' }).max(2000),
+  rating: z.number().int().min(1).max(5).optional().nullable(),
+  platform: z.string().trim().max(20).optional().nullable(),
+  appVersion: z.string().trim().max(30).optional().nullable(),
+});
+const feedbackLimiter = userKeyLimiter(parseInt(process.env.FEEDBACK_RATE_MAX || '5', 10), 60 * 60 * 1000, 'Ya nos has enviado varias opiniones. Inténtalo más tarde.');
+
+app.post('/api/feedback', authenticateToken, feedbackLimiter, validate(feedbackSchema), async (req: any, res: Response) => {
+  try {
+    const { kind, message, rating, platform, appVersion } = req.body;
+    if (!transporter) return res.status(503).json({ error: 'Ahora mismo no podemos recibir opiniones. Escríbenos a ' + moderationEmail() });
+    const user = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { name: true, email: true } });
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
+    const label = FEEDBACK_KINDS[kind as keyof typeof FEEDBACK_KINDS];
+    const stars = rating ? '★'.repeat(rating) + '☆'.repeat(5 - rating) : '';
+    const device = [platform, appVersion].filter(Boolean).join(' ');
+    const meta = [stars, device].filter(Boolean).join(' · ');
+    await sendMailWithRetry({
+      to: moderationEmail(),
+      replyTo: user.email,
+      subject: `Opinión: ${label.toLowerCase()} - Estilo Vivo`,
+      text: `${user.name} (${user.email}) · ${label}${meta ? ' · ' + meta : ''}\n\n${message}`,
+      html: renderEmail({
+        preheader: `${label} de ${user.name}`,
+        eyebrow: 'Opiniones',
+        headline: 'Nueva *opinión* de la comunidad',
+        intro: `${user.name} (${user.email}) nos escribe: ${label.toLowerCase()}.${meta ? ' ' + meta : ''}`,
+        quote: message,
+        note: 'Responde a este correo para contestar directamente a esta persona.',
+        reason: 'Recibes este correo porque esta dirección está configurada como contacto de Estilo Vivo (MODERATION_EMAIL o CONTACT_EMAIL).',
+        baseUrl: emailBaseUrl(),
+      }),
+    });
+    logger.info('Feedback sent', { userId: req.user.userId, kind });
+    res.status(201).json({ ok: true });
+  } catch (error: any) {
+    logger.error('Feedback email failed', { error: error?.message });
+    res.status(500).json({ error: 'No se pudo enviar. Inténtalo de nuevo en un momento.' });
   }
 });
 

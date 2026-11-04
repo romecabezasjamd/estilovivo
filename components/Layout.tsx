@@ -73,10 +73,13 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
       }, 50);
     };
 
+    const openWashing = () => setShowWashingModal(true);
+    window.addEventListener('ev:open-washing', openWashing);
     window.addEventListener('animateLavadora', handleAnimate as EventListener);
     window.addEventListener('dragStartGarment', handleDragStart as EventListener);
     window.addEventListener('dragEndGarment', handleDragEnd as EventListener);
     return () => {
+      window.removeEventListener('ev:open-washing', openWashing);
       window.removeEventListener('animateLavadora', handleAnimate as EventListener);
       window.removeEventListener('dragStartGarment', handleDragStart as EventListener);
       window.removeEventListener('dragEndGarment', handleDragEnd as EventListener);

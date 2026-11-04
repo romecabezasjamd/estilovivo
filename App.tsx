@@ -12,7 +12,6 @@ const Wishlist = lazy(() => import('./pages/Wishlist'));
 const VirtualTryOn = lazy(() => import('./pages/VirtualTryOn'));
 const Privacy = lazy(() => import('./pages/Privacy'));
 const Terms = lazy(() => import('./pages/Terms'));
-const Onboarding = lazy(() => import('./pages/Onboarding'));
 const Premium = lazy(() => import('./pages/Premium'));
 const UserProfile = lazy(() => import('./pages/UserProfile'));
 const Admin = lazy(() => import('./pages/Admin'));
@@ -25,6 +24,7 @@ import { api } from './services/api';
 import { App as CapApp } from '@capacitor/app';
 import { useNotification } from './src/context/NotificationContext';
 import AccountPrompts from './components/AccountPrompts';
+import AppTour from './components/AppTour';
 
 const AppContent: React.FC = () => {
   const { notify } = useNotification();
@@ -55,7 +55,6 @@ const AppContent: React.FC = () => {
   const [chatWithUserId, setChatWithUserId] = useState<string | null>(null);
   const [wardrobeIntent, setWardrobeIntent] = useState<'looks' | 'createLook' | null>(null);
   const [plannerDate, setPlannerDate] = useState<string | undefined>(undefined);
-  const [showOnboarding, setShowOnboarding] = useState(false);
   const [viewProfileId, setViewProfileId] = useState<string | null>(null);
   const skipHistory = useRef(false);
 
@@ -187,17 +186,7 @@ const AppContent: React.FC = () => {
     };
   }, [notify]);
 
-  // Check onboarding from user object — API is source of truth
-  useEffect(() => {
-    if (!user) return;
-    const hasStylePrefs = (user as any).styleColors || (user as any).styleStyles;
-    const hasProfileData = user.bio || user.avatar || (user as any).garmentCount > 0 || (user as any).lookCount > 0;
-    let localStorageComplete = false;
-    try { localStorageComplete = localStorage.getItem('ev_onboarding_complete') === 'true'; } catch {}
-    if (!hasStylePrefs && !hasProfileData && !localStorageComplete) {
-      setShowOnboarding(true);
-    }
-  }, [user]);
+  // El test de estilo inicial se quitó (sus respuestas no se usaban): a las cuentas nuevas las recibe el tour (AppTour)
 
   // Enlaces de email con sesión ya iniciada: verificar el correo en segundo plano
   useEffect(() => {
@@ -239,20 +228,6 @@ const AppContent: React.FC = () => {
       );
     }
     return <AuthPage onAuthSuccess={handleAuthSuccess} />;
-  }
-
-  if (showOnboarding) {
-    return (
-      <Suspense fallback={<div className="min-h-screen bg-[var(--bg-base)] flex items-center justify-center"><div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin" /></div>}>
-        <Onboarding onComplete={() => {
-            try { localStorage.setItem('ev_onboarding_complete', 'true'); } catch {}
-            setShowOnboarding(false);
-            api.getMe().then(u => {
-              window.dispatchEvent(new CustomEvent('ev:user-loaded', { detail: u }));
-            }).catch(() => {});
-          }} />
-      </Suspense>
-    );
   }
 
   const renderActivePage = () => {
@@ -388,6 +363,7 @@ const AppContent: React.FC = () => {
       </Suspense>
       {/* Tras registrarse o entrar: fecha de nacimiento (si falta) y permisos de avisos y ubicación */}
       <AccountPrompts user={user} onUpdateUser={handleUpdateUser} />
+      <AppTour onShowTab={handleNavigate} />
     </Layout>
   );
 };

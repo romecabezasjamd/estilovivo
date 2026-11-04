@@ -12,6 +12,7 @@ import { dataUrlToFile, pickPhoto, CameraSource } from '../src/utils/cameraPhoto
 import ProductDetailModal, { ProductDisplayItem } from '../components/ProductDetailModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import Headline from '../components/Headline';
+import WashingMachineDrop, { useWashDrag } from '../components/WashingMachineDrop';
 import { SellerDeclarationDialog } from '../components/MarketplaceDialogs';
 import { useGlobalState } from '../src/context/GlobalStateContext';
 
@@ -222,6 +223,8 @@ const Wardrobe: React.FC<WardrobeProps> = ({
 
   const washingItems = useMemo(() => garments.filter(g => g.isWashing), [garments]);
   const closetItems = useMemo(() => filteredItems.filter(g => !g.isWashing), [filteredItems]);
+  // Lavadora flotante: arrastrar una prenda (pulsación larga en el móvil) y soltarla encima
+  const wash = useWashDrag((g) => { if (!g.isWashing && !g.forSale) onUpdateGarment({ ...g, isWashing: true }); });
 
   const garmentInTrips = useMemo(() => {
     const s = new Set<string>();
@@ -567,6 +570,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
 
   return (
     <div className="h-full flex flex-col relative bg-gray-50">
+      {activeView === 'closet' && <WashingMachineDrop wash={wash} count={washingItems.length} garments={garments} />}
       {showSellerDeclaration && (
         <SellerDeclarationDialog
           onCancel={() => setShowSellerDeclaration(false)}
@@ -801,6 +805,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
                 draggable={!garment.forSale}
                 onDragStart={(e) => onDragStart(e, garment.id)}
                 onDragEnd={onDragEnd}
+                {...wash.cardProps(garment)}
                 onClick={() => openDetailModal(garment)}
                 className={`group stagger-child relative bg-[var(--bg-card)] rounded-[24px] overflow-hidden p-2 transition-all active:scale-[0.97] ${!garment.forSale ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
               >
