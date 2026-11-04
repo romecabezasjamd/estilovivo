@@ -5,6 +5,18 @@ import { useLanguage } from '../src/context/LanguageContext';
 import { languages, dialects } from '../src/utils/translations';
 import Welcome from '../components/Welcome';
 import Headline from '../components/Headline';
+import GoogleButton from '../components/GoogleButton';
+
+// Edad mínima (14 años, art. 7 LOPDGDD): misma comprobación en el registro con correo y con Google
+const birthDateProblem = (birthDate: string): string | null => {
+    if (!birthDate) return 'Indica tu fecha de nacimiento.';
+    const b = new Date(birthDate), now = new Date();
+    let age = now.getFullYear() - b.getFullYear();
+    if (now.getMonth() < b.getMonth() || (now.getMonth() === b.getMonth() && now.getDate() < b.getDate())) age--;
+    if (b > now) return 'La fecha no puede ser futura.';
+    if (age < 14) return 'Debes tener al menos 14 años para usar Estilo Vivo.';
+    return null;
+};
 
 interface AuthPageProps {
     onAuthSuccess: (user: any, rememberMe?: boolean) => void;
@@ -38,6 +50,45 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
     const [resetToken, setResetToken] = useState<string | null>(null);
     const { t, language, setLanguage, dialect, setDialect } = useLanguage();
     const [showLangMenu, setShowLangMenu] = useState(false);
+    // "Continuar con Google": ID de cliente (null = el servidor no lo tiene activado) y cuenta nueva a medias
+    const [googleClientId, setGoogleClientId] = useState<string | null>(null);
+    const [googlePending, setGooglePending] = useState<{ credential: string; name: string; email: string } | null>(null);
+
+    useEffect(() => {
+        let alive = true;
+        api.authProviders().then((p) => { if (alive) setGoogleClientId(p.google); });
+        return () => { alive = false; };
+    }, []);
+
+    const handleGoogle = async (credential: string, extra?: { birthDate: string; gender: 'male' | 'female' | 'other' }) => {
+        setIsLoading(true);
+        setError(null);
+        setSuccessMessage(null);
+        try {
+            const data = await api.googleAuth({ credential, ...extra }, rememberMe);
+            if (data.needsProfile) {
+                setGooglePending({ credential, name: data.name, email: data.email });
+                return;
+            }
+            setGooglePending(null);
+            onAuthSuccess(data.user, rememberMe);
+        } catch (err: any) {
+            const msg = err?.message || '';
+            // El permiso de Google caduca a la hora: si falla al terminar el alta, se vuelve a empezar
+            if (extra) setGooglePending(null);
+            setError(err?.name === 'TypeError' && msg.includes('fetch') ? 'No se pudo conectar con el servidor. Comprueba tu conexión.' : (msg || 'No se pudo entrar con Google.'));
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const submitGoogleProfile = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!googlePending) return;
+        const problem = birthDateProblem(birthDate);
+        if (problem) { setError(problem); return; }
+        handleGoogle(googlePending.credential, { birthDate, gender });
+    };
 
     const mountedRef = useRef(true);
     useEffect(() => {
@@ -123,12 +174,8 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                 localStorage.setItem('beyour_saved_email', normalizedEmail);
                 onAuthSuccess(data.user, rememberMe);
             } else {
-                if (!birthDate) throw new Error('Indica tu fecha de nacimiento.');
-                const b = new Date(birthDate), now = new Date();
-                let age = now.getFullYear() - b.getFullYear();
-                if (now.getMonth() < b.getMonth() || (now.getMonth() === b.getMonth() && now.getDate() < b.getDate())) age--;
-                if (b > now) throw new Error('La fecha no puede ser futura.');
-                if (age < 14) throw new Error('Debes tener al menos 14 años para usar Estilo Vivo.');
+                const problem = birthDateProblem(birthDate);
+                if (problem) throw new Error(problem);
                 const data = await api.register({
                     email: normalizedEmail,
                     password,
@@ -282,6 +329,56 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                         </div>
                     )}
 
+                    {googlePending ? (
+                    <form onSubmit={submitGoogleProfile} className="space-y-5">
+                        <div className="space-y-1">
+                            <Headline text={`Hola, *${googlePending.name}*`} className="text-2xl" />
+                            <p className="text-sm text-[var(--text-secondary)]">Vas a crear tu cuenta con <b>{googlePending.email}</b>. Solo nos falta un dato.</p>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest ml-1">{t('birthDate')}</label>
+                            <div className="relative group">
+                                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={20} />
+                                <input
+                                    type="date"
+                                    value={birthDate}
+                                    required
+                                    max={new Date().toISOString().slice(0, 10)}
+                                    onChange={(e) => setBirthDate(e.target.value)}
+                                    className="w-full bg-gray-50 border-none rounded-2xl py-4 pl-12 pr-4 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium text-[var(--text-primary)]"
+                                />
+                            </div>
+                            <p className="text-[11px] text-[var(--text-muted)] ml-1">Se pide para proteger a los menores de edad. No se muestra en tu perfil.</p>
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest ml-1">{t('gender')}</label>
+                            <div className="grid grid-cols-3 gap-2">
+                                {(['female', 'male', 'other'] as const).map(option => (
+                                    <button key={option} type="button" onClick={() => setGender(option)}
+                                        className={`py-3 rounded-xl text-sm font-bold transition-all ${gender === option ? 'bg-primary text-white shadow-lg' : 'bg-gray-50 text-[var(--text-secondary)] hover:bg-gray-100'}`}>
+                                        {t(option as any)}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        {error && (
+                            <div className="flex items-center space-x-2 p-4 bg-red-50 text-red-500 rounded-2xl animate-fade-in">
+                                <AlertCircle size={18} />
+                                <span className="text-xs font-bold">{error}</span>
+                            </div>
+                        )}
+                        <button type="submit" disabled={isLoading}
+                            className="w-full bg-primary hover:bg-teal-700 text-white font-black py-4 rounded-2xl shadow-xl shadow-primary/20 transform active:scale-95 transition-all flex items-center justify-center space-x-2">
+                            {isLoading ? <div className="w-6 h-6 border-4 border-white/30 border-t-white rounded-full animate-spin" /> : <><span>{t('createAccount')}</span><ArrowRight size={20} /></>}
+                        </button>
+                        <button type="button" onClick={() => { setGooglePending(null); setError(null); }} className="w-full text-xs font-bold text-[var(--text-muted)]">Cancelar</button>
+                        <p className="text-center text-[10px] text-[var(--text-muted)]">
+                            Al crear tu cuenta aceptas nuestras{' '}
+                            <a href="/condiciones" target="_blank" rel="noopener" className="text-primary font-semibold hover:underline">Condiciones de uso</a>{' '}y nuestra{' '}
+                            <a href="/privacidad" target="_blank" rel="noopener" className="text-primary font-semibold hover:underline">Política de privacidad</a>
+                        </p>
+                    </form>
+                    ) : (
                     <form onSubmit={handleSubmit} className="space-y-5">
                         {view === 'auth' ? (
                             <>
@@ -491,12 +588,22 @@ const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                             )}
                         </button>
 
+                        {view === 'auth' && googleClientId && (
+                            <>
+                                <div className="flex items-center gap-3 text-[11px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
+                                    <span className="flex-1 h-px bg-[var(--border-light)]" />o<span className="flex-1 h-px bg-[var(--border-light)]" />
+                                </div>
+                                <GoogleButton clientId={googleClientId} disabled={isLoading} onCredential={(c) => handleGoogle(c)} onError={setError} />
+                            </>
+                        )}
+
                         <p className="text-center text-[10px] text-[var(--text-muted)] mt-4">
                             Al continuar aceptas nuestros{' '}
                             <a href="/condiciones" target="_blank" rel="noopener" className="text-primary font-semibold hover:underline">Condiciones de uso</a>{' '}y nuestra{' '}
                             <a href="/privacidad" target="_blank" rel="noopener" className="text-primary font-semibold hover:underline">Política de privacidad</a>
                         </p>
                     </form>
+                    )}
                 </div>
             </div>
         </div>

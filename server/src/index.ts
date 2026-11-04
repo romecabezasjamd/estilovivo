@@ -33,6 +33,7 @@ import {
   validate,
   registerSchema,
   loginSchema,
+  googleAuthSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
   verifyEmailSchema,
@@ -52,6 +53,7 @@ import {
   tripSchema,
   refreshSchema
 } from './validators.js';
+import { GoogleAuthError, googleClientIds, googleDisplayName, isGoogleEnabled, verifyGoogleIdToken } from './googleAuth.js';
 import { magazineHeadlines } from './fashionTrends.js';
 import { communityTrends, type CommunityTrends } from './communityTrends.js';
 import { buildIdeas, slotOf, colorFamily, ideasForKeyword } from './outfitIdeas.js';
@@ -730,7 +732,18 @@ const generateRefreshToken = async (userId: string): Promise<string> => {
   return token;
 };
 
+// Último acceso (solo fecha y hora, sin IP ni dispositivo): lo ve la administración para la seguridad de las cuentas y
+// para detectar cuentas inactivas. Se sobrescribe en cada acceso (como mucho una vez cada 10 minutos) y se borra con la cuenta.
+const touchLastLogin = (userId: string) => {
+  const now = new Date();
+  prisma.user.updateMany({
+    where: { id: userId, OR: [{ lastLoginAt: null }, { lastLoginAt: { lt: new Date(now.getTime() - 10 * 60 * 1000) } }] },
+    data: { lastLoginAt: now },
+  }).catch((error) => logger.warn('No se pudo guardar el último acceso', { error: error?.message }));
+};
+
 const issueTokenPair = async (userId: string, res: Response) => {
+  touchLastLogin(userId);
   const accessToken = jwt.sign({ userId }, JWT_SECRET!, { expiresIn: '7d' });
   const refreshToken = await generateRefreshToken(userId);
 
@@ -989,7 +1002,7 @@ app.post('/api/auth/register', authLimiter, validate(registerSchema), async (req
     // falla, la cuenta queda SIN verificar: se podrá reenviar el correo desde "Revisa tu correo".
     if (!emailSent && transporter) {
       logger.info('User registered (verification email failed, pending)', { userId: user.id });
-      const { password: _p, verificationToken: _v, resetToken: _r, resetTokenExpiry: _re, ...pending } = user;
+      const { password: _p, verificationToken: _v, resetToken: _r, resetTokenExpiry: _re, googleSub: _gs, ...pending } = user;
       return res.status(201).json({ user: { ...pending, ...(await accountFlags(prisma, user)) }, message: 'verificationEmailFailed', requiresVerification: true });
     }
     if (!emailSent) {
@@ -1000,7 +1013,7 @@ app.post('/api/auth/register', authLimiter, validate(registerSchema), async (req
       user.isVerified = true;
     }
 
-    const { password: _, verificationToken: _vt, resetToken: _rt, resetTokenExpiry: _rte, ...safe } = user;
+    const { password: _, verificationToken: _vt, resetToken: _rt, resetTokenExpiry: _rte, googleSub: _gs, ...safe } = user;
     if (emailSent) {
       logger.info('User registered (pending verification)', { userId: user.id, email: user.email });
       res.status(201).json({
@@ -1077,7 +1090,7 @@ app.post('/api/auth/login', loginLimiter, validate(loginSchema), async (req: Req
 
     const { accessToken, refreshToken } = await issueTokenPair(user.id, res);
 
-    const { password: _, _count, verificationToken: _vt, resetToken: _rt, resetTokenExpiry: _rte, ...safe } = user;
+    const { password: _, _count, verificationToken: _vt, resetToken: _rt, resetTokenExpiry: _rte, googleSub: _gs, ...safe } = user;
     logger.info('User logged in', { userId: user.id });
     res.json({
       user: { ...safe, followersCount: _count.followers, followingCount: _count.following, ...(await accountFlags(prisma, user)) },
@@ -1088,6 +1101,102 @@ app.post('/api/auth/login', loginLimiter, validate(loginSchema), async (req: Req
   } catch (error: any) {
     logger.error('Login error', { error });
     res.status(500).json({ error: 'Error interno en el inicio de sesión' });
+  }
+});
+
+// ============= CONTINUAR CON GOOGLE =============
+// Formas de entrar disponibles. La web y la app piden el ID de cliente aquí (se configura en el servidor con
+// GOOGLE_CLIENT_ID, sin recompilar); si no está, no muestran el botón de Google.
+app.get('/api/auth/providers', (_req: Request, res: Response) => {
+  res.json({ google: googleClientIds()[0] || null });
+});
+
+const GOOGLE_ERRORS: Record<string, string> = {
+  disabled: 'El acceso con Google no está disponible ahora mismo. Entra con tu correo.',
+  invalid: 'No hemos podido comprobar tu cuenta de Google. Inténtalo de nuevo.',
+  unverified: 'Tu cuenta de Google no tiene el correo verificado. Verifícalo en Google o entra con tu correo.',
+};
+
+app.post('/api/auth/google', authLimiter, validate(googleAuthSchema), async (req: Request, res: Response) => {
+  if (!isGoogleEnabled()) return res.status(503).json({ error: GOOGLE_ERRORS.disabled, code: 'GOOGLE_DISABLED' });
+  try {
+    let identity;
+    try {
+      identity = await verifyGoogleIdToken(req.body.credential);
+    } catch (e: any) {
+      const reason = e instanceof GoogleAuthError ? e.message : 'invalid';
+      logger.warn('Google sign-in rejected', { reason });
+      return res.status(401).json({ error: GOOGLE_ERRORS[reason] || GOOGLE_ERRORS.invalid, code: 'GOOGLE_INVALID' });
+    }
+    const email = normalizeEmail(identity.email);
+    const withCounts = { _count: { select: { followers: true, following: true } } } as const;
+
+    // 1) Ya entró antes con esta cuenta de Google
+    let user = await prisma.user.findUnique({ where: { googleSub: identity.sub }, include: withCounts });
+    let isNewUser = false;
+
+    // 2) Ya tenía cuenta con ese correo: se vincula. Google garantiza que el correo es suyo; si esa cuenta estaba sin
+    //    verificar, la contraseña la pudo poner otra persona, así que se anula (podrá crear una con "¿Olvidaste tu contraseña?").
+    if (!user) {
+      const existing = (await findUsersByEmail(email))[0];
+      if (existing) {
+        const takeOver = !existing.isVerified;
+        if (takeOver) await invalidateRefreshTokens(existing.id);
+        user = await prisma.user.update({
+          where: { id: existing.id },
+          data: {
+            googleSub: identity.sub,
+            ...(takeOver ? { isVerified: true, verificationToken: null, password: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10) } : {}),
+          },
+          include: withCounts,
+        });
+        logger.info('Google account linked to existing user', { userId: user.id, wasUnverified: takeOver });
+      }
+    }
+
+    // 3) Cuenta nueva: como en el registro con correo, hace falta la fecha de nacimiento (edad mínima y protección de
+    //    menores). Si no viene, se pide y no se crea nada todavía.
+    if (!user) {
+      const { birthDate, gender } = req.body;
+      if (!birthDate) return res.json({ needsProfile: true, name: googleDisplayName(identity.name, email), email });
+      const birthError = birthDateError(birthDate);
+      if (birthError) return res.status(400).json({ error: birthError, code: 'birthDate' });
+      user = await prisma.user.create({
+        data: {
+          email,
+          // Sin contraseña utilizable: se entra con Google (o se crea una con "¿Olvidaste tu contraseña?")
+          password: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10),
+          name: googleDisplayName(identity.name, email),
+          gender: gender || 'other',
+          birthDate: new Date(birthDate),
+          isProfilePublic: !isMinorDate(birthDate),
+          isVerified: true,
+          googleSub: identity.sub,
+        },
+        include: withCounts,
+      });
+      isNewUser = true;
+      logger.info('User registered with Google', { userId: user.id });
+    }
+
+    if (user.suspendedAt) {
+      logger.warn('Google login blocked: account suspended', { userId: user.id });
+      return res.status(403).json({ error: SUSPENDED_MESSAGE, code: 'ACCOUNT_SUSPENDED' });
+    }
+
+    const { accessToken, refreshToken } = await issueTokenPair(user.id, res);
+    const { password: _, _count, verificationToken: _vt, resetToken: _rt, resetTokenExpiry: _rte, googleSub: _gs, ...safe } = user;
+    logger.info('User logged in with Google', { userId: user.id });
+    res.status(isNewUser ? 201 : 200).json({
+      user: { ...safe, followersCount: _count.followers, followingCount: _count.following, ...(await accountFlags(prisma, user)) },
+      token: accessToken,
+      refreshToken,
+      requiresVerification: false,
+      isNewUser,
+    });
+  } catch (error: any) {
+    logger.error('Google login error', { error: error?.message });
+    res.status(500).json({ error: 'Error interno al entrar con Google' });
   }
 });
 
@@ -1213,7 +1322,7 @@ app.post('/api/auth/refresh', validate(refreshSchema), async (req: Request, res:
     await prisma.refreshToken.delete({ where: { id: storedToken.id } });
     const { accessToken, refreshToken: newRefreshToken } = await issueTokenPair(storedToken.userId, res);
 
-    const { password: _, verificationToken: _vt, resetToken: _rt, resetTokenExpiry: _rte, ...safe } = storedToken.user;
+    const { password: _, verificationToken: _vt, resetToken: _rt, resetTokenExpiry: _rte, googleSub: _gs, ...safe } = storedToken.user;
     res.json({
       token: accessToken,
       refreshToken: newRefreshToken,
@@ -1495,7 +1604,8 @@ app.get('/api/auth/me', authenticateToken, async (req: any, res: Response) => {
       include: { _count: { select: { followers: true, following: true, products: true, looks: true } } }
     });
     if (!user) return res.status(404).json({ error: 'User not found' });
-    const { password: _, _count, verificationToken: _vt, resetToken: _rt, resetTokenExpiry: _rte, ...safe } = user;
+    touchLastLogin(user.id);
+    const { password: _, _count, verificationToken: _vt, resetToken: _rt, resetTokenExpiry: _rte, googleSub: _gs, ...safe } = user;
     res.json({
       ...safe,
       followersCount: _count.followers,
@@ -1575,7 +1685,7 @@ app.put('/api/auth/profile', authenticateToken, upload.fields([{ name: 'avatar',
     // Borra las imágenes anteriores reemplazadas
     if (updateData.avatar && isOwnUploadUrl(previous?.avatar)) safeUnlink(path.join(UPLOADS_DIR, path.basename(previous!.avatar!)));
     if (updateData.fullBodyAvatar && isOwnUploadUrl(previous?.fullBodyAvatar)) safeUnlink(path.join(UPLOADS_DIR, path.basename(previous!.fullBodyAvatar!)));
-    const { password: _, _count, verificationToken: _vt, resetToken: _rt, resetTokenExpiry: _rte, ...safe } = user;
+    const { password: _, _count, verificationToken: _vt, resetToken: _rt, resetTokenExpiry: _rte, googleSub: _gs, ...safe } = user;
     res.json({ ...safe, followersCount: _count.followers, followingCount: _count.following, ...(await accountFlags(prisma, user)) });
   } catch (error) {
     logger.error('Error occurred', { error });
@@ -1611,7 +1721,7 @@ app.put('/api/auth/preferences', authenticateToken, async (req: any, res: Respon
       where: { id: req.user.userId },
       data: updateData,
     });
-    const { password: _, verificationToken: _vt, resetToken: _rt, resetTokenExpiry: _rte, ...safe } = user;
+    const { password: _, verificationToken: _vt, resetToken: _rt, resetTokenExpiry: _rte, googleSub: _gs, ...safe } = user;
     res.json({ ...safe, ...(await accountFlags(prisma, user)) });
   } catch (error) {
     logger.error('Error occurred', { error });
@@ -3162,7 +3272,7 @@ app.get('/api/users/:id', authenticateToken, async (req: any, res: Response) => 
 
     const {
       password: _, _count, email: _email, verificationToken: _vt, resetToken: _rt, resetTokenExpiry: _rte,
-      birthDate: _bd, cycleTracking: _ct, ...safe
+      birthDate: _bd, cycleTracking: _ct, googleSub: _gs, lastLoginAt: _ll, ...safe
     } = user as any;
     const isFollowing = await prisma.follow.findUnique({
       where: { followerId_followingId: { followerId: viewerId, followingId: id } },
@@ -4643,9 +4753,15 @@ const startServer = async () => {
         `CREATE TABLE IF NOT EXISTS "PushToken" ("id" TEXT NOT NULL PRIMARY KEY, "token" TEXT NOT NULL, "platform" TEXT NOT NULL DEFAULT 'android', "userId" TEXT NOT NULL, "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, "updatedAt" DATETIME NOT NULL, CONSTRAINT "PushToken_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE);`,
         `CREATE UNIQUE INDEX IF NOT EXISTS "PushToken_token_key" ON "PushToken" ("token");`,
         `CREATE INDEX IF NOT EXISTS "PushToken_userId_idx" ON "PushToken" ("userId");`,
+        // "Continuar con Google" y último acceso (por si `prisma db push` no llegó a aplicarlos)
+        `ALTER TABLE "User" ADD COLUMN "googleSub" TEXT;`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS "User_googleSub_key" ON "User" ("googleSub");`,
+        `ALTER TABLE "User" ADD COLUMN "lastLoginAt" DATETIME;`,
       ];
       for (const sql of tableChecks) {
-        try { await prisma.$executeRawUnsafe(sql); } catch (e: any) { logger.warn('Table creation warning', { error: e.message }); }
+        try { await prisma.$executeRawUnsafe(sql); } catch (e: any) {
+          if (!String(e.message).toLowerCase().includes('duplicate column')) logger.warn('Table creation warning', { error: e.message });
+        }
       }
       logger.info('Database gamification schema checks passed.');
       // Participaciones antiguas que se quedaron 'pendientes de revisión' (ya recibieron sus puntos): se dan por revisadas

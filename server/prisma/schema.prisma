@@ -47,6 +47,8 @@ model User {
   suspendedAt       DateTime?  // moderación: cuenta suspendida (no puede entrar ni usar la API)
   sellerDeclaredAt  DateTime?  // compraventa: declaró vender como particular (no profesional)
   hideFromTrends    Boolean    @default(false) // no mostrar sus looks en Tendencias (derecho de oposición)
+  googleSub         String?    @unique // id de la cuenta de Google si entra con "Continuar con Google"
+  lastLoginAt       DateTime?  // último acceso (inicio de sesión o renovación de la sesión); solo lo ve la administración
   language          String?    @default("es")
   dialect           String?    @default("none")
   createdAt         DateTime   @default(now())

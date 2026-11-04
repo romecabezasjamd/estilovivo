@@ -283,16 +283,16 @@ export function registerAdminRoutes(app: Express, deps: AdminDeps) {
     const users = await prisma.user.findMany({
       where: q ? { OR: [{ name: { contains: q } }, { email: { contains: q } }] } : undefined,
       orderBy: { createdAt: 'desc' }, take: 30,
-      select: { id: true, name: true, email: true, avatar: true, createdAt: true, suspendedAt: true, isVerified: true, birthDate: true },
+      select: { id: true, name: true, email: true, avatar: true, createdAt: true, suspendedAt: true, isVerified: true, birthDate: true, lastLoginAt: true, googleSub: true },
     });
-    res.json(users.map(({ birthDate, ...u }) => ({ ...u, ageBand: ageBand(birthDate) })));
+    res.json(users.map(({ birthDate, googleSub, ...u }) => ({ ...u, ageBand: ageBand(birthDate), google: !!googleSub })));
   }));
 
   r.get('/users/:id', wrap(async (req, res) => {
     const u = await prisma.user.findUnique({
       where: { id: req.params.id },
       select: {
-        id: true, name: true, email: true, avatar: true, bio: true, createdAt: true, suspendedAt: true, isVerified: true, birthDate: true, isProfilePublic: true,
+        id: true, name: true, email: true, avatar: true, bio: true, createdAt: true, suspendedAt: true, isVerified: true, birthDate: true, isProfilePublic: true, lastLoginAt: true, googleSub: true,
         guardianLink: { select: { status: true, marketplaceAllowed: true } },
         _count: { select: { looks: true, products: true, followers: true, following: true, stories: true } },
       },
@@ -306,9 +306,9 @@ export function registerAdminRoutes(app: Express, deps: AdminDeps) {
       prisma.adminAction.findMany({ where: { targetId: u.id }, orderBy: { createdAt: 'desc' }, take: 20 }),
       deps.isAdminUser(u.id),
     ]);
-    const { birthDate, _count, guardianLink, ...rest } = u;
+    const { birthDate, _count, guardianLink, googleSub, ...rest } = u;
     res.json({
-      ...rest, isAdmin: admin, ageBand: ageBand(birthDate),
+      ...rest, isAdmin: admin, ageBand: ageBand(birthDate), google: !!googleSub,
       guardian: guardianLink ? { status: guardianLink.status, marketplaceAllowed: guardianLink.marketplaceAllowed } : null,
       counts: { ..._count, forSale, reportsAgainst, reportsMade, blockedUploads: blocked },
       history: history.map((h) => ({ action: h.action, details: h.details, createdAt: h.createdAt })),

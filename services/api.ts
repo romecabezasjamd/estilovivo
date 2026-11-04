@@ -511,6 +511,32 @@ export const api = {
         return api.auth(credentials, remember);
     },
 
+    /** Formas de entrar que tiene activadas el servidor (el ID de cliente de Google o null). */
+    authProviders: async (): Promise<{ google: string | null }> => {
+        try {
+            const res = await fetchWithTimeout(`${API_BASE}/auth/providers`, { credentials: 'include' });
+            return await handleResponse(res);
+        } catch {
+            return { google: null };
+        }
+    },
+
+    /**
+     * "Continuar con Google". Si es una cuenta nueva y falta la fecha de nacimiento, devuelve { needsProfile, name, email }
+     * sin crear nada; se vuelve a llamar con la fecha.
+     */
+    googleAuth: async (body: { credential: string; birthDate?: string; gender?: 'male' | 'female' | 'other' }, remember: boolean = true) => {
+        const res = await fetchWithTimeout(`${API_BASE}/auth/google`, {
+            credentials: 'include', method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const data = await handleResponse(res);
+        if (data.token) await cacheAuthToken(data.token, remember);
+        if (data.refreshToken) await saveRefreshToken(data.refreshToken);
+        return data.user ? { ...data, user: normalizeUser(data.user) } : data;
+    },
+
     register: async (userData: { email: string; password: string; name: string; gender?: 'male' | 'female' | 'other'; birthDate?: string }, remember: boolean = true) => {
         const res = await fetchWithTimeout(`${API_BASE}/auth/register`, {
             credentials: 'include', method: 'POST',

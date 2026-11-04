@@ -12,6 +12,13 @@ export const registerSchema = z.object({
   birthDate: z.string().optional(),
 });
 
+// "Continuar con Google": el ID token de Google y, solo la primera vez (cuenta nueva), la fecha de nacimiento
+export const googleAuthSchema = z.object({
+  credential: z.string().min(20).max(4096),
+  birthDate: z.string().max(40).optional(),
+  gender: z.enum(['male', 'female', 'other']).optional(),
+});
+
 export const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email('Email inválido'),
   password: z.string().min(1, 'Contraseña requerida').max(128),

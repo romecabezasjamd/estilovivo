@@ -26,11 +26,11 @@ export function policySections(controller: string, email: string): PolicySection
     {
       title: '2. Qué datos tratamos',
       bullets: [
-        'Cuenta: nombre, correo electrónico, contraseña (guardada con un hash irreversible), fecha de nacimiento y género.',
+        'Cuenta: nombre, correo electrónico, contraseña (guardada con un hash irreversible), fecha de nacimiento y género. Si entras con Google, además el identificador de tu cuenta de Google; de Google solo recibimos ese identificador, tu correo verificado y tu nombre (no tu foto, tus contactos ni nada más).',
         'Perfil: foto de perfil, foto de cuerpo entero (para el probador), biografía, ciudad para el tiempo y preferencias de estilo y de la app.',
         'Lo que publicas y haces: prendas, looks, fotos, historias, comentarios, me gusta, favoritos, seguidores, participaciones en retos, planificador, maletas y mensajes de chat.',
         'Avisos: un identificador del dispositivo para enviarte notificaciones al móvil, y tus preferencias de avisos por correo.',
-        'Seguridad: denuncias y bloqueos que hagas o recibas, las decisiones de moderación sobre tu cuenta o tu contenido y, si el sistema bloquea una foto que intentas subir, un registro sin la foto (cuándo, en qué parte de la app y la puntuación del análisis).',
+        'Seguridad: la fecha y hora de tu último acceso (solo eso: ni la IP ni el dispositivo), denuncias y bloqueos que hagas o recibas, las decisiones de moderación sobre tu cuenta o tu contenido y, si el sistema bloquea una foto que intentas subir, un registro sin la foto (cuándo, en qué parte de la app y la puntuación del análisis).',
         'Informes de error: si la app se cierra o la web falla, se envía un informe técnico (versión, modelo de móvil o navegador y el error) para poder arreglarlo. No incluye el contenido de tu cuenta.',
         'Solicitudes de privacidad: lo que nos pidas desde Mis derechos de privacidad y nuestra respuesta.',
         'Opiniones: lo que nos escribas desde Enviar opinión (tipo, mensaje y valoración opcional), con tu nombre, tu correo y la versión de la app.',
@@ -42,7 +42,7 @@ export function policySections(controller: string, email: string): PolicySection
     {
       title: '3. Para qué los usamos y con qué base legal',
       bullets: [
-        'Prestarte el servicio (armario, looks, probador, comunidad y chat): ejecución del contrato que aceptas al registrarte.',
+        'Prestarte el servicio (armario, looks, probador, comunidad y chat): ejecución del contrato que aceptas al registrarte. Si eliges "Continuar con Google", usamos los datos que nos da Google solo para crear tu cuenta o identificarte (ejecución del contrato).',
         'Mostrar tu contenido a otras personas según tu configuración de privacidad (perfil público o privado).',
         'Tablero de Tendencias: si tu perfil es público y eres mayor de edad, tus looks públicos más queridos pueden aparecer en el tablero de la semana y en la inspiración de otras personas, con tu nombre y enlace a tu perfil (interés legítimo en mostrar lo que se lleva en la comunidad). Nunca se muestran looks de menores. Puedes oponerte cuando quieras desactivando Perfil › Ajustes › Mostrar mis looks en Tendencias.',
         'Fotos de inspiración de Unsplash en Tendencias: solo se cargan si pulsas "Ver fotos de Unsplash" (y puedes dejar de verlas cuando quieras). Entonces tu dispositivo descarga las fotos directamente de Unsplash, que recibe tu dirección IP y cuenta las visualizaciones con un identificador aleatorio. Nosotros no le enviamos ningún dato de tu cuenta: las búsquedas las hace nuestro servidor solo con palabras de moda (tu consentimiento, al pulsar el botón).',
@@ -53,6 +53,7 @@ export function policySections(controller: string, email: string): PolicySection
         'Mantener la plataforma segura y revisar denuncias: interés legítimo en proteger a la comunidad. Las denuncias las revisa una persona del equipo con permiso de administración, que puede retirar contenido, anular participaciones en retos o suspender cuentas. Si te afecta, te explicamos el motivo y cómo reclamar (Reglamento de Servicios Digitales de la UE). Cada acción queda registrada.',
         'Avisos del servicio a todas las cuentas (mantenimiento, cambios de normas o de esta política): ejecución del contrato. Nunca los usamos para publicidad.',
         'Arreglar errores de la app con los informes técnicos: interés legítimo en que la app funcione bien.',
+        'Último acceso: lo ve solo la administración para proteger las cuentas (detectar accesos raros o cuentas abandonadas) y saber qué cuentas siguen activas (interés legítimo). Se sobrescribe en cada acceso, no se usa para perfilarte ni se muestra a otras personas, y te puedes oponer desde Mis derechos de privacidad.',
         'Leer y contestar lo que nos envías desde Enviar opinión: tu consentimiento, al enviarla. Nos llega por correo al buzón de contacto y no se guarda en la base de datos de la app.',
         'Revisión automática de fotos: cada foto que subes se analiza en nuestro propio servidor con un sistema automático para bloquear desnudos y contenido sexual. La foto no se envía a terceros; si se bloquea, se borra al instante y no se guarda. Si crees que es un error, escríbenos (interés legítimo y protección de menores).',
         'Fecha de nacimiento: para comprobar la edad mínima y aplicar las protecciones de menores (cumplimiento legal e interés legítimo). No se muestra a otras personas.',
@@ -68,6 +69,7 @@ export function policySections(controller: string, email: string): PolicySection
         'Cloudflare: red que protege y acelera el acceso a la web y a la app.',
         'Google Firebase Cloud Messaging: entrega las notificaciones al móvil (recibe el identificador del dispositivo y el texto del aviso).',
         'Google (Gmail): envía los correos de la cuenta y de avisos.',
+        'Google (Iniciar sesión con Google): solo si eliges "Continuar con Google". Google comprueba quién eres y nos da tu identificador de Google, tu correo verificado y tu nombre. En la web, el servicio de Google solo se carga cuando pulsas ese botón.',
         'Open-Meteo: devuelve el tiempo para tu zona (recibe la ciudad o una ubicación aproximada, sin tus datos de cuenta).',
         'Unsplash (Unsplash Inc.): sirve las fotos de inspiración de Tendencias si eliges verlas. Recibe tu dirección IP y datos técnicos de la visualización, que trata como responsable independiente según su propia política de privacidad (unsplash.com/privacy).',
         'UI Avatars: genera una imagen con tus iniciales si no tienes foto de perfil (recibe tu nombre visible).',
@@ -82,7 +84,7 @@ export function policySections(controller: string, email: string): PolicySection
     {
       title: '6. Cuánto tiempo los conservamos',
       paragraphs: [
-        'Mientras tu cuenta esté activa. Si la eliminas, borramos tu perfil, tus prendas, looks, historias, comentarios, me gusta, mensajes enviados, notificaciones y dispositivos registrados.',
+        'Mientras tu cuenta esté activa. El último acceso se sobrescribe cada vez que entras. Si eliminas la cuenta, borramos tu perfil, tus prendas, looks, historias, comentarios, me gusta, mensajes enviados, notificaciones y dispositivos registrados.',
         'Registros técnicos y de seguridad: los informes de error y los registros de fotos bloqueadas se borran a los 90 días. Las decisiones de moderación y las solicitudes de privacidad se guardan 3 años para poder demostrar que se atendieron correctamente. Las opiniones que nos envías se guardan en el buzón de contacto el tiempo necesario para atenderlas y, como máximo, 2 años.',
         'Se conservan el contenido de otras personas (por ejemplo, los mensajes que te enviaron) y las denuncias que hayas presentado, sin tus datos de perfil, para poder revisarlas. Las copias de seguridad técnicas se sustituyen de forma rotativa y tus datos desaparecen de ellas al rotarse.',
       ],
@@ -106,14 +108,14 @@ export function policySections(controller: string, email: string): PolicySection
     },
     {
       title: '9. Seguridad',
-      paragraphs: ['Toda la comunicación va cifrada (HTTPS). Las contraseñas se guardan con un hash irreversible y la sesión de la app se guarda cifrada en tu dispositivo. Las claves del servidor no están en el código.'],
+      paragraphs: ['Toda la comunicación va cifrada (HTTPS). Si entras con Google no hay contraseña de Estilo Vivo que se pueda filtrar (puedes crear una cuando quieras con "¿Olvidaste tu contraseña?"). Las contraseñas se guardan con un hash irreversible y la sesión de la app se guarda cifrada en tu dispositivo. Las claves del servidor no están en el código.'],
     },
     {
       title: '10. Cookies y almacenamiento en tu dispositivo',
       paragraphs: [
         'Solo usamos lo técnicamente necesario para que la web y la app funcionen: una cookie de sesión segura para mantenerte conectada y el almacenamiento del navegador o del móvil para recordar tus preferencias (tema, idioma) y guardar copias temporales que aceleran la carga.',
         'No usamos cookies de analítica, de publicidad ni de seguimiento, propias ni de terceros. Por eso no te pedimos aceptar cookies: las estrictamente necesarias están exentas de consentimiento (artículo 22.2 de la LSSI). Si las borras desde tu navegador, tendrás que volver a iniciar sesión.',
-        'Las fotos de inspiración de Unsplash no se cargan hasta que lo eliges con el botón "Ver fotos de Unsplash"; tu elección se guarda en tu dispositivo y puedes retirarla con "Dejar de verlas".',
+        'Si pulsas "Continuar con Google" en la web, se abre el servicio de inicio de sesión de Google, que puede usar sus propias cookies en su dominio para identificarte; es necesario para lo que has pedido y no se carga si no lo pulsas. Las fotos de inspiración de Unsplash no se cargan hasta que lo eliges con el botón "Ver fotos de Unsplash"; tu elección se guarda en tu dispositivo y puedes retirarla con "Dejar de verlas".',
       ],
     },
     {

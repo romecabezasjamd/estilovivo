@@ -327,6 +327,7 @@ function UsersSection({ need2fa, act, setAsk, openId, setOpenId }: Common & { ac
           <div className="grid grid-cols-2 gap-2 text-xs">
             <span>Alta: <b>{fmt(u.createdAt)}</b></span><span>Edad: <b>{u.ageBand}</b></span>
             <span>Correo verificado: <b>{u.isVerified ? 'Sí' : 'No'}</b></span><span>Perfil: <b>{u.isProfilePublic ? 'Público' : 'Privado'}</b></span>
+            <span>Último acceso: <b>{u.lastLoginAt ? fmt(u.lastLoginAt) : 'sin datos'}</b></span><span>Entra con: <b>{u.google ? 'Google' : 'correo'}</b></span>
             {u.guardian && <span className="col-span-2">Adulto responsable: <b>{u.guardian.status === 'APPROVED' ? (u.guardian.marketplaceAllowed ? 'aceptado, compraventa permitida' : 'aceptado, compraventa pausada') : 'pendiente'}</b></span>}
             <span>Looks: <b>{c.looks}</b></span><span>Prendas: <b>{c.products}</b> ({c.forSale} a la venta)</span>
             <span>Seguidores: <b>{c.followers}</b></span><span>Historias: <b>{c.stories}</b></span>
@@ -361,6 +362,7 @@ function UsersSection({ need2fa, act, setAsk, openId, setOpenId }: Common & { ac
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-bold truncate">{x.name}</p>
                 <p className="text-[11px] text-[var(--text-muted)] truncate">{x.email} · {x.ageBand}</p>
+                <p className="text-[11px] text-[var(--text-muted)] truncate">Último acceso: {x.lastLoginAt ? fmt(x.lastLoginAt) : 'sin datos'}{x.google ? ' · Google' : ''}</p>
               </div>
               {x.suspendedAt && <span className="text-[10px] font-bold text-red-600">SUSPENDIDA</span>}
             </button>

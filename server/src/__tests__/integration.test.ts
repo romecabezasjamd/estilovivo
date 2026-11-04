@@ -172,6 +172,27 @@ describe('API Integration Tests', () => {
       if (response.status === 503) expect(response.body.error).toMatch(/@/);
     });
   });
+
+  describe('Continuar con Google y último acceso', () => {
+    it('GET /api/auth/providers - without GOOGLE_CLIENT_ID there is no Google button', async () => {
+      const response = await request(app).get('/api/auth/providers');
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ google: process.env.GOOGLE_CLIENT_ID ? expect.any(String) : null });
+    });
+
+    it('POST /api/auth/google - validates the body and answers 503 when Google is not configured', async () => {
+      const bad = await request(app).post('/api/auth/google').send({ credential: 'x' });
+      expect(bad.status).toBe(400);
+      const response = await request(app).post('/api/auth/google').send({ credential: 'a'.repeat(40) });
+      expect(process.env.GOOGLE_CLIENT_ID ? 401 : 503).toBe(response.status);
+    });
+
+    it('GET /api/auth/me - never exposes the Google account id', async () => {
+      const response = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${authToken}`);
+      expect(response.status).toBe(200);
+      expect(response.body).not.toHaveProperty('googleSub');
+    });
+  });
 });
 
 /* 
