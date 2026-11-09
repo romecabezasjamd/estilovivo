@@ -5,6 +5,7 @@ import { Home, Shirt, Users, User, RefreshCcw, X, Luggage, WashingMachine, Wand2
 import { useLanguage } from '../src/context/LanguageContext';
 import { useGlobalState } from '../src/context/GlobalStateContext';
 import NotificationBell from './NotificationBell';
+import GlassNav from './GlassNav';
 const VirtualTryOn = React.lazy(() => import('../pages/VirtualTryOn'));
 
 interface LayoutProps {
@@ -118,7 +119,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
 
       <NotificationBell />
 
-      <main ref={mainRef} className="flex-1 min-h-0 overflow-y-auto no-scrollbar pb-32 pt-0">
+      {/* El armario tiene sus propias zonas con scroll: sin este margen, las prendas pasan por detrás de la barra de cristal */}
+      <main ref={mainRef} className={`flex-1 min-h-0 overflow-y-auto no-scrollbar pt-0 ${activeTab === 'wardrobe' ? 'pb-0' : 'pb-32'}`}>
         {children}
       </main>
 
@@ -138,15 +140,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
               <motion.div whileHover={{ scale: 1.12 }} whileTap={{ scale: 0.92 }} className="flex flex-col items-center">
                 <button
                   onClick={() => { setShowWardrobeSubmenu(false); onTabChange('suitcase'); }}
-                  className="w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200 border"
-                  style={{
-                    background: 'color-mix(in srgb, var(--bg-card) 85%, transparent)',
-                    borderColor: 'color-mix(in srgb, var(--border-light) 50%, transparent)',
-                    boxShadow: '0 8px 32px rgba(99, 102, 241, 0.15), 0 2px 8px rgba(0,0,0,0.08)',
-                    backdropFilter: 'blur(12px)',
-                  }}
+                  className="ev-liquid-glass relative w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200 text-white"
+                  style={{ '--ev-tint': 'rgba(99, 102, 241, 0.32)' } as React.CSSProperties}
                 >
-                  <Luggage size={22} className="text-indigo-500 transition-transform duration-200" />
+                  <Luggage size={22} className="transition-transform duration-200" />
                 </button>
                 <span className="text-[10px] font-bold mt-2 px-2.5 py-0.5 rounded-full" style={{ color: 'var(--text-secondary)', background: 'color-mix(in srgb, var(--bg-card) 80%, transparent)' }}>Viajes</span>
               </motion.div>
@@ -158,15 +155,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
                   onDragOver={(e) => { e.preventDefault(); setDragOverLavadora(true); }}
                   onDragLeave={() => setDragOverLavadora(false)}
                   onDrop={(e) => { setDragOverLavadora(false); handleDropWashing(e); }}
-                  className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200 border relative ${washingAnimation ? 'scale-125' : ''} ${dragOverLavadora && !washingAnimation ? 'animate-bounce ring-4 ring-blue-300' : ''}`}
-                  style={{
-                    background: washingAnimation ? 'rgba(59, 130, 246, 0.15)' : 'color-mix(in srgb, var(--bg-card) 85%, transparent)',
-                    borderColor: washingAnimation ? 'rgba(59, 130, 246, 0.3)' : 'color-mix(in srgb, var(--border-light) 50%, transparent)',
-                    boxShadow: washingAnimation ? '0 0 24px rgba(59, 130, 246, 0.35), 0 8px 32px rgba(0,0,0,0.08)' : '0 8px 32px rgba(59, 130, 246, 0.12), 0 2px 8px rgba(0,0,0,0.08)',
-                    backdropFilter: 'blur(12px)',
-                  }}
+                  className={`ev-liquid-glass relative w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200 text-white ${washingAnimation ? 'scale-125' : ''} ${dragOverLavadora && !washingAnimation ? 'animate-bounce ring-4 ring-blue-300' : ''}`}
+                  style={{ '--ev-tint': 'rgba(59, 130, 246, 0.32)', boxShadow: washingAnimation ? '0 0 24px rgba(59, 130, 246, 0.35)' : undefined } as React.CSSProperties}
                 >
-                  <WashingMachine size={22} className={`text-blue-500 ${washingAnimation ? 'animate-spin' : ''}`} />
+                  <WashingMachine size={22} className={`${washingAnimation ? 'animate-spin' : ''}`} />
                   {garments.filter(g => g.isWashing).length > 0 && !washingAnimation && (
                     <div className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold shadow-sm">
                       {garments.filter(g => g.isWashing).length}
@@ -188,15 +180,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
                   onDragOver={(e) => { e.preventDefault(); setDragOverProbar(true); }}
                   onDragLeave={() => setDragOverProbar(false)}
                   onDrop={(e) => { setDragOverProbar(false); handleDropFittingRoom(e); }}
-                  className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200 border ${dragOverProbar ? 'animate-pulse ring-4 ring-pink-300' : ''}`}
-                  style={{
-                    background: dragOverProbar ? 'rgba(236, 72, 153, 0.15)' : 'color-mix(in srgb, var(--bg-card) 85%, transparent)',
-                    borderColor: dragOverProbar ? 'rgba(236, 72, 153, 0.3)' : 'color-mix(in srgb, var(--border-light) 50%, transparent)',
-                    boxShadow: '0 8px 32px rgba(236, 72, 153, 0.12), 0 2px 8px rgba(0,0,0,0.08)',
-                    backdropFilter: 'blur(12px)',
-                  }}
+                  className={`ev-liquid-glass relative w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200 text-white ${dragOverProbar ? 'animate-pulse ring-4 ring-pink-300' : ''}`}
+                  style={{ '--ev-tint': 'rgba(236, 72, 153, 0.32)' } as React.CSSProperties}
                 >
-                  <Wand2 size={22} className={`text-pink-500 ${dragOverProbar ? 'scale-110' : ''}`} />
+                  <Wand2 size={22} className={`${dragOverProbar ? 'scale-110' : ''}`} />
                 </button>
                 <span className="text-[10px] font-bold mt-2 px-2.5 py-0.5 rounded-full" style={{ color: 'var(--text-secondary)', background: 'color-mix(in srgb, var(--bg-card) 80%, transparent)' }}>Probar</span>
               </motion.div>
@@ -206,12 +193,11 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
       </AnimatePresence>
 
       <div className="fixed left-4 right-4 z-50 flex justify-center pointer-events-none" style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 1.5rem)' }}>
-        {/* Barra inferior como en la app: oscura y flotante; la pestaña activa se abre en una píldora con su nombre */}
-        <nav className="relative w-full max-w-md h-[68px] shadow-2xl rounded-full flex items-center p-2 gap-1 pointer-events-auto" style={{ background: 'var(--nav-bg)' }}>
-          {navItems.map((item, index) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id; // lógica de clic (sin cambios)
-            const highlighted = index === activeIndex; // aspecto: planificador/maleta resaltan Armario, etc.
+        {/* Barra de cristal líquido, la misma que la de la app (LiquidBar) */}
+        <GlassNav
+          activeIndex={activeIndex}
+          items={navItems.map((item) => {
+            const isActive = activeTab === item.id;
             // Volver a pulsar la pestaña abierta: la página sube arriba del todo (como en la app)
             const toTop = () => { mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); window.dispatchEvent(new CustomEvent('ev-scroll-top')); };
             const onClick = item.id === 'wardrobe'
@@ -220,31 +206,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
                   else { onTabChange(item.id); setShowWardrobeSubmenu(true); }
                 }
               : () => { setShowWardrobeSubmenu(false); if (isActive) toTop(); else onTabChange(item.id); };
-
-            return (
-              <button
-                key={item.id}
-                onClick={onClick}
-                aria-label={item.label}
-                aria-current={highlighted ? 'page' : undefined}
-                className={`relative h-full flex items-center justify-center outline-none rounded-full transition-[flex-grow] duration-300 ${highlighted ? 'flex-[2.2]' : 'flex-1'}`}
-              >
-                {highlighted && (
-                  <motion.span
-                    layoutId="nav-indicator"
-                    className="absolute inset-0 rounded-full"
-                    style={{ background: 'var(--nav-active-bg)' }}
-                    transition={{ type: 'spring', stiffness: 380, damping: 32 }}
-                  />
-                )}
-                <span className="relative z-10 flex items-center gap-2" style={{ color: highlighted ? 'var(--nav-active-fg)' : 'var(--nav-icon)' }}>
-                  <Icon size={22} strokeWidth={highlighted ? 2.4 : 2} />
-                  {highlighted && <span className="text-[15px] font-semibold whitespace-nowrap">{item.label}</span>}
-                </span>
-              </button>
-            );
+            return { ...item, onClick };
           })}
-        </nav>
+        />
       </div>
       {/* Washing Machine Modal Layer */}
       {showWashingModal && (

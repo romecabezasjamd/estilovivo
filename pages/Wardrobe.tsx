@@ -712,7 +712,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
 
       {/* VIEW: CLOSET */}
       {activeView === 'closet' && (
-        <div className="px-6 flex-1 overflow-y-auto no-scrollbar pb-24">
+        <div className="px-6 flex-1 overflow-y-auto no-scrollbar pb-60">
           {/* Category pills with counts */}
           <div className="flex space-x-2 overflow-x-auto no-scrollbar mb-4 pb-2">
             {CATEGORIES.map((cat) => {
@@ -873,7 +873,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
           {/* FAB - above bottom nav (z-50) */}
           <button
             onClick={() => setIsAdding(true)}
-            className="fixed bottom-28 right-6 w-14 h-14 bg-primary text-white rounded-full shadow-lg shadow-primary/40 flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-200 z-[60] animate-pulse-soft"
+            className="ev-liquid-glass fixed bottom-28 right-6 w-14 h-14 text-white rounded-full flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-200 z-[60] animate-pulse-soft"
           >
             <Plus size={28} />
           </button>
@@ -882,7 +882,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
 
       {/* VIEW: LOOKS */}
       {activeView === 'looks' && (
-        <div className="px-6 flex-1 overflow-y-auto no-scrollbar pb-24 animate-fade-in">
+        <div className="px-6 flex-1 overflow-y-auto no-scrollbar pb-44 animate-fade-in">
           <div className="flex justify-between items-center mb-4">
             <h3 className="font-bold text-[var(--text-primary)]">Tus Looks</h3>
             <button
@@ -963,7 +963,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
 
       {/* VIEW: SALES */}
       {activeView === 'sales' && (
-        <div className="px-6 flex-1 overflow-y-auto no-scrollbar pb-24 animate-fade-in">
+        <div className="px-6 flex-1 overflow-y-auto no-scrollbar pb-44 animate-fade-in">
           {/* Sales summary card */}
           <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-2xl p-4 text-white mb-6 shadow-lg shadow-emerald-900/10">
             <div className="flex justify-between items-start">
