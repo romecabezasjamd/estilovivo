@@ -3,18 +3,23 @@
 
 QUÉ HACE
 --------
-Cada día, tu ordenador descarga del servidor UNA copia completa de Estilo Vivo:
+Cada día se guarda UNA copia completa de Estilo Vivo en DOS sitios fuera del servidor de tu amigo:
+  1. Tu GitHub privado: github.com/andrears19496/estilovivo-copias (lo hace GitHub solo, aunque tu
+     ordenador esté apagado). Las copias están en la sección "Releases".
+  2. Tu carpeta de OneDrive o Google Drive (lo hace tu ordenador cuando está encendido).
+Cada copia incluye:
   - la base de datos (cuentas, prendas, looks, mensajes, etc.)
   - todas las fotos que suben las personas usuarias
 La copia va CIFRADA: sin tu contraseña nadie puede abrirla, ni siquiera OneDrive o Google Drive.
-Se guarda con la fecha en la carpeta que elijas y se conservan las 30 últimas (las más antiguas se borran solas).
-Si una copia falla, te sale un aviso en la pantalla y aparece el archivo ULTIMA-COPIA-FALLO.txt en esa carpeta.
+En cada sitio se conservan las 30 últimas (las más antiguas se borran del todo, solas).
+Si una copia falla: GitHub te manda un correo, y en el ordenador te sale un aviso y aparece el archivo
+ULTIMA-COPIA-FALLO.txt en la carpeta.
 
 Con estas copias puedes recuperarlo todo si algo sale mal, o llevarte Estilo Vivo a tu propio servidor
 (por ejemplo Hetzner, en la UE) cuando quieras.
 
 
-LO QUE TE QUEDA POR HACER (3 pasos)
+LO QUE TE QUEDA POR HACER (4 pasos)
 -----------------------------------
 
 PASO 1. Crear dos claves en Coolify
@@ -37,7 +42,15 @@ PASO 2. Subir el código y desplegar
   Dile a Claude "sube las copias de seguridad" y él hará el push. Luego pulsa Redeploy en Coolify.
   (Hasta que no se despliegue con las dos variables, el servidor responde "no disponible".)
 
-PASO 3. Configurar tu ordenador (una sola vez)
+PASO 3. Poner el token en tu GitHub (una sola vez)
+  Entra en: https://github.com/andrears19496/estilovivo-copias/settings/secrets/actions/new
+    Name:   BACKUP_TOKEN
+    Secret: el mismo BACKUP_TOKEN de Coolify
+  Pulsa "Add secret". (NUNCA pongas allí BACKUP_PASSWORD.)
+  Para comprobarlo: pestaña Actions › Copia diaria › Run workflow. Al cabo de un minuto debe salir en verde
+  y aparecer la copia en Releases. Después se hace sola cada día hacia las 4 de la mañana.
+
+PASO 4. Configurar tu ordenador para OneDrive (una sola vez)
   Haz doble clic en:  servidor-y-web\scripts\copias\PROGRAMAR-COPIAS.bat
   Te preguntará:
     1) la carpeta donde guardar las copias (te propone una de OneDrive; puedes poner una de Google Drive)
@@ -60,6 +73,8 @@ CÓMO RECUPERAR UNA COPIA
      dev.db         la base de datos
      uploads\       todas las fotos
      manifest.json  fecha de la copia y número de fotos
+
+   (Las copias de GitHub se descargan desde Releases: pulsa el archivo .evbk de la fecha que quieras.)
 
 2. Ponerla en un servidor (el de tu amigo o uno nuevo con Docker y este mismo repositorio):
    - Despliega la app normalmente (Coolify o "docker compose up -d") y párala.
@@ -90,7 +105,10 @@ PROTECCIÓN DE DATOS (RGPD)
   borran a los 30 días como máximo.
 - La política de privacidad ya lo explica (actualizada el 18/11/2026): copias diarias cifradas, plazo de
   30 días y que una cuenta borrada desaparece de las copias en ese plazo.
-- Guarda las copias solo en tu cuenta personal de OneDrive o Google Drive y no las compartas.
+- Guarda las copias solo en tu cuenta personal de OneDrive o Google Drive y en el repositorio PRIVADO de
+  GitHub. No las compartas ni hagas público ese repositorio.
+- En GitHub las copias están en Releases y no en el historial de git, así que al borrarlas desaparecen de
+  verdad (si estuvieran en commits se quedarían para siempre).
 
 
 DETALLES TÉCNICOS (para quien mantenga el servidor)
@@ -102,5 +120,7 @@ DETALLES TÉCNICOS (para quien mantenga el servidor)
 - Formato .evbk: "EVBK1\n" + sal(16) + iv(12) + tar.gz cifrado con AES-256-GCM + etiqueta(16);
   clave = scrypt(BACKUP_PASSWORD, sal, N=2^15, r=8, p=1). Código: server/src/backup.ts.
 - Pruebas: server/src/__tests__/backup.test.ts (cd server && npx vitest run).
+- GitHub: workflow .github/workflows/copia-diaria.yml en andrears19496/estilovivo-copias (origen en
+  scripts/copias/github/). Secreto BACKUP_TOKEN; variable opcional BACKUP_URL si cambia el dominio.
 - Configuración en tu PC: %LOCALAPPDATA%\EstiloVivo (copias.json, token.xml cifrado, copias.log).
   La tarea se llama "Estilo Vivo - copia de seguridad diaria" en el Programador de tareas.
