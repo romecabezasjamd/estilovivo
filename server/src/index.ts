@@ -20,6 +20,7 @@ import logger from './logger.js';
 import { processImage } from './imageProcessor.js';
 import { rejectExplicitImages, warmUpNsfw, setBlockedUploadRecorder } from './nsfw.js';
 import { registerAdminRoutes, recordCrash, purgeOldAdminData } from './admin.js';
+import { registerBackupRoutes } from './backup.js';
 import { trustedProxies, realClientIp } from './trustedProxies.js';
 import { SELLER_DECLARATION_REQUIRED, salePrice, PRICE_ERROR } from './marketplace.js';
 import { reviewChallengePhoto } from './challengeReview.js';
@@ -3225,6 +3226,14 @@ app.post('/api/diagnostics/crash', crashLimiter, optionalAuth, async (req: any, 
     logger.error('Error al recibir informe de cierre', { error });
     res.status(500).json({ error: 'No se pudo guardar el informe' });
   }
+});
+
+// ============= COPIAS DE SEGURIDAD DESCARGABLES (ver backup.ts y COPIAS-DE-SEGURIDAD.txt) =============
+registerBackupRoutes(app, {
+  // VACUUM INTO crea una copia coherente aunque la base de datos se esté usando
+  snapshotDb: async (dest) => { await prisma.$executeRawUnsafe(`VACUUM INTO '${dest.replace(/'/g, "''")}'`); },
+  uploadsDir: UPLOADS_DIR,
+  logger,
 });
 
 // ============= PANEL DE ADMINISTRACIÓN (ver admin.ts) =============

@@ -6,7 +6,7 @@
 // Los datos del responsable NO van en el código (el repositorio es público): salen de la variable de entorno
 // DATA_CONTROLLER (p. ej. "Nombre Apellidos, DNI 00000000X, dirección"), que se edita en Coolify.
 
-export const POLICY_UPDATED = '4 de noviembre de 2026';
+export const POLICY_UPDATED = '18 de noviembre de 2026';
 
 export interface PolicySection {
   title: string;
@@ -66,6 +66,7 @@ export function policySections(controller: string, email: string): PolicySection
       paragraphs: ['Solo con los proveedores necesarios para que la app funcione, y solo lo imprescindible:'],
       bullets: [
         'Alojamiento del servidor donde se guardan tus datos, contratado por el responsable.',
+        'Almacenamiento de las copias de seguridad: copias cifradas que el responsable guarda en su servicio de almacenamiento en la nube. Sin la contraseña, el proveedor no puede leerlas.',
         'Cloudflare: red que protege y acelera el acceso a la web y a la app.',
         'Google Firebase Cloud Messaging: entrega las notificaciones al móvil (recibe el identificador del dispositivo y el texto del aviso).',
         'Google (Gmail): envía los correos de la cuenta y de avisos.',
@@ -79,14 +80,14 @@ export function policySections(controller: string, email: string): PolicySection
     },
     {
       title: '5. Transferencias fuera del Espacio Económico Europeo',
-      paragraphs: ['Algunos proveedores (Google, Cloudflare y, si eliges ver sus fotos, Unsplash) pueden tratar datos fuera del EEE. Lo hacen con las garantías que exige el RGPD, como las cláusulas contractuales tipo de la Comisión Europea.'],
+      paragraphs: ['Algunos proveedores (Google, Cloudflare, el almacenamiento de las copias de seguridad cifradas y, si eliges ver sus fotos, Unsplash) pueden tratar datos fuera del EEE. Lo hacen con las garantías que exige el RGPD, como las cláusulas contractuales tipo de la Comisión Europea.'],
     },
     {
       title: '6. Cuánto tiempo los conservamos',
       paragraphs: [
         'Mientras tu cuenta esté activa. El último acceso se sobrescribe cada vez que entras. Si eliminas la cuenta, borramos tu perfil, tus prendas, looks, historias, comentarios, me gusta, mensajes enviados, notificaciones y dispositivos registrados.',
         'Registros técnicos y de seguridad: los informes de error y los registros de fotos bloqueadas se borran a los 90 días. Las decisiones de moderación y las solicitudes de privacidad se guardan 3 años para poder demostrar que se atendieron correctamente. Las opiniones que nos envías se guardan en el buzón de contacto el tiempo necesario para atenderlas y, como máximo, 2 años.',
-        'Se conservan el contenido de otras personas (por ejemplo, los mensajes que te enviaron) y las denuncias que hayas presentado, sin tus datos de perfil, para poder revisarlas. Las copias de seguridad técnicas se sustituyen de forma rotativa y tus datos desaparecen de ellas al rotarse.',
+        'Se conservan el contenido de otras personas (por ejemplo, los mensajes que te enviaron) y las denuncias que hayas presentado, sin tus datos de perfil, para poder revisarlas. Cada día se hace una copia de seguridad cifrada y se conservan solo las de los últimos 30 días: si eliminas tu cuenta, tus datos desaparecen de todas las copias como máximo 30 días después. Si alguna vez hubiera que recuperar una copia, volveríamos a borrar las cuentas que se eliminaron después de la fecha de esa copia.',
       ],
     },
     {
@@ -108,7 +109,7 @@ export function policySections(controller: string, email: string): PolicySection
     },
     {
       title: '9. Seguridad',
-      paragraphs: ['Toda la comunicación va cifrada (HTTPS). Si entras con Google no hay contraseña de Estilo Vivo que se pueda filtrar (puedes crear una cuando quieras con "¿Olvidaste tu contraseña?"). Las contraseñas se guardan con un hash irreversible y la sesión de la app se guarda cifrada en tu dispositivo. Las claves del servidor no están en el código.'],
+      paragraphs: ['Toda la comunicación va cifrada (HTTPS). Si entras con Google no hay contraseña de Estilo Vivo que se pueda filtrar (puedes crear una cuando quieras con "¿Olvidaste tu contraseña?"). Las contraseñas se guardan con un hash irreversible y la sesión de la app se guarda cifrada en tu dispositivo. Las claves del servidor no están en el código. Las copias de seguridad se guardan cifradas (AES-256) y solo el responsable tiene la contraseña.'],
     },
     {
       title: '10. Cookies y almacenamiento en tu dispositivo',

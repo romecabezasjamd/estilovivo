@@ -1,0 +1,106 @@
+﻿COPIAS DE SEGURIDAD DE ESTILO VIVO (fuera del servidor de tu amigo)
+====================================================================
+
+QUÉ HACE
+--------
+Cada día, tu ordenador descarga del servidor UNA copia completa de Estilo Vivo:
+  - la base de datos (cuentas, prendas, looks, mensajes, etc.)
+  - todas las fotos que suben las personas usuarias
+La copia va CIFRADA: sin tu contraseña nadie puede abrirla, ni siquiera OneDrive o Google Drive.
+Se guarda con la fecha en la carpeta que elijas y se conservan las 30 últimas (las más antiguas se borran solas).
+Si una copia falla, te sale un aviso en la pantalla y aparece el archivo ULTIMA-COPIA-FALLO.txt en esa carpeta.
+
+Con estas copias puedes recuperarlo todo si algo sale mal, o llevarte Estilo Vivo a tu propio servidor
+(por ejemplo Hetzner, en la UE) cuando quieras.
+
+
+LO QUE TE QUEDA POR HACER (3 pasos)
+-----------------------------------
+
+PASO 1. Crear dos claves en Coolify
+  Necesitas dos variables nuevas en Coolify › tu aplicación › Environment Variables:
+
+    BACKUP_TOKEN     = la "llave" para pedir la copia (la usará tu ordenador)
+    BACKUP_PASSWORD  = la contraseña que cifra las copias (mínimo 12 caracteres)
+
+  Para inventarlas bien largas, abre PowerShell y pega esto dos veces (una para cada clave):
+
+    $b = New-Object byte[] 32; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b); -join ($b | % { $_.ToString('x2') })
+
+  MUY IMPORTANTE:
+  - Guarda las dos en tu gestor de contraseñas (o en un papel en lugar seguro).
+  - Si pierdes BACKUP_PASSWORD, las copias NO se pueden abrir. Nadie puede recuperarla.
+  - No las pegues en ningún chat, correo ni en el repositorio.
+  - Si no tienes acceso a Coolify, pídele a tu amigo que las añada (pásaselas en persona o por un canal seguro).
+
+PASO 2. Subir el código y desplegar
+  Dile a Claude "sube las copias de seguridad" y él hará el push. Luego pulsa Redeploy en Coolify.
+  (Hasta que no se despliegue con las dos variables, el servidor responde "no disponible".)
+
+PASO 3. Configurar tu ordenador (una sola vez)
+  Haz doble clic en:  servidor-y-web\scripts\copias\PROGRAMAR-COPIAS.bat
+  Te preguntará:
+    1) la carpeta donde guardar las copias (te propone una de OneDrive; puedes poner una de Google Drive)
+    2) el BACKUP_TOKEN (no se ve al escribirlo; se guarda cifrado con tu usuario de Windows)
+    3) la hora (por defecto las 14:00; si el ordenador está apagado, la hace al encenderlo)
+  Al final hace una primera copia. Comprueba que en tu carpeta aparece un archivo como:
+    estilovivo-copia-20261118-140000.evbk
+  ¡Listo! A partir de ahí se hace sola cada día.
+
+  Para hacer una copia en cualquier momento: doble clic en scripts\copias\HACER-COPIA-AHORA.bat
+  Si cambias el token en Coolify, vuelve a ejecutar PROGRAMAR-COPIAS.bat y escribe el nuevo.
+
+
+CÓMO RECUPERAR UNA COPIA
+------------------------
+1. Abre la copia (necesitas Node instalado, como ya tienes):
+     cd C:\Users\Andrea\Desktop\estilovivo\servidor-y-web\server
+     node scripts\restaurar-copia.mjs "RUTA\estilovivo-copia-AAAAMMDD-HHMMSS.evbk" C:\EstiloVivo-restaurado
+   Te pide la BACKUP_PASSWORD. En C:\EstiloVivo-restaurado aparecen:
+     dev.db         la base de datos
+     uploads\       todas las fotos
+     manifest.json  fecha de la copia y número de fotos
+
+2. Ponerla en un servidor (el de tu amigo o uno nuevo con Docker y este mismo repositorio):
+   - Despliega la app normalmente (Coolify o "docker compose up -d") y párala.
+   - Copia dev.db a /app/data/dev.db y el contenido de uploads\ a /app/uploads/ del contenedor.
+     Con docker compose, desde la carpeta del proyecto (cambia "estilovivo" por el nombre de tu proyecto si es otro):
+       docker compose stop app
+       docker run --rm -v estilovivo_sqlite_data:/app/data -v estilovivo_uploads_data:/app/uploads -v C:\EstiloVivo-restaurado:/copia alpine sh -c "rm -f /app/data/dev.db-wal /app/data/dev.db-shm && cp /copia/dev.db /app/data/dev.db && cp -a /copia/uploads/. /app/uploads/"
+       docker compose start app
+     En Coolify: Storages muestra los dos volúmenes (/app/data y /app/uploads); el procedimiento es el mismo.
+   - Al arrancar, la app actualiza la base de datos sola si hiciera falta (no se pierde nada).
+
+3. Protección de datos: si recuperas una copia antigua, vuelve a borrar las cuentas que se eliminaron
+   DESPUÉS de la fecha de la copia (en los registros del servidor aparecen como "User deleted account
+   successfully" con su identificador). Así lo dice la política de privacidad.
+
+Probado en local (18/11/2026): copia descargada con el script, abierta con la contraseña y puesta en un
+servidor de prueba: la base de datos salió idéntica (35 tablas, 488 cuentas, integridad correcta), las 96
+fotos idénticas, y el servidor arrancó y sirvió las fotos. Con contraseña o token equivocados falla con un
+mensaje claro. Docker no está instalado en este ordenador, así que los comandos de Docker del punto 2 no se
+han ejecutado aquí: haz la primera prueba de restauración en un servidor de pruebas, nunca sobre el real.
+
+
+PROTECCIÓN DE DATOS (RGPD)
+--------------------------
+- Las copias contienen datos personales: por eso van siempre cifradas (AES-256-GCM) y el servidor no las
+  entrega si no está configurada la contraseña.
+- Se conservan 30 días. Las copias de antes de cada despliegue que hace el propio servidor también se
+  borran a los 30 días como máximo.
+- La política de privacidad ya lo explica (actualizada el 18/11/2026): copias diarias cifradas, plazo de
+  30 días y que una cuenta borrada desaparece de las copias en ese plazo.
+- Guarda las copias solo en tu cuenta personal de OneDrive o Google Drive y no las compartas.
+
+
+DETALLES TÉCNICOS (para quien mantenga el servidor)
+---------------------------------------------------
+- Ruta: GET /api/admin/backup con la cabecera  Authorization: Bearer <BACKUP_TOKEN>
+  Sin token o con token incorrecto: 401. Sin BACKUP_TOKEN o BACKUP_PASSWORD (o contraseña corta): 404.
+  Máximo 6 peticiones por hora y por IP, y una copia a la vez.
+- Base de datos: instantánea coherente con VACUUM INTO (no se copia el archivo en uso).
+- Formato .evbk: "EVBK1\n" + sal(16) + iv(12) + tar.gz cifrado con AES-256-GCM + etiqueta(16);
+  clave = scrypt(BACKUP_PASSWORD, sal, N=2^15, r=8, p=1). Código: server/src/backup.ts.
+- Pruebas: server/src/__tests__/backup.test.ts (cd server && npx vitest run).
+- Configuración en tu PC: %LOCALAPPDATA%\EstiloVivo (copias.json, token.xml cifrado, copias.log).
+  La tarea se llama "Estilo Vivo - copia de seguridad diaria" en el Programador de tareas.

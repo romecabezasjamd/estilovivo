@@ -57,6 +57,8 @@ echo "=== [entrypoint] Pre-deploy DB backup ==="
     fi
     # conservar solo las 5 copias más recientes
     ls -1t "$BK_DIR"/dev.db.pre-deploy-* 2>/dev/null | tail -n +6 | while read -r old; do rm -f "$old"; done
+    # y nunca más de 30 días (política de privacidad: una cuenta borrada desaparece de las copias en ese plazo)
+    find "$BK_DIR" -name 'dev.db.pre-deploy-*' -mtime +30 -exec rm -f {} + 2>/dev/null || true
   else
     echo "No existing database (or empty): backup skipped"
   fi

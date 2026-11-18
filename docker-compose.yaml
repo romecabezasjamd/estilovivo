@@ -26,6 +26,10 @@ services:
       # Uploads
       UPLOADS_DIR: /app/uploads
 
+      # Copias de seguridad descargables (ver COPIAS-DE-SEGURIDAD.txt). Sin ellas, la ruta está desactivada.
+      BACKUP_TOKEN: ${BACKUP_TOKEN:-}
+      BACKUP_PASSWORD: ${BACKUP_PASSWORD:-}
+
       # SMTP - Configuración de correo
       SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
       SMTP_PORT: ${SMTP_PORT:-587}
