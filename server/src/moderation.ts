@@ -20,6 +20,7 @@ export const TYPE_LABEL: Record<string, string> = {
   STORY: 'Historia',
   MESSAGE: 'Mensaje de chat',
   PRODUCT: 'Anuncio de la tienda',
+  POLL: 'Votación',
 };
 
 export const STATUS_LABEL: Record<string, string> = {

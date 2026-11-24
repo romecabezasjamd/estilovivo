@@ -72,6 +72,8 @@ model User {
   messages          Message[]
   notifications     Notification[]
   stories           Story[]
+  polls             Poll[]
+  pollVotes         PollVote[]
   challengeSubmissions ChallengeSubmission[]
   achievements        UserAchievement[]
   badges              UserBadge[]
@@ -189,6 +191,8 @@ model Look {
   likes       Like[]
   comments    Comment[]
   favorites   Favorite[]
+  pollsA      Poll[]     @relation("PollLookA")
+  pollsB      Poll[]     @relation("PollLookB")
   
   @@index([isPublic, createdAt])
   @@index([userId, createdAt])
@@ -561,4 +565,34 @@ model PrivacyRequest {
 
   @@index([status, createdAt])
   @@index([userId])
+}
+
+// Votación "¿Cuál me pongo?": dos looks propios (públicos) y la comunidad elige uno hasta endsAt
+model Poll {
+  id        String     @id @default(cuid())
+  question  String
+  endsAt    DateTime
+  createdAt DateTime   @default(now())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lookAId   String
+  lookA     Look       @relation("PollLookA", fields: [lookAId], references: [id], onDelete: Cascade)
+  lookBId   String
+  lookB     Look       @relation("PollLookB", fields: [lookBId], references: [id], onDelete: Cascade)
+  votes     PollVote[]
+
+  @@index([createdAt])
+  @@index([userId])
+}
+
+model PollVote {
+  id        String   @id @default(cuid())
+  choice    Int      // 0 = look A, 1 = look B
+  createdAt DateTime @default(now())
+  pollId    String
+  poll      Poll     @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([pollId, userId])
 }

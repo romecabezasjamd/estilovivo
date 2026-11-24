@@ -2693,7 +2693,7 @@ app.put('/api/social/follow-requests/:id/reject', authenticateToken, async (req:
 
 // ============= MODERACIÓN: DENUNCIAS Y BLOQUEOS =============
 
-const REPORT_TARGETS = ['USER', 'LOOK', 'COMMENT', 'STORY', 'MESSAGE', 'PRODUCT'] as const;
+const REPORT_TARGETS = ['USER', 'LOOK', 'COMMENT', 'STORY', 'MESSAGE', 'PRODUCT', 'POLL'] as const;
 const REPORT_REASONS = ['SPAM', 'HARASSMENT', 'INAPPROPRIATE', 'IMPERSONATION', 'ILLEGAL_ITEM', 'SCAM', 'OTHER'] as const;
 const reportSchema = z.object({
   targetType: z.enum(REPORT_TARGETS),
@@ -2731,6 +2731,9 @@ app.post('/api/reports', authenticateToken, reportLimiter, validate(reportSchema
       // Solo anuncios a la venta, y no de alguien con quien hay un bloqueo
       const p = await prisma.product.findUnique({ where: { id: targetId }, select: { userId: true, forSale: true } });
       if (p?.forSale && !(await isBlockedBetween(reporterId, p.userId))) ownerId = p.userId;
+    } else if (targetType === 'POLL') {
+      const p = await prisma.poll.findUnique({ where: { id: targetId }, select: { userId: true } });
+      if (p && !(await isBlockedBetween(reporterId, p.userId))) ownerId = p.userId;
     } else if (targetType === 'MESSAGE') {
       const m = await prisma.message.findUnique({ where: { id: targetId }, select: { senderId: true, conversationId: true } });
       if (m) {
@@ -2829,6 +2832,10 @@ const describeReportTarget = async (targetType: string, targetId: string) => {
     const m = await prisma.message.findUnique({ where: { id: targetId }, select: { senderId: true, content: true, imageUrl: true } });
     return m ? { ownerId: m.senderId, text: m.content, image: m.imageUrl } : null;
   }
+  if (targetType === 'POLL') {
+    const p = await prisma.poll.findUnique({ where: { id: targetId }, select: { userId: true, question: true, lookA: { select: { images: { take: 1, select: { url: true } } } } } });
+    return p ? { ownerId: p.userId, text: p.question, image: p.lookA?.images[0]?.url } : null;
+  }
   if (targetType === 'PRODUCT') {
     const p = await prisma.product.findUnique({ where: { id: targetId }, select: { userId: true, name: true, description: true, price: true, forSale: true, images: { take: 1, select: { url: true } } } });
     return p && p.forSale ? { ownerId: p.userId, text: [p.name, p.price != null ? `${p.price} €` : null, p.description].filter(Boolean).join('\n'), image: p.images[0]?.url } : null;
@@ -2887,6 +2894,9 @@ const removeReportedContent = async (targetType: string, targetId: string) => {
     await prisma.look.delete({ where: { id: targetId } });
     for (const img of look.images) unlinkImageVariants(img.filename);
     return true;
+  }
+  if (targetType === 'POLL') {
+    return (await prisma.poll.deleteMany({ where: { id: targetId } })).count > 0;
   }
   if (targetType === 'COMMENT') {
     return (await prisma.comment.deleteMany({ where: { id: targetId } })).count > 0;
@@ -3093,7 +3103,7 @@ app.get('/api/auth/export', authenticateToken, exportLimiter, async (req: any, r
     if (!user) return res.status(404).json({ error: 'User not found' });
     const { password: _p, verificationToken: _vt, resetToken: _rt, resetTokenExpiry: _rte, ...profile } = user as any;
     const LIM = { products: 2000, looks: 2000, comments: 5000, favorites: 5000, likes: 10000, stories: 500, messages: 10000, notifications: 1000, other: 1000 };
-    const [products, looks, comments, favorites, likes, stories, submissions, convs, notifications, follows, blocks, tryonPresets, plannerEntries, trips, achievements, badges, streak] = await Promise.all([
+    const [products, looks, comments, favorites, likes, stories, submissions, convs, notifications, follows, blocks, tryonPresets, plannerEntries, trips, achievements, badges, streak, polls, pollVotes] = await Promise.all([
       prisma.product.findMany({ where: { userId }, include: { images: true }, orderBy: { createdAt: 'desc' }, take: LIM.products }),
       prisma.look.findMany({ where: { userId }, include: { images: true, products: { select: { id: true } } }, orderBy: { createdAt: 'desc' }, take: LIM.looks }),
       prisma.comment.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: LIM.comments }),
@@ -3119,6 +3129,8 @@ app.get('/api/auth/export', authenticateToken, exportLimiter, async (req: any, r
       prisma.userAchievement.findMany({ where: { userId } }),
       prisma.userBadge.findMany({ where: { userId } }),
       prisma.userStreak.findUnique({ where: { userId } }),
+      prisma.poll.findMany({ where: { userId }, select: { id: true, question: true, lookAId: true, lookBId: true, endsAt: true, createdAt: true }, take: LIM.other }),
+      prisma.pollVote.findMany({ where: { userId }, select: { pollId: true, choice: true, createdAt: true }, take: LIM.other }),
     ]);
     const payload = {
       exportedAt: new Date().toISOString(),
@@ -3134,7 +3146,7 @@ app.get('/api/auth/export', authenticateToken, exportLimiter, async (req: any, r
       products, looks, comments, favorites, likes, stories,
       challengeSubmissions: submissions,
       conversations: convs.map(c => ({ ...c, participants: c.participants.map(p => p.user) })),
-      notifications, follows, blocks, tryonPresets, plannerEntries, trips, achievements, badges, streak,
+      notifications, follows, blocks, tryonPresets, plannerEntries, trips, achievements, badges, streak, polls, pollVotes,
     };
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="estilovivo-datos-${new Date().toISOString().slice(0, 10)}.json"`);
@@ -4477,6 +4489,146 @@ const storyStorage = multer.diskStorage({
   },
 });
 const storyUpload = multer({ storage: storyStorage, limits: { fileSize: 10 * 1024 * 1024 }, fileFilter: imageFileFilter });
+
+// ============= VOTACIONES "¿Cuál me pongo?" =============
+// Dos looks propios; al crear la votación ambos pasan a ser públicos (la persona lo acepta en la app).
+// Los resultados solo se ven tras votar, si eres quien la creó o cuando ha terminado (para no influir en el voto).
+const POLL_MAX_ACTIVE = 3;
+const pollCreateSchema = z.object({
+  question: z.string().trim().min(3, { error: 'Escribe una pregunta (mínimo 3 caracteres)' }).max(140, { error: 'Máximo 140 caracteres' }),
+  lookAId: z.string().trim().min(1).max(100),
+  lookBId: z.string().trim().min(1).max(100),
+  hours: z.number().int().min(1).max(72).optional(),
+});
+const pollVoteSchema = z.object({ choice: z.number().int().min(0).max(1) });
+const pollLimiter = userKeyLimiter(parseInt(process.env.POLL_RATE_MAX || '10', 10), 24 * 60 * 60 * 1000, 'Has creado muchas votaciones hoy. Inténtalo mañana.');
+const pollLookSelect = {
+  select: {
+    id: true, title: true,
+    images: { take: 1, select: { url: true } },
+    products: { take: 4, select: { images: { take: 1, select: { url: true } } } },
+  },
+} as const;
+const pollInclude = {
+  user: { select: { id: true, name: true, avatar: true } },
+  lookA: pollLookSelect,
+  lookB: pollLookSelect,
+  votes: { select: { choice: true, userId: true } },
+} as const;
+const lookPieces = (l: any): string[] => (l?.products || []).map((p: any) => p.images?.[0]?.url).filter(Boolean).slice(0, 4);
+const pollDto = (p: any, viewerId?: string) => {
+  const counts = [0, 0];
+  let myVote: number | null = null;
+  for (const v of p.votes) {
+    counts[v.choice] = (counts[v.choice] || 0) + 1;
+    if (viewerId && v.userId === viewerId) myVote = v.choice;
+  }
+  const ended = new Date(p.endsAt).getTime() <= Date.now();
+  const isMine = !!viewerId && p.userId === viewerId;
+  const showResults = ended || isMine || myVote !== null;
+  return {
+    id: p.id, question: p.question, endsAt: p.endsAt, createdAt: p.createdAt, user: p.user,
+    ended, isMine, myVote, total: showResults ? counts[0] + counts[1] : null,
+    options: [p.lookA, p.lookB].map((l: any, i: number) => ({
+      lookId: l.id, title: l.title,
+      imageUrl: l.images?.[0]?.url || null,
+      pieces: lookPieces(l),
+      votes: showResults ? counts[i] : null,
+    })),
+  };
+};
+
+app.get('/api/polls', optionalAuth, async (req: any, res: Response) => {
+  try {
+    const viewerId: string | undefined = req.user?.userId;
+    const blocked = await getBlockedIds(viewerId);
+    const followingIds = viewerId
+      ? (await prisma.follow.findMany({ where: { followerId: viewerId }, select: { followingId: true } })).map(f => f.followingId)
+      : [];
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000); // también las terminadas en las últimas 24 h
+    const polls = await prisma.poll.findMany({
+      where: {
+        endsAt: { gt: since },
+        ...notBlocked(blocked),
+        lookA: { isPublic: true },
+        lookB: { isPublic: true },
+        user: { suspendedAt: null },
+        OR: [
+          { user: { isProfilePublic: true } },
+          ...(viewerId ? [{ userId: viewerId }, { userId: { in: followingIds } }] : []),
+        ],
+      },
+      include: pollInclude,
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+    });
+    // Primero las abiertas que aún no has votado, después las votadas/propias y al final las terminadas
+    const rank = (d: ReturnType<typeof pollDto>) => (d.ended ? 2 : d.myVote !== null || d.isMine ? 1 : 0);
+    const items = polls.map(p => pollDto(p, viewerId)).sort((a, b) => rank(a) - rank(b));
+    res.json(items);
+  } catch (error) {
+    logger.error('Error fetching polls', { error });
+    res.status(500).json({ error: 'No se pudieron cargar las votaciones' });
+  }
+});
+
+app.post('/api/polls', authenticateToken, pollLimiter, validate(pollCreateSchema), async (req: any, res: Response) => {
+  try {
+    const userId: string = req.user.userId;
+    const { question, lookAId, lookBId, hours } = req.body;
+    if (lookAId === lookBId) return res.status(400).json({ error: 'Elige dos looks distintos' });
+    const own = await prisma.look.count({ where: { id: { in: [lookAId, lookBId] }, userId } });
+    if (own !== 2) return res.status(400).json({ error: 'Solo puedes usar tus propios looks' });
+    const active = await prisma.poll.count({ where: { userId, endsAt: { gt: new Date() } } });
+    if (active >= POLL_MAX_ACTIVE) return res.status(400).json({ error: `Puedes tener como máximo ${POLL_MAX_ACTIVE} votaciones abiertas a la vez` });
+    await prisma.look.updateMany({ where: { id: { in: [lookAId, lookBId] }, userId }, data: { isPublic: true } });
+    const poll = await prisma.poll.create({
+      data: { question, lookAId, lookBId, userId, endsAt: new Date(Date.now() + (hours || 24) * 60 * 60 * 1000) },
+      include: pollInclude,
+    });
+    logger.info('Poll created', { pollId: poll.id, userId });
+    res.status(201).json(pollDto(poll, userId));
+  } catch (error) {
+    logger.error('Error creating poll', { error });
+    res.status(500).json({ error: 'No se pudo crear la votación' });
+  }
+});
+
+app.post('/api/polls/:id/vote', authenticateToken, validate(pollVoteSchema), async (req: any, res: Response) => {
+  try {
+    const userId: string = req.user.userId;
+    const poll = await prisma.poll.findUnique({ where: { id: String(req.params.id) }, select: { id: true, userId: true, endsAt: true } });
+    if (!poll || (await isBlockedBetween(userId, poll.userId))) return res.status(404).json({ error: 'Esta votación ya no existe' });
+    if (poll.userId === userId) return res.status(400).json({ error: 'No puedes votar en tu propia votación' });
+    if (poll.endsAt.getTime() <= Date.now()) return res.status(400).json({ error: 'Esta votación ya ha terminado' });
+    const { choice } = req.body;
+    await prisma.pollVote.upsert({
+      where: { pollId_userId: { pollId: poll.id, userId } },
+      create: { pollId: poll.id, userId, choice },
+      update: { choice },
+    });
+    const full = await prisma.poll.findUnique({ where: { id: poll.id }, include: pollInclude });
+    res.json(pollDto(full, userId));
+  } catch (error) {
+    logger.error('Error voting poll', { error });
+    res.status(500).json({ error: 'No se pudo registrar tu voto' });
+  }
+});
+
+app.delete('/api/polls/:id', authenticateToken, async (req: any, res: Response) => {
+  try {
+    const userId: string = req.user.userId;
+    const id = String(req.params.id);
+    const poll = await prisma.poll.findUnique({ where: { id }, select: { userId: true } });
+    if (!poll) return res.status(404).json({ error: 'Esta votación ya no existe' });
+    if (poll.userId !== userId && !(await isAdminUser(userId))) return res.status(403).json({ error: 'No puedes borrar esta votación' });
+    await prisma.poll.delete({ where: { id } });
+    res.json({ ok: true });
+  } catch (error) {
+    logger.error('Error deleting poll', { error });
+    res.status(500).json({ error: 'No se pudo borrar la votación' });
+  }
+});
 
 app.get('/api/stories', optionalAuth, async (req: any, res: Response) => {
   try {

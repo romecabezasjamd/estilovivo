@@ -3,6 +3,7 @@ import { Heart, MessageCircle, Bookmark, MoreHorizontal, ShoppingBag, Search, Ta
 import { io, Socket } from 'socket.io-client';
 import ProductDetailModal, { ProductDisplayItem } from '../components/ProductDetailModal';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { zoomableProps } from '../components/ImageZoom';
 import ConfettiOverlay from '../components/ConfettiOverlay';
 import { successImpact, lightImpact, errorImpact } from '../src/utils/haptic';
 import { api, getSocketOrigin } from '../services/api';
@@ -1573,7 +1574,7 @@ const Social: React.FC<SocialProps> = ({ user, garments, onNavigate, initialSubT
                       {/* Image */}
                       {postImage ? (
                         <div className="bg-gray-100">
-                          <img src={postImage} className="w-full aspect-square object-cover" loading="lazy" alt={post.name} />
+                          <img src={postImage} className="w-full aspect-square object-cover" loading="lazy" alt={post.name} {...zoomableProps(postImage, post.name)} />
                         </div>
                       ) : (
                         <div className="aspect-square bg-[var(--bg-base)] flex items-center justify-center">
@@ -1922,7 +1923,7 @@ loading="lazy" decoding="async"                                   src={m.sender?
                                 )}
                                 <div className={`px-3 py-2 rounded-2xl text-xs ${m.senderId === currentUserId ? 'bg-primary text-white' : 'bg-gray-100 text-[var(--text-secondary)]'}`}>
                                   {m.imageUrl ? (
-                                    <img loading="lazy" decoding="async" src={m.imageUrl} alt="Adjunto" className="w-full h-auto rounded-xl mb-2" />
+                                    <img loading="lazy" decoding="async" src={m.imageUrl} alt="Adjunto" className="w-full h-auto rounded-xl mb-2" {...zoomableProps(m.imageUrl, "Foto enviada")} />
                                   ) : null}
                                   <span className="whitespace-pre-wrap break-words">
                                     {m.content.split(/(https?:\/\/[^\s]+)/g).map((part, idx) =>
@@ -2207,7 +2208,7 @@ loading="lazy" decoding="async"                   src={user.avatar || `https://u
                     {story.imageUrl ? (
                       <div className="relative rounded-3xl overflow-hidden bg-black flex items-center justify-center" style={{ aspectRatio: '9 / 16', maxHeight: '70vh', margin: '0 auto' }}>
                         <img src={story.imageUrl} alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-60 scale-110" />
-                        <img src={story.imageUrl} alt="Historia" className="relative w-full h-full object-contain transition-all duration-500" loading="lazy" />
+                        <img src={story.imageUrl} alt="Historia" className="relative w-full h-full object-contain transition-all duration-500" loading="lazy" {...zoomableProps(story.imageUrl, story.text || "Historia")} />
                         {story.text && (
                           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4 pt-12">
                             <p className="text-white text-sm font-medium">{story.text}</p>

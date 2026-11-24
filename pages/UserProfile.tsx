@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { zoomableProps } from '../components/ImageZoom';
 import { ArrowLeft, Heart, MapPin, ShoppingBag, Shirt, Users, UserPlus, UserCheck, ExternalLink } from 'lucide-react';
 import { api } from '../services/api';
 import FollowListModal from '../components/FollowListModal';
@@ -112,7 +113,7 @@ export default function UserProfile({ userId, onBack, onNavigate, onStartChat }:
         <div className="flex items-center gap-4 mb-6">
           <div className="w-20 h-20 rounded-full overflow-hidden bg-[var(--bg-card)] border-2 border-primary/20">
             {profile.avatar ? (
-              <img loading="lazy" decoding="async" src={profile.avatar} alt={profile.name} className="w-full h-full object-cover" />
+              <img loading="lazy" decoding="async" src={profile.avatar} alt={profile.name} className="w-full h-full object-cover" {...zoomableProps(profile.avatar, profile.name)} />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-primary">
                 {profile.name.charAt(0).toUpperCase()}
@@ -210,7 +211,7 @@ export default function UserProfile({ userId, onBack, onNavigate, onStartChat }:
             {profile.looks.map(look => (
               <div key={look.id} className="rounded-2xl overflow-hidden bg-[var(--bg-card)] border border-[var(--border-light)]">
                 {look.images?.[0]?.url ? (
-                  <img loading="lazy" decoding="async" src={look.images[0].url} alt={look.title} className="w-full aspect-square object-cover" />
+                  <img loading="lazy" decoding="async" src={look.images[0].url} alt={look.title} className="w-full aspect-square object-cover" {...zoomableProps(look.images[0].url, look.title)} />
                 ) : (
                   <div className="w-full aspect-square bg-[var(--bg-elevated)] flex items-center justify-center">
                     <Shirt size={24} className="text-[var(--text-muted)]" />
@@ -232,7 +233,7 @@ export default function UserProfile({ userId, onBack, onNavigate, onStartChat }:
             {profile.products.map(item => (
               <div key={item.id} className="rounded-2xl overflow-hidden bg-[var(--bg-card)] border border-[var(--border-light)]">
                 {item.images?.[0]?.url ? (
-                  <img loading="lazy" decoding="async" src={item.images[0].url} alt={item.name} className="w-full aspect-square object-cover" />
+                  <img loading="lazy" decoding="async" src={item.images[0].url} alt={item.name} className="w-full aspect-square object-cover" {...zoomableProps(item.images[0].url, item.name)} />
                 ) : (
                   <div className="w-full aspect-square bg-[var(--bg-elevated)] flex items-center justify-center">
                     <Shirt size={24} className="text-[var(--text-muted)]" />

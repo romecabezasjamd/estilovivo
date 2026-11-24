@@ -25,6 +25,7 @@ import { App as CapApp } from '@capacitor/app';
 import { useNotification } from './src/context/NotificationContext';
 import AccountPrompts from './components/AccountPrompts';
 import AppTour from './components/AppTour';
+import ImageZoomHost from './components/ImageZoom';
 
 const AppContent: React.FC = () => {
   const { notify } = useNotification();
@@ -344,6 +345,7 @@ const AppContent: React.FC = () => {
 
   return (
     <Layout activeTab={activeTab} onTabChange={handleNavigate}>
+      <ImageZoomHost />
       <Suspense fallback={
         <div className="min-h-screen bg-[var(--bg-base)] flex items-center justify-center">
           <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />

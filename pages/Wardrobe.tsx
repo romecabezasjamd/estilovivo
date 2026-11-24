@@ -15,6 +15,7 @@ import Headline from '../components/Headline';
 import WashingMachineDrop, { useWashDrag } from '../components/WashingMachineDrop';
 import { SellerDeclarationDialog } from '../components/MarketplaceDialogs';
 import { useGlobalState } from '../src/context/GlobalStateContext';
+import { zoomableProps } from '../components/ImageZoom';
 
 interface WardrobeProps {
   garments: Garment[];
@@ -1357,7 +1358,7 @@ const Wardrobe: React.FC<WardrobeProps> = ({
               <div>
                 <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Foto de la prenda</label>
                 <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden bg-gray-50 border border-[var(--border-light)]">
-                  <img loading="lazy" decoding="async" src={editImage || selectedGarmentForDetail.imageUrl} className="w-full h-full object-contain" alt="" />
+                  <img loading="lazy" decoding="async" src={editImage || selectedGarmentForDetail.imageUrl} className="w-full h-full object-contain" alt="" {...zoomableProps(editImage || selectedGarmentForDetail.imageUrl, selectedGarmentForDetail.name || "Prenda")} />
                   <label className="absolute bottom-2 right-2 bg-white/90 backdrop-blur-sm text-xs font-bold text-[var(--text-primary)] px-3 py-1.5 rounded-full shadow cursor-pointer hover:bg-white transition">
                     Cambiar foto
                     <input type="file" accept="image/*" className="hidden" onChange={(e) => {
